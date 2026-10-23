@@ -74,7 +74,7 @@
   <div id="msg"></div>
   <div class="note">
     Sounds are synthesized in the browser in the style of UK house / breaks / garage (Kettama, Prospa, Riordan) &mdash; not samples from their records.
-    Keys: 1-4, Q-R, A-F, Z-V play pads &middot; Space = play/stop &middot; Enter = record. Hits snap to 16th notes.
+    Keys: 1-4, Q-R, A-F, Z-V play pads &middot; Space = play/stop &middot; Enter = record. Hits snap to 16th notes. Hold House Synth to sustain the chord.
   </div>
 </main>
 
@@ -135,14 +135,6 @@ const SOUNDS = {
     chain(t, [o, g, master]);
     const c = noise(t, 0.02), cf = filt("lowpass", 3000), cg = ctx.createGain();
     env(cg, t, 0.35, 0.001, 0.02); chain(t, [c, cf, cg, master]);
-  },
-  sub(t) {
-    const o = osc("sine", 58, t, 0.9), g = ctx.createGain(), sh = ctx.createWaveShaper();
-    const curve = new Float32Array(256); for (let i = 0; i < 256; i++) { const x = i / 128 - 1; curve[i] = Math.tanh(x * 2.2); }
-    sh.curve = curve;
-    o.frequency.exponentialRampToValueAtTime(48, t + 0.5);
-    env(g, t, 0.9, 0.01, 0.85);
-    chain(t, [o, sh, g, master]);
   },
   clap(t) {
     const f = filt("bandpass", 1300, 1.2), g = ctx.createGain(), n = noise(t, 0.4);
@@ -228,9 +220,31 @@ const SOUNDS = {
   },
 };
 
+/* sustained voices: start(t) returns {stop(when)} so a held pad keeps sounding */
+const VOICES = {
+  synth(t) { // classic house chord: detuned saws + sub, Fm9
+    const f = filt("lowpass", 700, 1.5), g = ctx.createGain(), oscs = [];
+    f.frequency.setValueAtTime(700, t); f.frequency.exponentialRampToValueAtTime(2600, t + 0.35);
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.26, t + 0.012);
+    g.gain.setTargetAtTime(0.17, t + 0.012, 0.18);
+    [53, 56, 60, 63, 67].forEach(n => [-12, 12].forEach(dt => {
+      const o = ctx.createOscillator(); o.type = "sawtooth"; o.frequency.value = mtof(n); o.detune.value = dt;
+      o.connect(f); o.start(t); oscs.push(o);
+    }));
+    const sub = ctx.createOscillator(); sub.type = "sine"; sub.frequency.value = mtof(29);
+    const sg = gain(0.5); sub.connect(sg); sg.connect(g); sub.start(t); oscs.push(sub);
+    chain(t, [f, g, master]); g.connect(reverbSend);
+    return { stop(when) {
+      g.gain.cancelScheduledValues(when);
+      g.gain.setTargetAtTime(0.0001, when, 0.07);
+      oscs.forEach(o => o.stop(when + 0.6));
+    } };
+  },
+};
+
 const PADS = [
   { id: "kick",   name: "Kick",     sub: "4x4",        key: "1", c: "#ff5470" },
-  { id: "sub",    name: "Sub 808",  sub: "bass",       key: "2", c: "#ff7a45" },
+  { id: "synth",  name: "House Synth", sub: "hold me", key: "2", c: "#ff7a45", hold: true },
   { id: "clap",   name: "Clap",     sub: "2 & 4",      key: "3", c: "#ffb347" },
   { id: "snare",  name: "Snare",    sub: "breaks",     key: "4", c: "#ffd24a" },
   { id: "chat",   name: "Hat",      sub: "closed",     key: "q", c: "#c6e84a" },
@@ -258,7 +272,11 @@ const S = {
 const total = () => S.bars * 16;
 const stepDur = () => 60 / S.bpm / 4;
 
-function trigger(i, t) { SOUNDS[PADS[i].id](t); }
+function trigger(i, t, len) {
+  const p = PADS[i];
+  if (p.hold) { const v = VOICES[p.id](t); if (len) v.stop(t + len * stepDur()); return v; }
+  SOUNDS[p.id](t);
+}
 
 function schedule() {
   while (S.nextTime < ctx.currentTime + 0.12) {
@@ -267,7 +285,7 @@ function schedule() {
       const o = osc("square", st % 16 === 0 ? 1600 : 1000, t, 0.03), g = ctx.createGain();
       env(g, t, 0.08, 0.001, 0.025); chain(t, [o, g, master]);
     }
-    for (const e of S.events) if (e.step === st) { trigger(e.pad, t); hits.push(e.pad); }
+    for (const e of S.events) if (e.step === st) { trigger(e.pad, t, e.len); hits.push(e.pad); }
     S.queue.push({ time: t, step: st, hits });
     S.nextStep = (st + 1) % total();
     S.nextTime += stepDur();
@@ -291,14 +309,33 @@ function curStep() {
   return ((Math.round(pos) % total()) + total()) % total();
 }
 
-function hitPad(i) {
+const held = new Map(); // input key -> {voice, t0, i, ev}
+function press(i, key) {
   initAudio();
-  trigger(i, ctx.currentTime);
+  const now = ctx.currentTime, p = PADS[i];
+  if (p.hold) {
+    if (held.has(key)) return;
+    const voice = trigger(i, now);
+    let ev = null;
+    if (S.recording && S.playing) { ev = { step: curStep(), pad: i, sess: S.sess, len: 1 }; S.events.push(ev); renderSteps(); }
+    held.set(key, { voice, t0: now, i, ev });
+    clearTimeout(padEls[i]._t); padEls[i].classList.add("hit");
+    return;
+  }
+  trigger(i, now);
   flash(i);
   if (S.recording && S.playing) {
     S.events.push({ step: curStep(), pad: i, sess: S.sess });
     renderSteps();
   }
+}
+function release(key) {
+  const h = held.get(key); if (!h) return;
+  held.delete(key);
+  const now = ctx.currentTime;
+  h.voice.stop(now);
+  if (h.ev) h.ev.len = Math.max(1, Math.round((now - h.t0) / stepDur()));
+  padEls[h.i].classList.remove("hit");
 }
 
 /* ---------- UI ---------- */
@@ -308,7 +345,7 @@ PADS.forEach((p, i) => {
   const b = document.createElement("button");
   b.className = "pad"; b.style.setProperty("--c", p.c);
   b.innerHTML = `<kbd>${p.key.toUpperCase()}</kbd><b>${p.name}</b><small>${p.sub}</small>`;
-  b.addEventListener("pointerdown", e => { e.preventDefault(); hitPad(i); });
+  b.addEventListener("pointerdown", e => { e.preventDefault(); press(i, "p" + e.pointerId); });
   $("pads").appendChild(b); padEls.push(b);
 });
 function flash(i) {
@@ -382,13 +419,13 @@ $("bars").onchange = e => { S.bars = +e.target.value; S.nextStep %= total(); ren
 $("demo").onclick = () => {
   initAudio();
   S.sess++;
-  const add = (pad, steps) => steps.forEach(s => { for (let b = 0; b < S.bars; b++) S.events.push({ step: b * 16 + s, pad, sess: S.sess }); });
+  const add = (pad, steps, len) => steps.forEach(s => { for (let b = 0; b < S.bars; b++) S.events.push({ step: b * 16 + s, pad, sess: S.sess, len }); });
   add(0, [0, 4, 8, 12]);         // kick 4x4
   add(2, [4, 12]);               // clap
   add(5, [2, 6, 10, 14]);        // open hat off-beat
   add(4, [0, 3, 7, 11, 15]);     // hats
   add(6, [1, 5, 9, 13]);         // shaker
-  add(1, [0, 10]);               // sub
+  add(1, [0, 8], 6);             // house synth chord, held
   renderSteps();
   if (!S.playing) start();
 };
@@ -401,9 +438,12 @@ addEventListener("keydown", e => {
   if (e.code === "Space") { e.preventDefault(); initAudio(); $("play").click(); return; }
   if (e.code === "Enter") { e.preventDefault(); $("rec").click(); return; }
   const i = KEYS[e.key.toLowerCase()];
-  if (i !== undefined && !down.has(e.key)) { down.add(e.key); hitPad(i); }
+  if (i !== undefined && !down.has(e.key)) { down.add(e.key); press(i, "k" + e.key); }
 });
-addEventListener("keyup", e => down.delete(e.key));
+addEventListener("keyup", e => { down.delete(e.key); release("k" + e.key); });
+addEventListener("pointerup", e => release("p" + e.pointerId));
+addEventListener("pointercancel", e => release("p" + e.pointerId));
+addEventListener("blur", () => [...held.keys()].forEach(release));
 
 renderSteps(); ui(); requestAnimationFrame(frame);
 </script>
