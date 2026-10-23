@@ -76,7 +76,6 @@
     <div class="side">
       <div>Speed <b id="spd">0</b> km/h</div>
       <div>Distance <b id="dist">0</b> m</div>
-      <div>Rings <b id="rings">0</b></div>
       <div>Best <b id="best">0</b></div>
       <button id="snd" type="button">Sound on</button>
     </div>
@@ -93,9 +92,9 @@
   <div id="intro">
     <div class="card">
       <h1>Kicker <span>Run</span></h1>
-      <p class="lede">Carve down the mountain, hit every kind of jump, throw tricks and land them clean. Rails, boost pads and gold rings are on the way down.</p>
+      <p class="lede">Carve down the mountain, hit every kind of jump, throw tricks and land them clean. Rails, boost pads, hips, giant cliffs and woods trails are on the way down.</p>
       <dl>
-        <dt>← → or A D</dt><dd>Steer on snow, nudge in the air</dd>
+        <dt>← → or A D</dt><dd>Carve on snow: hold a turn and the edges bite, tighter and faster. Nudge in the air</dd>
         <dt>Space</dt><dd>Spam it on the flat to pump for speed. Tap at a ramp lip to pop. Hold in the air to grab</dd>
         <dt>↑ W · ↓ S</dt><dd>Front flip / back flip in the air. ↓ tucks for speed on snow</dd>
         <dt>Q E</dt><dd>Spin left / right. Flip and spin together for a cork bonus</dd>
@@ -147,6 +146,13 @@ function mkKicker(s0, kind, cx, hw, diff) {
   if (kind === 0) { L = 5.5 + rng(); Hh = L * (0.22 + rng() * 0.04); gap = 4.5 + rng() * 2; Ll = 11 + rng() * 2; label = "Small kicker"; v0 = 13; }
   else if (kind === 1) { L = 7 + rng() * 1.5; Hh = L * (0.25 + rng() * 0.04); gap = 7 + rng() * 3; Ll = 15 + rng() * 3; label = "Kicker"; v0 = 16; }
   else if (kind === 2) { L = 9 + rng() * 2; Hh = L * (0.28 + rng() * 0.04); gap = 12 + rng() * 5; Ll = 20 + rng() * 5; label = "Big air"; v0 = 19; }
+  else if (kind === 4) {
+    L = 15 + rng() * 2; Hh = L * (0.4 + rng() * 0.02); Ll = 52 + rng() * 6; label = "Mega air"; v0 = 28;
+    const ang = Math.atan(2 * Hh / L - BASE), vh = 28 * Math.cos(ang);
+    let vy = 28 * Math.sin(ang), d = 0, y = 0;
+    for (let k = 0; k < 3600; k++) { vy -= G / 120; d += vh / 120; y += vy / 120; if (y <= -Hh - BASE * d) break; }
+    gap = clamp(0.5 * d, 30, 90);
+  }
   else {
     L = 10.5 + rng(); Hh = L * (0.31 + rng() * 0.02); Ll = 30 + rng() * 4; label = "Gap jump"; v0 = 21; pit = 3.6;
     // flight distance at a nominal 18 m/s on the bare slope; the gap is half of it so about 13 m/s clears it
@@ -159,8 +165,22 @@ function mkKicker(s0, kind, cx, hw, diff) {
   const p = { type: "kicker", label, s0, L, H: Hh, gap, Ll, Hl: Hh * (0.75 + rng() * 0.15), cx, hw, v0, pit };
   p.end = s0 + L + gap + Ll; return p;
 }
+function mkHip(sBase, sd, diff) {
+  const L = 6.5 + rng(), Hh = L * (0.27 + rng() * 0.03) * (1 + 0.1 * diff), gap = 5 + rng() * 2, Ll = 12 + rng() * 2, hw = 2.8, ang = -sd * (0.36 + rng() * 0.1);
+  const s0 = sBase + hw * Math.abs(Math.sin(ang)) + 2 + rng() * 4;
+  return { type: "hip", label: "Hip jump", s0, L, H: Hh, gap, Ll, Hl: Hh * (0.75 + rng() * 0.15), cx: sd * (9 + rng() * 0.8), hw, ang, v0: 15, pit: 0,
+    sMin: s0 - hw * Math.abs(Math.sin(ang)) - 1, end: s0 + (L + gap + Ll) * Math.cos(ang) + hw * Math.abs(Math.sin(ang)) + 1 };
+}
+const hipUV = (p, x, s) => { const dx = x - p.cx, ds = s - p.s0, sa = Math.sin(p.ang), ca = Math.cos(p.ang); return [ds * ca + dx * sa, dx * ca - ds * sa]; };
 function partOff(p, x, s) {
-  if (s < p.s0 || s > p.end) return 0;
+  if (s < (p.sMin !== undefined ? p.sMin : p.s0) || s > p.end) return 0;
+  if (p.type === "hip") {
+    const [u, v] = hipUV(p, x, s), lw = 1 - smooth((Math.abs(v) - (p.hw - 1.5)) / 1.5);
+    if (lw <= 0 || u < 0 || u > p.L + p.gap + p.Ll) return 0;
+    if (u <= p.L) { const t = u / p.L; return p.H * t * t * lw; }
+    const w = (u - p.L - p.gap) / p.Ll;
+    return w >= 0 && w <= 1 ? p.Hl * bump(w) * lw : 0;
+  }
   if (p.type === "rollers") { const u = (s - p.s0) / p.sp; return p.amp * Math.pow(Math.sin(Math.PI * u), 2) * latW(p, x, 1.5); }
   if (p.type === "box") { const u = s - p.s0, lw = latW(p, x, 0.5); return p.B * lw * Math.min(smooth(u / (p.rise || 1.8)), smooth((p.len - u) / 0.45)); }
   const lw = latW(p, x, 1.5), lip = p.s0 + p.L;
@@ -174,6 +194,7 @@ function partOff(p, x, s) {
 }
 function featOff(f, x, s) { if (s > f.end) return 0; let y = 0; for (const p of f.parts) y += partOff(p, x, s); return y; }
 function genCoins(f, p) {
+  return; // gold rings were removed
   if (p.type === "kicker") {
     const lip = p.s0 + p.L, sA = Math.atan2(H_(p.cx, lip - 0.01) - H_(p.cx, lip - 0.4), 0.4);
     let s = lip, y = H_(p.cx, lip - 0.01), vh = p.v0 * Math.cos(sA), vy = p.v0 * Math.sin(sA), t = 0, next = 0.45;
@@ -190,7 +211,19 @@ function addSection() {
   generating = true;
   const i = feats.length, diff = Math.min(1, i / 20), pick = rng();
   const f = { s0: genS, parts: [], label: "", boost: null, rail: null, coins: [], mainCx: 0 };
-  if (i % 6 === 3 || pick < 0.06) {
+  if (i % 6 === 1) {
+    const sd = rng() < 0.5 ? -1 : 1, a = mkHip(genS, sd, diff), b = mkHip(genS + 40, -sd, diff);
+    f.parts.push(a, b); f.label = "Hip jumps · pick a side"; f.boost = { s0: genS - 22, s1: genS - 16, cx: 0, hw: 1.4 };
+  } else if (i % 6 === 5) {
+    if (rng() < 0.5) {
+      f.parts.push(mkKicker(genS, 4, 0, 8.5, diff)); f.label = "MEGA AIR · commit to it";
+      f.boost = { s0: genS - 30, s1: genS - 23, cx: 0, hw: 1.7, amt: 18 };
+    } else {
+      f.parts.push({ type: "box", s0: genS + 4, len: 44, end: genS + 48, B: 11, rise: 30, drop: true, cx: (rng() - 0.5) * 6, hw: 9.5 }); f.label = "GIANT CLIFF · 11 m drop";
+      f.boost = { s0: genS - 20, s1: genS - 14, cx: f.parts[0].cx, hw: 1.5, amt: 10 };
+    }
+    f.mainCx = f.parts[0].cx;
+  } else if (i % 6 === 3 || pick < 0.06) {
     f.parts.push(mkKicker(genS, 3, 0, PISTE - 1.5, diff)); f.label = "Gap jump · keep your speed";
     f.boost = { s0: genS - 26, s1: genS - 20, cx: 0, hw: 1.6, amt: 12 };
   } else if (pick < 0.2) {
@@ -267,14 +300,14 @@ function mkTrailSection(t, g) {
   const x = t.xw, diff = Math.min(1, 0.25 + trails.length / 8), pick = rng();
   const f = { s0: g, parts: [], label: "", boost: null, rail: null, coins: [], mainCx: x, woods: true };
   const boost = () => { f.boost = { s0: g - 22, s1: g - 16, cx: x, hw: 1.3 }; };
-  if (pick < 0.22) { f.parts.push(mkKicker(g, 0, x, 3.0, diff)); f.label = "Log kicker"; }
-  else if (pick < 0.44) { f.parts.push(mkKicker(g, 1, x, 3.2, diff)); f.label = "Forest kicker"; if (rng() < 0.6) boost(); }
-  else if (pick < 0.58) { f.parts.push(mkKicker(g, 2, x, 3.5, diff)); f.label = "Treeline big air"; boost(); }
-  else if (pick < 0.7) { const n = 5 + Math.floor(rng() * 4), sp = 6.5 + rng() * 1.5; f.parts.push({ type: "rollers", s0: g, n, sp, amp: 0.75 + rng() * 0.3, cx: x, hw: 4.2, end: g + n * sp }); f.label = "Whoops"; }
-  else if (pick < 0.82) { f.parts.push({ type: "box", s0: g + 4, len: 18, end: g + 22, B: 2.8, rise: 9, drop: true, cx: x, hw: 3.1 }); f.label = "Cliff drop"; }
-  else if (pick < 0.9) { f.parts.push({ type: "box", s0: g + 4, len: 12, end: g + 16, B: 0.75, cx: x, hw: 1.7 }); f.label = "Log slide"; }
+  if (pick < 0.2) { f.parts.push(mkKicker(g, 0, x, 3.0, diff)); f.label = "Log kicker"; }
+  else if (pick < 0.4) { f.parts.push(mkKicker(g, 1, x, 3.2, diff)); f.label = "Forest kicker"; if (rng() < 0.6) boost(); }
+  else if (pick < 0.52) { f.parts.push(mkKicker(g, 2, x, 3.5, diff)); f.label = "Treeline big air"; boost(); }
+  else if (pick < 0.62) { const n = 5 + Math.floor(rng() * 4), sp = 6.5 + rng() * 1.5; f.parts.push({ type: "rollers", s0: g, n, sp, amp: 0.75 + rng() * 0.3, cx: x, hw: 4.2, end: g + n * sp }); f.label = "Whoops"; }
+  else if (pick < 0.7) { f.parts.push({ type: "box", s0: g + 4, len: 18, end: g + 22, B: 2.8, rise: 9, drop: true, cx: x, hw: 3.1 }); f.label = "Cliff drop"; }
+  else if (pick < 0.8) { f.parts.push({ type: "box", s0: g + 4, len: 34, end: g + 38, B: 8, rise: 24, drop: true, cx: x, hw: 3.6 }); f.label = "GIANT CLIFF · 8 m drop"; f.boost = { s0: g - 20, s1: g - 14, cx: x, hw: 1.3, amt: 8 }; }
+  else if (pick < 0.88) { f.parts.push({ type: "box", s0: g + 4, len: 12, end: g + 16, B: 0.75, cx: x, hw: 1.7 }); f.label = "Log slide"; }
   else { const k = mkKicker(g, 1, x, 3.2, diff); f.parts.push(k); const rs0 = k.s0 + k.L + k.gap + k.Ll * 0.1; f.rail = { s0: rs0, s1: rs0 + k.Ll * 0.72, x: x + (rng() - 0.5) * 0.8 }; f.label = "Pine rail jump"; boost(); }
-  for (let q = 0; q < 6; q++) { const s = g - 36 + q * 5.5; f.coins.push({ x, y: H_(x, s) + 1.4, s, got: false }); }
   f.end = Math.max(...f.parts.map(p => p.end), f.rail ? f.rail.s1 : 0);
   return f;
 }
@@ -288,6 +321,7 @@ function createTrail(f) {
 
 function nearLip(x, s) {
   for (const f of sectionsAt(s, 10)) for (const p of f.parts) {
+    if (p.type === "hip") { const [u, v] = hipUV(p, x, s); if ((p.L - u > -0.5 && p.L - u < 7) && Math.abs(v) < p.hw) return true; continue; }
     if (p.type !== "kicker") continue;
     const d = p.s0 + p.L - s;
     if (d > -0.5 && d < 7 && latW(p, x, 1.5) > 0.15) return true;
@@ -313,7 +347,7 @@ function newSkier(x, s, sp) {
   ensure(s + 50);
   return { x, s, y: H(x, s), sp, psi: 0, vx: 0, vs: 0, vy: 0, rot: 0, rotV: 0, spin: 0, spinV: 0, spinTarget: 0,
     air: false, airT: 0, flipAcc: 0, grabT: 0, jumpNo: 0, crashed: false, crashT: 0, why: "", grind: null, grindT: 0,
-    turn: 0, pumpT: 0, boostCd: 0, tumX: 0, tumZ: 0, dist0: s, boxT: 0 };
+    turn: 0, carve: 0, pumpT: 0, boostCd: 0, tumX: 0, tumZ: 0, dist0: s, boxT: 0 };
 }
 function sA_(x, s, psi) { return Math.atan2(H(x, s) - H(x - 0.4 * Math.sin(psi), s - 0.4 * Math.cos(psi)), 0.4); }
 
@@ -425,7 +459,9 @@ function step(dt) {
         sk.carry = null; sk.grind = null; sk.grindT = 0;
       }
     } else {
-      sk.psi += steer * 1.5 * dt;
+      // carving: the longer you hold a turn the more the edges bite, which turns tighter and scrubs less speed
+      sk.carve = steer ? Math.min(1, sk.carve + dt / 0.55) : Math.max(0, sk.carve - dt * 2.5);
+      sk.psi += steer * (1.15 + 0.95 * sk.carve) * dt;
       if (!steer) sk.psi -= sk.psi * 0.35 * dt;
       const Tt = trailFor(sk.s); let onTrail = false;
       if (Tt) { const off = sk.x - trailXc(Tt, sk.s); if (Math.abs(off) < Tt.hw + 1.5 && Math.abs(sk.x) > PISTE - 1.5) { onTrail = true; if (Math.abs(off) > Tt.hw - 1.4) sk.psi -= Math.sign(off) * (Math.abs(off) - (Tt.hw - 1.4)) * 0.6 * dt; } }
@@ -433,7 +469,7 @@ function step(dt) {
       sk.psi = clamp(sk.psi, -1.1, 1.1);
       const hx = Math.sin(sk.psi), hs = Math.cos(sk.psi);
       const sA = sA_(sk.x, sk.s, sk.psi), c = Math.cos(sA), sn = Math.sin(sA);
-      const drag = (K.down ? 0.18 : 0.26) + Math.abs(steer) * 0.25 + Math.abs(hx) * 0.45;
+      const drag = (K.down ? 0.18 : 0.26) + Math.abs(steer) * (0.34 - 0.24 * sk.carve) + Math.abs(hx) * 0.4;
       sk.sp = clamp(sk.sp + (-G * sn - drag * sk.sp) * dt, 3, MAXV);
       const nx = sk.x + sk.sp * c * hx * dt, ns = sk.s + sk.sp * c * hs * dt, yp = sk.y + sk.sp * sn * dt;
       const hn = H(nx, ns);
@@ -461,6 +497,7 @@ function step(dt) {
         sk.spin += (sk.spinTarget - sk.spin) * Math.min(1, 9 * dt);
         if (Math.abs(sk.spin - sk.spinTarget) < 0.02) { sk.spin = 0; sk.spinTarget = 0; }
         if (sk.sp > 7 && Math.random() < 0.55) spray(sk.x - hx * 0.4, sk.y, sk.s - hs * 0.4, 1, 2);
+        if (steer && sk.sp > 6 && sk.carve > 0.2) spray(sk.x - steer * 0.35 - hx * 0.2, sk.y, sk.s - hs * 0.2, 2, 3, -steer * (3 + sk.carve * 4));
         if (offTrack(sk.x, sk.s)) crash("Hit the trees");
         if (boxAt(sk.x, sk.s)) sk.boxT += dt;
         else { if (sk.boxT > 0.45) { payout(100 + sk.boxT * 110, "Box slide", false, true); sfx("chime", 1); } sk.boxT = 0; }
@@ -559,7 +596,7 @@ function audioUpdate() {
   const sp = live ? (sk.air ? Math.hypot(sk.vx, sk.vs, sk.vy) : sk.sp) : 0;
   windG.gain.setTargetAtTime(muted ? 0 : clamp(sp / 28, 0, 1) * (live && sk.air ? 0.14 : 0.09), ac.currentTime, 0.1);
   windF.frequency.setTargetAtTime(350 + sp * 40, ac.currentTime, 0.1);
-  grindG.gain.setTargetAtTime(!muted && live && sk.grind ? 0.12 : 0, ac.currentTime, 0.05);
+  grindG.gain.setTargetAtTime(!muted && live && (sk.grind ? 0.12 : !sk.air ? sk.carve * 0.045 : 0), ac.currentTime, 0.05);
 }
 
 /* =====================================================================
@@ -574,11 +611,11 @@ let sprayPts, snowPts;
 const SN = 500, SP = 600;
 const sprayD = { x: new Float32Array(SP), y: new Float32Array(SP), z: new Float32Array(SP), vx: new Float32Array(SP), vy: new Float32Array(SP), vz: new Float32Array(SP), life: new Float32Array(SP) };
 let sprayIdx = 0;
-function spray(x, y, s, n, up) {
+function spray(x, y, s, n, up, side) {
   for (let i = 0; i < n; i++) {
     const k = sprayIdx++ % SP;
     sprayD.x[k] = x + (Math.random() - 0.5) * 0.4; sprayD.y[k] = y + 0.1; sprayD.z[k] = -s;
-    sprayD.vx[k] = (Math.random() - 0.5) * 3; sprayD.vy[k] = Math.random() * up * 0.6 + 0.5; sprayD.vz[k] = (Math.random() - 0.3) * 3 + (sk ? sk.sp * 0.1 : 0);
+    sprayD.vx[k] = (Math.random() - 0.5) * 3 + (side || 0); sprayD.vy[k] = Math.random() * up * 0.6 + 0.5; sprayD.vz[k] = (Math.random() - 0.3) * 3 + (sk ? sk.sp * 0.1 : 0);
     sprayD.life[k] = 0.5 + Math.random() * 0.5;
   }
 }
@@ -770,12 +807,15 @@ function buildChunk(ci) {
       if (ax > PISTE + 2) { R = 0.84; Gc = 0.89; B = 0.96; }
       if (T) { const dd = Math.abs(x - xcT); if (dd < T.hw + 1) { R = 0.86; Gc = 0.89; B = 0.95; } }
       for (const f of secs) if (s <= f.end) for (const p of f.parts) {
-        if (p.type === "kicker") {
+        if (p.type === "hip") {
+          const [u, v] = hipUV(p, x, s), lw = 1 - smooth((Math.abs(v) - (p.hw - 1.5)) / 1.5);
+          if (lw > 0.5 && u >= 0 && u <= p.L) { R = 0.93; Gc = 0.96; B = 0.99; } else if (lw > 0.5 && u > p.L + p.gap && u < p.L + p.gap + p.Ll) { R = 0.92; Gc = 0.95; B = 0.985; }
+        } else if (p.type === "kicker") {
           const lw = latW(p, x, 1.5), lip = p.s0 + p.L;
           if (lw > 0.5 && s >= p.s0 && s <= lip) { R = 0.93; Gc = 0.96; B = 0.99; }
           else if (lw > 0.5 && s > lip + p.gap) { R = 0.92; Gc = 0.95; B = 0.985; }
           else if (p.pit && lw > 0.3 && s > lip + 0.4 && s < lip + p.gap) { R = 0.6; Gc = 0.68; B = 0.8; }
-        } else if (p.type === "box" && s >= p.s0 && s <= p.end && Math.abs(x - p.cx) < p.hw) { R = 0.8; Gc = 0.86; B = 0.95; }
+        } else if (p.type === "box" && s >= p.s0 && s <= p.end && Math.abs(x - p.cx) < p.hw) { if (p.drop) { R = 0.9; Gc = 0.93; B = 0.98; } else { R = 0.8; Gc = 0.86; B = 0.95; } }
       }
       const n = (hash(x * 3.1 + s * 1.7) - 0.5) * 0.03; col[i] = R + n; col[i + 1] = Gc + n; col[i + 2] = B + n;
     }
@@ -896,6 +936,17 @@ function buildFeature(f) {
         for (let q = 0; q <= 22; q++) { const ss = lip + p.gap + p.Ll * q / 22; b1.push(new THREE.Vector3(ex, H(ex, ss) + 0.04, -ss)); } seg(b1);
       });
       const lipPts = []; for (let q = 0; q <= 12; q++) { const x = p.cx - (p.hw - 0.75) + (2 * p.hw - 1.5) * q / 12; lipPts.push(new THREE.Vector3(x, H(x, lip - 0.02) + 0.04, -lip + 0.02)); } seg(lipPts);
+    } else if (p.type === "hip") {
+      const lip = p.L, mp = (u, v) => { const sa = Math.sin(p.ang), ca = Math.cos(p.ang); return [p.cx + u * sa + v * ca, p.s0 + u * ca - v * sa]; };
+      const line = (uA, uB, v, n) => { const pts = []; for (let q = 0; q <= n; q++) { const [x, s] = mp(uA + (uB - uA) * q / n, v); pts.push(new THREE.Vector3(x, H(x, s) + 0.04, -s)); } seg(pts); };
+      [-1, 1].forEach(sd => {
+        line(0, p.L, sd * (p.hw - 0.75), 14); line(p.L + p.gap, p.L + p.gap + p.Ll, sd * (p.hw - 0.75), 18);
+        const [px, ps] = mp(p.L, sd * (p.hw - 1.4)), py = H(px, ps - 0.05);
+        const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.6, 6), polem); pole.position.set(px, py + 1.3, -ps); grp.add(pole);
+        const flag = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.55, 0.9), flagm); flag.position.set(px, py + 2.2, -ps + 0.5); grp.add(flag);
+        [0.05, 0.55, 1].forEach(u => { const [cx2, cs2] = mp(p.L + p.gap + p.Ll * u, sd * p.hw); const c = new THREE.Mesh(cone, cm); c.position.set(cx2, H(cx2, cs2) + 0.4, -cs2); grp.add(c); });
+      });
+      const lp = []; for (let q = 0; q <= 10; q++) { const [x, s] = mp(lip - 0.02, -(p.hw - 0.75) + (2 * p.hw - 1.5) * q / 10); lp.push(new THREE.Vector3(x, H(x, s) + 0.04, -s)); } seg(lp);
     } else if (p.type === "box") {
       const bm = new THREE.LineBasicMaterial({ color: 0xff8a3d });
       [-1, 1].forEach(sd => { const ex = p.cx + sd * (p.hw - 0.2), pts = []; for (let q = 0; q <= 24; q++) { const ss = p.s0 + p.len * q / 24; pts.push(new THREE.Vector3(ex, H(ex, ss) + 0.05, -ss)); } grp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), bm)); });
@@ -979,7 +1030,7 @@ function render(dt, time) {
   R.grindYaw = lerp(R.grindYaw || 0, grindYaw, Math.min(1, 12 * dt));
   R.root.rotation.y = -(sk.psi + R.grindYaw); R.rig.rotation.y = -sk.spin;
   R.pivot.rotation.x = sk.rot;
-  R.pivot.rotation.z = sk.crashed ? sk.tumZ : -sk.turn * 0.32 * (sk.air ? 0.3 : 1);
+  R.pivot.rotation.z = sk.crashed ? sk.tumZ : -sk.turn * (0.3 + 0.32 * sk.carve) * (sk.air ? 0.3 : 1);
   const sunL = scene.userData.sun; sunL.position.set(sk.x + SUN.x * 120, sk.y + SUN.y * 120, -sk.s + SUN.z * 120); sunL.target.position.set(sk.x, sk.y, -sk.s); sunL.target.updateMatrixWorld();
   const gy = H(sk.x, sk.s), gx = H(sk.x + 0.5, sk.s) - H(sk.x - 0.5, sk.s), gs = H(sk.x, sk.s + 0.5) - H(sk.x, sk.s - 0.5);
   _n.set(-gx, 1, gs).normalize(); _q.setFromUnitVectors(_z, _n);
@@ -989,7 +1040,7 @@ function render(dt, time) {
   if (!sk.air && !sk.crashed && !sk.grind && sk.sp > 3 && Math.hypot(sk.x - T.lx, sk.s - T.ls) > 0.55) {
     const dx = Math.sin(sk.psi), dz = -Math.cos(sk.psi), rx = Math.cos(sk.psi), rz = Math.sin(sk.psi);
     [-0.13, 0.13].forEach(off => {
-      const cxp = sk.x + rx * off, czp = -sk.s + rz * off, base = ((T.n++) % (T.NQ * 2)) * 12, hw = 0.045, hl = 0.34;
+      const cxp = sk.x + rx * off, czp = -sk.s + rz * off, base = ((T.n++) % (T.NQ * 2)) * 12, hw = 0.045 + 0.03 * sk.carve, hl = 0.34;
       [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach((c, k) => {
         const px = cxp + dx * hl * c[1] + rx * hw * c[0], pz = czp + dz * hl * c[1] + rz * hw * c[0];
         T.pos[base + k * 3] = px; T.pos[base + k * 3 + 1] = H(px, -pz) + 0.03; T.pos[base + k * 3 + 2] = pz;
@@ -1044,7 +1095,7 @@ function frame(now) {
   const sp = Math.round((sk.air ? Math.hypot(sk.vx, sk.vs) : sk.sp) * 3.6);
   const fe = $("focus"), fw = Math.round(focus * 100) + "%"; if (shown.focusw !== fw) { shown.focusw = fw; fe.style.width = fw; }
   setText("score", Math.round(score).toLocaleString()); setText("mult", "×" + mult); setText("spd", sp);
-  setText("dist", Math.max(0, Math.round(sk.s - 10))); setText("rings", rings); setText("best", Math.round(best).toLocaleString());
+  setText("dist", Math.max(0, Math.round(sk.s - 10))); setText("best", Math.round(best).toLocaleString());
   const ni = nextInfo(), nx = $("next");
   if (mode === "play" && ni && ni.s - sk.s < 170 && !sk.air) { nx.hidden = false; setText("next", ni.label + " · " + Math.max(0, Math.round(ni.s - sk.s)) + " m"); } else nx.hidden = true;
   requestAnimationFrame(frame);
