@@ -74,7 +74,7 @@
   <div id="msg"></div>
   <div class="note">
     Sounds are synthesized in the browser in the style of UK house / breaks / garage (Kettama, Prospa, Riordan) &mdash; not samples from their records.
-    Keys: 1-4, Q-R, A-F, Z-V play pads &middot; Space = play/stop &middot; Enter = record. Hits snap to 16th notes. Hold House Synth to sustain the chord.
+    Keys: 1-4, Q-R, A-F, Z-V play pads &middot; Space = play/stop &middot; Enter = record. Hits snap to 16th notes. Hold House Synth or Rave Drone to sustain them.
   </div>
 </main>
 
@@ -212,12 +212,6 @@ const SOUNDS = {
     const mix = gain(1); src.connect(f1); src.connect(f2); f1.connect(mix); f2.connect(mix);
     env(g, t, 1.3, 0.01, 0.34); chain(t, [mix, g, master]); g.connect(reverbSend);
   },
-  riser(t) {
-    const n = noise(t, 1.6), f = filt("bandpass", 400, 3), g = ctx.createGain();
-    f.frequency.exponentialRampToValueAtTime(9000, t + 1.4);
-    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.6, t + 1.4); g.gain.linearRampToValueAtTime(0.0001, t + 1.5);
-    chain(t, [n, f, g, master]); g.connect(reverbSend);
-  },
 };
 
 /* sustained voices: start(t) returns {stop(when)} so a held pad keeps sounding */
@@ -242,6 +236,28 @@ const VOICES = {
   },
 };
 
+VOICES.rave = function (t) { // 90s rave hoover drone: wide saws, pitch scoop, wobble
+  const f = filt("lowpass", 2600, 3), g = ctx.createGain(), oscs = [];
+  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.2, t + 0.02);
+  g.gain.setTargetAtTime(0.14, t + 0.02, 0.25);
+  const lfo = ctx.createOscillator(); lfo.frequency.value = 5.2;
+  const pitchLfo = gain(14), filtLfo = gain(900);
+  lfo.connect(pitchLfo); lfo.connect(filtLfo); filtLfo.connect(f.frequency); lfo.start(t); oscs.push(lfo);
+  [38, 50, 57, 62].forEach(n => [-28, -9, 9, 28].forEach(dt => {
+    const o = ctx.createOscillator(); o.type = "sawtooth";
+    const hz = mtof(n);
+    o.frequency.setValueAtTime(hz * 1.5, t); o.frequency.exponentialRampToValueAtTime(hz, t + 0.14);
+    o.detune.value = dt; pitchLfo.connect(o.detune);
+    o.connect(f); o.start(t); oscs.push(o);
+  }));
+  chain(t, [f, g, master]); g.connect(reverbSend);
+  return { stop(when) {
+    g.gain.cancelScheduledValues(when);
+    g.gain.setTargetAtTime(0.0001, when, 0.09);
+    oscs.forEach(o => o.stop(when + 0.7));
+  } };
+};
+
 const PADS = [
   { id: "kick",   name: "Kick",     sub: "4x4",        key: "1", c: "#ff5470" },
   { id: "synth",  name: "House Synth", sub: "hold me", key: "2", c: "#ff7a45", hold: true },
@@ -258,7 +274,7 @@ const PADS = [
   { id: "acid",   name: "Acid",     sub: "squelch",    key: "z", c: "#c07bff" },
   { id: "reese",  name: "Reese",    sub: "dark bass",  key: "x", c: "#e36bff" },
   { id: "vox",    name: "Vox Chop", sub: "ah-oo",      key: "c", c: "#ff6bd0" },
-  { id: "riser",  name: "Riser",    sub: "fx",         key: "v", c: "#ff6b9a" },
+  { id: "rave",   name: "Rave Drone", sub: "hold me",  key: "v", c: "#ff6b9a", hold: true },
 ];
 
 /* ---------- sequencer state ---------- */
