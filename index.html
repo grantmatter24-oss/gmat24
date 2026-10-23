@@ -73,8 +73,8 @@
   <div id="pads"></div>
   <div id="msg"></div>
   <div class="note">
-    Sounds are synthesized in the browser in the style of UK house / breaks / garage (Kettama, Prospa, Riordan) &mdash; not samples from their records.
-    Keys: 1-4, Q-R, A-F, Z-V play pads &middot; Space = stop (ends recording) &middot; P = play loop &middot; Enter = record. Hits snap to 16th notes. Hold House Synth or Rave Drone to sustain them.
+    Sounds are synthesized in the browser in the style of Kettama's rave-house (Fly Away XTC) and UK breaks / garage &mdash; not samples from their records.
+    Keys: 1-4, Q-R, A-F, Z-V play pads &middot; Space = stop (ends recording) &middot; P = play loop &middot; Enter = record. Hits snap to 16th notes. Pads marked &ldquo;hold me&rdquo; sustain while held.
   </div>
 </main>
 
@@ -128,13 +128,24 @@ function gain(v) { const g = ctx.createGain(); g.gain.value = v; return g; }
 const mtof = n => 440 * Math.pow(2, (n - 69) / 12);
 
 const SOUNDS = {
-  kick(t) {
-    const o = osc("sine", 160, t, 0.5), g = ctx.createGain();
-    o.frequency.exponentialRampToValueAtTime(46, t + 0.14);
-    env(g, t, 1.0, 0.002, 0.45);
-    chain(t, [o, g, master]);
-    const c = noise(t, 0.02), cf = filt("lowpass", 3000), cg = ctx.createGain();
-    env(cg, t, 0.35, 0.001, 0.02); chain(t, [c, cf, cg, master]);
+  kick(t) { // hard driven 909-style kick
+    const o = osc("sine", 190, t, 0.5), g = ctx.createGain(), sh = ctx.createWaveShaper();
+    const curve = new Float32Array(256); for (let i = 0; i < 256; i++) { const x = i / 128 - 1; curve[i] = Math.tanh(x * 3); }
+    sh.curve = curve;
+    o.frequency.exponentialRampToValueAtTime(48, t + 0.11);
+    env(g, t, 1.0, 0.002, 0.4);
+    chain(t, [o, sh, g, master]);
+    const c = noise(t, 0.02), cf = filt("bandpass", 2500, 1), cg = ctx.createGain();
+    env(cg, t, 0.4, 0.001, 0.02); chain(t, [c, cf, cg, master]);
+  },
+  impact(t) { // reverse swell into a sub boom
+    const n = noise(t, 1.0), f = filt("bandpass", 500, 2), g = ctx.createGain();
+    f.frequency.exponentialRampToValueAtTime(8000, t + 0.9);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.7, t + 0.9); g.gain.linearRampToValueAtTime(0.0001, t + 0.92);
+    chain(t, [n, f, g, master]); g.connect(reverbSend);
+    const b = osc("sine", 90, t + 0.9, 0.9), bg = ctx.createGain();
+    b.frequency.exponentialRampToValueAtTime(38, t + 1.5); env(bg, t + 0.9, 0.9, 0.003, 0.9);
+    chain(t, [b, bg, master]);
   },
   clap(t) {
     const f = filt("bandpass", 1300, 1.2), g = ctx.createGain(), n = noise(t, 0.4);
@@ -163,15 +174,6 @@ const SOUNDS = {
     g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.5, t + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
     chain(t, [n, f, g, master]);
   },
-  rim(t) {
-    const o = osc("square", 1750, t, 0.05), f = filt("bandpass", 1750, 4), g = ctx.createGain();
-    env(g, t, 0.35, 0.001, 0.04); chain(t, [o, f, g, master]);
-    const o2 = osc("triangle", 480, t, 0.08), g2 = ctx.createGain(); env(g2, t, 0.4, 0.001, 0.07); chain(t, [o2, g2, master]);
-  },
-  tom(t) {
-    const o = osc("sine", 230, t, 0.4), g = ctx.createGain();
-    o.frequency.exponentialRampToValueAtTime(110, t + 0.25); env(g, t, 0.8, 0.002, 0.35); chain(t, [o, g, master]);
-  },
   conga(t) {
     const o = osc("sine", 360, t, 0.25), g = ctx.createGain();
     o.frequency.exponentialRampToValueAtTime(280, t + 0.08); env(g, t, 0.7, 0.001, 0.2); chain(t, [o, g, master]);
@@ -192,11 +194,6 @@ const SOUNDS = {
     [57, 60, 64, 69].forEach(n => { const o = osc("square", mtof(n), t, 0.55); o.connect(f); });
     chain(t, [f, g, master]); g.connect(reverbSend);
   },
-  acid(t) { // squelchy 303-ish
-    const o = osc("sawtooth", 55, t, 0.4), f = filt("lowpass", 300, 14), g = ctx.createGain();
-    f.frequency.setValueAtTime(3200, t); f.frequency.exponentialRampToValueAtTime(180, t + 0.3);
-    env(g, t, 0.55, 0.003, 0.35); chain(t, [o, f, g, master]);
-  },
   reese(t) { // detuned dark bass
     const f = filt("lowpass", 500, 2), g = ctx.createGain();
     f.frequency.setValueAtTime(900, t); f.frequency.exponentialRampToValueAtTime(260, t + 0.8);
@@ -204,7 +201,7 @@ const SOUNDS = {
     [-14, 0, 14].forEach(dt => { const o = osc("sawtooth", 41.2, t, 0.95); o.detune.value = dt; o.connect(f); });
     chain(t, [f, g, master]);
   },
-  vox(t) { // formant "ah -> oo" chop
+  voxchop(t) { // formant "ah -> oo" chop
     const src = osc("sawtooth", 294, t, 0.4), g = ctx.createGain();
     src.frequency.linearRampToValueAtTime(330, t + 0.12);
     const f1 = filt("bandpass", 800, 8), f2 = filt("bandpass", 1200, 10);
@@ -216,22 +213,49 @@ const SOUNDS = {
 
 /* sustained voices: start(t) returns {stop(when)} so a held pad keeps sounding */
 const VOICES = {
-  synth(t) { // classic house chord: detuned saws + sub, Fm9
-    const f = filt("lowpass", 700, 1.5), g = ctx.createGain(), oscs = [];
-    f.frequency.setValueAtTime(700, t); f.frequency.exponentialRampToValueAtTime(2600, t + 0.35);
-    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.26, t + 0.012);
-    g.gain.setTargetAtTime(0.17, t + 0.012, 0.18);
-    [53, 56, 60, 63, 67].forEach(n => [-12, 12].forEach(dt => {
+  bass(t) { // heavy driven sub-bass, E1
+    const f = filt("lowpass", 260, 2), g = ctx.createGain(), sh = ctx.createWaveShaper(), oscs = [];
+    const curve = new Float32Array(256); for (let i = 0; i < 256; i++) { const x = i / 128 - 1; curve[i] = Math.tanh(x * 2.5); }
+    sh.curve = curve;
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.7, t + 0.01);
+    [["sawtooth", 41.2, 0.45], ["square", 41.2, 0.25], ["sine", 41.2, 0.9]].forEach(([ty, hz, v]) => {
+      const o = ctx.createOscillator(); o.type = ty; o.frequency.value = hz; const og = gain(v);
+      o.connect(og); og.connect(f); o.start(t); oscs.push(o);
+    });
+    chain(t, [f, sh, g, master]);
+    return { stop(when) {
+      g.gain.cancelScheduledValues(when); g.gain.setTargetAtTime(0.0001, when, 0.05);
+      oscs.forEach(o => o.stop(when + 0.4));
+    } };
+  },
+  vox(t) { // ethereal sustained "ah" vocal with vibrato
+    const g = ctx.createGain(), mix = gain(1), oscs = [];
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.9, t + 0.12);
+    const lfo = ctx.createOscillator(); lfo.frequency.value = 5.5; const lg = gain(10); lfo.connect(lg); lfo.start(t); oscs.push(lfo);
+    [-6, 6].forEach(dt => {
+      const o = ctx.createOscillator(); o.type = "sawtooth"; o.frequency.value = 392; o.detune.value = dt; lg.connect(o.detune);
+      const f1 = filt("bandpass", 800, 8), f2 = filt("bandpass", 1200, 10), f3 = filt("bandpass", 2800, 12);
+      o.connect(f1); o.connect(f2); o.connect(f3); f1.connect(mix); f2.connect(mix); f3.connect(gain(0.5)).connect(mix);
+      o.start(t); oscs.push(o);
+    });
+    chain(t, [mix, g, master]); g.connect(reverbSend); g.connect(reverbSend);
+    return { stop(when) {
+      g.gain.cancelScheduledValues(when); g.gain.setTargetAtTime(0.0001, when, 0.18);
+      oscs.forEach(o => o.stop(when + 1.2));
+    } };
+  },
+  pad(t) { // shimmering supernatural pad, Fm9
+    const f = filt("lowpass", 1800, 0.8), g = ctx.createGain(), oscs = [];
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.2, t + 0.35);
+    const lfo = ctx.createOscillator(); lfo.frequency.value = 0.35; const lg = gain(700); lfo.connect(lg); lg.connect(f.frequency); lfo.start(t); oscs.push(lfo);
+    [53, 60, 63, 67, 72, 75].forEach(n => [-10, 10].forEach(dt => {
       const o = ctx.createOscillator(); o.type = "sawtooth"; o.frequency.value = mtof(n); o.detune.value = dt;
       o.connect(f); o.start(t); oscs.push(o);
     }));
-    const sub = ctx.createOscillator(); sub.type = "sine"; sub.frequency.value = mtof(29);
-    const sg = gain(0.5); sub.connect(sg); sg.connect(g); sub.start(t); oscs.push(sub);
-    chain(t, [f, g, master]); g.connect(reverbSend);
+    chain(t, [f, g, master]); g.connect(reverbSend); g.connect(reverbSend);
     return { stop(when) {
-      g.gain.cancelScheduledValues(when);
-      g.gain.setTargetAtTime(0.0001, when, 0.07);
-      oscs.forEach(o => o.stop(when + 0.6));
+      g.gain.cancelScheduledValues(when); g.gain.setTargetAtTime(0.0001, when, 0.3);
+      oscs.forEach(o => o.stop(when + 1.8));
     } };
   },
 };
@@ -259,22 +283,22 @@ VOICES.rave = function (t) { // 90s rave hoover drone: wide saws, pitch scoop, w
 };
 
 const PADS = [
-  { id: "kick",   name: "Kick",     sub: "4x4",        key: "1", c: "#ff5470" },
-  { id: "synth",  name: "House Synth", sub: "hold me", key: "2", c: "#ff7a45", hold: true },
-  { id: "clap",   name: "Clap",     sub: "2 & 4",      key: "3", c: "#ffb347" },
-  { id: "snare",  name: "Snare",    sub: "breaks",     key: "4", c: "#ffd24a" },
-  { id: "chat",   name: "Hat",      sub: "closed",     key: "q", c: "#c6e84a" },
-  { id: "ohat",   name: "Open Hat", sub: "off-beat",   key: "w", c: "#7ee06a" },
-  { id: "shaker", name: "Shaker",   sub: "swing",      key: "e", c: "#35e08a" },
-  { id: "rim",    name: "Rim",      sub: "garage",     key: "r", c: "#2fd6c5" },
-  { id: "tom",    name: "Tom",      sub: "perc",       key: "a", c: "#3ec1ff" },
-  { id: "conga",  name: "Conga",    sub: "perc",       key: "s", c: "#4f9bff" },
-  { id: "stab",   name: "Stab",     sub: "m7 chord",   key: "d", c: "#7b83ff" },
-  { id: "organ",  name: "Organ",    sub: "chord",      key: "f", c: "#9a7bff" },
-  { id: "acid",   name: "Acid",     sub: "squelch",    key: "z", c: "#c07bff" },
-  { id: "reese",  name: "Reese",    sub: "dark bass",  key: "x", c: "#e36bff" },
-  { id: "vox",    name: "Vox Chop", sub: "ah-oo",      key: "c", c: "#ff6bd0" },
-  { id: "rave",   name: "Rave Drone", sub: "hold me",  key: "v", c: "#ff6b9a", hold: true },
+  { id: "kick",    name: "Kick",       sub: "driven 909",  key: "1", c: "#ff5470" },
+  { id: "bass",    name: "Heavy Bass", sub: "hold me",     key: "2", c: "#ff7a45", hold: true },
+  { id: "clap",    name: "Clap",       sub: "2 & 4",       key: "3", c: "#ffb347" },
+  { id: "snare",   name: "Snare",      sub: "breaks",      key: "4", c: "#ffd24a" },
+  { id: "chat",    name: "Hat",        sub: "closed",      key: "q", c: "#c6e84a" },
+  { id: "ohat",    name: "Open Hat",   sub: "off-beat",    key: "w", c: "#7ee06a" },
+  { id: "shaker",  name: "Shaker",     sub: "top loop",    key: "e", c: "#35e08a" },
+  { id: "conga",   name: "Perc",       sub: "conga",       key: "r", c: "#2fd6c5" },
+  { id: "stab",    name: "Rave Stab",  sub: "m7 chord",    key: "a", c: "#3ec1ff" },
+  { id: "rave",    name: "Hoover",     sub: "hold me",     key: "s", c: "#4f9bff", hold: true },
+  { id: "vox",     name: "Angel Vox",  sub: "hold me",     key: "d", c: "#7b83ff", hold: true },
+  { id: "organ",   name: "Organ",      sub: "chord",       key: "f", c: "#9a7bff" },
+  { id: "voxchop", name: "Vox Chop",   sub: "ah-oo",       key: "z", c: "#c07bff" },
+  { id: "reese",   name: "Reese",      sub: "dark bass",   key: "x", c: "#e36bff" },
+  { id: "pad",     name: "Halo Pad",   sub: "hold me",     key: "c", c: "#ff6bd0", hold: true },
+  { id: "impact",  name: "Impact",     sub: "swell + boom", key: "v", c: "#ff6b9a" },
 ];
 
 /* ---------- sequencer state ---------- */
