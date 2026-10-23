@@ -45,6 +45,10 @@
   .pad kbd { position: absolute; top: 8px; right: 10px; font: 600 11px ui-monospace, monospace; color: var(--dim); }
   .pad.hit { background: var(--c); color: #0b0b10; box-shadow: 0 0 28px color-mix(in srgb, var(--c) 70%, transparent); transform: scale(.97); transition: none; }
   .pad.hit small, .pad.hit kbd { color: rgba(0,0,0,.6); }
+  #erase.on { color: var(--rec); background: rgba(255,59,78,.14); }
+  .pad.has-hits::after { content: ""; position: absolute; top: 12px; left: 12px; width: 6px; height: 6px; border-radius: 50%; background: var(--c); }
+  .pad.hit.has-hits::after { background: #0b0b10; }
+  body.erasing .pad { outline: 2px dashed var(--rec); outline-offset: -4px; }
   #msg { color: var(--dim); font-size: 12px; min-height: 1.4em; }
   .note { color: var(--dim); font-size: 11px; line-height: 1.5; }
 </style>
@@ -58,7 +62,12 @@
     <button id="play">▶ Play</button>
     <button id="undo">Undo</button>
     <button id="clear">Clear</button>
-    <button id="demo">Demo beat</button>
+    <button id="erase" title="Tap a pad to delete all its hits from the loop">Erase pad</button>
+  </div>
+
+  <div class="bar">
+    <label>Starter beat <select id="demoSel"></select></label>
+    <button id="demo">Load</button>
   </div>
 
   <div class="bar">
@@ -303,7 +312,7 @@ const PADS = [
 
 /* ---------- sequencer state ---------- */
 const S = {
-  bpm: 132, bars: 4, playing: false, recording: false, metro: false,
+  bpm: 132, bars: 4, playing: false, recording: false, metro: false, erase: false,
   events: [],            // {step, pad, sess}
   sess: 0,
   nextStep: 0, nextTime: 0,
@@ -352,6 +361,11 @@ function curStep() {
 const held = new Map(); // input key -> {voice, t0, i, ev}
 function press(i, key) {
   initAudio();
+  if (S.erase) {
+    S.events = S.events.filter(e => e.pad !== i);
+    flash(i); renderSteps();
+    return;
+  }
   const now = ctx.currentTime, p = PADS[i];
   if (p.hold) {
     if (held.has(key)) return;
@@ -409,6 +423,8 @@ function renderSteps() {
   }
   const has = new Set(S.events.map(e => e.step));
   stepEls.forEach((el, i) => el.classList.toggle("has", has.has(i)));
+  const used = new Set(S.events.map(e => e.pad));
+  padEls.forEach((el, i) => el.classList.toggle("has-hits", used.has(i)));
 }
 
 let lastNow = -1;
@@ -434,8 +450,11 @@ function ui() {
   $("play").classList.toggle("on", S.playing);
   $("play").textContent = S.playing ? "■ Stop" : "▶ Play";
   $("metro").classList.toggle("on", S.metro);
-  $("msg").textContent = S.recording ? "Recording - silent until you play. Hit pads and they loop back."
-    : S.playing ? "Looping. Hit Rec to overdub more layers." : "Hit Rec and play pads, or tap Demo beat to start.";
+  $("erase").classList.toggle("on", S.erase);
+  document.body.classList.toggle("erasing", S.erase);
+  $("msg").textContent = S.erase ? "Erase on - tap a pad to delete all of its hits from the loop. Tap Erase pad again to finish."
+    : S.recording ? "Recording - silent until you play. Hit pads and they loop back."
+    : S.playing ? "Looping. Hit Rec to overdub more layers." : "Hit Rec and play pads, or pick a Starter beat and tap Load.";
 }
 
 $("rec").onclick = () => {
@@ -456,16 +475,25 @@ $("clear").onclick = () => { S.events = []; renderSteps(); };
 $("metro").onclick = () => { S.metro = !S.metro; ui(); };
 $("bpm").oninput = e => { S.bpm = +e.target.value; $("bpmv").textContent = S.bpm; };
 $("bars").onchange = e => { S.bars = +e.target.value; S.nextStep %= total(); renderSteps(); };
+const DEMOS = [
+  { name: "Rave house bass", hits: [[0,[0,4,8,12]],[2,[4,12]],[5,[2,6,10,14]],[4,[0,3,7,11,15]],[6,[1,5,9,13]],[1,[2,6,10,14],2]] },
+  { name: "Rolling bass",    hits: [[0,[0,4,8,12]],[2,[4,12]],[4,[2,6,10,14]],[6,[0,2,4,6,8,10,12,14]],[1,[1,2,3,5,6,7,9,10,11,13,14,15],1]] },
+  { name: "2-step garage",   hits: [[0,[0,10]],[3,[4,12]],[4,[0,2,4,6,8,10,12,14]],[7,[7,15]],[1,[0],3],[1,[6],2],[1,[10],3]] },
+  { name: "Broken breaks",   hits: [[0,[0,6,10]],[3,[4,12]],[4,[0,2,4,6,8,10,12,14]],[6,[3,11]],[13,[0,8]],[1,[6,14],2]] },
+  { name: "Dark reese",      hits: [[0,[0,4,8,12]],[2,[4,12]],[5,[2,6,10,14]],[13,[0,3,6,10,12]],[12,[7,15]]] },
+  { name: "Hoover rave",     hits: [[0,[0,4,8,12]],[2,[4,12]],[5,[2,6,10,14]],[9,[0,8],8],[1,[2,6,10,14],2],[8,[3,11]]] },
+  { name: "Heavy sub",       hits: [[0,[0,8,11]],[3,[4,12]],[4,[0,2,4,6,8,10,12,14]],[1,[0],6],[1,[8],3],[1,[11],5]] },
+  { name: "Halo breakdown",  hits: [[14,[0],16],[10,[8],8],[0,[0,8]],[4,[2,6,10,14]],[1,[0,8],8]] },
+];
+DEMOS.forEach((d, i) => { const o = document.createElement("option"); o.value = i; o.textContent = d.name; $("demoSel").appendChild(o); });
+$("demoSel").onchange = () => $("demoSel").blur();
+$("erase").onclick = () => { S.erase = !S.erase; ui(); };
 $("demo").onclick = () => {
   initAudio();
-  S.sess++;
-  const add = (pad, steps, len) => steps.forEach(s => { for (let b = 0; b < S.bars; b++) S.events.push({ step: b * 16 + s, pad, sess: S.sess, len }); });
-  add(0, [0, 4, 8, 12]);         // kick 4x4
-  add(2, [4, 12]);               // clap
-  add(5, [2, 6, 10, 14]);        // open hat off-beat
-  add(4, [0, 3, 7, 11, 15]);     // hats
-  add(6, [1, 5, 9, 13]);         // shaker
-  add(1, [0, 8], 6);             // house synth chord, held
+  S.sess++; S.events = [];
+  DEMOS[+$("demoSel").value].hits.forEach(([pad, steps, len]) => steps.forEach(st => {
+    for (let b = 0; b < S.bars; b++) S.events.push({ step: b * 16 + st, pad, sess: S.sess, len });
+  }));
   renderSteps();
   if (!S.playing) start();
 };
