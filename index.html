@@ -66,7 +66,7 @@
     <label>Bars
       <select id="bars"><option>1</option><option>2</option><option selected>4</option></select>
     </label>
-    <button id="metro" class="on">Click</button>
+    <button id="metro">Click</button>
   </div>
 
   <div id="steps"></div>
@@ -263,7 +263,7 @@ const PADS = [
 
 /* ---------- sequencer state ---------- */
 const S = {
-  bpm: 132, bars: 4, playing: false, recording: false, metro: true,
+  bpm: 132, bars: 4, playing: false, recording: false, metro: false,
   events: [],            // {step, pad, sess}
   sess: 0,
   nextStep: 0, nextTime: 0,
@@ -394,7 +394,7 @@ function ui() {
   $("play").classList.toggle("on", S.playing);
   $("play").textContent = S.playing ? "■ Stop" : "▶ Play";
   $("metro").classList.toggle("on", S.metro);
-  $("msg").textContent = S.recording ? "Recording - hit pads, they snap to the loop and keep looping."
+  $("msg").textContent = S.recording ? "Recording - silent until you play. Hit pads and they loop back."
     : S.playing ? "Looping. Hit Rec to overdub more layers." : "Hit Rec and play pads, or tap Demo beat to start.";
 }
 
