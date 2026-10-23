@@ -74,7 +74,7 @@
   <div id="msg"></div>
   <div class="note">
     Sounds are synthesized in the browser in the style of UK house / breaks / garage (Kettama, Prospa, Riordan) &mdash; not samples from their records.
-    Keys: 1-4, Q-R, A-F, Z-V play pads &middot; Space = play/stop &middot; Enter = record. Hits snap to 16th notes. Hold House Synth or Rave Drone to sustain them.
+    Keys: 1-4, Q-R, A-F, Z-V play pads &middot; Space = stop (ends recording) &middot; P = play loop &middot; Enter = record. Hits snap to 16th notes. Hold House Synth or Rave Drone to sustain them.
   </div>
 </main>
 
@@ -451,7 +451,8 @@ const down = new Set();
 addEventListener("keydown", e => {
   if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
   if (e.target.tagName === "SELECT") return;
-  if (e.code === "Space") { e.preventDefault(); initAudio(); $("play").click(); return; }
+  if (e.code === "Space") { e.preventDefault(); if (S.playing) stop(); return; }
+  if (e.key.toLowerCase() === "p") { initAudio(); if (!S.playing) start(); return; }
   if (e.code === "Enter") { e.preventDefault(); $("rec").click(); return; }
   const i = KEYS[e.key.toLowerCase()];
   if (i !== undefined && !down.has(e.key)) { down.add(e.key); press(i, "k" + e.key); }
