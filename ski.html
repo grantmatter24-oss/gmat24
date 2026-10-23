@@ -85,7 +85,7 @@
   <div id="focuswrap"><span>Focus</span><div class="bar"><i id="focus"></i></div><span>Shift</span></div>
   <div id="pop"><div class="t"></div><div class="s"></div></div>
   <div id="toast"></div>
-  <div id="hint">← → steer &nbsp;·&nbsp; ↑ ↓ flip &nbsp;·&nbsp; Q E spin (flip + spin = cork) &nbsp;·&nbsp; Space pop / grab &nbsp;·&nbsp; Shift focus</div>
+  <div id="hint">← → steer &nbsp;·&nbsp; ↑ ↓ flip &nbsp;·&nbsp; Q E spin (flip + spin = cork) &nbsp;·&nbsp; Space spam = speed / pop / grab &nbsp;·&nbsp; Shift focus</div>
   <div id="touch">
     <div class="grp"><button data-k="left">Left</button><button data-k="right">Right</button></div>
     <div class="grp"><button data-k="up">Front flip</button><button data-k="down">Back / tuck</button><button data-k="spin">Spin</button><button data-k="grab">Pop / grab</button><button data-k="focus">Focus</button></div>
@@ -96,7 +96,7 @@
       <p class="lede">Carve down the mountain, hit every kind of jump, throw tricks and land them clean. Rails, boost pads and gold rings are on the way down.</p>
       <dl>
         <dt>← → or A D</dt><dd>Steer on snow, nudge in the air</dd>
-        <dt>Space</dt><dd>Tap to pop (time it at the lip). Hold in the air to grab</dd>
+        <dt>Space</dt><dd>Spam it on the flat to pump for speed. Tap at a ramp lip to pop. Hold in the air to grab</dd>
         <dt>↑ W · ↓ S</dt><dd>Front flip / back flip in the air. ↓ tucks for speed on snow</dd>
         <dt>Q E</dt><dd>Spin left / right. Flip and spin together for a cork bonus</dd>
         <dt>Shift</dt><dd>Hold in the air for slow-motion focus. Clean tricks refill it</dd>
@@ -223,6 +223,15 @@ function H_(x, s) {
   return y;
 }
 function H(x, s) { ensure(s); return H_(x, s); }
+function nearLip(x, s) {
+  const j = featIndex(s + 8);
+  for (let q = Math.max(0, j - 1); q <= j && q < feats.length; q++) for (const p of feats[q].parts) {
+    if (p.type !== "kicker") continue;
+    const d = p.s0 + p.L - s;
+    if (d > -0.5 && d < 7 && latW(p, x, 1.5) > 0.15) return true;
+  }
+  return false;
+}
 function boxAt(x, s) {
   const j = featIndex(s); if (j < 0) return false;
   for (const p of feats[j].parts) if (p.type === "box" && s > p.s0 + 1.5 && s < p.end - 0.3 && Math.abs(x - p.cx) < p.hw - 0.4) return true;
@@ -243,7 +252,7 @@ function newSkier(x, s, sp) {
   ensure(s + 50);
   return { x, s, y: H(x, s), sp, psi: 0, vx: 0, vs: 0, vy: 0, rot: 0, rotV: 0, spin: 0, spinV: 0, spinTarget: 0,
     air: false, airT: 0, flipAcc: 0, grabT: 0, jumpNo: 0, crashed: false, crashT: 0, why: "", grind: null, grindT: 0,
-    turn: 0, boostCd: 0, tumX: 0, tumZ: 0, dist0: s, boxT: 0 };
+    turn: 0, pumpT: 0, boostCd: 0, tumX: 0, tumZ: 0, dist0: s, boxT: 0 };
 }
 function sA_(x, s, psi) { return Math.atan2(H(x, s) - H(x - 0.4 * Math.sin(psi), s - 0.4 * Math.cos(psi)), 0.4); }
 
@@ -324,7 +333,7 @@ function restart() { score = 0; mult = 1; rings = 0; focus = 1; for (const f of 
 const DT = 1 / 120;
 function step(dt) {
   if (mode !== "play") return;
-  sk.boostCd = Math.max(0, sk.boostCd - dt);
+  sk.boostCd = Math.max(0, sk.boostCd - dt); sk.pumpT = Math.max(0, sk.pumpT - dt);
   if (sk.crashed) {
     sk.crashT += dt;
     const hx = Math.sin(sk.psi), hs = Math.cos(sk.psi);
@@ -375,9 +384,15 @@ function step(dt) {
         }
       }
       // coins on the ground are not reachable; ground contact
-      if (popReq || yp > hn + 0.12) {
-        sk.air = true; sk.vx = sk.sp * c * hx; sk.vs = sk.sp * c * hs; sk.vy = sk.sp * sn + (popReq ? 5 : 0);
-        sk.x = nx; sk.s = ns; sk.y = popReq ? Math.max(yp, hn) + 0.02 : yp;
+      // Space: pop when a ramp lip is close, otherwise pump for speed
+      const popNow = popReq && nearLip(sk.x, sk.s);
+      if (popReq && !popNow) {
+        sk.sp = Math.min(sk.sp + 1.8 * Math.max(0, 1 - sk.sp / (MAXV + 2)), MAXV + 2); sk.pumpT = 0.2;
+        spray(sk.x - hx * 0.5, sk.y, sk.s - hs * 0.5, 3, 2); sfx("pump");
+      }
+      if (popNow || yp > hn + 0.12) {
+        sk.air = true; sk.vx = sk.sp * c * hx; sk.vs = sk.sp * c * hs; sk.vy = sk.sp * sn + (popNow ? 5 : 0);
+        sk.x = nx; sk.s = ns; sk.y = popNow ? Math.max(yp, hn) + 0.02 : yp;
         sk.airT = 0; sk.flipAcc = 0; sk.spin = 0; sk.spinV = 0; sk.grabT = 0; sk.rotV = 0; sk.spinTarget = 0;
       } else {
         sk.x = nx; sk.s = ns; sk.y = hn;
@@ -467,6 +482,8 @@ function sfx(kind, k) {
     [0, 4, 7, 12].slice(0, 2 + Math.min(2, k || 0)).forEach((st, i) => tone(523 * Math.pow(2, st / 12), t + i * 0.07, 0.35, "triangle", 0.18));
   } else if (kind === "coin") {
     tone(988 * Math.pow(2, (k || 0) / 12), t, 0.12, "square", 0.07); tone(1318 * Math.pow(2, (k || 0) / 12), t + 0.06, 0.25, "square", 0.07);
+  } else if (kind === "pump") {
+    tone(180 + Math.random() * 40, t, 0.07, "triangle", 0.12);
   } else if (kind === "boost") {
     const n = ac.createBufferSource(); n.buffer = ac.noise; const f = ac.createBiquadFilter(); f.type = "bandpass"; f.Q.value = 1.2;
     f.frequency.setValueAtTime(400, t); f.frequency.exponentialRampToValueAtTime(4000, t + 0.5);
@@ -647,6 +664,7 @@ function poseSkier(dt) {
   if (tuck) { c = 0.85; lean = 1.05; arm = 1.1; el = 1.5; rarm = 1.1; rel = 1.5; spread = 0.02; }
   else if (grab) { c = 0.92; lean = 0.6; arm = 0.3; el = 0.5; rarm = 0.9; rel = 0.55; spread = 0.3; poles = 0; }
   else if (air) { c = 0.5; lean = 0.25; arm = 0.5; el = 0.6; rarm = 0.5; rel = 0.6; spread = 0.75; }
+  if (!air && sk.pumpT > 0 && !tuck) { c = 0.8; lean = 0.95; arm = 1.0; el = 1.2; rarm = 1.0; rel = 1.2; spread = 0.05; }
   if (sk.grind) { c = 0.55; lean = 0.3; spread = 0.8; }
   if (sk.crashed) { c = 0.4; lean = 0.2; arm = 2.6; el = 0.2; rarm = 2.6; rel = 0.2; spread = 1.2; poles = 0; }
   const k = Math.min(1, 14 * dt);
