@@ -140,6 +140,7 @@
         <button type="button" data-t="day" title="Midday" aria-label="Midday"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg></button>
         <button type="button" data-t="sunset" title="Sunset" aria-label="Sunset"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6.5 16a5.5 5.5 0 0 1 11 0M3 16h18M5 20h14M12 6v2.5M4.6 9.6l1.8 1.6M19.4 9.6l-1.8 1.6"/></svg></button>
         <button type="button" data-t="night" title="Night" aria-label="Night"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg></button>
+        <button type="button" id="wxbtn" title="Snowfall on or off" aria-label="Snowfall" aria-pressed="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 2.5v19M3.8 7.2l16.4 9.6M3.8 16.8l16.4-9.6M9.5 4.5L12 7l2.5-2.5M9.5 19.5L12 17l2.5 2.5"/></svg></button>
       </div>
     </div>
   </div>
@@ -982,6 +983,7 @@ const TODS = {
     sky: { cH: [.1, .13, .3], cM: [.05, .07, .2], cT: [.015, .025, .09], haze: [.04, .06, .16], g1: [.35, .45, .9], g2: [.7, .8, 1], gStr: .5, stars: 1 }, cloud: { op: 0.12, color: 0x7f8fd8 }, sunSpr: { op: 0.6, color: 0xcfe0ff, scale: 260 },
     pal: { sn: [.55, .65, .95], fogc: [.04, .06, .16], tree: [.12, .14, .22], snowLine: .12, snowUp: .15, lit: [.5, .6, 1], sh: [.14, .17, .35], gain: 1.5 } }
 };
+let snowOn = store.get("kb-snow", true) !== false;
 let todName = store.get("kb-tod", PEAK ? "day" : "sunset"); if (!TODS[todName]) todName = "sunset";
 function initRender() {
   try {
@@ -1968,7 +1970,7 @@ function render(dt, time) {
   sprayPts.geometry.attributes.position.needsUpdate = true;
   // snowfall box around the camera
   const np = snowPts.geometry.attributes.position.array, cx = camera.position.x, cy = camera.position.y, cz = camera.position.z;
-  for (let i = 0; i < SN; i++) {
+  if (snowOn) for (let i = 0; i < SN; i++) {
     let x = np[i * 3], y = np[i * 3 + 1], z = np[i * 3 + 2];
     y -= (2.2 + (i % 5) * 0.4) * dt; x += Math.sin(time * 0.6 + i) * 0.3 * dt;
     np[i * 3] = cx + (((x - cx + 35) % 70) + 70) % 70 - 35; np[i * 3 + 1] = cy - 14 + (((y - cy + 14) % 30) + 30) % 30; np[i * 3 + 2] = cz + (((z - cz + 35) % 70) + 70) % 70 - 35;
@@ -2087,7 +2089,10 @@ $("pausebtn").onclick = () => { $("pausebtn").blur(); setPaused(true); };
 $("resume").onclick = () => setPaused(false);
 $("homebtn").onclick = () => { location.hash = "#home"; location.reload(); };
 $("resortname").textContent = RESORT_NAMES[RES];
-document.querySelectorAll("#tods button").forEach(b => { if (b.dataset.t === todName) b.classList.add("on"); b.onclick = () => { todName = b.dataset.t; store.set("kb-tod", todName); document.querySelectorAll("#tods button").forEach(x => x.classList.toggle("on", x === b)); b.blur(); if (scene && scene.userData.applyTOD) scene.userData.applyTOD(todName); }; });
+document.querySelectorAll("#tods button[data-t]").forEach(b => { if (b.dataset.t === todName) b.classList.add("on"); b.onclick = () => { todName = b.dataset.t; store.set("kb-tod", todName); document.querySelectorAll("#tods button[data-t]").forEach(x => x.classList.toggle("on", x === b)); b.blur(); if (scene && scene.userData.applyTOD) scene.userData.applyTOD(todName); }; });
+function applySnow() { if (snowPts) snowPts.visible = snowOn; $("wxbtn").classList.toggle("on", snowOn); $("wxbtn").setAttribute("aria-pressed", String(snowOn)); }
+$("wxbtn").onclick = () => { snowOn = !snowOn; store.set("kb-snow", snowOn); $("wxbtn").blur(); applySnow(); };
+applySnow();
 document.querySelectorAll("#resorts button").forEach(b => { if (b.dataset.r === RES) b.classList.add("on"); b.onclick = () => { if (b.dataset.r === RES) return; b.blur(); location.hash = "#" + b.dataset.r; location.reload(); }; });
 function begin() { audioInit(); $("intro").hidden = true; $("home").hidden = true; stopHome(); if (mode !== "play") { mode = "play"; restart(); } }
 const MAP = { ArrowLeft: "left", a: "left", A: "left", ArrowRight: "right", d: "right", D: "right", ArrowUp: "up", w: "up", W: "up", ArrowDown: "down", s: "down", S: "down", q: "spinL", Q: "spinL", e: "spinR", E: "spinR", " ": "grab", Shift: "boost", f: "focus", F: "focus", j: "brake", J: "brake", x: "grabN", X: "grabN", c: "grabI", C: "grabI" };
