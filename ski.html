@@ -39,6 +39,7 @@
   #end[hidden] { display: none; }
   #pause { position: absolute; inset: 0; z-index: 4; display: flex; align-items: stretch; justify-content: flex-start; padding: 14px; background: linear-gradient(90deg, rgba(11,26,41,.55), rgba(11,26,41,0) 62%); }
   #pause[hidden] { display: none; }
+  .ytrow { display: flex; gap: 6px; } .ytrow input { flex: 1; min-width: 0; font: 500 14px var(--body); padding: 8px 10px; border-radius: 6px; border: 1px solid rgba(244,248,253,.3); background: rgba(244,248,253,.08); color: var(--text); } .ytrow .ytgo { width: auto; text-align: center; margin: 0; }
   #music { position: absolute; left: 12px; bottom: 54px; z-index: 2; pointer-events: auto; display: flex; flex-direction: column; gap: 3px; }
   #music[hidden] { display: none; }
   #music .mplay { font: 700 13px var(--body); letter-spacing: .06em; color: var(--ink); background: var(--jacket); border-radius: 6px; padding: 8px 12px; text-decoration: none; max-width: 340px; }
@@ -993,14 +994,14 @@ const OUTFIT_OPTS = {
   helmet: { frog: "Frog hat", beanie: "Beanie with ball", redbull: "Red Bull helmet", santa: "Santa hat" },
   jacket: { trench: "Black trench coat", vest: "Grey vest, white long sleeve", santa: "Red Santa coat" },
   skis: { black: "Black wider skis", purple: "Purple skis", current: "Current skis", red: "Red skis", pink: "Pink skis" },
-  song: { off: "No music", hypa: "Hypa · Silva Bumpa", yosemite: "Yosemite · KETTAMA", think: "Think of You · KETTAMA & Prospa", fly: "Fly Away XTC · KETTAMA" },
+  song: { off: "No music", hypa: "Hypa · Silva Bumpa", yosemite: "Yosemite · KETTAMA", think: "Think of You · KETTAMA & Prospa", fly: "Fly Away XTC · KETTAMA", youtube: "My YouTube link" },
   accessory: { scarf: "Scarf", ninja: "Ninja headband", cape: "Cape", phones: "Headphones" },
   pants: { santa: "Red Santa pants", suit: "Black suit pants", shorts: "Grey shorts", blue: "Blue pants", khaki: "Khakis" }
 };
 const JACKETS = { trench: { j: 0x15171b, t: 0x0c0d10, arm: 0x15171b, cuff: 0x0c0d10, sc: [0x7a1f26, 0x2a2a2e] }, vest: { j: 0x80868e, t: 0x5d636b, arm: 0xf2f3f5, cuff: 0xe4e6ea, sc: [0xf2f3f5, 0x80868e] }, santa: { j: 0xc4161c, t: 0xf6f6f2, arm: 0xc4161c, cuff: 0xf6f6f2, sc: [0xf6f6f2, 0xc4161c] } };
 const PANTS = { santa: [0xc4161c, 0xc4161c], suit: [0x17191e, 0x17191e], shorts: [0x7d838b, -1], blue: [0x2f5fa8, 0x2f5fa8], khaki: [0xb59f72, 0xb59f72] };
-let outfit = { helmet: "redbull", jacket: "vest", pants: "blue", accessory: "scarf", skis: "current", song: "off" };
-try { const o = JSON.parse(localStorage.getItem("kickerOutfit") || "null"); if (o) for (const k in outfit) if (OUTFIT_OPTS[k][o[k]]) outfit[k] = o[k]; } catch (e) { }
+let outfit = { helmet: "redbull", jacket: "vest", pants: "blue", accessory: "scarf", skis: "current", song: "off", yt: "" };
+try { const o = JSON.parse(localStorage.getItem("kickerOutfit") || "null"); if (o) { for (const k in outfit) if (OUTFIT_OPTS[k] && OUTFIT_OPTS[k][o[k]]) outfit[k] = o[k]; if (typeof o.yt === "string") outfit.yt = o.yt; } } catch (e) { }
 function applyOutfit(R) {
   if (!R) return; const m = R.mats, J = JACKETS[outfit.jacket], P = PANTS[outfit.pants], h = outfit.helmet;
   m.jacket.color.setHex(J.j); m.jacket2.color.setHex(J.t); m.jacketArm.color.setHex(J.arm); m.cuffM.color.setHex(J.cuff);
@@ -1841,14 +1842,26 @@ function buildPauseUI() {
       b.onclick = () => { outfit[cat] = key; if (cat === "song") setSong(); try { localStorage.setItem("kickerOutfit", JSON.stringify(outfit)); } catch (e) { } applyOutfit(skierRig); buildPauseUI(); };
       box.appendChild(b);
     }
+    if (cat === "song") {
+      const row = document.createElement("div"); row.className = "ytrow";
+      const inp = document.createElement("input"); inp.id = "ytlink"; inp.type = "url"; inp.placeholder = "Paste a YouTube link"; inp.value = outfit.yt || ""; inp.setAttribute("aria-label", "YouTube link");
+      const go = document.createElement("button"); go.type = "button"; go.textContent = "Play"; go.className = "opt ytgo";
+      go.onclick = () => { outfit.yt = inp.value.trim(); outfit.song = ytId(outfit.yt) ? "youtube" : outfit.song; try { localStorage.setItem("kickerOutfit", JSON.stringify(outfit)); } catch (e) { } setSong(); buildPauseUI(); };
+      row.append(inp, go); box.appendChild(row);
+    }
   }
 }
 const SONG_IDS = { hypa: "7hQUvQN4IcDVhuBeaX7wwW", yosemite: "6Z3cE0ZK0tmj7131PFIOeZ", think: "0sPP9TW0xSgke7EKBW6Gui", fly: "7sszLv98z5mpdxXHEQ6Q9o" };
+const ytId = u => { const m = String(u || "").match(/(?:youtu\.be\/|[?&]v=|embed\/|shorts\/|live\/)([A-Za-z0-9_-]{11})/); return m ? m[1] : (/^[A-Za-z0-9_-]{11}$/.test(String(u || "").trim()) ? String(u).trim() : ""); };
 function setSong() {
-  const box = $("music"), id = SONG_IDS[outfit.song]; box.textContent = "";
-  if (!id) { box.hidden = true; return; }
-  const a = document.createElement("a"); a.href = "https://open.spotify.com/track/" + id; a.target = "_blank"; a.rel = "noopener"; a.className = "mplay"; a.textContent = "\u266A Play on Spotify: " + OUTFIT_OPTS.song[outfit.song];
-  box.append(a); box.hidden = false;
+  const box = $("music"), id = SONG_IDS[outfit.song], yid = outfit.song === "youtube" ? ytId(outfit.yt) : ""; box.textContent = "";
+  if (!id && !yid) { box.hidden = true; return; }
+  const f = document.createElement("iframe");
+  if (yid) { f.src = "https://www.youtube-nocookie.com/embed/" + yid + "?autoplay=1&loop=1&playlist=" + yid + "&playsinline=1"; f.width = "320"; f.height = "180"; }
+  else { f.src = "https://open.spotify.com/embed/track/" + id + "?theme=0"; f.width = "320"; f.height = "80"; }
+  f.allow = "autoplay; encrypted-media; clipboard-write; picture-in-picture"; f.title = "Music player"; f.style.border = "0"; f.style.borderRadius = "10px";
+  const a = document.createElement("a"); a.href = yid ? "https://www.youtube.com/watch?v=" + yid : "https://open.spotify.com/track/" + id; a.target = "_blank"; a.rel = "noopener"; a.className = "mlink"; a.textContent = "Player blank? Open in a new tab";
+  box.append(f, a); box.hidden = false;
 }
 setSong();
 buildPauseUI();
