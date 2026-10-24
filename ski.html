@@ -1002,6 +1002,7 @@ function applyOutfit(R) {
   m.pants.color.setHex(P[0]); m.pantsLow.color.setHex(P[1] < 0 ? m.skin.color.getHex() : P[1]);
   R.helmetG.visible = h === "redbull"; m.helmet.color.setHex(0x0d2a5e); m.stripeM.color.setHex(0xd9232d);
   for (const k in R.hats) R.hats[k].visible = k === h;
+  R.cuffs.forEach(c => c.visible = outfit.pants !== "shorts");
 }
 function buildSkier() {
   const root = new THREE.Group(), pivot = new THREE.Group(), rig = new THREE.Group();
@@ -1028,17 +1029,20 @@ function buildSkier() {
     const tl = addS(new THREE.BoxGeometry(0.095, 0.02, 0.2), skiM, x, 0.05, 0.8); tl.rotation.x = -0.28;
     addS(new THREE.BoxGeometry(0.1, 0.05, 0.1), black, x, 0.07, -0.08); addS(new THREE.BoxGeometry(0.1, 0.06, 0.11), black, x, 0.075, 0.2);
     addS(new THREE.BoxGeometry(0.118, 0.12, 0.32), boot, x, 0.135, 0.06);
-    addS(new THREE.CylinderGeometry(0.062, 0.075, 0.2, 14), boot, x, 0.27, 0.075);
+    addS(new THREE.CylinderGeometry(0.083, 0.079, 0.3, 16), boot, x, 0.31, 0.05);
+    addS(new THREE.TorusGeometry(0.083, 0.022, 8, 16), M(0x2a2f3a, { roughness: 0.6 }), x, 0.46, 0.05).rotation.x = Math.PI / 2;
+    addS(new THREE.BoxGeometry(0.1, 0.03, 0.05), orange, x, 0.33, -0.03);
     [0.08, 0.17].forEach((zo, i) => addS(new THREE.BoxGeometry(0.02, 0.025, 0.05), orange, x + Math.sign(x) * 0.06, 0.22 + i * 0.07, 0.0 + zo * 0.2));
   });
-  const a = 0.43, b = 0.44, legs = [];
+  const a = 0.43, b = 0.44, legs = [], cuffs = [];
   [-0.115, 0.115].forEach(x => {
     const hip = new THREE.Group(); rig.add(hip);
-    hip.add(limb(0.118, 0.098, a, pants));
+    hip.add(limb(0.126, 0.097, a, pants));
     const knee = new THREE.Group(); knee.position.y = -a; hip.add(knee);
     knee.add(new THREE.Mesh(new THREE.SphereGeometry(0.1, 12, 10), pantsLow));
-    knee.add(limb(0.098, 0.088, b, pantsLow));
-    const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.095, 0.1, 0.1, 14), pantsLow); cuff.position.y = -b + 0.02; knee.add(cuff);
+    knee.add(limb(0.097, 0.066, b + 0.07, pantsLow));
+    const calf = new THREE.Mesh(new THREE.SphereGeometry(0.082, 12, 10), pantsLow); calf.scale.set(1, 1.7, 1.1); calf.position.set(0, -0.13, 0.025); knee.add(calf);
+    const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.094, 0.103, 0.12, 16), pants); cuff.position.y = -b + 0.2; knee.add(cuff); cuffs.push(cuff);
     legs.push({ hip, knee, x });
   });
   const hipG = new THREE.Group(); rig.add(hipG);
@@ -1119,7 +1123,7 @@ function buildSkier() {
     const basket = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.04, 0.012, 12), M(0x14181f)); basket.position.y = -1.05; pole.add(basket);
     arms.push({ sh, el, pole, pole_v: new THREE.Vector3(sd * 0.7, -0.3, 0.8).normalize(), sd });
   });
-  return { skiG, tailM, mats: { jacket, jacket2, jacketArm, cuffM, pants, pantsLow, helmet, stripeM, skin, scarfMat }, helmetG, hats, ex, root, pivot, rig, legs, hipG, torso, head, arms, scarf, pose: { c: 0.3, lean: 0.2, carve: 0, L: new THREE.Vector3(-0.36, 0.92, -0.3), Rh: new THREE.Vector3(0.36, 0.92, -0.3), headY: 0 }, a, b };
+  return { cuffs, skiG, tailM, mats: { jacket, jacket2, jacketArm, cuffM, pants, pantsLow, helmet, stripeM, skin, scarfMat }, helmetG, hats, ex, root, pivot, rig, legs, hipG, torso, head, arms, scarf, pose: { c: 0.3, lean: 0.2, carve: 0, L: new THREE.Vector3(-0.36, 0.92, -0.3), Rh: new THREE.Vector3(0.36, 0.92, -0.3), headY: 0 }, a, b };
 }
 
 const _tv = typeof THREE !== "undefined" ? new THREE.Vector3() : null;
@@ -1164,6 +1168,10 @@ function poseSkier(dt, time) {
     Rt = [0.36 + 0.1 * carve * (tn > 0 ? 1 : 0), 0.92 - 0.12 * carve * (tn > 0 ? 1 : 0), -0.3 - 0.14 * carve * (tn < 0 ? 1 : 0)];
     if (sk.sp < 3.5) { c = 0.25 + 0.03 * Math.sin(time * 2); }
   }
+  // the legs soak up the terrain: crouch when the slope flattens, extend when it steepens
+  { const vg = air ? 0 : sk.sp * Math.sin(sA_(sk.x, sk.s, sk.psi)), acc = (vg - (p.vgPrev || 0)) / Math.max(dt, 1e-3); p.vgPrev = vg;
+    p.abs = (p.abs || 0) + (clamp(air ? 0 : acc * 0.012, -0.25, 0.4) - (p.abs || 0)) * Math.min(1, 7 * dt); c += p.abs; }
+  if (!air && !sliding && !sk.crashed) { L[1] += 0.03 * Math.sin(time * 2.6); Rt[1] += 0.03 * Math.sin(time * 2.6 + 1.7); }
   // landing squash and take-off extension
   if (sk.landT > 0) c += 0.5 * Math.sin(Math.PI * sk.landT / 0.35);
   if (sk.popT > 0) c -= 0.28 * (sk.popT / 0.2);
@@ -1181,7 +1189,7 @@ function poseSkier(dt, time) {
   R.legs.forEach(l => { l.hip.position.set(l.x - inside, hipY, 0.04); l.hip.rotation.x = t1; l.hip.rotation.z = -tn * p.carve * 0.12; l.knee.rotation.x = t2 - t1; });
   R.skiG.forEach((sg, i) => { sg.position.set(sg.position.x, 0.2 + (ankY - foot), 0.06 + ankZ); sg.rotation.x = -1.15 * tg; sg.rotation.y = (i ? -1 : 1) * 0.5 * tg; });
   R.hipG.position.set(-inside, hipY + 0.02, 0.04 + 0.04 * p.c); R.hipG.updateMatrix();
-  R.torso.rotation.x = -p.lean; R.torso.rotation.z = tn * p.carve * 0.16 + (air ? 0 : 0); R.torso.scale.y = 1 + 0.006 * Math.sin(time * 3.2);
+  R.torso.rotation.y = air ? 0 : -tn * p.carve * 0.28 - sk.turn * 0.06; R.torso.rotation.x = -p.lean; R.torso.rotation.z = tn * p.carve * 0.16 + (air ? 0 : 0); R.torso.scale.y = 1 + 0.006 * Math.sin(time * 3.2);
   R.torso.updateMatrix();
   // arms: targets are in rig space, convert to torso space
   _a.m.copy(R.hipG.matrix).multiply(R.torso.matrix).invert();
