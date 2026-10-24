@@ -284,7 +284,7 @@ function addInterlude(kind) {
   } else if (kind === "chute") {
     len = 150; f.label = "Steep chute · whoops and a kick"; addKnot(genS + 15, 0.5); addKnot(genS + len - 15, 0.52); addKnot(genS + len, 0.4);
     pcs.push({ a: genS, b: genS + len, x: x0, jump: true });
-    f.parts.push({ type: "rollers", s0: genS + 22, n: 5, sp: 8, amp: 0.55, cx: x0, hw: 80, end: genS + 62 }); const k = mkKicker(genS + 80, 0, x0, 3.4, 0.3, 0.7); f.parts.push(k); len = Math.max(len, k.end - genS + 8);
+    f.parts.push({ type: "rollers", s0: genS + 22, n: 5, sp: 8, amp: 0.55, cx: x0, hw: 80, end: genS + 62 }); const k = mkKicker(genS + 80, 1, x0, 4.0, 0.3, 1); f.parts.push(k); len = Math.max(len, k.end - genS + 8);
   } else {
     len = 150; f.label = "Flat cruiser · pop the rollers"; addKnot(genS + 20, 0.1); addKnot(genS + len - 20, 0.1); addKnot(genS + len, BASE * 0.8);
     pcs.push({ a: genS, b: genS + len, x: x0, jump: true });
@@ -296,10 +296,8 @@ function addInterlude(kind) {
 let pendingFiller = false, microCount = 0;
 function addMicro() {
   const i = microCount++, diff = Math.min(1, secCount / 16), f = { s0: genS, parts: [], label: "", boost: null, rail: null, coins: [], mainCx: 0, idx: -1, micro: true }, t = PEAK ? [0, 1, 1, 3][i % 4] : i % 4;
-  if (t === 0) { const n = 3 + Math.floor(rng() * 2), sp = 7.5 + rng(); f.parts.push({ type: "rollers", s0: genS, n, sp, amp: 0.5 + rng() * 0.15, cx: 0, hw: 80, end: genS + n * sp }); f.label = "Whoops"; }
-  else if (t === 1) { f.parts.push(mkKicker(genS, 0, 0, 3.4, diff, 0.8)); f.label = "Little kicker"; }
-  else if (t === 2) { f.parts.push({ type: "box", s0: genS, len: 12, end: genS + 12, B: 0.7, cx: -2.5, hw: 1.8 }, { type: "box", s0: genS + 22, len: 12, end: genS + 34, B: 0.7, cx: 2.5, hw: 1.8 }); f.label = "Jib line"; }
-  else { const k = mkKicker(genS, 0, 0, 3.2, diff, 0.8); f.parts.push(k); const rs0 = k.s0 + k.L + k.gap + k.Ll * 0.1; f.rail = { s0: rs0, s1: rs0 + k.Ll * 0.72, x: (rng() - 0.5) * 1.2 }; f.label = "Kicker + rail"; }
+  { const k = mkKicker(genS, i % 3 === 2 ? 2 : 1, 0, 4.2, diff, 1); f.parts.push(k); f.label = k.label;
+    if (i % 2 === 1) { const rs0 = k.s0 + k.L + k.gap + k.Ll * 0.1; f.rail = { s0: rs0, s1: rs0 + k.Ll * 0.72, x: (rng() - 0.5) * 1.2 }; f.label += " + rail"; } }
   if (PEAK) f.rail = null;
   if (!PEAK && t !== 2 && rng() < 0.75) sideHouse(f, rng() < 0.5 ? -1 : 1, genS + 4 + rng() * 6, 0);
   f.end = Math.max(...f.parts.map(p => p.end), f.rail ? f.rail.s1 : 0);
@@ -368,7 +366,7 @@ function addSection() {
     const n = 4 + Math.floor(rng() * 3), sp = 7 + rng() * 2;
     f.parts.push({ type: "rollers", s0: genS, n, sp, amp: 0.5 + rng() * 0.35 + diff * 0.15, cx: 0, hw: 80, end: genS + n * sp }); f.label = "Rollers";
   } else {
-    const kp = (pick - 0.2) / 0.8, pS = 0.36 - 0.22 * diff, kind = PEAK ? (kp < 0.6 ? 0 : 1) : kp < pS ? 0 : kp < pS + 0.4 ? 1 : 2;
+    const kp = (pick - 0.2) / 0.8, pS = 0.36 - 0.22 * diff, kind = PEAK ? 1 : kp < 0.65 ? 1 : 2;
     const cx = (rng() - 0.5) * 3, hw = 3.8 + rng() * 1.8;
     const k = mkKicker(genS, kind, cx, hw, diff); f.parts.push(k); f.label = k.label; f.mainCx = cx;
     if (kind > 0 && rng() < 0.28) { const rs0 = k.s0 + k.L + k.gap + k.Ll * 0.1; f.rail = { s0: rs0, s1: rs0 + k.Ll * 0.72, x: cx + (rng() - 0.5) * 1.2 }; f.label += " + rail"; }
@@ -378,7 +376,7 @@ function addSection() {
     for (let q = 0; q < nSide; q++) {
       const sd = sides[q], scx = sd * (10.8 + rng() * 0.8) * (PEAK ? 1.6 : 1);
       if (!PEAK && !houseDone && rng() < 0.85) { houseDone = true; sideHouse(f, sd, genS + rng() * 8, 0); }
-      else if (PEAK || rng() < 0.6) { const sp2 = mkKicker(genS + rng() * 14, 0, scx, 2.5 + rng() * 0.5, diff); sp2.side = true; sp2.rocky = rng() < 0.55; f.parts.push(sp2); f.label += sp2.rocky ? " + rock kicker" : " + side kicker"; }
+      else if (PEAK || rng() < 0.6) { const sp2 = mkKicker(genS + rng() * 14, 1, scx, 3.0 + rng() * 0.5, diff); sp2.side = true; sp2.rocky = rng() < 0.55; f.parts.push(sp2); f.label += sp2.rocky ? " + rock kicker" : " + side kicker"; }
       else { const s0b = genS + rng() * 12, len = 9 + rng() * 5; f.parts.push({ type: "box", s0: s0b, len, end: s0b + len, B: 0.7, cx: scx, hw: 2.1 }); f.label += " + jib box"; }
     }
   }
@@ -514,13 +512,13 @@ function mkTrailSection(t, g, x) {
   const diff = Math.min(1, 0.25 + trails.length / 8), pick = rng();
   const f = { s0: g, parts: [], label: "", boost: null, rail: null, coins: [], mainCx: x, woods: true };
   const boost = () => {};
-  if (pick < 0.2) { f.parts.push(mkKicker(g, 0, x, 3.0, diff, 0.55)); f.label = "Log kicker"; }
-  else if (pick < 0.4) { f.parts.push(mkKicker(g, 1, x, 3.2, diff, 0.55)); f.label = "Forest kicker"; if (rng() < 0.6) boost(); }
-  else if (pick < 0.52) { f.parts.push(mkKicker(g, 2, x, 3.5, diff, 0.55)); f.label = "Treeline big air"; boost(); }
+  if (pick < 0.2) { f.parts.push(mkKicker(g, 0, x, 3.0, diff, 0.85)); f.label = "Log kicker"; }
+  else if (pick < 0.4) { f.parts.push(mkKicker(g, 1, x, 3.2, diff, 0.85)); f.label = "Forest kicker"; if (rng() < 0.6) boost(); }
+  else if (pick < 0.52) { f.parts.push(mkKicker(g, 2, x, 3.5, diff, 0.85)); f.label = "Treeline big air"; boost(); }
   else if (pick < 0.64) { const n = 5 + Math.floor(rng() * 4), sp = 6.5 + rng() * 1.5; f.parts.push({ type: "rollers", s0: g, n, sp, amp: 0.75 + rng() * 0.3, cx: x, hw: 4.2, end: g + n * sp }); f.label = "Whoops"; }
   else if (pick < 0.78) { f.parts.push({ type: "box", s0: g + 4, len: 12, end: g + 16, B: 0.75, cx: x, hw: 1.7 }); f.label = "Log slide"; }
-  else if (pick < 0.9) { const k = mkKicker(g, 1, x, 3.2, diff, 0.55); f.parts.push(k); const rs0 = k.s0 + k.L + k.gap + k.Ll * 0.1; f.rail = { s0: rs0, s1: rs0 + k.Ll * 0.72, x: x + (rng() - 0.5) * 0.8 }; f.label = "Pine rail jump"; boost(); }
-  else { f.parts.push(mkKicker(g, 2, x, 3.6, diff, 0.55)); f.label = "Treeline big air"; boost(); }
+  else if (pick < 0.9) { const k = mkKicker(g, 1, x, 3.2, diff, 0.85); f.parts.push(k); const rs0 = k.s0 + k.L + k.gap + k.Ll * 0.1; f.rail = { s0: rs0, s1: rs0 + k.Ll * 0.72, x: x + (rng() - 0.5) * 0.8 }; f.label = "Pine rail jump"; boost(); }
+  else { f.parts.push(mkKicker(g, 2, x, 3.6, diff, 0.85)); f.label = "Treeline big air"; boost(); }
   f.end = Math.max(...f.parts.map(p => p.end), f.rail ? f.rail.s1 : 0);
   flankRocks(f);
   return f;
@@ -988,11 +986,12 @@ function canvasTex(w, h, draw) { const c = document.createElement("canvas"); c.w
 const OUTFIT_OPTS = {
   helmet: { frog: "Frog hat", beanie: "Beanie with ball", redbull: "Red Bull helmet", santa: "Santa hat" },
   jacket: { trench: "Black trench coat", vest: "Grey vest, white long sleeve", santa: "Red Santa coat" },
+  accessory: { scarf: "Scarf", ninja: "Ninja headband", cape: "Cape", phones: "Headphones" },
   pants: { santa: "Red Santa pants", suit: "Black suit pants", shorts: "Grey shorts", blue: "Blue pants", khaki: "Khakis" }
 };
 const JACKETS = { trench: { j: 0x15171b, t: 0x0c0d10, arm: 0x15171b, cuff: 0x0c0d10, sc: [0x7a1f26, 0x2a2a2e] }, vest: { j: 0x80868e, t: 0x5d636b, arm: 0xf2f3f5, cuff: 0xe4e6ea, sc: [0xf2f3f5, 0x80868e] }, santa: { j: 0xc4161c, t: 0xf6f6f2, arm: 0xc4161c, cuff: 0xf6f6f2, sc: [0xf6f6f2, 0xc4161c] } };
 const PANTS = { santa: [0xc4161c, 0xc4161c], suit: [0x17191e, 0x17191e], shorts: [0x7d838b, -1], blue: [0x2f5fa8, 0x2f5fa8], khaki: [0xb59f72, 0xb59f72] };
-let outfit = { helmet: "redbull", jacket: "vest", pants: "blue" };
+let outfit = { helmet: "redbull", jacket: "vest", pants: "blue", accessory: "scarf" };
 try { const o = JSON.parse(localStorage.getItem("kickerOutfit") || "null"); if (o) for (const k in outfit) if (OUTFIT_OPTS[k][o[k]]) outfit[k] = o[k]; } catch (e) { }
 function applyOutfit(R) {
   if (!R) return; const m = R.mats, J = JACKETS[outfit.jacket], P = PANTS[outfit.pants], h = outfit.helmet;
@@ -1003,6 +1002,7 @@ function applyOutfit(R) {
   R.helmetG.visible = h === "redbull"; m.helmet.color.setHex(0x0d2a5e); m.stripeM.color.setHex(0xd9232d);
   for (const k in R.hats) R.hats[k].visible = k === h;
   R.cuffs.forEach(c => c.visible = outfit.pants !== "shorts");
+  for (const k in R.acc) R.acc[k].visible = k === outfit.accessory;
 }
 function buildSkier() {
   const root = new THREE.Group(), pivot = new THREE.Group(), rig = new THREE.Group();
@@ -1104,8 +1104,22 @@ function buildSkier() {
   const rbTex = canvasTex(128, 128, (x, w, h) => { x.clearRect(0, 0, w, h); x.fillStyle = "#ffd21f"; x.beginPath(); x.arc(64, 64, 44, 0, TAU); x.fill(); x.fillStyle = "#d9232d"; [-1, 1].forEach(sd => { x.beginPath(); x.ellipse(64 + sd * 24, 72, 18, 12, 0, 0, TAU); x.fill(); x.beginPath(); x.moveTo(64 + sd * 34, 62); x.lineTo(64 + sd * 46, 38); x.lineTo(64 + sd * 26, 56); x.fill(); }); });
   [-1, 1].forEach(sd => { const d = add(new THREE.PlaneGeometry(0.1, 0.1), new THREE.MeshStandardMaterial({ map: rbTex, transparent: true, roughness: 0.6 }), sd * 0.1415, 0.045, 0.0, helmetG); d.rotation.y = sd * Math.PI / 2; });
   // scarf trailing off the gaiter
-  const scarf = [], scarfMat = [M(0xf08a3a), M(0x2f8f8c)]; let sp = new THREE.Group(); sp.position.set(0.08, 0.66, 0.12); torso.add(sp);
+  const scarf = [], scarfMat = [M(0xf08a3a), M(0x2f8f8c)]; const scarfG = new THREE.Group(); torso.add(scarfG); let sp = new THREE.Group(); sp.position.set(0.08, 0.66, 0.12); scarfG.add(sp);
   for (let i = 0; i < 6; i++) { const seg = new THREE.Group(); seg.position.z = i ? 0.17 : 0; sp.add(seg); const m = add(new THREE.BoxGeometry(0.11 - i * 0.008, 0.018, 0.18), scarfMat[i % 2], 0, 0, 0.09, seg); scarf.push(seg); sp = seg; }
+  // other accessories
+  const ninjaG = new THREE.Group(); head.add(ninjaG); const ninjaM = M(0x14161a, { roughness: 0.8 }), ninjaR = M(0xc4161c, { roughness: 0.8 }), ninjaTails = [];
+  add(new THREE.TorusGeometry(0.152, 0.02, 8, 30), ninjaM, 0, 0.075, 0.012, ninjaG).rotation.x = Math.PI / 2;
+  add(new THREE.BoxGeometry(0.1, 0.045, 0.012), ninjaR, 0, 0.075, -0.164, ninjaG); add(new THREE.SphereGeometry(0.03, 10, 8), ninjaM, 0, 0.075, 0.17, ninjaG);
+  [-1, 1].forEach(sd => { let tp = new THREE.Group(); tp.position.set(sd * 0.02, 0.075, 0.18); ninjaG.add(tp); const chain = []; for (let i = 0; i < 5; i++) { const seg = new THREE.Group(); seg.position.z = i ? 0.13 : 0; tp.add(seg); add(new THREE.BoxGeometry(0.05 - i * 0.004, 0.012, 0.14), ninjaM, 0, 0, 0.07, seg); chain.push(seg); tp = seg; } ninjaTails.push({ chain, sd }); });
+  const capeG = new THREE.Group(); capeG.position.set(0, 0.58, 0.16); torso.add(capeG);
+  const capeGeo = new THREE.PlaneGeometry(0.5, 0.95, 4, 8); capeGeo.translate(0, -0.475, 0);
+  const cape = new THREE.Mesh(capeGeo, new THREE.MeshStandardMaterial({ color: 0xa81420, roughness: 0.7, side: THREE.DoubleSide })); cape.castShadow = true; capeG.add(cape);
+  add(new THREE.SphereGeometry(0.035, 8, 6), goldM, -0.2, 0.0, -0.1, capeG); add(new THREE.SphereGeometry(0.035, 8, 6), goldM, 0.2, 0.0, -0.1, capeG);
+  const capeBase = Float32Array.from(capeGeo.attributes.position.array);
+  const phonesG = new THREE.Group(); head.add(phonesG); const phM = M(0x15181d, { roughness: 0.45, metalness: 0.2 });
+  add(new THREE.TorusGeometry(0.162, 0.014, 8, 26, Math.PI), phM, 0, 0.0, 0.012, phonesG);
+  [-1, 1].forEach(sd => { const cup = add(new THREE.CylinderGeometry(0.058, 0.058, 0.05, 16), phM, sd * 0.158, -0.01, 0.012, phonesG); cup.rotation.z = Math.PI / 2; const pad = add(new THREE.CylinderGeometry(0.048, 0.048, 0.056, 16), M(0xc4161c, { roughness: 0.6 }), sd * 0.158, -0.01, 0.012, phonesG); pad.rotation.z = Math.PI / 2; });
+  const acc = { scarf: scarfG, ninja: ninjaG, cape: capeG, phones: phonesG };
   // arms with elbows, gloves, poles
   const arms = [];
   [-1, 1].forEach(sd => {
@@ -1123,7 +1137,7 @@ function buildSkier() {
     const basket = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.04, 0.012, 12), M(0x14181f)); basket.position.y = -1.05; pole.add(basket);
     arms.push({ sh, el, pole, pole_v: new THREE.Vector3(sd * 0.7, -0.3, 0.8).normalize(), sd });
   });
-  return { cuffs, skiG, tailM, mats: { jacket, jacket2, jacketArm, cuffM, pants, pantsLow, helmet, stripeM, skin, scarfMat }, helmetG, hats, ex, root, pivot, rig, legs, hipG, torso, head, arms, scarf, pose: { c: 0.3, lean: 0.2, carve: 0, L: new THREE.Vector3(-0.36, 0.92, -0.3), Rh: new THREE.Vector3(0.36, 0.92, -0.3), headY: 0 }, a, b };
+  return { acc, ninjaTails, capeGeo, capeBase, cuffs, skiG, tailM, mats: { jacket, jacket2, jacketArm, cuffM, pants, pantsLow, helmet, stripeM, skin, scarfMat }, helmetG, hats, ex, root, pivot, rig, legs, hipG, torso, head, arms, scarf, pose: { c: 0.3, lean: 0.2, carve: 0, L: new THREE.Vector3(-0.36, 0.92, -0.3), Rh: new THREE.Vector3(0.36, 0.92, -0.3), headY: 0 }, a, b };
 }
 
 const _tv = typeof THREE !== "undefined" ? new THREE.Vector3() : null;
@@ -1199,6 +1213,8 @@ function poseSkier(dt, time) {
   R.head.rotation.y = p.headY; R.head.rotation.x = p.lean * 0.55;
   // scarf streams behind with speed
   const spd = clamp((air ? Math.hypot(sk.vx, sk.vs) : sk.sp) / 26, 0, 1);
+  if (outfit.accessory === "ninja") R.ninjaTails.forEach((t, k) => t.chain.forEach((seg, i) => { seg.rotation.x = lerp(0.35, -0.1, spd) - 0.12 * i * (1 - spd) + 0.16 * Math.sin(time * 10 + i * 0.9 + k * 1.7) * (0.3 + spd); seg.rotation.y = t.sd * (0.18 + 0.1 * i * spd) - sk.turn * 0.2 + 0.18 * Math.sin(time * 8 + i * 1.3 + k) * spd; }));
+  if (outfit.accessory === "cape") { const pa = R.capeGeo.attributes.position, b0 = R.capeBase, drag = 0.1 + spd * 0.75; for (let v = 0; v < pa.count; v++) { const x0 = b0[v * 3], y0 = b0[v * 3 + 1], t = clamp(-y0 / 0.95, 0, 1); pa.setXYZ(v, x0 * (1 + 0.15 * t), y0 * (1 - 0.25 * spd * t), t * drag + 0.05 * Math.sin(time * 9 + t * 6 + x0 * 7) * t * (0.4 + spd) + (air ? 0.2 * t : 0)); } pa.needsUpdate = true; R.capeGeo.computeVertexNormals(); }
   R.scarf.forEach((seg, i) => { seg.rotation.x = lerp(0.55, -0.12, spd) + 0.14 * Math.sin(time * 9 + i * 0.9) * (0.4 + spd); seg.rotation.y = -sk.turn * 0.22 + 0.12 * Math.sin(time * 7 + i * 1.3) * spd; });
 }
 
@@ -1806,8 +1822,8 @@ function setPaused(v) {
 }
 function buildPauseUI() {
   const box = $("opts"); box.textContent = "";
-  for (const cat of ["helmet", "jacket", "pants"]) {
-    const h = document.createElement("h3"); h.textContent = cat === "helmet" ? "Helmet" : cat === "jacket" ? "Jacket" : "Pants"; box.appendChild(h);
+  for (const cat of ["helmet", "jacket", "pants", "accessory"]) {
+    const h = document.createElement("h3"); h.textContent = cat === "helmet" ? "Helmet" : cat === "jacket" ? "Jacket" : cat === "pants" ? "Pants" : "Accessory"; box.appendChild(h);
     for (const key in OUTFIT_OPTS[cat]) {
       const b = document.createElement("button"); b.type = "button"; b.className = "opt" + (outfit[cat] === key ? " on" : ""); b.textContent = OUTFIT_OPTS[cat][key];
       b.onclick = () => { outfit[cat] = key; try { localStorage.setItem("kickerOutfit", JSON.stringify(outfit)); } catch (e) { } applyOutfit(skierRig); buildPauseUI(); };
