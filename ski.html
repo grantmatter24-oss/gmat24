@@ -30,6 +30,8 @@
   @keyframes bump { 0% { transform: scale(1.5); } 100% { transform: scale(1); } }
   .side { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; font-size: 15px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); text-shadow: 0 1px 0 rgba(11,26,41,.5); }
   .side b { color: var(--text); font-variant-numeric: tabular-nums; }
+  #globe { pointer-events: auto; margin-top: 6px; color: var(--text); background: rgba(11,26,41,.5); border: 1px solid rgba(244,248,253,.3); border-radius: 6px; padding: 5px 9px; cursor: pointer; line-height: 0; }
+  #globe:focus-visible { outline: 3px solid var(--text); outline-offset: 2px; }
   #snd, #pausebtn { pointer-events: auto; margin-top: 6px; font: 600 13px var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--text); background: rgba(11,26,41,.5); border: 1px solid rgba(244,248,253,.3); border-radius: 6px; padding: 6px 10px; cursor: pointer; }
   #prog { position: absolute; left: 50%; transform: translateX(-50%); top: 54px; width: min(280px, 40vw); height: 5px; border-radius: 3px; background: rgba(11,26,41,.45); overflow: hidden; pointer-events: none; }
   #progbar { display: block; height: 100%; width: 0; background: var(--peach); }
@@ -90,10 +92,12 @@
     <div class="side">
       <div>Speed <b id="spd">0</b> km/h</div>
       <div>Time <b id="clock">0:00</b></div>
-      <div>Distance <b id="dist">0</b> / 6000 m</div>
+      <div>Distance <b id="dist">0</b> / <span id="dtot">6000</span> m</div>
       <div>Best <b id="best">0</b></div>
+      <div>Resort <b id="resortname"></b></div>
       <button id="snd" type="button">Sound on</button>
       <button id="pausebtn" type="button">Pause</button>
+      <button id="globe" type="button" aria-label="Change ski resort" title="Change ski resort"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><ellipse cx="12" cy="12" rx="4" ry="9.5"/><path d="M2.5 12h19M4 7h16M4 17h16"/></svg></button>
     </div>
   </div>
   <div id="next" hidden></div>
@@ -156,15 +160,16 @@ const hash = n => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s
 /* =====================================================================
    COURSE: coordinates are (x across, y up, s down the mountain). Render z = -s.
    ===================================================================== */
-const G = 18, BASE = 0.28, RAIL_H = 0.55, PISTE = 15, MAXV = 400;
-const COURSE_END = 6000;
+const RES = location.hash === "#peak" ? "peak" : "alpine", PEAK = RES === "peak", KS = PEAK ? 1.45 : 1;
+const G = 18, BASE = PEAK ? 0.4 : 0.28, RAIL_H = 0.55, PISTE = 15, MAXV = 400;
+const COURSE_END = location.hash === "#peak" ? 7500 : 6000;
 const rng = mulberry(2024);
 const feats = [];
 let genS = 140, generating = false, finalized = false;
 
 /* steepness profile: piecewise-linear slope between knots, integrated into a height */
 const knots = [{ s: -200, v: BASE, cum: -200 * BASE }];
-function addKnot(s, v) { const k = knots[knots.length - 1]; if (s <= k.s) return; const L = s - k.s; knots.push({ s, v, cum: k.cum + k.v * L + 0.5 * (v - k.v) * L }); }
+function addKnot(s, v) { if (v !== BASE) v *= KS; const k = knots[knots.length - 1]; if (s <= k.s) return; const L = s - k.s; knots.push({ s, v, cum: k.cum + k.v * L + 0.5 * (v - k.v) * L }); }
 function baseY(s) {
   let lo = 0, hi = knots.length - 1, r = 0;
   while (lo <= hi) { const m = (lo + hi) >> 1; if (knots[m].s <= s) { r = m; lo = m + 1; } else hi = m - 1; }
@@ -342,27 +347,27 @@ function addSection() {
   if (pendingFiller) { pendingFiller = false; return addMicro(); }
   const i = secCount++, diff = Math.min(1, i / 16), pick = rng();
   const f = { s0: genS, parts: [], label: "", boost: null, rail: null, coins: [], mainCx: 0, idx: i };
-  if (i % 6 === 1) {
+  if (PEAK ? i % 4 === 1 : i % 6 === 1) {
     const sd = rng() < 0.5 ? -1 : 1, a = mkHip(genS, sd, diff), b = mkHip(genS + 40, -sd, diff);
     f.parts.push(a, b); f.label = "Hip jumps · pick a side"; f.boost = { s0: genS - 22, s1: genS - 16, cx: 0, hw: 1.4 };
-  } else if (i % 6 === 5 && Math.floor(i / 6) % 2 === 0 && !openTrail) {
-    const D = 9 + rng() * 7, cs = genS + 10, w = D * 0.3 + 1.2, last = cliffs[cliffs.length - 1];
+  } else if (PEAK ? i % 4 === 2 : (i % 6 === 5 && Math.floor(i / 6) % 2 === 0 && !openTrail)) {
+    const D = PEAK ? 11 + rng() * 9 : 9 + rng() * 7, cs = genS + 10, w = D * 0.3 + 1.2, last = cliffs[cliffs.length - 1];
     cliffs.push({ s: cs, D, w, pre: last ? last.pre + last.D : 0 });
     f.cliff = { s: cs, D, w }; f.label = "GIANT CLIFF · " + Math.round(D) + " m drop"; f.boost = { s0: genS - 24, s1: genS - 18, cx: 0, hw: 1.5, amt: 9 }; f.cliffEnd = cs + w + 44;
-  } else if (i % 6 === 5) {
+  } else if (!PEAK && i % 6 === 5) {
     f.parts.push(mkKicker(genS, 4, 0, 8.5, diff)); f.label = "MEGA AIR · commit to it";
     f.boost = { s0: genS - 30, s1: genS - 23, cx: 0, hw: 1.7, amt: 18 };
     f.mainCx = 0;
-  } else if (i % 6 === 2) {
+  } else if (!PEAK && i % 6 === 2) {
     houseSection(f, diff);
-  } else if (i % 6 === 3 || pick < 0.06) {
+  } else if (PEAK ? pick < 0.05 : (i % 6 === 3 || pick < 0.06)) {
     f.parts.push(mkKicker(genS, 3, 0, PISTE - 1.5, diff)); f.label = "Gap jump · hold Shift for speed";
     f.boost = { s0: genS - 26, s1: genS - 20, cx: 0, hw: 1.6, amt: 12 };
   } else if (pick < 0.2) {
     const n = 4 + Math.floor(rng() * 3), sp = 7 + rng() * 2;
     f.parts.push({ type: "rollers", s0: genS, n, sp, amp: 0.5 + rng() * 0.35 + diff * 0.15, cx: 0, hw: 80, end: genS + n * sp }); f.label = "Rollers";
   } else {
-    const kp = (pick - 0.2) / 0.8, pS = 0.36 - 0.22 * diff, kind = kp < pS ? 0 : kp < pS + 0.4 ? 1 : 2;
+    const kp = (pick - 0.2) / 0.8, pS = 0.36 - 0.22 * diff, kind = PEAK ? (kp < 0.6 ? 0 : 1) : kp < pS ? 0 : kp < pS + 0.4 ? 1 : 2;
     const cx = (rng() - 0.5) * 3, hw = 3.8 + rng() * 1.8;
     const k = mkKicker(genS, kind, cx, hw, diff); f.parts.push(k); f.label = k.label; f.mainCx = cx;
     if (kind > 0 && rng() < 0.28) { const rs0 = k.s0 + k.L + k.gap + k.Ll * 0.1; f.rail = { s0: rs0, s1: rs0 + k.Ll * 0.72, x: cx + (rng() - 0.5) * 1.2 }; f.label += " + rail"; }
@@ -388,7 +393,7 @@ function addSection() {
   if (i > 0 && gapLen > 20) { const v = (i % 6 === 3 || i % 6 === 5) ? 0.44 : [0.14, 0.2, 0.2, 0.36, 0.44, 0.5][Math.floor(rng() * 6)]; addKnot(prevEnd + gapLen * 0.3, v); addKnot(prevEnd + gapLen * 0.7, v); }
   addKnot(a, BASE); addKnot(f.end + 10, BASE);
   pcs.push({ a, b: f.end + 10, x: px, jump: !f.cliff });
-  if (i > 1 && rng() < 0.45) { const fast = secCount % 6 === 3 || secCount % 6 === 5, order = ["carve", "chute", "cruiser"]; let k = order[interCount++ % 3]; if (fast && k === "cruiser") k = "chute"; pendingInterlude = k; genS = f.end + 44 + rng() * 10; }
+  if (i > 1 && rng() < (PEAK ? 0.9 : 0.45)) { const fast = secCount % 6 === 3 || secCount % 6 === 5, order = PEAK ? ["chute", "carve", "chute"] : ["carve", "chute", "cruiser"]; let k = order[interCount++ % 3]; if (fast && k === "cruiser") k = "chute"; pendingInterlude = k; genS = f.end + 44 + rng() * 10; }
   else { pendingFiller = true; genS = f.end + 46 + rng() * 8; }
   return f;
 }
@@ -442,6 +447,7 @@ function rocksForChunk(ci) {
   const ok = (x, s) => { const T = trailFor(s); return !(T && Math.abs(x - trailXc(T, s)) < T.hw + 4); };
   for (let i = 0; i < 9; i++) { const side = rt() < 0.5 ? -1 : 1, s = s0 + rt() * CH, x = pc(s) + side * (PISTE + 1.8 + rt() * 9), r = 0.9 + rt() * 1.7; if (ok(x, s)) out.push({ x, s, r }); }
   for (let i = 0; i < 12; i++) { const s = s0 + rt() * CH, T = trailFor(s), sd = rt() < 0.5 ? -1 : 1, big = rt() < 0.3, r = big ? 2.6 + rt() * 2.6 : 1 + rt() * 1.6; if (T) { const x = trailXc(T, s) + sd * (T.hw + 4.5 + rt() * 8); if (Math.abs(x - pc(s)) > PISTE + 2.5) out.push({ x, s, r }); } }
+  if (PEAK) for (let i = 0; i < 16; i++) { const side = rt() < 0.5 ? -1 : 1, s = s0 + rt() * CH, big = rt() < 0.4; out.push({ x: pc(s) + side * (PISTE + 2.5 + rt() * 24), s, r: big ? 2.4 + rt() * 3.2 : 1 + rt() * 1.6 }); }
   return out;
 }
 function rockGroup(list) {
@@ -515,6 +521,7 @@ function mkTrailSection(t, g, x) {
 }
 function closeTrail(t, f) { t.s1 = f.end + 44; t.closed = true; t.dirty = true; openTrail = null; }
 function handleTrail(f) {
+  if (PEAK) return;
   if (openTrail) { if (f.end >= openTrail.sTarget) closeTrail(openTrail, f); return; }
   const idx = f.idx;
   if (idx > 1 && idx % 6 < 2 && rng() < 0.8 && f.end + 950 < COURSE_END - 420) startTrail(f);
@@ -1330,7 +1337,7 @@ function buildChunk(ci) {
   [-1, 1].forEach(sd => { const ps = s0 + CH * 0.5, px = pc(ps) + sd * (PISTE + 3), g = new THREE.Sprite(glowMat()); g.scale.set(9, 9, 1); g.position.set(px, inCorr(px, ps) ? -9999 : H(px, ps) + 8.8, -ps); grp.add(g); });
   // trees
   const rt = mulberry(ci * 977 + 5), tr = [];
-  const tryAdd = (x, s, sc) => { if (Math.abs(x - pc(s)) < PISTE + 3) return; const T = trailFor(s); if (T && Math.abs(x - trailXc(T, s)) < T.hw + 5.2) return; tr.push({ x, s, y: H(x, s) - 0.1, sc }); };
+  const tryAdd = (x, s, sc) => { if (PEAK) return; if (Math.abs(x - pc(s)) < PISTE + 3) return; const T = trailFor(s); if (T && Math.abs(x - trailXc(T, s)) < T.hw + 5.2) return; tr.push({ x, s, y: H(x, s) - 0.1, sc }); };
   for (let i = 0; i < 46; i++) { const side = rt() < 0.5 ? -1 : 1, ts = s0 + rt() * CH; tryAdd(pc(ts) + side * (PISTE + 6 + rt() * 34), ts, 0.8 + rt() * 0.9); }
   for (let i = 0; i < 70; i++) { // dense forest lining a trail
     const s = s0 + rt() * CH, T = trailFor(s), sd = rt() < 0.5 ? -1 : 1, off = T ? T.hw + 5.2 + rt() * 15 : 0, sc = 0.8 + rt() * 1.0;
@@ -1649,6 +1656,8 @@ function frame(now) {
   const ni = nextInfo(), nx = $("next");
   if (mode === "play" && ni && ni.s - sk.s < 170 && !sk.air) { nx.hidden = false; setText("next", ni.label + " · " + Math.max(0, Math.round(ni.s - sk.s)) + " m"); } else nx.hidden = true;
   requestAnimationFrame(frame);
+$("dtot").textContent = COURSE_END;
+if (location.hash === "#peak" || location.hash === "#alpine") { begin(); if (PEAK) setTimeout(() => popup("Couloir Peak", "Steep chutes · big drops · no trees"), 500); }
 }
 function nextInfo() {
   let best = null;
@@ -1680,6 +1689,8 @@ function buildPauseUI() {
 buildPauseUI();
 $("pausebtn").onclick = () => { $("pausebtn").blur(); setPaused(true); };
 $("resume").onclick = () => setPaused(false);
+$("resortname").textContent = PEAK ? "Couloir Peak" : "Evergreen Run";
+$("globe").onclick = () => { $("globe").blur(); location.hash = PEAK ? "#alpine" : "#peak"; location.reload(); };
 function begin() { audioInit(); $("intro").hidden = true; if (mode !== "play") { mode = "play"; restart(); } }
 const MAP = { ArrowLeft: "left", a: "left", A: "left", ArrowRight: "right", d: "right", D: "right", ArrowUp: "up", w: "up", W: "up", ArrowDown: "down", s: "down", S: "down", q: "spinL", Q: "spinL", e: "spinR", E: "spinR", " ": "grab", Shift: "boost", f: "focus", F: "focus", j: "brake", J: "brake" };
 addEventListener("keydown", e => {
