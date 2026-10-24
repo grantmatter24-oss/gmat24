@@ -39,6 +39,9 @@
   #end[hidden] { display: none; }
   #pause { position: absolute; inset: 0; z-index: 4; display: flex; align-items: stretch; justify-content: flex-start; padding: 14px; background: linear-gradient(90deg, rgba(11,26,41,.55), rgba(11,26,41,0) 62%); }
   #pause[hidden] { display: none; }
+  #music { position: absolute; left: 12px; bottom: 54px; z-index: 2; pointer-events: auto; display: flex; flex-direction: column; gap: 3px; }
+  #music[hidden] { display: none; }
+  #music .mlink { font: 600 11px var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--dim); text-decoration: underline; }
   .pcard { width: min(330px, 100%); overflow: auto; background: rgba(11,26,41,.86); border: 1px solid rgba(244,248,253,.22); border-radius: 10px; padding: 16px; color: var(--text); }
   .pcard h2 { font: 900 30px/1 var(--display); letter-spacing: .06em; text-transform: uppercase; margin-bottom: 12px; }
   .pcard h3 { font: 700 13px var(--body); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); margin: 14px 0 6px; }
@@ -110,6 +113,7 @@
     <div class="grp"><button data-k="left">Left</button><button data-k="right">Right</button></div>
     <div class="grp"><button data-k="up">Front flip</button><button data-k="down">Back / tuck</button><button data-k="spin">Spin</button><button data-k="grab">Pop / grab</button><button data-k="boost">Speed</button><button data-k="brake">Slow</button><button data-k="focus">Focus</button></div>
   </div>
+  <div id="music" hidden></div>
   <div id="pause" hidden><div class="pcard"><h2>Paused</h2><div id="opts"></div><button id="resume" type="button">Resume</button></div></div>
   <div id="end" hidden>
     <div class="card">
@@ -322,7 +326,7 @@ function sideHouse(f, sd, sBase, x0) { // lodge beside the piste: kicker up to t
   const lead = { type: "kicker", label: "House kicker", s0: sBase, L, H, gap, Ll: 1, Hl: 0, cx, hw: 2.8, v0, pit: 0, side: true }; lead.end = lead.s0 + L + gap + 1;
   const hs0 = sBase + L + gap, box = { type: "box", house: true, flat: true, pitch, s0: hs0, len, end: hs0 + len, B, rise: 0.6, cx, hw: 4.2, wall: WALLS[Math.floor(rng() * WALLS.length)], sd };
   f.parts.push(lead, box);
-  if (rng() < 0.85) { const k = roofKicker(box, cx); if (k) f.parts.push(k); }
+  f.rail = { s0: box.s0 + 4, s1: box.end - 3, x: cx };
   f.label += " + side house";
 }
 function houseSection(f, diff) {
@@ -337,8 +341,7 @@ function houseSection(f, diff) {
     const len = 26 + rng() * 8, hs0 = genS + 6; box = { type: "box", house: true, s0: hs0, len, end: hs0 + len, B, rise: 18, cx, hw, wall: walls[Math.floor(rng() * walls.length)] };
     f.parts.push(box); f.label = "House ramp · ride up onto the roof";
   }
-  let rk = null; if (!ramp && rng() < 0.7) { rk = roofKicker(box, cx); if (rk) f.parts.push(rk); }
-  if (rng() < 0.55) f.rail = { s0: box.s0 + 4 + (ramp ? 14 : 0), s1: box.s0 + box.len - 3, x: cx + (rk ? 3.6 * (rng() < 0.5 ? -1 : 1) : (rng() - 0.5) * 1.4) };
+  f.rail = { s0: box.s0 + 4 + (ramp ? 14 : 0), s1: box.s0 + box.len - 3, x: cx };
   f.mainCx = cx; f.house = box;
 }
 function addSection() {
@@ -986,12 +989,14 @@ function canvasTex(w, h, draw) { const c = document.createElement("canvas"); c.w
 const OUTFIT_OPTS = {
   helmet: { frog: "Frog hat", beanie: "Beanie with ball", redbull: "Red Bull helmet", santa: "Santa hat" },
   jacket: { trench: "Black trench coat", vest: "Grey vest, white long sleeve", santa: "Red Santa coat" },
+  skis: { black: "Black wider skis", purple: "Purple skis", current: "Current skis", red: "Red skis", pink: "Pink skis" },
+  song: { off: "No music", hypa: "Hypa · Silva Bumpa", yosemite: "Yosemite · KETTAMA", think: "Think of You · KETTAMA & Prospa", fly: "Fly Away XTC · KETTAMA" },
   accessory: { scarf: "Scarf", ninja: "Ninja headband", cape: "Cape", phones: "Headphones" },
   pants: { santa: "Red Santa pants", suit: "Black suit pants", shorts: "Grey shorts", blue: "Blue pants", khaki: "Khakis" }
 };
 const JACKETS = { trench: { j: 0x15171b, t: 0x0c0d10, arm: 0x15171b, cuff: 0x0c0d10, sc: [0x7a1f26, 0x2a2a2e] }, vest: { j: 0x80868e, t: 0x5d636b, arm: 0xf2f3f5, cuff: 0xe4e6ea, sc: [0xf2f3f5, 0x80868e] }, santa: { j: 0xc4161c, t: 0xf6f6f2, arm: 0xc4161c, cuff: 0xf6f6f2, sc: [0xf6f6f2, 0xc4161c] } };
 const PANTS = { santa: [0xc4161c, 0xc4161c], suit: [0x17191e, 0x17191e], shorts: [0x7d838b, -1], blue: [0x2f5fa8, 0x2f5fa8], khaki: [0xb59f72, 0xb59f72] };
-let outfit = { helmet: "redbull", jacket: "vest", pants: "blue", accessory: "scarf" };
+let outfit = { helmet: "redbull", jacket: "vest", pants: "blue", accessory: "scarf", skis: "current", song: "off" };
 try { const o = JSON.parse(localStorage.getItem("kickerOutfit") || "null"); if (o) for (const k in outfit) if (OUTFIT_OPTS[k][o[k]]) outfit[k] = o[k]; } catch (e) { }
 function applyOutfit(R) {
   if (!R) return; const m = R.mats, J = JACKETS[outfit.jacket], P = PANTS[outfit.pants], h = outfit.helmet;
@@ -1003,13 +1008,16 @@ function applyOutfit(R) {
   for (const k in R.hats) R.hats[k].visible = k === h;
   R.cuffs.forEach(c => c.visible = outfit.pants !== "shorts");
   for (const k in R.acc) R.acc[k].visible = k === outfit.accessory;
+  R.skiM.map = R.skiTexes[outfit.skis === "current" ? "current" : outfit.skis]; R.skiM.needsUpdate = true; R.skiMeshes.forEach(m => m.scale.x = outfit.skis === "black" ? 1.55 : 1);
 }
 function buildSkier() {
   const root = new THREE.Group(), pivot = new THREE.Group(), rig = new THREE.Group();
   pivot.position.y = 0.9; rig.position.y = -0.9; root.add(pivot); pivot.add(rig);
   const M = (color, o) => new THREE.MeshStandardMaterial(Object.assign({ color, roughness: 0.72, metalness: 0.04 }, o || {}));
   const lensTex = canvasTex(64, 32, (x, w, h) => { const g = x.createLinearGradient(0, 0, w, h); g.addColorStop(0, "#ffb347"); g.addColorStop(0.5, "#ff5a8a"); g.addColorStop(1, "#5a6bff"); x.fillStyle = g; x.fillRect(0, 0, w, h); x.fillStyle = "rgba(255,255,255,.35)"; x.fillRect(0, 0, w, 6); });
-  const skiTex = canvasTex(64, 256, (x, w, h) => { x.fillStyle = "#ee5a2c"; x.fillRect(0, 0, w, h); x.fillStyle = "#f6f7f9"; x.fillRect(0, 70, w, 24); x.fillRect(0, 120, w, 8); x.fillStyle = "#14181f"; x.fillRect(0, 0, w, 36); x.fillRect(0, 226, w, 30); x.fillStyle = "#14181f"; x.font = "bold 22px Arial"; x.save(); x.translate(44, 200); x.rotate(-Math.PI / 2); x.fillText("KICKER", 0, 0); x.restore(); });
+  const mkSkiTex = (base, stripe, trim) => canvasTex(64, 256, (x, w, h) => { x.fillStyle = base; x.fillRect(0, 0, w, h); x.fillStyle = stripe; x.fillRect(0, 70, w, 24); x.fillRect(0, 120, w, 8); x.fillStyle = trim; x.fillRect(0, 0, w, 36); x.fillRect(0, 226, w, 30); x.fillStyle = trim; x.font = "bold 22px Arial"; x.save(); x.translate(44, 200); x.rotate(-Math.PI / 2); x.fillText("KICKER", 0, 0); x.restore(); });
+  const skiTex = mkSkiTex("#ee5a2c", "#f6f7f9", "#14181f");
+  const skiTexes = { current: skiTex, black: mkSkiTex("#15171c", "#d9dde3", "#0a0b0e"), purple: mkSkiTex("#7b3fd0", "#f1e8ff", "#2a1450"), red: mkSkiTex("#d3202a", "#f6f7f9", "#14181f"), pink: mkSkiTex("#ff6fb5", "#ffffff", "#7a1f4d") };
   const logoTex = canvasTex(128, 128, (x, w, h) => { x.fillStyle = "#14181f"; x.fillRect(0, 0, w, h); x.fillStyle = "#f08a3a"; x.beginPath(); x.moveTo(64, 14); x.lineTo(112, 108); x.lineTo(16, 108); x.closePath(); x.fill(); x.fillStyle = "#f4f6f9"; x.beginPath(); x.moveTo(64, 46); x.lineTo(84, 88); x.lineTo(44, 88); x.closePath(); x.fill(); });
   const jacket = M(0x2f8f8c, { roughness: 0.62 }), jacket2 = M(0x2b3036, { roughness: 0.7 }), pants = M(0x2c3445, { roughness: 0.8 }), boot = M(0x1a1f29, { roughness: 0.5 }), helmet = M(0x15181d, { roughness: 0.22, metalness: 0.2 });
   const black = M(0x14181f), glove = M(0x1b1f27, { roughness: 0.6 }), skin = M(0xe5b794, { roughness: 0.6 }), white = M(0xf4f6f9), orange = M(0xf08a3a), skiM = M(0xffffff, { map: skiTex, roughness: 0.35 });
@@ -1137,7 +1145,8 @@ function buildSkier() {
     const basket = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.04, 0.012, 12), M(0x14181f)); basket.position.y = -1.05; pole.add(basket);
     arms.push({ sh, el, pole, pole_v: new THREE.Vector3(sd * 0.7, -0.3, 0.8).normalize(), sd });
   });
-  return { acc, ninjaTails, capeGeo, capeBase, cuffs, skiG, tailM, mats: { jacket, jacket2, jacketArm, cuffM, pants, pantsLow, helmet, stripeM, skin, scarfMat }, helmetG, hats, ex, root, pivot, rig, legs, hipG, torso, head, arms, scarf, pose: { c: 0.3, lean: 0.2, carve: 0, L: new THREE.Vector3(-0.36, 0.92, -0.3), Rh: new THREE.Vector3(0.36, 0.92, -0.3), headY: 0 }, a, b };
+  const skiMeshes = []; skiG.forEach(g => g.traverse(o => { if (o.isMesh && o.material === skiM) skiMeshes.push(o); }));
+  return { skiM, skiTexes, skiMeshes, acc, ninjaTails, capeGeo, capeBase, cuffs, skiG, tailM, mats: { jacket, jacket2, jacketArm, cuffM, pants, pantsLow, helmet, stripeM, skin, scarfMat }, helmetG, hats, ex, root, pivot, rig, legs, hipG, torso, head, arms, scarf, pose: { c: 0.3, lean: 0.2, carve: 0, L: new THREE.Vector3(-0.36, 0.92, -0.3), Rh: new THREE.Vector3(0.36, 0.92, -0.3), headY: 0 }, a, b };
 }
 
 const _tv = typeof THREE !== "undefined" ? new THREE.Vector3() : null;
@@ -1822,15 +1831,24 @@ function setPaused(v) {
 }
 function buildPauseUI() {
   const box = $("opts"); box.textContent = "";
-  for (const cat of ["helmet", "jacket", "pants", "accessory"]) {
-    const h = document.createElement("h3"); h.textContent = cat === "helmet" ? "Helmet" : cat === "jacket" ? "Jacket" : cat === "pants" ? "Pants" : "Accessory"; box.appendChild(h);
+  for (const cat of ["helmet", "jacket", "pants", "accessory", "skis", "song"]) {
+    const h = document.createElement("h3"); h.textContent = cat === "helmet" ? "Helmet" : cat === "jacket" ? "Jacket" : cat === "pants" ? "Pants" : cat === "accessory" ? "Accessory" : cat === "skis" ? "Skis" : "Song"; box.appendChild(h);
     for (const key in OUTFIT_OPTS[cat]) {
       const b = document.createElement("button"); b.type = "button"; b.className = "opt" + (outfit[cat] === key ? " on" : ""); b.textContent = OUTFIT_OPTS[cat][key];
-      b.onclick = () => { outfit[cat] = key; try { localStorage.setItem("kickerOutfit", JSON.stringify(outfit)); } catch (e) { } applyOutfit(skierRig); buildPauseUI(); };
+      b.onclick = () => { outfit[cat] = key; if (cat === "song") setSong(); try { localStorage.setItem("kickerOutfit", JSON.stringify(outfit)); } catch (e) { } applyOutfit(skierRig); buildPauseUI(); };
       box.appendChild(b);
     }
   }
 }
+const SONG_IDS = { hypa: "7hQUvQN4IcDVhuBeaX7wwW", yosemite: "6Z3cE0ZK0tmj7131PFIOeZ", think: "0sPP9TW0xSgke7EKBW6Gui", fly: "7sszLv98z5mpdxXHEQ6Q9o" };
+function setSong() {
+  const box = $("music"), id = SONG_IDS[outfit.song]; box.textContent = "";
+  if (!id) { box.hidden = true; return; }
+  const f = document.createElement("iframe"); f.src = "https://open.spotify.com/embed/track/" + id + "?theme=0"; f.width = "320"; f.height = "80"; f.allow = "autoplay; encrypted-media; clipboard-write"; f.title = "Spotify player"; f.style.border = "0"; f.style.borderRadius = "12px";
+  const a = document.createElement("a"); a.href = "https://open.spotify.com/track/" + id; a.target = "_blank"; a.rel = "noopener"; a.textContent = "Open in Spotify"; a.className = "mlink";
+  box.append(f, a); box.hidden = false;
+}
+setSong();
 buildPauseUI();
 $("pausebtn").onclick = () => { $("pausebtn").blur(); setPaused(true); };
 $("resume").onclick = () => setPaused(false);
