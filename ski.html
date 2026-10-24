@@ -116,7 +116,7 @@
         <dt>J</dt><dd>Hold to slow down</dd>
         <dt>F</dt><dd>Hold in the air for slow motion. Clean tricks refill it</dd>
         <dt>Gap jumps</dt><dd>Hold Shift to build speed. Land short and you fall in</dd>
-        <dt>Houses</dt><dd>Wooden cabins beside the run: hit the little kicker up onto the roof, pop the roof kicker, slide it and grind its rail</dd>
+        <dt>Houses</dt><dd>Pointed-roof cabins beside the run: hit the little kicker up onto the ridge, pop the roof kicker, slide it and grind its rail</dd>
         <dt>Run types</dt><dd>Carving S-turns, steep chutes, mogul fields and flat cruisers between the jumps</dd>
         <dt>Switch</dt><dd>Land a 180 and you stay backwards until you spin again</dd>
         <dt>Woods trails</dt><dd>Side trails leave the piste into the trees, with their own jumps, whoops, cliff drops and rails. They rejoin the main run later</dd>
@@ -228,7 +228,7 @@ function partOff(p, x, s) {
   }
   if (p.type === "moguls") { const e = smooth((s - p.s0) / 10) * smooth((p.end - s) / 10), xr = x - p.cx; return p.amp * e * (1 - smooth((Math.abs(xr) - (PISTE - 2)) / 4)) * Math.sin(xr * 0.9 + 0.7) * Math.sin(s * 0.65); }
   if (p.type === "rollers") { const u = (s - p.s0) / p.sp; return p.amp * Math.pow(Math.sin(Math.PI * u), 2) * latW(p, x, 1.5); }
-  if (p.type === "box") return boxShape(p, x, s) * (p.B - (p.flat ? bermAt(x - pc(s)) : 0));
+  if (p.type === "box") return boxShape(p, x, s) * (p.B + (p.pitch ? p.pitch * (1 - Math.abs(x - p.cx) / p.hw) + 0.25 : 0) - (p.flat ? bermAt(x - pc(s)) : 0));
   const lw = latW(p, x, 1.5), lip = p.s0 + p.L;
   if (lw <= 0) return 0;
   if (s <= lip) { const t = (s - p.s0) / p.L; return p.H * t * t * lw; }
@@ -303,11 +303,11 @@ function roofKicker(box, cx) { // little kicker on a roof, kept inside the roof 
   k.end = k.s0 + k.L + k.gap + k.Ll; k.label = "Roof kicker"; k.roof = true; return k;
 }
 function sideHouse(f, sd, sBase, x0) { // lodge beside the piste: kicker up to the roof, kicker on the roof
-  const B = 4.8 + rng() * 1.0, L = 22, H = B + 1.0, v0 = 28, fd = flightD(L, H, v0, B), gap = fd.d * 0.55, len = clamp(fd.d * 0.75 + 6, 30, 40);
-  const lead = { type: "kicker", label: "House kicker", s0: sBase, L, H, gap, Ll: 1, Hl: 0, cx: x0 + sd * 13, hw: 3.0, v0, pit: 0, side: true }; lead.end = lead.s0 + L + gap + 1;
-  const hs0 = sBase + L + gap, box = { type: "box", house: true, flat: true, s0: hs0, len, end: hs0 + len, B, rise: 0.6, cx: x0 + sd * (PISTE + 2.4), hw: 6.4, wall: WALLS[Math.floor(rng() * WALLS.length)] };
+  const B = 3.8 + rng() * 0.5, pitch = 2.4, rr = B + pitch * 0.75, L = 22, H = rr + 1.0, v0 = 28, fd = flightD(L, H, v0, rr), gap = fd.d * 0.55, len = clamp(fd.d * 0.75 + 6, 30, 40), cx = x0 + sd * 13;
+  const lead = { type: "kicker", label: "House kicker", s0: sBase, L, H, gap, Ll: 1, Hl: 0, cx, hw: 2.8, v0, pit: 0, side: true }; lead.end = lead.s0 + L + gap + 1;
+  const hs0 = sBase + L + gap, box = { type: "box", house: true, flat: true, pitch, s0: hs0, len, end: hs0 + len, B, rise: 0.6, cx, hw: 4.2, wall: WALLS[Math.floor(rng() * WALLS.length)], sd };
   f.parts.push(lead, box);
-  if (rng() < 0.85) { const k = roofKicker(box, box.cx - sd * 1.5); if (k) f.parts.push(k); }
+  if (rng() < 0.85) { const k = roofKicker(box, cx); if (k) f.parts.push(k); }
   f.label += " + side house";
 }
 function houseSection(f, diff) {
@@ -1188,6 +1188,7 @@ function lodgesForChunk(ci) {
     const x = pc(s) + sd * off;
     const T = trailFor(s); if (T && Math.abs(x - trailXc(T, s)) < T.hw + 12) return;
     for (const c of cliffs) if (Math.abs(c.s - s) < 26) return;
+    if (kind === 0 && !big) return;
     for (const ds of [-45, 0, 45]) for (const f of sectionsAt(s + ds, 0)) for (const q of f.parts) if (q.flat && Math.sign(q.cx - pc(q.s0)) === sd && s > q.s0 - 40 && s < q.end + 15) return;
     out.push({ kind, x, s, yaw: sd < 0 ? Math.PI / 2 : -Math.PI / 2, seed: Math.floor(rt() * 1e6) });
   };
@@ -1375,6 +1376,11 @@ function buildFeature(f) {
       const lp = []; for (let q = 0; q <= 10; q++) { const [x, s] = mp(lip - 0.02, -(p.hw - 0.75) + (2 * p.hw - 1.5) * q / 10); lp.push(new THREE.Vector3(x, H(x, s) + 0.04, -s)); } seg(lp);
     } else if (p.type === "box" && p.house) {
       const gAt = (x, s) => H_(x, s) - partOff(p, x, s), wm = winMat();
+      if (p.pitch) {
+        const sm = p.s0 + p.len / 2, ry = (x, s) => baseY(s) + cliffOff(s) + und(x - pc(s), s) + 0.35 * Math.sin(s * 0.09 + (x - pc(s)) * 0.12) + 0.25 * Math.sin((x - pc(s)) * 0.21 - s * 0.045);
+        const m = new THREE.Group(); gabledBody(m, p.len, p.hw * 2, p.B, p.pitch, WOODS[Math.floor(hash(p.s0) * WOODS.length)], ROOFS[Math.floor(hash(p.s0 + 3) * ROOFS.length)], { doorX: 1.5, porch: false });
+        m.rotation.order = "XYZ"; m.rotation.y = -p.sd * Math.PI / 2; m.rotation.x = Math.atan((ry(p.cx, sm + 3) - ry(p.cx, sm - 3)) / 6); m.position.set(p.cx, ry(p.cx, sm), -sm); grp.add(m);
+      } else {
       if (p.rise < 3) {
         const fz = p.s0 + 0.15;
         for (let x = p.cx - p.hw + 1.4; x <= p.cx + p.hw - 1.2; x += 2.4) { if (Math.abs(x - p.cx) < 1.1) continue; const m = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 1.1), wm); m.position.set(x, gAt(x, fz - 0.2) + p.B * 0.55, -fz + 0.12); grp.add(m); }
@@ -1384,6 +1390,7 @@ function buildFeature(f) {
       const cs = p.s0 + p.len * 0.62, cxp = p.cx + p.hw * 0.45, ch = new THREE.Mesh(new THREE.BoxGeometry(1.0, 2.6, 1.0), LM(0x6a6e76)); ch.position.set(cxp, H(cxp, cs) + 1.2, -cs); ch.castShadow = true; grp.add(ch);
       const sn = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.25, 1.2), LM(0xf2f5fa)); sn.position.set(cxp, H(cxp, cs) + 2.6, -cs); grp.add(sn);
       for (let q = 0; q < 12; q++) { const x = p.cx - p.hw + 0.8 + q * (2 * p.hw - 1.6) / 11, l = new THREE.Mesh(new THREE.SphereGeometry(0.11, 6, 5), wm), s = p.rise < 3 ? p.s0 + 0.9 : p.s0 + p.len - 1.2; l.position.set(x, H(x, s) + 0.45, -s); grp.add(l); }
+      }
     } else if (p.type === "box") {
       const bm = new THREE.LineBasicMaterial({ color: 0xff8a3d });
       [-1, 1].forEach(sd => { const ex = p.cx + sd * (p.hw - 0.2), pts = []; for (let q = 0; q <= 24; q++) { const ss = p.s0 + p.len * q / 24; pts.push(new THREE.Vector3(ex, H(ex, ss) + 0.05, -ss)); } grp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), bm)); });
