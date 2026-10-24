@@ -45,6 +45,22 @@
   #combo { position: absolute; left: max(16px, env(safe-area-inset-left, 0px)); top: 66px; width: 118px; height: 5px; border-radius: 3px; background: rgba(11,26,41,.45); overflow: hidden; pointer-events: none; }
   #combofill { display: block; height: 100%; width: 0; background: var(--jacket); }
   .tl { margin-bottom: 4px; } .tl summary { cursor: pointer; font: 700 13px var(--body); letter-spacing: .1em; text-transform: uppercase; color: var(--dim); } .tl dl { margin-top: 8px; font-size: 13px; display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; } .tl dt { font-weight: 700; } .tl dd { color: var(--dim); }
+  #home { position: absolute; inset: 0; z-index: 6; overflow: hidden; background: #1b1233; }
+  #home[hidden] { display: none; }
+  #homecv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .homebody { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 14px; padding: clamp(24px, 7vh, 72px) 16px 24px; overflow: auto; }
+  .homebody h1 { margin: 0; font: 900 clamp(56px, 11vw, 132px)/0.9 var(--display); letter-spacing: .03em; text-transform: uppercase; color: var(--snow); text-shadow: 0 4px 0 rgba(40,12,60,.55), 0 0 40px rgba(255,120,80,.35); }
+  .homebody h1 span { color: var(--jacket); }
+  .homebody .tag { margin: 0; font: 600 clamp(16px, 2.4vw, 22px) var(--body); letter-spacing: .18em; text-transform: uppercase; color: var(--peach); text-shadow: 0 2px 0 rgba(40,12,60,.6); }
+  .picks { margin-top: auto; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; width: min(900px, 100%); }
+  .pick { text-align: left; cursor: pointer; display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; border-radius: 8px; border: 1px solid rgba(244,248,253,.35); background: rgba(14,10,36,.62); color: var(--text); backdrop-filter: blur(4px); }
+  .pick b { font: 900 26px/1 var(--display); letter-spacing: .05em; text-transform: uppercase; }
+  .pick span { font: 500 14px/1.3 var(--body); color: var(--dim); }
+  .pick i { font: 600 12px var(--body); font-style: normal; letter-spacing: .08em; text-transform: uppercase; color: var(--peach); min-height: 1em; }
+  .pick:hover, .pick:focus-visible { background: var(--jacket); border-color: var(--jacket); color: var(--ink); outline: none; }
+  .pick:hover span, .pick:focus-visible span, .pick:hover i, .pick:focus-visible i { color: var(--ink); }
+  .homehint { margin: 0; font: 500 13px var(--body); letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+  @media (max-width: 640px) { .picks { grid-template-columns: 1fr; } .homebody { justify-content: flex-start; } .picks { margin-top: 12px; } }
   #pause[hidden] { display: none; }
   .ytrow { display: flex; gap: 6px; } .ytrow input { flex: 1; min-width: 0; font: 500 14px var(--body); padding: 8px 10px; border-radius: 6px; border: 1px solid rgba(244,248,253,.3); background: rgba(244,248,253,.08); color: var(--text); } .ytrow .ytgo { width: auto; text-align: center; margin: 0; }
   #music { position: absolute; left: 12px; bottom: 54px; z-index: 2; pointer-events: auto; display: flex; flex-direction: column; gap: 3px; }
@@ -55,6 +71,7 @@
   .pcard h2 { font: 900 30px/1 var(--display); letter-spacing: .06em; text-transform: uppercase; margin-bottom: 12px; }
   .pcard h3 { font: 700 13px var(--body); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); margin: 14px 0 6px; }
   .pcard .opt { display: block; width: 100%; text-align: left; font: 600 15px var(--body); color: var(--text); background: rgba(244,248,253,.07); border: 1px solid rgba(244,248,253,.2); border-radius: 6px; padding: 8px 10px; margin-bottom: 5px; cursor: pointer; }
+  #homebtn { margin-top: 8px; width: 100%; font: 700 15px var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--text); background: transparent; border: 1px solid rgba(244,248,253,.35); border-radius: 6px; padding: 10px 14px; cursor: pointer; }
   .pcard .opt.locked { opacity: .5; cursor: not-allowed; }
   .pcard .opt.on { background: var(--jacket); border-color: var(--jacket); color: var(--ink); }
   .pcard .opt:focus-visible, #resume:focus-visible { outline: 3px solid var(--text); outline-offset: 2px; }
@@ -130,7 +147,7 @@
   </div>
   <div id="music" hidden></div>
   <div id="pause" hidden><div class="pcard"><h2>Paused</h2><details class="tl"><summary>Controls and tricks</summary><dl>
-<dt>Arrows / A D</dt><dd>Steer and carve</dd><dt>Up / Down</dt><dd>Front flip / back flip in the air. Hold Down (or S) on the ground for a tail butter: tips up, riding on the backs of your skis</dd><dt>Q / E</dt><dd>Spin in the air or on a rail. Spin plus flip makes a cork</dd><dt>Space</dt><dd>Jump anywhere. In the air, hold for a tail grab</dd><dt>X / C</dt><dd>Nose grab / indy grab, held in the air</dd><dt>Shift / J</dt><dd>Speed up / slow down</dd><dt>F</dt><dd>Slow-motion in the air</dd><dt>P</dt><dd>Pause</dd><dt>Combo</dt><dd>Each trick adds ×1 to your multiplier. The bar under the score shows how long you have to land the next one before it resets</dd></dl></details><div id="opts"></div><button id="resume" type="button">Resume</button></div></div>
+<dt>Arrows / A D</dt><dd>Steer and carve</dd><dt>Up / Down</dt><dd>Front flip / back flip in the air. Hold Down (or S) on the ground for a tail butter: tips up, riding on the backs of your skis</dd><dt>Q / E</dt><dd>Spin in the air or on a rail. Spin plus flip makes a cork</dd><dt>Space</dt><dd>Jump anywhere. In the air, hold for a tail grab</dd><dt>X / C</dt><dd>Nose grab / indy grab, held in the air</dd><dt>Shift / J</dt><dd>Speed up / slow down</dd><dt>F</dt><dd>Slow-motion in the air</dd><dt>P</dt><dd>Pause</dd><dt>Combo</dt><dd>Each trick adds ×1 to your multiplier. The bar under the score shows how long you have to land the next one before it resets</dd></dl></details><div id="opts"></div><button id="resume" type="button">Resume</button><button id="homebtn" type="button">Back to homepage</button></div></div>
   <div id="end" hidden>
     <div class="card">
       <h1>Run <span>complete</span></h1>
@@ -138,7 +155,20 @@
       <button id="again" type="button">Ride again</button>
     </div>
   </div>
-  <div id="intro">
+  <div id="home">
+    <canvas id="homecv" aria-hidden="true"></canvas>
+    <div class="homebody">
+      <h1>Kicker <span>Run</span></h1>
+      <p class="tag">Pick a mountain. Send it.</p>
+      <div class="picks">
+        <button type="button" class="pick" data-r="alpine"><b>Evergreen Run</b><span>Groomed forest runs, kickers, lodges and woods trails</span><i id="pb-alpine"></i></button>
+        <button type="button" class="pick" data-r="peak"><b>Couloir Peak</b><span>Steep open faces, couloirs and big cliffs. No trees</span><i id="pb-peak"></i></button>
+        <button type="button" class="pick" data-r="park"><b>Kicker Park</b><span>Rail gardens, box lines and one big line</span><i id="pb-park"></i></button>
+      </div>
+      <p class="homehint">Enter starts Evergreen Run</p>
+    </div>
+  </div>
+  <div id="intro" hidden>
     <div class="card">
       <h1>Kicker <span>Run</span></h1>
       <p class="lede">One run down the mountain: 6,000 m, around three to five minutes from drop-in to the finish arch. The piste bends, steepens and flattens, with kickers, hips, rails, giant cliffs and woods trails along the way. Throw tricks, land them clean and chain your multiplier.</p>
@@ -1962,8 +1992,6 @@ function frame(now) {
   const ni = nextInfo(), nx = $("next");
   if (mode === "play" && ni && ni.s - sk.s < 170 && !sk.air) { nx.hidden = false; setText("next", ni.label + " · " + Math.max(0, Math.round(ni.s - sk.s)) + " m"); } else nx.hidden = true;
   requestAnimationFrame(frame);
-$("dtot").textContent = COURSE_END;
-if (location.hash === "#peak" || location.hash === "#alpine" || location.hash === "#park") { begin(); if (PEAK) setTimeout(() => popup("Couloir Peak", "Open faces · chutes · cliffs"), 500); if (PARK) setTimeout(() => popup("Kicker Park", "Rails · boxes · one big line"), 500); }
 }
 function nextInfo() {
   let best = null;
@@ -2017,9 +2045,10 @@ setSong();
 buildPauseUI();
 $("pausebtn").onclick = () => { $("pausebtn").blur(); setPaused(true); };
 $("resume").onclick = () => setPaused(false);
+$("homebtn").onclick = () => { location.hash = "#home"; location.reload(); };
 $("resortname").textContent = RESORT_NAMES[RES];
 document.querySelectorAll("#resorts button").forEach(b => { if (b.dataset.r === RES) b.classList.add("on"); b.onclick = () => { if (b.dataset.r === RES) return; b.blur(); location.hash = "#" + b.dataset.r; location.reload(); }; });
-function begin() { audioInit(); $("intro").hidden = true; if (mode !== "play") { mode = "play"; restart(); } }
+function begin() { audioInit(); $("intro").hidden = true; $("home").hidden = true; stopHome(); if (mode !== "play") { mode = "play"; restart(); } }
 const MAP = { ArrowLeft: "left", a: "left", A: "left", ArrowRight: "right", d: "right", D: "right", ArrowUp: "up", w: "up", W: "up", ArrowDown: "down", s: "down", S: "down", q: "spinL", Q: "spinL", e: "spinR", E: "spinR", " ": "grab", Shift: "boost", f: "focus", F: "focus", j: "brake", J: "brake", x: "grabN", X: "grabN", c: "grabI", C: "grabI" };
 addEventListener("keydown", e => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -2058,4 +2087,54 @@ if (glOK) applyGfx();
 if (!glOK) { $("nogl").hidden = false; $("go").disabled = true; }
 window.__game = { pc, pcs, cliffs, knots, baseY, get runT() { return runT; }, get sw() { return sk.sw; }, get spin() { return sk.spin; }, get endShown() { return endShown; }, COURSE_END, trails, trailFor, trailXc, sectionsAt, step, get sk() { return sk; }, feats, H, K, restart, begin, get score() { return score; }, get mult() { return mult; }, setMode(m) { mode = m; }, pop() { popReq = true; } };
 requestAnimationFrame(frame);
+$("dtot").textContent = COURSE_END;
+/* ---------- homepage: animated sunset, mountains and a skier doing a backflip ---------- */
+let homeRaf = 0;
+function stopHome() { if (homeRaf) cancelAnimationFrame(homeRaf); homeRaf = 0; }
+function startHome() {
+  const cv = $("homecv"), x = cv.getContext("2d"); if (!x) return;
+  const flakes = Array.from({ length: 110 }, (_, i) => ({ x: hash(i) , y: hash(i + 300), z: 0.3 + hash(i + 700) * 0.7 }));
+  let W = 0, H2 = 0, dpr = 1;
+  const size = () => { dpr = Math.min(window.devicePixelRatio || 1, 2); W = cv.clientWidth; H2 = cv.clientHeight; cv.width = W * dpr; cv.height = H2 * dpr; x.setTransform(dpr, 0, 0, dpr, 0, 0); };
+  size(); addEventListener("resize", size);
+  const ridge = (base, amp, seed, col, off) => { x.beginPath(); x.moveTo(0, H2); for (let i = 0; i <= W + 8; i += 8) { const u = (i + off) / W * 5 + seed; let a = 0; for (let k = 1; k <= 5; k++) a += Math.pow(1 - Math.abs(Math.sin(u * k * 1.7 + seed * k)), 2) / k; x.lineTo(i, base - amp * a * 0.62); } x.lineTo(W, H2); x.closePath(); x.fillStyle = col; x.fill(); };
+  const skier = (px, py, rot, sc) => {
+    x.save(); x.translate(px, py); x.rotate(rot); x.scale(sc, sc);
+    x.strokeStyle = "#ff4a38"; x.lineWidth = 3.2; x.lineCap = "round"; x.beginPath(); x.moveTo(-26, 30); x.lineTo(26, 30); x.moveTo(-26, 30); x.lineTo(-31, 27); x.stroke();
+    x.fillStyle = "#16122e"; x.beginPath(); x.ellipse(0, 8, 8, 15, 0, 0, 7); x.fill();
+    x.beginPath(); x.arc(0, -12, 7, 0, 7); x.fill(); x.fillStyle = "#6fb4ff"; x.fillRect(-1, -14, 9, 4);
+    x.strokeStyle = "#16122e"; x.lineWidth = 5; x.beginPath(); x.moveTo(-3, 20); x.lineTo(-8, 30); x.moveTo(3, 20); x.lineTo(9, 30); x.moveTo(0, 0); x.lineTo(-17, -6); x.moveTo(0, 0); x.lineTo(17, -10); x.stroke();
+    x.strokeStyle = "#f4f8fd"; x.lineWidth = 1.6; x.beginPath(); x.moveTo(-17, -6); x.lineTo(-26, 22); x.moveTo(17, -10); x.lineTo(28, 20); x.stroke(); x.restore();
+  };
+  const t0 = performance.now();
+  const draw = now => {
+    const t = (now - t0) / 1000; if (W !== cv.clientWidth || H2 !== cv.clientHeight) size();
+    const g = x.createLinearGradient(0, 0, 0, H2); g.addColorStop(0, "#2b1a5c"); g.addColorStop(0.35, "#8a3a88"); g.addColorStop(0.62, "#ff7a55"); g.addColorStop(0.82, "#ffc07a"); x.fillStyle = g; x.fillRect(0, 0, W, H2);
+    const sx = W * 0.72, sy = H2 * 0.5, sg = x.createRadialGradient(sx, sy, 0, sx, sy, H2 * 0.5); sg.addColorStop(0, "rgba(255,244,214,.95)"); sg.addColorStop(0.12, "rgba(255,196,130,.55)"); sg.addColorStop(1, "rgba(255,120,80,0)"); x.fillStyle = sg; x.fillRect(0, 0, W, H2);
+    const dr = t * 4;
+    ridge(H2 * 0.62, H2 * 0.42, 1.3, "#a56ab0", dr * 0.3); ridge(H2 * 0.7, H2 * 0.34, 4.1, "#6c3f86", dr * 0.6); ridge(H2 * 0.8, H2 * 0.24, 7.7, "#3a2459", dr);
+    // snowy slope with a kicker
+    const sl = x.createLinearGradient(0, H2 * 0.78, 0, H2); sl.addColorStop(0, "#f7e9f5"); sl.addColorStop(1, "#cdb8e6"); x.fillStyle = sl;
+    const kx = W * 0.5, ky = H2 * 0.86, kh = Math.min(70, H2 * 0.1);
+    x.beginPath(); x.moveTo(0, H2); x.lineTo(0, H2 * 0.82); x.lineTo(kx - W * 0.2, H2 * 0.855); x.quadraticCurveTo(kx - W * 0.05, ky + 4, kx, ky - kh); x.lineTo(kx + 14, ky - kh + 6); x.quadraticCurveTo(kx + W * 0.04, ky + 10, kx + W * 0.2, H2 * 0.9); x.lineTo(W, H2 * 0.93); x.lineTo(W, H2); x.closePath(); x.fill();
+    // skier loop: ride up the kicker, backflip, land
+    const p = (t % 4.6) / 4.6, sc = Math.max(0.8, Math.min(1.5, W / 800));
+    let px, py, rot = -0.28;
+    if (p < 0.34) { const u = p / 0.34; px = lerp(W * 0.18, kx, u); py = lerp(H2 * 0.85, ky - kh - 30 * sc, u * u); rot = lerp(-0.1, -0.5, u); }
+    else if (p < 0.86) { const u = (p - 0.34) / 0.52; px = lerp(kx, W * 0.84, u); py = ky - kh - 30 * sc - Math.sin(u * Math.PI) * H2 * 0.3 + u * u * (H2 * 0.09); rot = -0.5 - u * Math.PI * 2; }
+    else { const u = (p - 0.86) / 0.14; px = lerp(W * 0.84, W * 1.06, u); py = H2 * 0.9 - 30 * sc + u * 20; rot = -0.3; }
+    skier(px, py, rot, sc);
+    x.fillStyle = "rgba(255,255,255,.85)"; for (const f of flakes) { const fy = ((f.y + t * 0.05 * f.z) % 1) * H2, fx = ((f.x + Math.sin(t * 0.4 + f.y * 9) * 0.01 + t * 0.01 * f.z) % 1) * W; x.fillRect(fx, fy, 1 + f.z * 1.8, 1 + f.z * 1.8); }
+    homeRaf = requestAnimationFrame(draw);
+  };
+  homeRaf = requestAnimationFrame(draw);
+}
+document.querySelectorAll(".pick").forEach(b => {
+  const r = b.dataset.r, sc = store.get("kb-score-" + r, 0), tm = store.get("kb-time-" + r, 0);
+  $("pb-" + r).textContent = tm ? "Best " + fmtTime(tm) + " · " + Math.round(sc).toLocaleString() + " pts" : (sc ? "Best " + Math.round(sc).toLocaleString() + " pts" : "");
+  b.onclick = () => { if (r === RES && location.hash === "") begin(); else { location.hash = "#" + r; location.reload(); } };
+});
+if (location.hash === "#peak" || location.hash === "#alpine" || location.hash === "#park" || !glOK) { $("home").hidden = true; } else startHome();
+if (!glOK) $("intro").hidden = false;
+if (location.hash === "#peak" || location.hash === "#alpine" || location.hash === "#park") { begin(); if (PEAK) setTimeout(() => popup("Couloir Peak", "Open faces · chutes · cliffs"), 500); if (PARK) setTimeout(() => popup("Kicker Park", "Rails · boxes · one big line"), 500); }
 </script>
