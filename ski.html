@@ -238,12 +238,14 @@ function addSection() {
     const nSide = rng() < 0.8 ? (rng() < 0.45 ? 2 : 1) : 0, sides = rng() < 0.5 ? [-1, 1] : [1, -1];
     for (let q = 0; q < nSide; q++) {
       const sd = sides[q], scx = sd * (10.8 + rng() * 0.8);
-      if (rng() < 0.6) { const sp2 = mkKicker(genS + rng() * 14, 0, scx, 2.5 + rng() * 0.5, diff); sp2.side = true; f.parts.push(sp2); f.label += " + side kicker"; }
+      if (rng() < 0.6) { const sp2 = mkKicker(genS + rng() * 14, 0, scx, 2.5 + rng() * 0.5, diff); sp2.side = true; sp2.rocky = rng() < 0.55; f.parts.push(sp2); f.label += sp2.rocky ? " + rock kicker" : " + side kicker"; }
       else { const s0b = genS + rng() * 12, len = 9 + rng() * 5; f.parts.push({ type: "box", s0: s0b, len, end: s0b + len, B: 0.7, cx: scx, hw: 2.1 }); f.label += " + jib box"; }
     }
   }
   f.end = Math.max(...f.parts.map(p => p.end), f.rail ? f.rail.s1 : 0);
+  flankRocks(f);
   feats.push(f);
+  regRocks(f);
   f.parts.forEach(p => genCoins(f, p));
   genS = f.end + 48 + rng() * 40;
   if (openTrail && f.end >= openTrail.sTarget) { openTrail.s1 = f.end + 44; openTrail.closed = true; openTrail.dirty = true; openTrail = null; }
@@ -266,6 +268,47 @@ function H_(x, s) {
   return y;
 }
 function H(x, s) { ensure(s); return H_(x, s); }
+/* ---------- rocks: boulders along the edges and in the woods, they hurt if you hit them ---------- */
+const rockGrid = new Map(), rockChunks = new Set();
+const rockKey = s => Math.floor(s / 16);
+function addRock(x, s, r) { const k = rockKey(s); let a = rockGrid.get(k); if (!a) rockGrid.set(k, a = []); a.push({ x, s, r, gy: H_(x, s) }); }
+function rockHit(x, y, s) {
+  for (let k = rockKey(s - 4); k <= rockKey(s + 4); k++) { const a = rockGrid.get(k); if (!a) continue; for (const q of a) { const dx = x - q.x, ds = s - q.s; if (dx * dx + ds * ds < (q.r * 0.78) * (q.r * 0.78) && y < q.gy + q.r * 1.2) return true; } }
+  return false;
+}
+function regRocks(f) { if (f.rocks) f.rocks.forEach(r => addRock(r.x, r.s, r.r)); }
+function flankRocks(f) { // boulders on the outer flanks of side kickers, woods kickers and cliffs
+  f.rocks = f.rocks || [];
+  for (const p of f.parts) {
+    if ((p.type === "kicker" && (p.rocky || f.woods) && !p.pit && p.hw < 6) || (p.type === "box" && p.drop && p.B > 2.5)) {
+      const sides = p.type === "kicker" && p.side ? [Math.sign(p.cx)] : [-1, 1];
+      const L = p.type === "kicker" ? p.L : p.len, n = p.type === "kicker" ? 5 : 6;
+      for (const sd of sides) for (let q = 0; q <= n; q++) f.rocks.push({ x: p.cx + sd * (p.hw + (p.type === "box" ? 3.0 : 1.4) + rng() * 0.9), s: p.s0 + L * q / n + rng() * 1.5, r: 0.9 + rng() * (p.type === "box" ? 1.7 : 1.0) });
+      if (p.type === "kicker") for (const sd of sides) f.rocks.push({ x: p.cx + sd * (p.hw + 2.2), s: p.s0 + p.L + 1.5, r: 2.0 + rng() * 0.8 });
+    }
+  }
+}
+function rocksForChunk(ci) {
+  const rt = mulberry(ci * 313 + 7), s0 = ci * CH, out = [];
+  const ok = (x, s) => { const T = trailFor(s); return !(T && Math.abs(x - trailXc(T, s)) < T.hw + 4); };
+  for (let i = 0; i < 9; i++) { const side = rt() < 0.5 ? -1 : 1, x = side * (PISTE + 1.8 + rt() * 9), s = s0 + rt() * CH, r = 0.9 + rt() * 1.7; if (ok(x, s)) out.push({ x, s, r }); }
+  for (let i = 0; i < 12; i++) { const s = s0 + rt() * CH, T = trailFor(s), sd = rt() < 0.5 ? -1 : 1, big = rt() < 0.3, r = big ? 2.6 + rt() * 2.6 : 1 + rt() * 1.6; if (T) { const x = trailXc(T, s) + sd * (T.hw + 4.5 + rt() * 8); if (Math.abs(x) > PISTE + 2.5) out.push({ x, s, r }); } }
+  return out;
+}
+function rockGroup(list) {
+  const grp = new THREE.Group(), N = list.length; if (!N) return grp;
+  const body = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, flatShading: true }), N);
+  const cap = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshStandardMaterial({ color: 0xf1ecf3, roughness: 0.9, flatShading: true }), N);
+  const d = new THREE.Object3D(), col = new THREE.Color();
+  list.forEach((r, i) => {
+    const h = hash(r.x * 1.7 + r.s * 0.9), sx = r.r * (0.9 + h * 0.5), sy = r.r * (0.7 + hash(h * 9) * 0.45), sz = r.r * (0.9 + hash(h * 5) * 0.5), gy = H_(r.x, r.s);
+    d.position.set(r.x, gy + sy * 0.35, -r.s); d.rotation.set(h * 3, h * 7, h * 2); d.scale.set(sx, sy, sz); d.updateMatrix(); body.setMatrixAt(i, d.matrix);
+    col.setHSL(0.62 + h * 0.06, 0.08 + h * 0.06, 0.34 + hash(h * 3) * 0.16); body.setColorAt(i, col);
+    d.position.set(r.x, gy + sy * 0.35 + sy * 0.62, -r.s); d.rotation.set(0, h * 7, 0); d.scale.set(sx * 0.72, sy * 0.38, sz * 0.72); d.updateMatrix(); cap.setMatrixAt(i, d.matrix);
+  });
+  body.castShadow = cap.castShadow = true; body.receiveShadow = cap.receiveShadow = true; grp.add(body, cap);
+  return grp;
+}
 /* ---------- woods trails: side routes that leave the piste, run through the forest and rejoin it ---------- */
 const trails = [];
 let openTrail = null;
@@ -277,10 +320,20 @@ function idxIn(list, s) {
 }
 function trailFor(s) { const r = idxIn(trails, s); return r >= 0 && s <= trails[r].s1 ? trails[r] : null; }
 function trailXc(t, s) {
-  const x0 = t.side * (PISTE - 2); let u = 1;
-  if (s < t.s0 + 50) u = Math.min(u, smooth((s - t.s0) / 50));
-  if (s > t.s1 - 50) u = Math.min(u, smooth((t.s1 - s) / 50));
-  return x0 + (t.xw - x0) * u;
+  const x0 = t.side * (PISTE - 2), pl = t.pl;
+  if (s <= t.s0 || !pl.length) return x0;
+  let xa, sa, xb, sb, bulge = 0;
+  if (s < pl[0].a) { xa = x0; sa = t.s0; xb = pl[0].x; sb = pl[0].a; }
+  else {
+    let i = pl.length - 1; while (i > 0 && pl[i].a > s) i--;
+    if (s <= pl[i].b) return pl[i].x;
+    xa = pl[i].x; sa = pl[i].b;
+    if (i === pl.length - 1) { if (!isFinite(t.s1)) return xa; xb = x0; sb = t.s1; bulge = -pl[i].bulge * 0.8; }
+    else { xb = pl[i + 1].x; sb = pl[i + 1].a; bulge = pl[i].bulge; }
+  }
+  if (s >= sb) return xb;
+  const u = (s - sa) / (sb - sa), L = sb - sa;
+  return xa + (xb - xa) * smooth(u) + bulge * clamp((L - 30) / 60, 0, 1) * Math.pow(Math.sin(Math.PI * u), 2);
 }
 function offTrack(x, s) {
   if (Math.abs(x) <= 28) return false;
@@ -296,8 +349,8 @@ function sectionsAt(s, pad) {
   const t = trailFor(s); if (t) secsNear(t.sec, s, pad, out);
   return out;
 }
-function mkTrailSection(t, g) {
-  const x = t.xw, diff = Math.min(1, 0.25 + trails.length / 8), pick = rng();
+function mkTrailSection(t, g, x) {
+  const diff = Math.min(1, 0.25 + trails.length / 8), pick = rng();
   const f = { s0: g, parts: [], label: "", boost: null, rail: null, coins: [], mainCx: x, woods: true };
   const boost = () => { f.boost = { s0: g - 22, s1: g - 16, cx: x, hw: 1.3 }; };
   if (pick < 0.2) { f.parts.push(mkKicker(g, 0, x, 3.0, diff)); f.label = "Log kicker"; }
@@ -309,14 +362,20 @@ function mkTrailSection(t, g) {
   else if (pick < 0.88) { f.parts.push({ type: "box", s0: g + 4, len: 12, end: g + 16, B: 0.75, cx: x, hw: 1.7 }); f.label = "Log slide"; }
   else { const k = mkKicker(g, 1, x, 3.2, diff); f.parts.push(k); const rs0 = k.s0 + k.L + k.gap + k.Ll * 0.1; f.rail = { s0: rs0, s1: rs0 + k.Ll * 0.72, x: x + (rng() - 0.5) * 0.8 }; f.label = "Pine rail jump"; boost(); }
   f.end = Math.max(...f.parts.map(p => p.end), f.rail ? f.rail.s1 : 0);
+  flankRocks(f);
   return f;
 }
 function createTrail(f) {
   const side = rng() < 0.5 ? -1 : 1, s0 = f.end + 4;
-  const t = { side, s0, s1: Infinity, sTarget: s0 + 380 + rng() * 260, xw: side * (34 + rng() * 9), hw: 4.4, sec: [], closed: false, dirty: false, label: side < 0 ? "Woods trail ◀ left" : "Woods trail ▶ right" };
+  const t = { side, s0, s1: Infinity, sTarget: s0 + 480 + rng() * 300, xw: side * (36 + rng() * 6), hw: 4.4, sec: [], pl: [], closed: false, dirty: false, label: side < 0 ? "Woods trail ◀ left" : "Woods trail ▶ right" };
   trails.push(t); openTrail = t;
-  let g = s0 + 75;
-  while (g < t.sTarget - 70) { const sec = mkTrailSection(t, g); t.sec.push(sec); sec.parts.forEach(p => genCoins(sec, p)); g = sec.end + 34 + rng() * 30; }
+  let g = s0 + 132, xp = t.xw;
+  while (g < t.sTarget - 90) {
+    xp = side * clamp(Math.abs(xp) + (rng() - 0.5) * 20, 30, 50);
+    const sec = mkTrailSection(t, g, xp); t.sec.push(sec); regRocks(sec);
+    t.pl.push({ a: g - 28, b: sec.end + 14, x: xp, bulge: (rng() < 0.5 ? -1 : 1) * (5 + rng() * 7) });
+    g = sec.end + 86 + rng() * 34;
+  }
 }
 
 function nearLip(x, s) {
@@ -347,7 +406,7 @@ function newSkier(x, s, sp) {
   ensure(s + 50);
   return { x, s, y: H(x, s), sp, psi: 0, vx: 0, vs: 0, vy: 0, rot: 0, rotV: 0, spin: 0, spinV: 0, spinTarget: 0,
     air: false, airT: 0, flipAcc: 0, grabT: 0, jumpNo: 0, crashed: false, crashT: 0, why: "", grind: null, grindT: 0,
-    turn: 0, carve: 0, pumpT: 0, boostCd: 0, tumX: 0, tumZ: 0, dist0: s, boxT: 0 };
+    turn: 0, carve: 0, pumpT: 0, landT: 0, popT: 0, boostCd: 0, tumX: 0, tumZ: 0, dist0: s, boxT: 0 };
 }
 function sA_(x, s, psi) { return Math.atan2(H(x, s) - H(x - 0.4 * Math.sin(psi), s - 0.4 * Math.cos(psi)), 0.4); }
 
@@ -386,7 +445,7 @@ function landing(surfaceType, rail) {
   sk.psi = Math.atan2(sk.vx, sk.vs);
   const vt = vh * Math.cos(sA) + sk.vy * Math.sin(sA);
   sk.sp = clamp(Math.max(vt, 4), 4, MAXV);
-  sk.air = false; sk.spinTarget = Math.round(sk.spin / TAU) * TAU;
+  sk.air = false; sk.spinTarget = Math.round(sk.spin / TAU) * TAU; if (sk.airT > 0.15) sk.landT = 0.35;
   let tr = null;
   if (real) {
     tr = trickInfo();
@@ -427,7 +486,7 @@ function restart() { score = 0; mult = 1; rings = 0; focus = 1; for (const f of 
 const DT = 1 / 120;
 function step(dt) {
   if (mode !== "play") return;
-  sk.boostCd = Math.max(0, sk.boostCd - dt); sk.pumpT = Math.max(0, sk.pumpT - dt);
+  sk.boostCd = Math.max(0, sk.boostCd - dt); sk.pumpT = Math.max(0, sk.pumpT - dt); sk.landT = Math.max(0, sk.landT - dt); sk.popT = Math.max(0, sk.popT - dt);
   if (sk.crashed) {
     sk.crashT += dt;
     const hx = Math.sin(sk.psi), hs = Math.cos(sk.psi);
@@ -490,7 +549,7 @@ function step(dt) {
       if (popNow || yp > hn + 0.12) {
         sk.air = true; sk.vx = sk.sp * c * hx; sk.vs = sk.sp * c * hs; sk.vy = sk.sp * sn + (popNow ? 5 : 0);
         sk.x = nx; sk.s = ns; sk.y = popNow ? Math.max(yp, hn) + 0.02 : yp;
-        sk.airT = 0; sk.flipAcc = 0; sk.spin = 0; sk.spinV = 0; sk.grabT = 0; sk.rotV = 0; sk.spinTarget = 0;
+        sk.airT = 0; sk.flipAcc = 0; sk.spin = 0; sk.spinV = 0; sk.grabT = 0; sk.rotV = 0; sk.spinTarget = 0; if (popNow) sk.popT = 0.2;
       } else {
         sk.x = nx; sk.s = ns; sk.y = hn;
         sk.rot += (sA - sk.rot) * Math.min(1, 14 * dt);
@@ -499,6 +558,7 @@ function step(dt) {
         if (sk.sp > 7 && Math.random() < 0.55) spray(sk.x - hx * 0.4, sk.y, sk.s - hs * 0.4, 1, 2);
         if (steer && sk.sp > 6 && sk.carve > 0.2) spray(sk.x - steer * 0.35 - hx * 0.2, sk.y, sk.s - hs * 0.2, 2, 3, -steer * (3 + sk.carve * 4));
         if (offTrack(sk.x, sk.s)) crash("Hit the trees");
+        else if (rockHit(sk.x, sk.y, sk.s)) crash("Hit a rock");
         if (boxAt(sk.x, sk.s)) sk.boxT += dt;
         else { if (sk.boxT > 0.45) { payout(100 + sk.boxT * 110, "Box slide", false, true); sfx("chime", 1); } sk.boxT = 0; }
       }
@@ -542,6 +602,7 @@ function step(dt) {
       sk.y = H(sk.x, sk.s) + RAIL_H; landing("rail", railHit);
     } else if (sk.y <= H(sk.x, sk.s)) { sk.y = H(sk.x, sk.s); landing("ground"); }
     else if (offTrack(sk.x, sk.s)) crash("Hit the trees");
+    else if (rockHit(sk.x, sk.y, sk.s)) crash("Hit a rock");
   }
   popReq = false;
 }
@@ -696,88 +757,151 @@ function initRender() {
   return true;
 }
 
+function canvasTex(w, h, draw) { const c = document.createElement("canvas"); c.width = w; c.height = h; draw(c.getContext("2d"), w, h); return new THREE.CanvasTexture(c); }
 function buildSkier() {
   const root = new THREE.Group(), pivot = new THREE.Group(), rig = new THREE.Group();
   pivot.position.y = 0.9; rig.position.y = -0.9; root.add(pivot); pivot.add(rig);
-  const M = (color, o) => new THREE.MeshStandardMaterial(Object.assign({ color, roughness: 0.75, metalness: 0.05 }, o || {}));
-  const jacket = M(0x2f8f8c, { roughness: 0.7 }), jacket2 = M(0x2b3036, { roughness: 0.7 }), pants = M(0x2c3445), glove = M(0x14181f), boot = M(0x1a1f29), helmet = M(0x15181d, { roughness: 0.3 });
-  const skin = M(0xe5b794), ski = M(0xe8512f, { roughness: 0.4 }), black = M(0x14181f), lens = M(0x2a2f36, { roughness: 0.15, metalness: 0.4 }), white = M(0xf4f6f9);
+  const M = (color, o) => new THREE.MeshStandardMaterial(Object.assign({ color, roughness: 0.72, metalness: 0.04 }, o || {}));
+  const lensTex = canvasTex(64, 32, (x, w, h) => { const g = x.createLinearGradient(0, 0, w, h); g.addColorStop(0, "#ffb347"); g.addColorStop(0.5, "#ff5a8a"); g.addColorStop(1, "#5a6bff"); x.fillStyle = g; x.fillRect(0, 0, w, h); x.fillStyle = "rgba(255,255,255,.35)"; x.fillRect(0, 0, w, 6); });
+  const skiTex = canvasTex(64, 256, (x, w, h) => { x.fillStyle = "#ee5a2c"; x.fillRect(0, 0, w, h); x.fillStyle = "#f6f7f9"; x.fillRect(0, 70, w, 24); x.fillRect(0, 120, w, 8); x.fillStyle = "#14181f"; x.fillRect(0, 0, w, 36); x.fillRect(0, 226, w, 30); x.fillStyle = "#14181f"; x.font = "bold 22px Arial"; x.save(); x.translate(44, 200); x.rotate(-Math.PI / 2); x.fillText("KICKER", 0, 0); x.restore(); });
+  const logoTex = canvasTex(128, 128, (x, w, h) => { x.fillStyle = "#14181f"; x.fillRect(0, 0, w, h); x.fillStyle = "#f08a3a"; x.beginPath(); x.moveTo(64, 14); x.lineTo(112, 108); x.lineTo(16, 108); x.closePath(); x.fill(); x.fillStyle = "#f4f6f9"; x.beginPath(); x.moveTo(64, 46); x.lineTo(84, 88); x.lineTo(44, 88); x.closePath(); x.fill(); });
+  const jacket = M(0x2f8f8c, { roughness: 0.62 }), jacket2 = M(0x2b3036, { roughness: 0.7 }), pants = M(0x2c3445, { roughness: 0.8 }), boot = M(0x1a1f29, { roughness: 0.5 }), helmet = M(0x15181d, { roughness: 0.22, metalness: 0.2 });
+  const black = M(0x14181f), glove = M(0x1b1f27, { roughness: 0.6 }), skin = M(0xe5b794, { roughness: 0.6 }), white = M(0xf4f6f9), orange = M(0xf08a3a), skiM = M(0xffffff, { map: skiTex, roughness: 0.35 });
+  const lens = M(0xffffff, { map: lensTex, roughness: 0.1, metalness: 0.7 }), gaiter = M(0x434a57), hair = M(0x4a3426, { roughness: 0.9 });
   const add = (geo, m, x, y, z, parent) => { const mm = new THREE.Mesh(geo, m); mm.position.set(x, y, z); (parent || rig).add(mm); return mm; };
-  const limb = (r0, r1, len, m) => { const g = new THREE.CylinderGeometry(r0, r1, len, 12); g.translate(0, -len / 2, 0); return new THREE.Mesh(g, m); };
-  // skis with bindings and rocker tips
+  const limb = (r0, r1, len, m) => { const g = new THREE.CylinderGeometry(r0, r1, len, 16); g.translate(0, -len / 2, 0); return new THREE.Mesh(g, m); };
+  // skis, bindings, boots
   [-0.13, 0.13].forEach(x => {
-    add(new THREE.BoxGeometry(0.095, 0.022, 1.45), ski, x, 0.03, 0.02);
-    add(new THREE.BoxGeometry(0.095, 0.022, 0.001 + 0.0), black, x, 0.03, 0);
-    const tip = add(new THREE.BoxGeometry(0.095, 0.022, 0.3), ski, x, 0.062, -0.82); tip.rotation.x = 0.38;
-    const tail = add(new THREE.BoxGeometry(0.095, 0.022, 0.22), ski, x, 0.05, 0.84); tail.rotation.x = -0.25;
-    add(new THREE.BoxGeometry(0.1, 0.012, 0.5), M(0xf4f6f9), x, 0.044, -0.1);
-    add(new THREE.BoxGeometry(0.1, 0.05, 0.22), black, x, 0.07, 0.04);
-    add(new THREE.BoxGeometry(0.115, 0.15, 0.3), boot, x, 0.16, 0.04);
-    add(new THREE.CylinderGeometry(0.06, 0.07, 0.12, 10), boot, x, 0.27, 0.06);
+    add(new THREE.BoxGeometry(0.095, 0.02, 1.4), skiM, x, 0.03, 0.05);
+    const t1 = add(new THREE.BoxGeometry(0.095, 0.02, 0.24), skiM, x, 0.052, -0.78); t1.rotation.x = 0.26;
+    const t2 = add(new THREE.BoxGeometry(0.095, 0.02, 0.16), skiM, x, 0.1, -0.93); t2.rotation.x = 0.62;
+    const tl = add(new THREE.BoxGeometry(0.095, 0.02, 0.2), skiM, x, 0.05, 0.8); tl.rotation.x = -0.28;
+    add(new THREE.BoxGeometry(0.1, 0.05, 0.1), black, x, 0.07, -0.08); add(new THREE.BoxGeometry(0.1, 0.06, 0.11), black, x, 0.075, 0.2);
+    add(new THREE.BoxGeometry(0.118, 0.12, 0.32), boot, x, 0.135, 0.06);
+    add(new THREE.CylinderGeometry(0.062, 0.075, 0.2, 14), boot, x, 0.27, 0.075);
+    [0.08, 0.17].forEach((zo, i) => add(new THREE.BoxGeometry(0.02, 0.025, 0.05), orange, x + Math.sign(x) * 0.06, 0.22 + i * 0.07, 0.0 + zo * 0.2));
   });
   const a = 0.43, b = 0.44, legs = [];
   [-0.115, 0.115].forEach(x => {
     const hip = new THREE.Group(); rig.add(hip);
-    hip.add(limb(0.115, 0.095, a, pants));
+    hip.add(limb(0.118, 0.098, a, pants));
     const knee = new THREE.Group(); knee.position.y = -a; hip.add(knee);
-    knee.add(new THREE.Mesh(new THREE.SphereGeometry(0.098, 10, 8), pants));
-    knee.add(limb(0.095, 0.082, b, pants));
+    knee.add(new THREE.Mesh(new THREE.SphereGeometry(0.1, 12, 10), pants));
+    knee.add(limb(0.098, 0.088, b, pants));
+    const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.095, 0.1, 0.1, 14), pants); cuff.position.y = -b + 0.02; knee.add(cuff);
     legs.push({ hip, knee, x });
   });
   const hipG = new THREE.Group(); rig.add(hipG);
-  const pelvis = add(new THREE.SphereGeometry(0.17, 12, 10), pants, 0, 0.02, 0, hipG); pelvis.scale.set(1.15, 0.8, 0.85);
+  add(new THREE.SphereGeometry(0.17, 16, 12), pants, 0, 0.02, 0, hipG).scale.set(1.18, 0.8, 0.88);
+  add(new THREE.BoxGeometry(0.17, 0.09, 0.07), M(0xb8601f), 0.0, 0.0, 0.16, hipG); // hip pouch
   const torso = new THREE.Group(); hipG.add(torso);
-  const chest = add(new THREE.CylinderGeometry(0.21, 0.2, 0.62, 16), jacket, 0, 0.32, 0, torso); chest.scale.set(1.2, 1, 0.82);
-  add(new THREE.CylinderGeometry(0.215, 0.215, 0.13, 16), jacket2, 0, 0.36, 0, torso).scale.set(1.2, 1, 0.83);
-  add(new THREE.SphereGeometry(0.15, 12, 10), jacket, 0, 0.7, 0.1, torso).scale.set(1.2, 0.9, 0.9); // hood
-  [-0.24, 0.24].forEach(x => add(new THREE.SphereGeometry(0.095, 10, 8), jacket, x, 0.57, 0, torso));
-  add(new THREE.CylinderGeometry(0.075, 0.085, 0.1, 10), M(0x2a2f3b), 0, 0.66, 0, torso); // neck gaiter
-  const head = new THREE.Group(); head.position.y = 0.78; torso.add(head);
-  add(new THREE.SphereGeometry(0.115, 14, 12), skin, 0, 0, 0, head);
-  const shell = add(new THREE.SphereGeometry(0.135, 16, 12, 0, TAU, 0, Math.PI * 0.62), helmet, 0, 0.012, 0.01, head);
-  add(new THREE.BoxGeometry(0.28, 0.025, 0.06), helmet, 0, 0.07, -0.12, head);
-  [-1, 1].forEach(sd => add(new THREE.CylinderGeometry(0.04, 0.04, 0.03, 10), helmet, sd * 0.13, -0.01, 0.01, head).rotation.z = Math.PI / 2);
-  add(new THREE.BoxGeometry(0.27, 0.095, 0.07), white, 0, 0.012, -0.108, head);
-  add(new THREE.BoxGeometry(0.2, 0.05, 0.02), lens, 0, 0.012, -0.146, head);
-  const strap = add(new THREE.TorusGeometry(0.13, 0.024, 6, 20), white, 0, 0.012, 0, head); strap.rotation.x = Math.PI / 2; strap.scale.set(1, 1.0, 1);
+  add(new THREE.CylinderGeometry(0.205, 0.19, 0.6, 22), jacket, 0, 0.31, 0, torso).scale.set(1.2, 1, 0.82);
+  add(new THREE.CylinderGeometry(0.222, 0.225, 0.1, 22), jacket2, 0, 0.04, 0, torso).scale.set(1.2, 1, 0.84);
+  add(new THREE.CylinderGeometry(0.218, 0.218, 0.13, 22), jacket2, 0, 0.37, 0, torso).scale.set(1.2, 1, 0.84);
+  add(new THREE.SphereGeometry(0.21, 16, 10), jacket, 0, 0.56, 0, torso).scale.set(1.22, 0.5, 0.82);
+  const logo = add(new THREE.PlaneGeometry(0.2, 0.2), new THREE.MeshStandardMaterial({ map: logoTex, roughness: 0.8 }), 0, 0.3, 0.172, torso);
+  [-0.255, 0.255].forEach(x => add(new THREE.SphereGeometry(0.1, 14, 10), jacket, x, 0.56, 0, torso));
+  add(new THREE.SphereGeometry(0.155, 14, 10), jacket, 0, 0.7, 0.115, torso).scale.set(1.2, 0.85, 0.9); // hood
+  add(new THREE.CylinderGeometry(0.082, 0.095, 0.11, 14), gaiter, 0, 0.66, 0, torso);
+  const head = new THREE.Group(); head.position.y = 0.8; torso.add(head);
+  add(new THREE.SphereGeometry(0.113, 18, 14), skin, 0, 0, 0, head);
+  add(new THREE.SphereGeometry(0.06, 10, 8), hair, 0, -0.075, 0.105, head).scale.set(1.3, 0.8, 0.9);
+  add(new THREE.SphereGeometry(0.139, 22, 14, 0, TAU, 0, Math.PI * 0.62), helmet, 0, 0.012, 0.012, head);
+  const stripe = add(new THREE.TorusGeometry(0.141, 0.011, 6, 28, Math.PI), white, 0, 0.012, 0.012, head); stripe.rotation.y = Math.PI / 2;
+  [-0.045, 0, 0.045].forEach(z => add(new THREE.BoxGeometry(0.1, 0.012, 0.03), black, 0, 0.145, z - 0.0, head));
+  add(new THREE.BoxGeometry(0.29, 0.022, 0.07), helmet, 0, 0.072, -0.122, head);
+  [-1, 1].forEach(sd => { add(new THREE.CylinderGeometry(0.042, 0.042, 0.032, 12), helmet, sd * 0.135, -0.012, 0.012, head).rotation.z = Math.PI / 2; });
+  add(new THREE.BoxGeometry(0.28, 0.1, 0.075), white, 0, 0.012, -0.108, head);
+  add(new THREE.BoxGeometry(0.215, 0.062, 0.025), lens, 0, 0.012, -0.152, head);
+  const strap = add(new THREE.TorusGeometry(0.133, 0.027, 8, 24), white, 0, 0.012, 0, head); strap.rotation.x = Math.PI / 2;
+  // scarf trailing off the gaiter
+  const scarf = [], scarfMat = [M(0xf08a3a), M(0x2f8f8c)]; let sp = new THREE.Group(); sp.position.set(0.08, 0.66, 0.12); torso.add(sp);
+  for (let i = 0; i < 6; i++) { const seg = new THREE.Group(); seg.position.z = i ? 0.17 : 0; sp.add(seg); const m = add(new THREE.BoxGeometry(0.11 - i * 0.008, 0.018, 0.18), scarfMat[i % 2], 0, 0, 0.09, seg); scarf.push(seg); sp = seg; }
+  // arms with elbows, gloves, poles
   const arms = [];
-  [-0.265, 0.265].forEach(x => {
-    const sh = new THREE.Group(); sh.position.set(x, 0.56, 0); torso.add(sh);
-    sh.add(limb(0.062, 0.055, 0.3, jacket));
+  [-1, 1].forEach(sd => {
+    const sh = new THREE.Group(); sh.position.set(sd * 0.265, 0.56, 0); torso.add(sh);
+    sh.add(limb(0.07, 0.06, 0.3, jacket));
     const el = new THREE.Group(); el.position.y = -0.3; sh.add(el);
-    el.add(new THREE.Mesh(new THREE.SphereGeometry(0.056, 8, 6), jacket));
-    el.add(limb(0.058, 0.05, 0.3, jacket));
-    const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.062, 0.062, 0.1, 10), jacket2); cuff.position.y = -0.06; el.add(cuff);
-    const hand = new THREE.Mesh(new THREE.SphereGeometry(0.058, 8, 6), glove); hand.position.y = -0.31; el.add(hand);
-    const pg = new THREE.CylinderGeometry(0.011, 0.011, 1.2, 6); pg.translate(0, -0.55, 0);
-    const pole = new THREE.Mesh(pg, M(0x9fb4c8, { metalness: 0.5 })); pole.position.y = -0.31; pole.rotation.x = -0.75; el.add(pole);
-    const basket = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.006, 12), M(0xd9c76a)); basket.position.y = -1.0; pole.add(basket);
-    arms.push({ sh, el, pole, x });
+    el.add(new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), jacket));
+    el.add(limb(0.06, 0.052, 0.3, jacket));
+    const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.064, 0.064, 0.09, 12), jacket2); cuff.position.y = -0.24; el.add(cuff);
+    const hand = new THREE.Mesh(new THREE.SphereGeometry(0.062, 12, 10), glove); hand.position.y = -0.335; hand.scale.set(0.95, 1.1, 1.1); el.add(hand);
+    const thumb = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 6), glove); thumb.position.set(-sd * 0.045, -0.31, -0.03); el.add(thumb);
+    const pg = new THREE.CylinderGeometry(0.011, 0.011, 1.18, 8); pg.translate(0, -0.59, 0);
+    const pole = new THREE.Mesh(pg, M(0xa7b8c9, { metalness: 0.6, roughness: 0.35 })); pole.position.y = -0.335; pole.rotation.x = -0.8; el.add(pole);
+    const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.02, 0.13, 8), orange); grip.position.y = -0.06; pole.add(grip);
+    const basket = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.04, 0.012, 12), M(0x14181f)); basket.position.y = -1.05; pole.add(basket);
+    arms.push({ sh, el, pole, pole_v: new THREE.Vector3(sd * 0.7, -0.3, 0.8).normalize(), sd });
   });
-  return { root, pivot, rig, legs, hipG, torso, head, arms, pose: { c: 0.25, lean: 0.15, arm: 0.45, el: 0.9, rarm: 0.45, rel: 0.9, spread: 0.1 }, a, b };
+  return { root, pivot, rig, legs, hipG, torso, head, arms, scarf, pose: { c: 0.3, lean: 0.2, carve: 0, L: new THREE.Vector3(-0.36, 0.92, -0.3), Rh: new THREE.Vector3(0.36, 0.92, -0.3), headY: 0 }, a, b };
 }
 
-function poseSkier(dt) {
-  const R = skierRig, p = R.pose, air = sk.air, grab = air && K.grab && !sk.crashed, tuck = !air && K.down && !sk.grind && !sk.crashed;
-  let c = 0.3, lean = 0.2, arm = 0.45, el = 0.9, rarm = 0.45, rel = 0.9, spread = 0.12, poles = 1;
-  if (tuck) { c = 0.85; lean = 1.05; arm = 1.1; el = 1.5; rarm = 1.1; rel = 1.5; spread = 0.02; }
-  else if (grab) { c = 0.92; lean = 0.6; arm = 0.3; el = 0.5; rarm = 0.9; rel = 0.55; spread = 0.3; poles = 0; }
-  else if (air) { c = 0.5; lean = 0.25; arm = 0.5; el = 0.6; rarm = 0.5; rel = 0.6; spread = 0.75; }
-  if (!air && sk.pumpT > 0 && !tuck) { c = 0.8; lean = 0.95; arm = 1.0; el = 1.2; rarm = 1.0; rel = 1.2; spread = 0.05; }
-  if (sk.grind) { c = 0.55; lean = 0.3; spread = 0.8; }
-  if (sk.crashed) { c = 0.4; lean = 0.2; arm = 2.6; el = 0.2; rarm = 2.6; rel = 0.2; spread = 1.2; poles = 0; }
-  const k = Math.min(1, 14 * dt);
-  for (const [key, v] of [["c", c], ["lean", lean], ["arm", arm], ["el", el], ["rarm", rarm], ["rel", rel], ["spread", spread]]) p[key] += (v - p[key]) * k;
-  const dh = (R.a + R.b) * (0.97 - 0.42 * p.c), foot = 0.24, hipY = foot + dh;
+const Y_DOWN = typeof THREE !== "undefined" ? new THREE.Vector3(0, -1, 0) : null;
+const _a = typeof THREE !== "undefined" ? { d: new THREE.Vector3(), dir: new THREE.Vector3(), p: new THREE.Vector3(), e: new THREE.Vector3(), f: new THREE.Vector3(), q: new THREE.Quaternion(), m: new THREE.Matrix4(), t: new THREE.Vector3() } : null;
+function ikArm(arm, tgt) { // two-bone arm IK in torso space, hand reaches tgt
+  const S = arm.sh.position, A = 0.3, B = 0.335, v = _a;
+  v.d.copy(tgt).sub(S); let dist = v.d.length();
+  const maxR = A + B - 0.012; if (dist > maxR) { v.d.multiplyScalar(maxR / dist); dist = maxR; } if (dist < 0.14) dist = 0.14;
+  v.dir.copy(v.d).normalize();
+  const cosA = clamp((A * A + dist * dist - B * B) / (2 * A * dist), -1, 1), sinA = Math.sqrt(1 - cosA * cosA);
+  v.p.copy(arm.pole_v); v.p.addScaledVector(v.dir, -v.p.dot(v.dir)).normalize();
+  v.e.copy(S).addScaledVector(v.dir, A * cosA).addScaledVector(v.p, A * sinA);
+  v.f.copy(v.e).sub(S).normalize(); arm.sh.quaternion.setFromUnitVectors(Y_DOWN, v.f);
+  v.f.copy(S).addScaledVector(v.dir, dist).sub(v.e).normalize(); v.q.copy(arm.sh.quaternion).invert(); v.f.applyQuaternion(v.q);
+  arm.el.quaternion.setFromUnitVectors(Y_DOWN, v.f);
+}
+// where each grab puts a hand, in rig space (x right, y up, z back); arm = which hand
+const GRAB_POSE = [{ arm: 0, t: [0.12, 0.12, -0.3] }, { arm: 1, t: [0.1, 0.12, -0.12] }, { arm: 1, t: [0.16, 0.12, 0.5] }, { arm: 0, t: [-0.26, 0.12, 0.15] }, { arm: 0, t: [-0.14, 0.16, -0.6] }, { arm: 1, t: [-0.1, 0.12, 0.32] }];
+
+function poseSkier(dt, time) {
+  const R = skierRig, p = R.pose, air = sk.air;
+  const flipping = air && Math.abs(sk.rotV) > 2.5, grab = air && K.grab && !sk.crashed, tuck = !air && K.down && !sk.grind && !sk.crashed;
+  const sliding = sk.grind || sk.boxT > 0.15;
+  let c = 0.3, lean = 0.2, L = [-0.36, 0.92, -0.3], Rt = [0.36, 0.92, -0.3], poleThrust = 0;
+  const carve = sk.carve * Math.abs(sk.turn), tn = Math.sign(sk.turn);
+  if (sk.crashed) { c = 0.4; lean = 0.2; const w = Math.sin(time * 16); L = [-0.75, 1.45 + w * 0.2, 0.1]; Rt = [0.75, 1.45 - w * 0.2, 0.1]; }
+  else if (sliding) { c = 0.55; lean = 0.3; L = [-0.7, 1.0, -0.2]; Rt = [0.7, 1.0, -0.2]; }
+  else if (grab) {
+    c = 0.93; lean = 0.62; L = [-0.82, 1.2, -0.1]; Rt = [0.82, 1.2, -0.1];
+    const g = GRAB_POSE[sk.jumpNo % 6]; (g.arm ? Rt = g.t : L = g.t);
+    if (g.t[2] > 0.3) lean = 0.4;
+  }
+  else if (flipping) { c = 0.96; lean = 0.95; L = [-0.2, 0.5, -0.34]; Rt = [0.2, 0.5, -0.34]; }
+  else if (air) { c = 0.5; lean = 0.25; L = [-0.78, 1.32, -0.05]; Rt = [0.78, 1.32, -0.05]; }
+  else if (tuck) { c = 0.86; lean = 1.05; L = [-0.2, 0.64, -0.62]; Rt = [0.2, 0.64, -0.62]; }
+  else if (sk.pumpT > 0) { c = 0.82; lean = 0.95; L = [-0.28, 0.72, -0.5]; Rt = [0.28, 0.72, -0.5]; poleThrust = 1; }
+  else { // riding: carve opens the inside arm and drops the inside hip
+    c = 0.3 + 0.12 * carve; lean = 0.22 + 0.1 * carve;
+    L = [-0.36 - 0.1 * carve * (tn > 0 ? 0 : 1), 0.92 - 0.12 * carve * (tn < 0 ? 1 : 0), -0.3 - 0.14 * carve * (tn > 0 ? 1 : 0)];
+    Rt = [0.36 + 0.1 * carve * (tn > 0 ? 1 : 0), 0.92 - 0.12 * carve * (tn > 0 ? 1 : 0), -0.3 - 0.14 * carve * (tn < 0 ? 1 : 0)];
+    if (sk.sp < 3.5) { c = 0.25 + 0.03 * Math.sin(time * 2); }
+  }
+  // landing squash and take-off extension
+  if (sk.landT > 0) c += 0.5 * Math.sin(Math.PI * sk.landT / 0.35);
+  if (sk.popT > 0) c -= 0.28 * (sk.popT / 0.2);
+  const k = Math.min(1, 14 * dt), kh = Math.min(1, 18 * dt);
+  p.c += (c - p.c) * k; p.lean += (lean - p.lean) * k; p.carve += (carve - p.carve) * k;
+  p.L.x += (L[0] - p.L.x) * kh; p.L.y += (L[1] - p.L.y) * kh; p.L.z += (L[2] - p.L.z) * kh;
+  p.Rh.x += (Rt[0] - p.Rh.x) * kh; p.Rh.y += (Rt[1] - p.Rh.y) * kh; p.Rh.z += (Rt[2] - p.Rh.z) * kh;
+  // legs: two-bone IK, feet stay on the skis
+  const dh = (R.a + R.b) * (0.97 - 0.42 * clamp(p.c, -0.2, 1.1)), foot = 0.26, hipY = foot + dh;
   const cosA = clamp((R.a * R.a + dh * dh - R.b * R.b) / (2 * R.a * dh), -1, 1), th = Math.acos(cosA);
   const kz = -R.a * Math.sin(th), ky = hipY - R.a * Math.cos(th), s2 = Math.atan2(kz, -(foot - ky));
-  R.legs.forEach(l => { l.hip.position.set(l.x, hipY, 0.04); l.hip.rotation.x = th; l.knee.rotation.x = s2 - th; });
-  R.hipG.position.set(0, hipY + 0.02, 0.04 + 0.04 * p.c); R.torso.rotation.x = -p.lean;
-  R.arms.forEach((a, i) => {
-    a.sh.rotation.x = i === 1 ? p.rarm : p.arm; a.el.rotation.x = i === 1 ? p.rel : p.el; a.sh.rotation.z = (i === 0 ? 1 : -1) * p.spread;
-    a.pole.visible = poles > 0;
-  });
-  R.head.rotation.x = p.lean * 0.55;
+  const inside = p.carve * tn * 0.07; // hips drop toward the inside of a carve
+  R.legs.forEach(l => { l.hip.position.set(l.x - inside, hipY, 0.04); l.hip.rotation.x = th; l.hip.rotation.z = -tn * p.carve * 0.12; l.knee.rotation.x = s2 - th; });
+  R.hipG.position.set(-inside, hipY + 0.02, 0.04 + 0.04 * p.c); R.hipG.updateMatrix();
+  R.torso.rotation.x = -p.lean; R.torso.rotation.z = tn * p.carve * 0.16 + (air ? 0 : 0); R.torso.scale.y = 1 + 0.006 * Math.sin(time * 3.2);
+  R.torso.updateMatrix();
+  // arms: targets are in rig space, convert to torso space
+  _a.m.copy(R.hipG.matrix).multiply(R.torso.matrix).invert();
+  R.arms.forEach((arm, i) => { _a.t.copy(i ? p.Rh : p.L).applyMatrix4(_a.m); ikArm(arm, _a.t); arm.pole.visible = !grab || (i === 0 ? GRAB_POSE[sk.jumpNo % 6].arm === 1 : GRAB_POSE[sk.jumpNo % 6].arm === 0); arm.pole.rotation.x = -0.8 + 0.5 * poleThrust * Math.sin(time * 30) ; });
+  // head looks into the turn
+  p.headY += (-sk.turn * 0.5 - p.headY) * Math.min(1, 6 * dt);
+  R.head.rotation.y = p.headY; R.head.rotation.x = p.lean * 0.55;
+  // scarf streams behind with speed
+  const spd = clamp((air ? Math.hypot(sk.vx, sk.vs) : sk.sp) / 26, 0, 1);
+  R.scarf.forEach((seg, i) => { seg.rotation.x = lerp(0.55, -0.12, spd) + 0.14 * Math.sin(time * 9 + i * 0.9) * (0.4 + spd); seg.rotation.y = -sk.turn * 0.22 + 0.12 * Math.sin(time * 7 + i * 1.3) * spd; });
 }
 
 /* terrain chunks */
@@ -789,7 +913,7 @@ function idxFor(nx) {
 }
 function xsFor(s0) {
   const need = [0, 0];
-  for (let q = 0; q <= 4; q++) { const T = trailFor(s0 + q * CH / 4); if (T) need[T.side < 0 ? 0 : 1] = Math.abs(T.xw) + 12; }
+  for (let q = 0; q <= 4; q++) { const T = trailFor(s0 + q * CH / 4); if (T) need[T.side < 0 ? 0 : 1] = 64; }
   const half = k => { const lim = Math.max(24, need[k]), pts = []; for (let x = 24; x < lim; x += 0.8) pts.push(x); for (let x = lim; x <= 80; x += 3.5) pts.push(x); return pts; };
   const a = half(0).map(v => -v).reverse();
   for (let x = -23.2; x < 23.5; x += 0.8) a.push(+x.toFixed(2));
@@ -840,12 +964,14 @@ function buildChunk(ci) {
   [-1, 1].forEach(sd => { const ps = s0 + CH * 0.5, px = sd * (PISTE + 3), g = new THREE.Sprite(glowMat()); g.scale.set(9, 9, 1); g.position.set(px, inCorr(px, ps) ? -9999 : H(px, ps) + 8.8, -ps); grp.add(g); });
   // trees
   const rt = mulberry(ci * 977 + 5), tr = [];
-  const tryAdd = (x, s, sc) => { const T = trailFor(s); if (T && Math.abs(x - trailXc(T, s)) < T.hw + 5.2) return; tr.push({ x, s, y: H(x, s) - 0.1, sc }); };
+  const tryAdd = (x, s, sc) => { if (Math.abs(x) < PISTE + 3) return; const T = trailFor(s); if (T && Math.abs(x - trailXc(T, s)) < T.hw + 5.2) return; tr.push({ x, s, y: H(x, s) - 0.1, sc }); };
   for (let i = 0; i < 46; i++) { const side = rt() < 0.5 ? -1 : 1; tryAdd(side * (PISTE + 6 + rt() * 34), s0 + rt() * CH, 0.8 + rt() * 0.9); }
   for (let i = 0; i < 70; i++) { // dense forest lining a trail
     const s = s0 + rt() * CH, T = trailFor(s), sd = rt() < 0.5 ? -1 : 1, off = T ? T.hw + 5.2 + rt() * 15 : 0, sc = 0.8 + rt() * 1.0;
     if (T) tryAdd(trailXc(T, s) + sd * off, s, sc);
   }
+  if (!rockChunks.has(ci)) { rockChunks.add(ci); rocksForChunk(ci).forEach(r => addRock(r.x, r.s, r.r)); }
+  grp.add(rockGroup(rocksForChunk(ci)));
   const N = tr.length;
   if (N) {
     const mk = (geo, color, yOff) => { const m = new THREE.InstancedMesh(geo, new THREE.MeshLambertMaterial({ color }), N), d = new THREE.Object3D(); m.castShadow = true; m.receiveShadow = true;
@@ -879,8 +1005,6 @@ function buildTrailMesh(t) {
   };
   const arrow = t.side < 0 ? "◀" : "▶";
   board("WOODS TRAIL", "advanced · jumps", arrow, t.side * (PISTE - 4.5), t.s0 - 6, 6.2, 3.0);
-  board("WOODS TRAIL", "advanced · jumps", arrow, trailXc(t, t.s0 + 16), t.s0 + 16, 2 * (t.hw + 0.9), 4.0);
-  if (isFinite(t.s1)) board("BACK TO PISTE", "main run ahead", t.side < 0 ? "▶" : "◀", trailXc(t, t.s1 - 12), t.s1 - 12, 2 * (t.hw + 0.9), 4.0);
   return grp;
 }
 function glowMat() {
@@ -970,6 +1094,7 @@ function buildFeature(f) {
       if (i % 2 === 0) { const gy = H(r.x, sa); const post = new THREE.Mesh(new THREE.BoxGeometry(0.12, RAIL_H, 0.12), pm); post.position.set(r.x, gy + RAIL_H / 2 - 0.02, -sa); grp.add(post); }
     }
   }
+  if (f.rocks && f.rocks.length) grp.add(rockGroup(f.rocks));
   f.coins.forEach(co => {
     const m = new THREE.Mesh(ringGeo(), ringMat()); m.position.set(co.x, co.y, -co.s); m.visible = !co.got; grp.add(m); coinMeshes.set(co, m);
   });
@@ -1012,6 +1137,7 @@ function updateCamera(dt) {
   camX += (tx - camX) * Math.min(1, 8 * dt); camS += (ts - camS) * Math.min(1, 10 * dt); camY += (ty - camY) * Math.min(1, 4.5 * dt);
   camY = Math.max(camY, H(camX, camS) + 1.6);
   camera.position.set(camX + (Math.random() - 0.5) * shake * 0.3, camY + (Math.random() - 0.5) * shake * 0.3, -camS);
+  if (window.__cam) { camera.position.set(...window.__cam.pos); camera.lookAt(...window.__cam.look); return; }
   const ahead = 2.2, lx = sk.x + Math.sin(camHead) * ahead, ls = sk.s + Math.cos(camHead) * ahead;
   camera.lookAt(lx, sk.y + 0.7, -ls);
   camera.rotateZ(-sk.turn * 0.035 * (sk.air ? 0.3 : 1));
@@ -1023,7 +1149,7 @@ const _n = typeof THREE !== "undefined" ? new THREE.Vector3() : null, _q = typeo
 function render(dt, time) {
   if (!renderer) return;
   manageWorld();
-  poseSkier(dt);
+  poseSkier(dt, time);
   const R = skierRig;
   R.root.position.set(sk.x, sk.y, -sk.s);
   const grindYaw = sk.grind || sk.boxT > 0.15 ? 1.45 : 0;
