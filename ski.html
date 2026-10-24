@@ -88,13 +88,13 @@
   </div>
   <div id="next" hidden></div>
   <div id="prog"><i id="progbar"></i></div>
-  <div id="focuswrap"><span>Focus</span><div class="bar"><i id="focus"></i></div><span>Shift</span></div>
+  <div id="focuswrap"><span>Slow-mo</span><div class="bar"><i id="focus"></i></div><span>F</span></div>
   <div id="pop"><div class="t"></div><div class="s"></div></div>
   <div id="toast"></div>
-  <div id="hint">← → steer &nbsp;·&nbsp; ↑ ↓ flip &nbsp;·&nbsp; Q E spin (flip + spin = cork) &nbsp;·&nbsp; Space spam = speed / pop / grab &nbsp;·&nbsp; Shift focus</div>
+  <div id="hint">← → steer &nbsp;·&nbsp; ↑ ↓ flip &nbsp;·&nbsp; Q E spin (flip + spin = cork) &nbsp;·&nbsp; Space = jump / grab &nbsp;·&nbsp; Shift = speed up &nbsp;·&nbsp; F = slow-mo</div>
   <div id="touch">
     <div class="grp"><button data-k="left">Left</button><button data-k="right">Right</button></div>
-    <div class="grp"><button data-k="up">Front flip</button><button data-k="down">Back / tuck</button><button data-k="spin">Spin</button><button data-k="grab">Pop / grab</button><button data-k="focus">Focus</button></div>
+    <div class="grp"><button data-k="up">Front flip</button><button data-k="down">Back / tuck</button><button data-k="spin">Spin</button><button data-k="grab">Pop / grab</button><button data-k="boost">Speed</button><button data-k="focus">Focus</button></div>
   </div>
   <div id="end" hidden>
     <div class="card">
@@ -109,11 +109,12 @@
       <p class="lede">One run down the mountain: 6,000 m, around three to five minutes from drop-in to the finish arch. The piste bends, steepens and flattens, with kickers, hips, rails, giant cliffs and woods trails along the way. Throw tricks, land them clean and chain your multiplier.</p>
       <dl>
         <dt>← → or A D</dt><dd>Carve on snow: hold a turn and the edges bite, tighter and faster. Nudge in the air</dd>
-        <dt>Space</dt><dd>Spam it on the flat to pump for speed. Tap at a ramp lip to pop. Hold in the air to grab</dd>
+        <dt>Space</dt><dd>Tap to jump anywhere. Hold in the air to grab</dd>
         <dt>↑ W · ↓ S</dt><dd>Front flip / back flip in the air. ↓ tucks for speed on snow</dd>
         <dt>Q E</dt><dd>Spin left / right. Flip and spin together for a cork bonus</dd>
-        <dt>Shift</dt><dd>Hold in the air for slow-motion focus. Clean tricks refill it</dd>
-        <dt>Gap jumps</dt><dd>Keep your speed up and tuck. Land short and you fall in</dd>
+        <dt>Shift</dt><dd>Hold to speed up</dd>
+        <dt>F</dt><dd>Hold in the air for slow motion. Clean tricks refill it</dd>
+        <dt>Gap jumps</dt><dd>Hold Shift to build speed. Land short and you fall in</dd>
         <dt>Houses</dt><dd>Jump onto a roof, or ride a ramp up to it, then slide the roof and grind its rail</dd>
         <dt>Run types</dt><dd>Carving S-turns, steep chutes, mogul fields and flat cruisers between the jumps</dd>
         <dt>Switch</dt><dd>Land a 180 and you stay backwards until you spin again</dd>
@@ -143,7 +144,7 @@ const hash = n => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s
 /* =====================================================================
    COURSE: coordinates are (x across, y up, s down the mountain). Render z = -s.
    ===================================================================== */
-const G = 18, BASE = 0.28, RAIL_H = 0.55, PISTE = 18, MAXV = 400;
+const G = 18, BASE = 0.28, RAIL_H = 0.55, PISTE = 15, MAXV = 400;
 const COURSE_END = 6000;
 const rng = mulberry(2024);
 const feats = [];
@@ -199,7 +200,7 @@ function flightD(L, Hh, v0, roof) { // where a nominal flight from the lip comes
 }
 function mkKicker(s0, kind, cx, hw, diff, sc) {
   sc = sc || 1;
-  const T = [[8, 1.5, 0.15, 22, 0.5, 10, 32, "Small kicker"], [11, 2, 0.17, 26, 0.55, 18, 50, "Kicker"], [14, 2, 0.2, 30, 0.6, 28, 80, "Big air"], [14, 2, 0.22, 30, 0.4, 20, 60, "Gap jump"], [18, 2, 0.28, 36, 0.6, 50, 140, "Mega air"]][kind];
+  const T = [[8, 1.5, 0.15, 22, 0.5, 10, 32, "Small kicker"], [11, 2, 0.17, 26, 0.55, 18, 50, "Kicker"], [14, 2, 0.2, 30, 0.6, 28, 80, "Big air"], [14, 2, 0.22, 30, 0.33, 18, 55, "Gap jump"], [18, 2, 0.28, 36, 0.6, 50, 140, "Mega air"]][kind];
   const L = (T[0] + rng() * T[1]) * (sc < 1 ? 0.8 : 1), ratio = T[2] + rng() * 0.02, v0 = T[3];
   const Hh = L * ratio * (kind < 3 ? 1 + 0.1 * diff : 1), fd = flightD(L, Hh, v0);
   const gap = clamp(T[4] * fd.d * sc, T[5] * sc, T[6] * sc), Ll = clamp(gap * 0.8 + 8, 14, 60);
@@ -258,29 +259,47 @@ let pendingInterlude = null, secCount = 0, interCount = 0;
 function addInterlude(kind) {
   const f = { s0: genS, parts: [], label: "", boost: null, rail: null, coins: [], mainCx: 0, interlude: kind, idx: -1 }, last = pcs[pcs.length - 1], x0 = last.x, sgn = rng() < 0.5 ? -1 : 1;
   let len;
-  if (kind === "moguls") { len = 170; f.parts.push({ type: "moguls", s0: genS + 14, end: genS + len - 6, amp: 0.5, cx: x0, hw: 80 }); f.label = "Mogul field · stay loose"; addKnot(genS, 0.3); addKnot(genS + len, 0.3); pcs.push({ a: genS, b: genS + len, x: x0 }); }
-  else if (kind === "carve") {
-    len = 300; const x1 = clamp(x0 + sgn * (24 + rng() * 10), -34, 34), x2 = clamp(x1 - sgn * (28 + rng() * 10), -34, 34); f.label = "Carving run · S-turns";
-    addKnot(genS + 40, 0.22); addKnot(genS + 130, 0.32); addKnot(genS + 220, 0.2); addKnot(genS + len, BASE);
-    pcs.push({ a: genS + 75, b: genS + 83, x: x1 }, { a: genS + 180, b: genS + 188, x: x2 }, { a: genS + len - 6, b: genS + len, x: x2 });
+  if (kind === "carve") {
+    len = 190; const x1 = clamp(x0 + sgn * (14 + rng() * 8), -30, 30), x2 = clamp(x1 - sgn * (20 + rng() * 8), -30, 30); f.label = "Carving run · S-turns";
+    addKnot(genS + 30, 0.22); addKnot(genS + 90, 0.34); addKnot(genS + 150, 0.2); addKnot(genS + len, BASE);
+    pcs.push({ a: genS + 50, b: genS + 58, x: x1 }, { a: genS + 125, b: genS + 133, x: x2 }, { a: genS + len - 6, b: genS + len, x: x2 });
   } else if (kind === "chute") {
-    len = 210; f.label = "Steep chute · let it run"; addKnot(genS + 20, 0.52); addKnot(genS + len - 20, 0.56); addKnot(genS + len, 0.4);
-    pcs.push({ a: genS + len * 0.45, b: genS + len * 0.45 + 8, x: clamp(x0 + (rng() - 0.5) * 22, -30, 30) });
+    len = 150; f.label = "Steep chute · whoops and a kick"; addKnot(genS + 15, 0.5); addKnot(genS + len - 15, 0.52); addKnot(genS + len, 0.4);
+    pcs.push({ a: genS, b: genS + len, x: x0, jump: true });
+    f.parts.push({ type: "rollers", s0: genS + 22, n: 5, sp: 8, amp: 0.55, cx: x0, hw: 80, end: genS + 62 }); const k = mkKicker(genS + 80, 0, x0, 3.4, 0.3, 0.7); f.parts.push(k); len = Math.max(len, k.end - genS + 8);
   } else {
-    len = 220; f.label = "Flat cruiser · carve it"; addKnot(genS + 30, 0.1); addKnot(genS + len - 30, 0.1); addKnot(genS + len, BASE * 0.8);
-    pcs.push({ a: genS + len * 0.5, b: genS + len * 0.5 + 8, x: clamp(x0 + sgn * 18, -30, 30) });
+    len = 150; f.label = "Flat cruiser · pop the rollers"; addKnot(genS + 20, 0.1); addKnot(genS + len - 20, 0.1); addKnot(genS + len, BASE * 0.8);
+    pcs.push({ a: genS, b: genS + len, x: x0, jump: true });
+    f.parts.push({ type: "rollers", s0: genS + 18, n: 4, sp: 8.5, amp: 0.5, cx: x0, hw: 80, end: genS + 52 }, { type: "box", s0: genS + 80, len: 14, end: genS + 94, B: 0.7, cx: x0, hw: 1.9 });
   }
-  f.end = genS + len; feats.push(f); genS = f.end + 70 + rng() * 40;
+  f.end = genS + len; feats.push(f); genS = f.end + 58 + rng() * 14;
+  return f;
+}
+let pendingFiller = false, microCount = 0;
+function addMicro() {
+  const i = microCount++, diff = Math.min(1, secCount / 16), f = { s0: genS, parts: [], label: "", boost: null, rail: null, coins: [], mainCx: 0, idx: -1, micro: true }, t = i % 4;
+  if (t === 0) { const n = 3 + Math.floor(rng() * 2), sp = 7.5 + rng(); f.parts.push({ type: "rollers", s0: genS, n, sp, amp: 0.5 + rng() * 0.15, cx: 0, hw: 80, end: genS + n * sp }); f.label = "Whoops"; }
+  else if (t === 1) { f.parts.push(mkKicker(genS, 0, 0, 3.4, diff, 0.8)); f.label = "Little kicker"; }
+  else if (t === 2) { f.parts.push({ type: "box", s0: genS, len: 12, end: genS + 12, B: 0.7, cx: -2.5, hw: 1.8 }, { type: "box", s0: genS + 22, len: 12, end: genS + 34, B: 0.7, cx: 2.5, hw: 1.8 }); f.label = "Jib line"; }
+  else { const k = mkKicker(genS, 0, 0, 3.2, diff, 0.8); f.parts.push(k); const rs0 = k.s0 + k.L + k.gap + k.Ll * 0.1; f.rail = { s0: rs0, s1: rs0 + k.Ll * 0.72, x: (rng() - 0.5) * 1.2 }; f.label = "Kicker + rail"; }
+  f.end = Math.max(...f.parts.map(p => p.end), f.rail ? f.rail.s1 : 0);
+  const last = pcs[pcs.length - 1], a = f.s0 - 14, px = clamp(last.x + (rng() - 0.5) * 2 * Math.min(8, 0.35 * Math.max(8, a - last.b)), -30, 30);
+  shiftSection(f, px); flankRocks(f); feats.push(f); regRocks(f);
+  const prevEnd = knots[knots.length - 1].s, gapLen = a - prevEnd;
+  if (gapLen > 20) { const v = [0.2, 0.36, 0.42, 0.24][Math.floor(rng() * 4)]; addKnot(prevEnd + gapLen * 0.5, v); }
+  addKnot(a, BASE); addKnot(f.end + 10, BASE);
+  pcs.push({ a, b: f.end + 10, x: px, jump: true });
+  genS = f.end + 64 + rng() * 16;
   return f;
 }
 function houseSection(f, diff) {
-  const B = 4.2 + rng() * 1.4, hw = 5 + rng() * 1.4, cx = (rng() - 0.5) * 6, ramp = Math.floor(secCount / 6) % 2 === 1, walls = [[0.5, 0.33, 0.22], [0.62, 0.5, 0.36], [0.45, 0.46, 0.5], [0.55, 0.22, 0.18], [0.33, 0.42, 0.33]];
+  const B = 4.2 + rng() * 1.4, hw = 5.6 + rng() * 0.8, cx = 0, ramp = Math.floor(secCount / 6) % 2 === 1, walls = [[0.5, 0.33, 0.22], [0.62, 0.5, 0.36], [0.45, 0.46, 0.5], [0.55, 0.22, 0.18], [0.33, 0.42, 0.33]];
   let box;
   if (!ramp) {
     const L = 22, H = B + 1.0, v0 = 28, fd = flightD(L, H, v0, B), gap = fd.d * 0.55, len = clamp(fd.d * 0.75 + 6, 28, 40);
-    const lead = { type: "kicker", label: "House kicker", s0: genS, L, H, gap, Ll: 1, Hl: 0, cx, hw: 4.2, v0, pit: 0 }; lead.end = lead.s0 + L + gap + 1;
+    const lead = { type: "kicker", label: "House kicker", s0: genS, L, H, gap, Ll: 1, Hl: 0, cx, hw: 6.8, v0, pit: 0 }; lead.end = lead.s0 + L + gap + 1;
     const hs0 = genS + L + gap; box = { type: "box", house: true, s0: hs0, len, end: hs0 + len, B, rise: 0.6, cx, hw, wall: walls[Math.floor(rng() * walls.length)] };
-    f.parts.push(lead, box); f.label = "HOUSE JUMP · land on the roof";
+    f.parts.push(lead, box); f.label = "HOUSE JUMP · Shift, then land on the roof";
   } else {
     const len = 26 + rng() * 8, hs0 = genS + 6; box = { type: "box", house: true, s0: hs0, len, end: hs0 + len, B, rise: 18, cx, hw, wall: walls[Math.floor(rng() * walls.length)] };
     f.parts.push(box); f.label = "House ramp · ride up onto the roof";
@@ -290,6 +309,7 @@ function houseSection(f, diff) {
 }
 function addSection() {
   if (pendingInterlude) { const k = pendingInterlude; pendingInterlude = null; return addInterlude(k); }
+  if (pendingFiller) { pendingFiller = false; return addMicro(); }
   const i = secCount++, diff = Math.min(1, i / 16), pick = rng();
   const f = { s0: genS, parts: [], label: "", boost: null, rail: null, coins: [], mainCx: 0, idx: i };
   if (i % 6 === 1) {
@@ -306,7 +326,7 @@ function addSection() {
   } else if (i % 6 === 2) {
     houseSection(f, diff);
   } else if (i % 6 === 3 || pick < 0.06) {
-    f.parts.push(mkKicker(genS, 3, 0, PISTE - 1.5, diff)); f.label = "Gap jump · keep your speed up";
+    f.parts.push(mkKicker(genS, 3, 0, PISTE - 1.5, diff)); f.label = "Gap jump · hold Shift for speed";
     f.boost = { s0: genS - 26, s1: genS - 20, cx: 0, hw: 1.6, amt: 12 };
   } else if (pick < 0.2) {
     const n = 4 + Math.floor(rng() * 3), sp = 7 + rng() * 2;
@@ -327,7 +347,7 @@ function addSection() {
   f.boost = null; // no boost pads
   f.end = f.cliff ? f.cliffEnd : Math.max(...f.parts.map(p => p.end), f.rail ? f.rail.s1 : 0);
   // plateau for the centre line and slope knots: curve and steepness change in the gap before this section
-  const last = pcs[pcs.length - 1], px = i < 1 ? 0 : clamp(last.x + (rng() - 0.5) * 40, -30, 30);
+  const last = pcs[pcs.length - 1], px = i < 1 ? 0 : clamp(last.x + (rng() - 0.5) * 2 * Math.min(14, 0.35 * Math.max(8, f.s0 - 34 - last.b)), -30, 30);
   shiftSection(f, px);
   if (f.cliff) { f.rocks = []; for (const sd of [-1, 1]) for (let q = 0; q < 5; q++) f.rocks.push({ x: px + sd * (PISTE + 1.2 + q * 2.6 + rng()), s: f.cliff.s - 2.5 + rng() * 5, r: 1.6 + rng() * 1.8 }); [-1, 1].forEach(sd => f.rocks.push({ x: px + sd * (PISTE - 0.5), s: f.cliff.s - 1.5, r: 2.4 })); }
   else flankRocks(f);
@@ -336,13 +356,21 @@ function addSection() {
   if (i > 0 && gapLen > 20) { const v = (i % 6 === 3 || i % 6 === 5) ? 0.44 : [0.14, 0.2, 0.2, 0.36, 0.44, 0.5][Math.floor(rng() * 6)]; addKnot(prevEnd + gapLen * 0.3, v); addKnot(prevEnd + gapLen * 0.7, v); }
   addKnot(a, BASE); addKnot(f.end + 10, BASE);
   pcs.push({ a, b: f.end + 10, x: px, jump: !f.cliff });
-  if (i > 1 && rng() < 0.6) { const fast = secCount % 6 === 3 || secCount % 6 === 5, order = ["moguls", "carve", "chute", "cruiser"]; let k = order[interCount++ % 4]; if (fast && k === "cruiser") k = "chute"; pendingInterlude = k; genS = f.end + 36 + rng() * 10; }
-  else genS = f.end + 90 + rng() * 50;
+  if (i > 1 && rng() < 0.45) { const fast = secCount % 6 === 3 || secCount % 6 === 5, order = ["carve", "chute", "cruiser"]; let k = order[interCount++ % 3]; if (fast && k === "cruiser") k = "chute"; pendingInterlude = k; genS = f.end + 44 + rng() * 10; }
+  else { pendingFiller = true; genS = f.end + 46 + rng() * 8; }
   return f;
 }
+function jumpMask(s) {
+  let lo = 0, hi = pcs.length - 1, r = 0;
+  while (lo <= hi) { const m = (lo + hi) >> 1; if (pcs[m].a <= s) { r = m; lo = m + 1; } else hi = m - 1; }
+  const p = pcs[r]; if (!p.jump || s > p.b) return 0;
+  return smooth((s - p.a) / 18) * smooth((p.b - s) / 18);
+}
+// rolling hills, benches and break-overs; nearly flattened inside the straight jump sections
+function und(xr, s) { return (1 - 0.88 * jumpMask(s)) * (2.4 * Math.sin(s * 0.02 + xr * 0.015 + 1.3) + 1.4 * Math.sin(s * 0.055 - xr * 0.03) + 0.8 * Math.sin(s * 0.1 + xr * 0.05 + 2)); }
 function H_(x, s) {
   const xr = x - pc(s), ax = Math.abs(xr), lv = baseY(s) + cliffOff(s);
-  let y = lv + 0.35 * Math.sin(s * 0.09 + xr * 0.12) + 0.25 * Math.sin(xr * 0.21 - s * 0.045);
+  let y = lv + und(xr, s) + 0.35 * Math.sin(s * 0.09 + xr * 0.12) + 0.25 * Math.sin(xr * 0.21 - s * 0.045);
   y += 3.5 * smooth((ax - PISTE + 1) / 5) + 0.12 * Math.max(0, ax - PISTE - 5);
   y += clamp(-xr * pcc(s) * 4, -3.5, 3.5) * (1 - smooth((ax - PISTE - 2) / 6)); // banked turns
   const j = featIndex(s);
@@ -350,7 +378,7 @@ function H_(x, s) {
   const T = trailFor(s);
   if (T) {
     const xc = trailXc(T, s), cw = 1 - smooth((Math.abs(x - xc) - T.hw) / 1.8);
-    if (cw > 0) y = lerp(y, lv + 0.15 * Math.sin(s * 0.2) + bermAt(xc - pc(s)), cw);
+    if (cw > 0) y = lerp(y, lv + und(xc - pc(s), s) + 0.15 * Math.sin(s * 0.2) + bermAt(xc - pc(s)), cw);
     const k = idxIn(T.sec, s);
     if (k >= 0 && s <= T.sec[k].end) y += featOff(T.sec[k], x, s);
   }
@@ -498,7 +526,7 @@ function boxAt(x, s) {
 /* =====================================================================
    PHYSICS
    ===================================================================== */
-const K = { left: 0, right: 0, up: 0, down: 0, spinL: 0, spinR: 0, grab: 0, focus: 0 };
+const K = { left: 0, right: 0, up: 0, down: 0, spinL: 0, spinR: 0, grab: 0, focus: 0, boost: 0 };
 let popReq = false;
 const GRABS = ["Mute", "Indy", "Tail", "Melon", "Nose", "Stalefish"];
 let focus = 1, timeScale = 1, mode = "title", score = 0, mult = 1, best = 0, rings = 0, boostPulse = 0, shake = 0, lastCheck = null;
@@ -639,8 +667,9 @@ function step(dt) {
       const hx = Math.sin(sk.psi), hs = Math.cos(sk.psi);
       const sA = sA_(sk.x, sk.s, sk.psi), c = Math.cos(sA), sn = Math.sin(sA);
       // linear scrub from turning plus air drag that grows with speed, so there is no hard cap
-      const lin = 0.05 + Math.abs(steer) * (0.34 - 0.24 * sk.carve) + Math.abs(hx) * 0.4, quad = K.down ? 0.0025 : 0.0036;
-      sk.sp = clamp(sk.sp + (-G * sn - lin * sk.sp - quad * sk.sp * sk.sp) * dt, sk.finished ? 0 : 3, MAXV);
+      const lin = 0.05 + Math.abs(steer) * (0.34 - 0.24 * sk.carve) + Math.abs(hx) * 0.4, quad = K.down || K.boost ? 0.0025 : 0.0036, push = K.boost && !sk.finished ? 7 : 0;
+      sk.sp = clamp(sk.sp + (-G * sn - lin * sk.sp - quad * sk.sp * sk.sp + push) * dt, sk.finished ? 0 : 3, MAXV);
+      if (push) { boostPulse = Math.max(boostPulse, 0.55); if (Math.random() < 0.6) spray(sk.x - hx * 0.6, sk.y, sk.s - hs * 0.6, 2, 2); }
       if (sk.finished) sk.sp = Math.max(0, sk.sp - 9 * dt);
       const nx = sk.x + sk.sp * c * hx * dt, ns = sk.s + sk.sp * c * hs * dt, yp = sk.y + sk.sp * sn * dt;
       const hn = H(nx, ns);
@@ -996,7 +1025,7 @@ const GRAB_POSE = [{ arm: 0, t: [0.12, 0.12, -0.3] }, { arm: 1, t: [0.1, 0.12, -
 
 function poseSkier(dt, time) {
   const R = skierRig, p = R.pose, air = sk.air;
-  const flipping = air && Math.abs(sk.rotV) > 2.5, grab = air && K.grab && !sk.crashed, tuck = !air && K.down && !sk.grind && !sk.crashed;
+  const flipping = air && Math.abs(sk.rotV) > 2.5, grab = air && K.grab && !sk.crashed, tuck = !air && (K.down || K.boost) && !sk.grind && !sk.crashed;
   const sliding = sk.grind || sk.boxT > 0.15;
   let c = 0.3, lean = 0.2, L = [-0.36, 0.92, -0.3], Rt = [0.36, 0.92, -0.3], poleThrust = 0;
   const carve = sk.carve * Math.abs(sk.turn), tn = Math.sign(sk.turn);
@@ -1527,7 +1556,7 @@ function nextInfo() {
   return best;
 }
 function begin() { audioInit(); $("intro").hidden = true; if (mode !== "play") { mode = "play"; restart(); } }
-const MAP = { ArrowLeft: "left", a: "left", A: "left", ArrowRight: "right", d: "right", D: "right", ArrowUp: "up", w: "up", W: "up", ArrowDown: "down", s: "down", S: "down", q: "spinL", Q: "spinL", e: "spinR", E: "spinR", " ": "grab", Shift: "focus" };
+const MAP = { ArrowLeft: "left", a: "left", A: "left", ArrowRight: "right", d: "right", D: "right", ArrowUp: "up", w: "up", W: "up", ArrowDown: "down", s: "down", S: "down", q: "spinL", Q: "spinL", e: "spinR", E: "spinR", " ": "grab", Shift: "boost", f: "focus", F: "focus" };
 addEventListener("keydown", e => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   if (mode === "title") { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); begin(); } return; }
