@@ -260,6 +260,7 @@ function featIndex(s) {
   return r;
 }
 const latW = (p, x, edge) => 1 - smooth((Math.abs(x - p.cx) - (p.hw - edge)) / edge);
+const landW = (p, x) => p.lhw ? 1 - smooth((Math.abs(x - p.cx) - (p.lhw - 1.5)) / 1.5) : latW(p, x, 1.5);
 
 /* a "part" is one ramp, roller set or box. A section holds the main jump plus side parts. */
 function flightD(L, Hh, v0, roof) { // where a nominal flight from the lip comes down, and how steeply
@@ -273,15 +274,16 @@ function mkKicker(s0, kind, cx, hw, diff, sc) {
   const T = [[8, 1.5, 0.15, 22, 0.5, 10, 32, "Small kicker"], [11, 2, 0.17, 26, 0.55, 18, 50, "Kicker"], [14, 2, 0.2, 30, 0.6, 28, 80, "Big air"], [14, 2, 0.22, 30, 0.33, 18, 55, "Gap jump"], [18, 2, 0.28, 36, 0.6, 50, 140, "Mega air"]][kind];
   const L = (T[0] + rng() * T[1]) * (sc < 1 ? 0.8 : 1) * (kind < 4 ? 1.1 : 1.1), ratio = (T[2] + rng() * 0.02) * (kind < 4 ? 1.55 : 1.25), v0 = T[3] + 2;
   const Hh = L * ratio * (kind < 3 ? 1 + 0.1 * diff : 1), fd = flightD(L, Hh, v0);
-  const gap = clamp(T[4] * fd.d * sc, T[5] * sc, T[6] * sc * 1.3), Ll = clamp(gap * 1.1 + 16, 26, 90);
+  const gap = clamp(T[4] * fd.d * sc, T[5] * sc, T[6] * sc * 1.3), Ll = clamp(gap * 0.8 + 10, 18, 60);
   const Hl = clamp((fd.tanA - BASE) * 0.5 * Ll / 1.5, 0.8, 9), pit = kind === 3 ? 3.6 : 0;
-  const p = { type: "kicker", label: T[7], s0, L, H: Hh, gap, Ll, Hl, cx, hw: kind < 4 ? hw * (PEAK ? 1.7 : 1.3) : hw, v0, pit };
+  const hwK = kind < 4 ? hw * (PEAK ? 1.7 : 1.3) : hw;
+  const p = { type: "kicker", label: T[7], s0, L, H: Hh, gap, Ll, Hl, cx, hw: hwK, lhw: Math.min(hwK * 2, 22), v0, pit };
   p.end = s0 + L + gap + Ll; return p;
 }
 function mkHip(sBase, sd, diff) {
-  const L = 10 + rng() * 1.5, Hh = L * (0.3 + rng() * 0.02) * (1 + 0.1 * diff), fd = flightD(L, Hh, 24), gap = clamp(0.55 * fd.d, 14, 30), Ll = clamp(gap * 1.1 + 16, 28, 60), hw = PEAK ? 5.2 : 3.6, ang = -sd * (0.36 + rng() * 0.1);
+  const L = 10 + rng() * 1.5, Hh = L * (0.3 + rng() * 0.02) * (1 + 0.1 * diff), fd = flightD(L, Hh, 24), gap = clamp(0.55 * fd.d, 14, 30), Ll = clamp(gap * 0.8 + 10, 20, 40), hw = PEAK ? 5.2 : 3.6, ang = -sd * (0.36 + rng() * 0.1);
   const s0 = sBase + hw * Math.abs(Math.sin(ang)) + 2 + rng() * 4, Hl = clamp((fd.tanA - BASE) * 0.5 * Ll / 1.5, 0.8, 6);
-  return { type: "hip", label: "Hip jump", s0, L, H: Hh, gap, Ll, Hl, cx: sd * (PEAK ? 16 : 10.5) + sd * rng() * 0.8, hw, ang, v0: 24, pit: 0,
+  return { type: "hip", label: "Hip jump", s0, L, H: Hh, gap, Ll, Hl, cx: sd * (PEAK ? 16 : 10.5) + sd * rng() * 0.8, hw, lhw: hw * 2, ang, v0: 24, pit: 0,
     sMin: s0 - hw * Math.abs(Math.sin(ang)) - 1, end: s0 + (L + gap + Ll) * Math.cos(ang) + hw * Math.abs(Math.sin(ang)) + 1 };
 }
 const hipUV = (p, x, s) => { const dx = x - p.cx, ds = s - p.s0, sa = Math.sin(p.ang), ca = Math.cos(p.ang); return [ds * ca + dx * sa, dx * ca - ds * sa]; };
@@ -289,23 +291,23 @@ const boxShape = (p, x, s) => { const u = s - p.s0; return latW(p, x, 0.5) * Mat
 function partOff(p, x, s) {
   if (s < (p.sMin !== undefined ? p.sMin : p.s0) || s > p.end) return 0;
   if (p.type === "hip") {
-    const [u, v] = hipUV(p, x, s), lw = 1 - smooth((Math.abs(v) - (p.hw - 1.5)) / 1.5);
-    if (lw <= 0 || u < 0 || u > p.L + p.gap + p.Ll) return 0;
-    if (u <= p.L) { const t = u / p.L; return p.H * t * t * lw; }
+    const [u, v] = hipUV(p, x, s), lw = 1 - smooth((Math.abs(v) - (p.hw - 1.5)) / 1.5), lwL = 1 - smooth((Math.abs(v) - (p.lhw - 1.5)) / 1.5);
+    if (u < 0 || u > p.L + p.gap + p.Ll) return 0;
+    if (u <= p.L) { if (lw <= 0) return 0; const t = u / p.L; return p.H * t * t * lw; }
     const w = (u - p.L - p.gap) / p.Ll;
-    return w >= 0 && w <= 1 ? p.Hl * bump(w) * lw : 0;
+    return w >= 0 && w <= 1 ? p.Hl * bump(w) * lwL : 0;
   }
   if (p.type === "couloir") return p.H * smooth((Math.abs(x - p.cx) - p.hw) / 4.5) * smooth((s - p.s0) / 14) * smooth((p.end - s) / 14);
   if (p.type === "moguls") { const e = smooth((s - p.s0) / 10) * smooth((p.end - s) / 10), xr = x - p.cx; return p.amp * e * (1 - smooth((Math.abs(xr) - (PISTE - 2)) / 4)) * Math.sin(xr * 0.9 + 0.7) * Math.sin(s * 0.65); }
   if (p.type === "rollers") { const u = (s - p.s0) / p.sp; return p.amp * Math.pow(Math.sin(Math.PI * u), 2) * latW(p, x, 1.5); }
   if (p.type === "box") return boxShape(p, x, s) * (p.B + (p.pitch ? p.pitch * (1 - Math.abs(x - p.cx) / p.hw) + 0.25 : 0) - (p.flat ? bermAt(x - pc(s)) : 0));
-  const lw = latW(p, x, 1.5), lip = p.s0 + p.L;
-  if (lw <= 0) return 0;
-  if (s <= lip) { const t = (s - p.s0) / p.L; return p.H * t * t * lw; }
+  const lw = latW(p, x, 1.5), lwL = landW(p, x), lip = p.s0 + p.L;
+  if (lw <= 0 && lwL <= 0) return 0;
+  if (s <= lip) { if (lw <= 0) return 0; const t = (s - p.s0) / p.L; return p.H * t * t * lw; }
   let off = 0;
   const u = (s - lip - p.gap) / p.Ll;
-  if (u >= 0 && u <= 1) off += p.Hl * bump(u) * lw;
-  if (p.pit && s > lip + 0.4 && s < lip + p.gap) off -= p.pit * smooth((s - lip - 0.4) / 1.2) * smooth((lip + p.gap - s) / 1.2) * lw;
+  if (u >= 0 && u <= 1) off += p.Hl * bump(u) * lwL;
+  if (p.pit && s > lip + 0.4 && s < lip + p.gap) off -= p.pit * smooth((s - lip - 0.4) / 1.2) * smooth((lip + p.gap - s) / 1.2) * lwL;
   return off;
 }
 function featOff(f, x, s) { if (s > f.end) return 0; let y = 0; for (const p of f.parts) y += partOff(p, x, s); return y; }
@@ -355,6 +357,7 @@ function addMicro() {
     if (i % 2 === 1) { const rs0 = k.s0 + k.L + k.gap + k.Ll * 0.1; f.rail = { s0: rs0, s1: rs0 + Math.min(k.Ll * 0.72, 36), x: (rng() - 0.5) * 1.2 }; f.label += " + rail"; } }
   if (PEAK) f.rail = null;
   if (!PEAK && t !== 2 && rng() < 0.75) sideHouse(f, rng() < 0.5 ? -1 : 1, genS + 4 + rng() * 6, 0);
+  fixLandings(f);
   f.end = Math.max(...f.parts.map(p => p.end), f.rail ? f.rail.s1 : 0);
   const last = pcs[pcs.length - 1], a = f.s0 - 14, px = clamp(last.x + (rng() - 0.5) * 2 * Math.min(8, 0.35 * Math.max(8, a - last.b)), -30, 30);
   shiftSection(f, px); flankRocks(f); feats.push(f); regRocks(f);
@@ -379,6 +382,9 @@ function sideHouse(f, sd, sBase, x0) { // lodge beside the piste: kicker up to t
   f.parts.push(lead, box);
   f.rail = { s0: box.s0 + 4, s1: box.end - 3, x: cx };
   f.label += " + side house";
+}
+function fixLandings(f) { // a wide landing must not run into side kickers or cabins
+  for (const p of f.parts) if (p.type === "kicker" && !p.side) for (const q of f.parts) if (q !== p && (q.type === "kicker" || q.type === "box") && q.hw) p.lhw = Math.min(p.lhw, Math.max(p.hw, Math.abs(q.cx - p.cx) - q.hw - 1));
 }
 function houseSection(f, diff) {
   const B = 4.2 + rng() * 1.4, hw = 5.6 + rng() * 0.8, cx = 0, ramp = Math.floor(secCount / 6) % 2 === 1, walls = WALLS;
@@ -446,6 +452,7 @@ function addSection() {
     }
   }
   f.boost = null; // no boost pads
+  fixLandings(f);
   if (PEAK) f.rail = null;
   f.end = f.cliff ? f.cliffEnd : Math.max(...f.parts.map(p => p.end), ...railsOf(f).map(r => r.s1), f.endExtra || 0);
   // plateau for the centre line and slope knots: curve and steepness change in the gap before this section
@@ -676,7 +683,7 @@ function payout(pts, label, perfect, isTrick, cork) {
 }
 function landing(surfaceType, rail) {
   if (surfaceType !== "rail") {
-    for (const ff of sectionsAt(sk.s, 0)) for (const p of ff.parts) if (p.pit && sk.s > p.s0 + p.L && sk.s < p.s0 + p.L + p.gap - 0.3 && latW(p, sk.x, 1.5) > 0.15) return crash("Missed the gap");
+    for (const ff of sectionsAt(sk.s, 0)) for (const p of ff.parts) if (p.pit && sk.s > p.s0 + p.L && sk.s < p.s0 + p.L + p.gap - 0.3 && landW(p, sk.x) > 0.15) return crash("Missed the gap");
   }
   const sA = sA_(sk.x, sk.s, sk.psi), diff = wrap(sk.rot - sA);
   const spinOff = Math.abs(sk.spin - Math.round(sk.spin / Math.PI) * Math.PI);
@@ -1477,12 +1484,12 @@ function buildChunk(ci) {
       for (const f of secs) if (s <= f.end) for (const p of f.parts) {
         if (p.type === "hip") {
           const [u, v] = hipUV(p, x, s), lw = 1 - smooth((Math.abs(v) - (p.hw - 1.5)) / 1.5);
-          if (lw > 0.5 && u >= 0 && u <= p.L) { R = 0.93; Gc = 0.96; B = 0.99; } else if (lw > 0.5 && u > p.L + p.gap && u < p.L + p.gap + p.Ll) { R = 0.92; Gc = 0.95; B = 0.985; }
+          if (lw > 0.5 && u >= 0 && u <= p.L) { R = 0.93; Gc = 0.96; B = 0.99; } else if ((1 - smooth((Math.abs(v) - (p.lhw - 1.5)) / 1.5)) > 0.5 && u > p.L + p.gap && u < p.L + p.gap + p.Ll) { R = 0.92; Gc = 0.95; B = 0.985; }
         } else if (p.type === "kicker") {
           const lw = latW(p, x, 1.5), lip = p.s0 + p.L;
           if (lw > 0.5 && s >= p.s0 && s <= lip) { R = 0.93; Gc = 0.96; B = 0.99; }
-          else if (lw > 0.5 && s > lip + p.gap) { R = 0.92; Gc = 0.95; B = 0.985; }
-          else if (p.pit && lw > 0.3 && s > lip + 0.4 && s < lip + p.gap) { R = 0.6; Gc = 0.68; B = 0.8; }
+          else if (landW(p, x) > 0.5 && s > lip + p.gap) { R = 0.92; Gc = 0.95; B = 0.985; }
+          else if (p.pit && landW(p, x) > 0.3 && s > lip + 0.4 && s < lip + p.gap) { R = 0.6; Gc = 0.68; B = 0.8; }
         } else if (p.type === "box" && p.house) {
           if (s >= p.s0 && s <= p.end && Math.abs(x - p.cx) < p.hw + 0.6) { const rr = p.flat ? boxShape(p, x, s) : partOff(p, x, s) / p.B; if (rr > 0.03 && rr < 0.97) { wallV[(r * nx + c)] = 1; R = p.wall[0]; Gc = p.wall[1]; B = p.wall[2]; } else if (rr >= 0.97) { R = 0.96; Gc = 0.97; B = 1.0; } }
         } else if (p.type === "box" && s >= p.s0 && s <= p.end && Math.abs(x - p.cx) < p.hw) { if (p.drop) { R = 0.9; Gc = 0.93; B = 0.98; } else { R = 0.8; Gc = 0.86; B = 0.95; } }
