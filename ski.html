@@ -91,10 +91,10 @@
   <div id="focuswrap"><span>Slow-mo</span><div class="bar"><i id="focus"></i></div><span>F</span></div>
   <div id="pop"><div class="t"></div><div class="s"></div></div>
   <div id="toast"></div>
-  <div id="hint">← → steer &nbsp;·&nbsp; ↑ ↓ flip &nbsp;·&nbsp; Q E spin (flip + spin = cork) &nbsp;·&nbsp; Space = jump / grab &nbsp;·&nbsp; Shift = speed up &nbsp;·&nbsp; F = slow-mo</div>
+  <div id="hint">← → steer &nbsp;·&nbsp; ↑ ↓ flip &nbsp;·&nbsp; Q E spin (flip + spin = cork) &nbsp;·&nbsp; Space = jump / grab &nbsp;·&nbsp; Shift = speed up &nbsp;·&nbsp; J = slow down &nbsp;·&nbsp; F = slow-mo</div>
   <div id="touch">
     <div class="grp"><button data-k="left">Left</button><button data-k="right">Right</button></div>
-    <div class="grp"><button data-k="up">Front flip</button><button data-k="down">Back / tuck</button><button data-k="spin">Spin</button><button data-k="grab">Pop / grab</button><button data-k="boost">Speed</button><button data-k="focus">Focus</button></div>
+    <div class="grp"><button data-k="up">Front flip</button><button data-k="down">Back / tuck</button><button data-k="spin">Spin</button><button data-k="grab">Pop / grab</button><button data-k="boost">Speed</button><button data-k="brake">Slow</button><button data-k="focus">Focus</button></div>
   </div>
   <div id="end" hidden>
     <div class="card">
@@ -113,9 +113,10 @@
         <dt>↑ W · ↓ S</dt><dd>Front flip / back flip in the air. ↓ tucks for speed on snow</dd>
         <dt>Q E</dt><dd>Spin left / right. Flip and spin together for a cork bonus</dd>
         <dt>Shift</dt><dd>Hold to speed up</dd>
+        <dt>J</dt><dd>Hold to slow down</dd>
         <dt>F</dt><dd>Hold in the air for slow motion. Clean tricks refill it</dd>
         <dt>Gap jumps</dt><dd>Hold Shift to build speed. Land short and you fall in</dd>
-        <dt>Houses</dt><dd>Lodges beside the run too: hit the little kicker up to a roof, pop the roof kicker, slide it and grind its rail</dd>
+        <dt>Houses</dt><dd>Wooden cabins beside the run: hit the little kicker up onto the roof, pop the roof kicker, slide it and grind its rail</dd>
         <dt>Run types</dt><dd>Carving S-turns, steep chutes, mogul fields and flat cruisers between the jumps</dd>
         <dt>Switch</dt><dd>Land a 180 and you stay backwards until you spin again</dd>
         <dt>Woods trails</dt><dd>Side trails leave the piste into the trees, with their own jumps, whoops, cliff drops and rails. They rejoin the main run later</dd>
@@ -283,7 +284,7 @@ function addMicro() {
   else if (t === 1) { f.parts.push(mkKicker(genS, 0, 0, 3.4, diff, 0.8)); f.label = "Little kicker"; }
   else if (t === 2) { f.parts.push({ type: "box", s0: genS, len: 12, end: genS + 12, B: 0.7, cx: -2.5, hw: 1.8 }, { type: "box", s0: genS + 22, len: 12, end: genS + 34, B: 0.7, cx: 2.5, hw: 1.8 }); f.label = "Jib line"; }
   else { const k = mkKicker(genS, 0, 0, 3.2, diff, 0.8); f.parts.push(k); const rs0 = k.s0 + k.L + k.gap + k.Ll * 0.1; f.rail = { s0: rs0, s1: rs0 + k.Ll * 0.72, x: (rng() - 0.5) * 1.2 }; f.label = "Kicker + rail"; }
-  if (t !== 2 && rng() < 0.5) sideHouse(f, rng() < 0.5 ? -1 : 1, genS + 4 + rng() * 6, 0);
+  if (t !== 2 && rng() < 0.75) sideHouse(f, rng() < 0.5 ? -1 : 1, genS + 4 + rng() * 6, 0);
   f.end = Math.max(...f.parts.map(p => p.end), f.rail ? f.rail.s1 : 0);
   const last = pcs[pcs.length - 1], a = f.s0 - 14, px = clamp(last.x + (rng() - 0.5) * 2 * Math.min(8, 0.35 * Math.max(8, a - last.b)), -30, 30);
   shiftSection(f, px); flankRocks(f); feats.push(f); regRocks(f);
@@ -294,7 +295,7 @@ function addMicro() {
   genS = f.end + 64 + rng() * 16;
   return f;
 }
-const WALLS = [[0.5, 0.33, 0.22], [0.62, 0.5, 0.36], [0.45, 0.46, 0.5], [0.55, 0.22, 0.18], [0.33, 0.42, 0.33]];
+const WALLS = [[0.5, 0.33, 0.22], [0.62, 0.45, 0.28], [0.45, 0.32, 0.22], [0.56, 0.38, 0.25], [0.4, 0.29, 0.2]];
 function roofKicker(box, cx) { // little kicker on a roof, kept inside the roof length
   const k = mkKicker(box.s0 + 6, 0, cx, 2.6, 0, 0.5), room = box.len - 1 - 6 - k.L - k.gap;
   if (room < 6) return null;
@@ -355,11 +356,11 @@ function addSection() {
     const k = mkKicker(genS, kind, cx, hw, diff); f.parts.push(k); f.label = k.label; f.mainCx = cx;
     if (kind > 0 && rng() < 0.28) { const rs0 = k.s0 + k.L + k.gap + k.Ll * 0.1; f.rail = { s0: rs0, s1: rs0 + k.Ll * 0.72, x: cx + (rng() - 0.5) * 1.2 }; f.label += " + rail"; }
     if (kind > 0 && rng() < 0.7) f.boost = { s0: genS - 22, s1: genS - 16, cx, hw: 1.4 };
-    const nSide = rng() < 0.8 ? (rng() < 0.45 ? 2 : 1) : 0, sides = rng() < 0.5 ? [-1, 1] : [1, -1];
+    const nSide = rng() < 0.9 ? (rng() < 0.45 ? 2 : 1) : 0, sides = rng() < 0.5 ? [-1, 1] : [1, -1];
     let houseDone = false;
     for (let q = 0; q < nSide; q++) {
       const sd = sides[q], scx = sd * (10.8 + rng() * 0.8);
-      if (!houseDone && rng() < 0.6) { houseDone = true; sideHouse(f, sd, genS + rng() * 8, 0); }
+      if (!houseDone && rng() < 0.85) { houseDone = true; sideHouse(f, sd, genS + rng() * 8, 0); }
       else if (rng() < 0.6) { const sp2 = mkKicker(genS + rng() * 14, 0, scx, 2.5 + rng() * 0.5, diff); sp2.side = true; sp2.rocky = rng() < 0.55; f.parts.push(sp2); f.label += sp2.rocky ? " + rock kicker" : " + side kicker"; }
       else { const s0b = genS + rng() * 12, len = 9 + rng() * 5; f.parts.push({ type: "box", s0: s0b, len, end: s0b + len, B: 0.7, cx: scx, hw: 2.1 }); f.label += " + jib box"; }
     }
@@ -546,7 +547,7 @@ function boxAt(x, s) {
 /* =====================================================================
    PHYSICS
    ===================================================================== */
-const K = { left: 0, right: 0, up: 0, down: 0, spinL: 0, spinR: 0, grab: 0, focus: 0, boost: 0 };
+const K = { left: 0, right: 0, up: 0, down: 0, spinL: 0, spinR: 0, grab: 0, focus: 0, boost: 0, brake: 0 };
 let popReq = false;
 const GRABS = ["Mute", "Indy", "Tail", "Melon", "Nose", "Stalefish"];
 let focus = 1, timeScale = 1, mode = "title", score = 0, mult = 1, best = 0, rings = 0, boostPulse = 0, shake = 0, lastCheck = null;
@@ -687,8 +688,9 @@ function step(dt) {
       const hx = Math.sin(sk.psi), hs = Math.cos(sk.psi);
       const sA = sA_(sk.x, sk.s, sk.psi), c = Math.cos(sA), sn = Math.sin(sA);
       // linear scrub from turning plus air drag that grows with speed, so there is no hard cap
-      const lin = 0.05 + Math.abs(steer) * (0.34 - 0.24 * sk.carve) + Math.abs(hx) * 0.4, quad = K.down || K.boost ? 0.0025 : 0.0036, push = K.boost && !sk.finished ? 7 : 0;
-      sk.sp = clamp(sk.sp + (-G * sn - lin * sk.sp - quad * sk.sp * sk.sp + push) * dt, sk.finished ? 0 : 3, MAXV);
+      const lin = 0.05 + Math.abs(steer) * (0.34 - 0.24 * sk.carve) + Math.abs(hx) * 0.4, quad = K.down || K.boost ? 0.0025 : 0.0036, push = K.boost && !sk.finished ? 7 : 0, brk = K.brake && !sk.finished ? 16 : 0;
+      sk.sp = clamp(sk.sp + (-G * sn - lin * sk.sp - quad * sk.sp * sk.sp + push - brk) * dt, sk.finished ? 0 : 3, MAXV);
+      if (brk && sk.sp > 4 && Math.random() < 0.7) spray(sk.x, sk.y, sk.s, 3, 3);
       if (push) { boostPulse = Math.max(boostPulse, 0.55); if (Math.random() < 0.6) spray(sk.x - hx * 0.6, sk.y, sk.s - hs * 0.6, 2, 2); }
       if (sk.finished) sk.sp = Math.max(0, sk.sp - 9 * dt);
       const nx = sk.x + sk.sp * c * hx * dt, ns = sk.s + sk.sp * c * hs * dt, yp = sk.y + sk.sp * sn * dt;
@@ -1186,10 +1188,11 @@ function lodgesForChunk(ci) {
     const x = pc(s) + sd * off;
     const T = trailFor(s); if (T && Math.abs(x - trailXc(T, s)) < T.hw + 12) return;
     for (const c of cliffs) if (Math.abs(c.s - s) < 26) return;
+    for (const ds of [-45, 0, 45]) for (const f of sectionsAt(s + ds, 0)) for (const q of f.parts) if (q.flat && Math.sign(q.cx - pc(q.s0)) === sd && s > q.s0 - 40 && s < q.end + 15) return;
     out.push({ kind, x, s, yaw: sd < 0 ? Math.PI / 2 : -Math.PI / 2, seed: Math.floor(rt() * 1e6) });
   };
   const n = rt() < 0.4 ? 1 : 0, n2 = rt() < 0.12 ? 1 : 0;
-  for (let i = 0; i < n + n2; i++) { const r = rt(), kind = r < 0.32 ? 0 : r < 0.5 ? 1 : r < 0.62 ? 2 : r < 0.82 ? 3 : r < 0.92 ? 0 : 4; place(kind, rt() < 0.5 ? -1 : 1, PISTE + 28 + rt() * 14, s0 + 4 + rt() * (CH - 8)); }
+  for (let i = 0; i < n + n2; i++) { const r = rt(), kind = r < 0.32 ? 0 : r < 0.5 ? 1 : r < 0.62 ? 2 : r < 0.82 ? 3 : r < 0.92 ? 0 : 4; place(kind, rt() < 0.5 ? -1 : 1, PISTE + 8 + rt() * 18, s0 + 4 + rt() * (CH - 8)); }
   if (ci === 0) place(2, -1, PISTE + 16, 22);
   if (ci === Math.floor((COURSE_END + 30) / CH)) place(2, 1, PISTE + 14, COURSE_END + 30);
   return out;
@@ -1381,8 +1384,6 @@ function buildFeature(f) {
       const cs = p.s0 + p.len * 0.62, cxp = p.cx + p.hw * 0.45, ch = new THREE.Mesh(new THREE.BoxGeometry(1.0, 2.6, 1.0), LM(0x6a6e76)); ch.position.set(cxp, H(cxp, cs) + 1.2, -cs); ch.castShadow = true; grp.add(ch);
       const sn = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.25, 1.2), LM(0xf2f5fa)); sn.position.set(cxp, H(cxp, cs) + 2.6, -cs); grp.add(sn);
       for (let q = 0; q < 12; q++) { const x = p.cx - p.hw + 0.8 + q * (2 * p.hw - 1.6) / 11, l = new THREE.Mesh(new THREE.SphereGeometry(0.11, 6, 5), wm), s = p.rise < 3 ? p.s0 + 0.9 : p.s0 + p.len - 1.2; l.position.set(x, H(x, s) + 0.45, -s); grp.add(l); }
-      const names = ["SKI LODGE", "SUMMIT HALL", "ALPINE INN", "BASE CAMP"], sg = new THREE.Mesh(new THREE.PlaneGeometry(6, 1.5), new THREE.MeshBasicMaterial({ map: labelTex(names[Math.floor(hash(p.s0) * names.length)], "#3a2a20", "#f4e6c8"), side: THREE.DoubleSide }));
-      const sgs = p.rise < 3 ? p.s0 + 1.2 : p.s0 + p.len - 0.8; sg.position.set(p.cx, H(p.cx, sgs) + 1.5, -sgs); grp.add(sg);
     } else if (p.type === "box") {
       const bm = new THREE.LineBasicMaterial({ color: 0xff8a3d });
       [-1, 1].forEach(sd => { const ex = p.cx + sd * (p.hw - 0.2), pts = []; for (let q = 0; q <= 24; q++) { const ss = p.s0 + p.len * q / 24; pts.push(new THREE.Vector3(ex, H(ex, ss) + 0.05, -ss)); } grp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), bm)); });
@@ -1576,7 +1577,7 @@ function nextInfo() {
   return best;
 }
 function begin() { audioInit(); $("intro").hidden = true; if (mode !== "play") { mode = "play"; restart(); } }
-const MAP = { ArrowLeft: "left", a: "left", A: "left", ArrowRight: "right", d: "right", D: "right", ArrowUp: "up", w: "up", W: "up", ArrowDown: "down", s: "down", S: "down", q: "spinL", Q: "spinL", e: "spinR", E: "spinR", " ": "grab", Shift: "boost", f: "focus", F: "focus" };
+const MAP = { ArrowLeft: "left", a: "left", A: "left", ArrowRight: "right", d: "right", D: "right", ArrowUp: "up", w: "up", W: "up", ArrowDown: "down", s: "down", S: "down", q: "spinL", Q: "spinL", e: "spinR", E: "spinR", " ": "grab", Shift: "boost", f: "focus", F: "focus", j: "brake", J: "brake" };
 addEventListener("keydown", e => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   if (mode === "title") { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); begin(); } return; }
