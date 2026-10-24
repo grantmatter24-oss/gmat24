@@ -271,17 +271,17 @@ function flightD(L, Hh, v0, roof) { // where a nominal flight from the lip comes
 function mkKicker(s0, kind, cx, hw, diff, sc) {
   sc = sc || 1;
   const T = [[8, 1.5, 0.15, 22, 0.5, 10, 32, "Small kicker"], [11, 2, 0.17, 26, 0.55, 18, 50, "Kicker"], [14, 2, 0.2, 30, 0.6, 28, 80, "Big air"], [14, 2, 0.22, 30, 0.33, 18, 55, "Gap jump"], [18, 2, 0.28, 36, 0.6, 50, 140, "Mega air"]][kind];
-  const L = (T[0] + rng() * T[1]) * (sc < 1 ? 0.8 : 1), ratio = T[2] + rng() * 0.02, v0 = T[3];
+  const L = (T[0] + rng() * T[1]) * (sc < 1 ? 0.8 : 1) * (kind < 4 ? 1.3 : 1.15), ratio = (T[2] + rng() * 0.02) * (kind < 4 ? 1.2 : 1.05), v0 = T[3] + 2;
   const Hh = L * ratio * (kind < 3 ? 1 + 0.1 * diff : 1), fd = flightD(L, Hh, v0);
-  const gap = clamp(T[4] * fd.d * sc, T[5] * sc, T[6] * sc), Ll = clamp(gap * 0.8 + 8, 14, 60);
-  const Hl = clamp((fd.tanA - BASE) * 0.6 * Ll / 1.5, 0.4, 5), pit = kind === 3 ? 3.6 : 0;
-  const p = { type: "kicker", label: T[7], s0, L, H: Hh, gap, Ll, Hl, cx, hw: PEAK && kind < 4 ? hw * 1.7 : hw, v0, pit };
+  const gap = clamp(T[4] * fd.d * sc, T[5] * sc, T[6] * sc * 1.3), Ll = clamp(gap * 1.1 + 16, 26, 90);
+  const Hl = clamp((fd.tanA - BASE) * 0.5 * Ll / 1.5, 0.8, 9), pit = kind === 3 ? 3.6 : 0;
+  const p = { type: "kicker", label: T[7], s0, L, H: Hh, gap, Ll, Hl, cx, hw: kind < 4 ? hw * (PEAK ? 1.7 : 1.3) : hw, v0, pit };
   p.end = s0 + L + gap + Ll; return p;
 }
 function mkHip(sBase, sd, diff) {
-  const L = 8 + rng() * 1.5, Hh = L * (0.19 + rng() * 0.02) * (1 + 0.1 * diff), fd = flightD(L, Hh, 22), gap = clamp(0.5 * fd.d, 10, 24), Ll = clamp(gap * 0.8 + 8, 16, 26), hw = PEAK ? 4.4 : 2.8, ang = -sd * (0.36 + rng() * 0.1);
-  const s0 = sBase + hw * Math.abs(Math.sin(ang)) + 2 + rng() * 4, Hl = clamp((fd.tanA - BASE) * 0.6 * Ll / 1.5, 0.4, 3.5);
-  return { type: "hip", label: "Hip jump", s0, L, H: Hh, gap, Ll, Hl, cx: sd * (PEAK ? 15 : 9) + (PEAK ? sd * rng() * 0.8 : sd * rng() * 0.8), hw, ang, v0: 22, pit: 0,
+  const L = 11 + rng() * 1.5, Hh = L * (0.22 + rng() * 0.02) * (1 + 0.1 * diff), fd = flightD(L, Hh, 24), gap = clamp(0.55 * fd.d, 14, 30), Ll = clamp(gap * 1.1 + 16, 28, 60), hw = PEAK ? 5.2 : 3.6, ang = -sd * (0.36 + rng() * 0.1);
+  const s0 = sBase + hw * Math.abs(Math.sin(ang)) + 2 + rng() * 4, Hl = clamp((fd.tanA - BASE) * 0.5 * Ll / 1.5, 0.8, 6);
+  return { type: "hip", label: "Hip jump", s0, L, H: Hh, gap, Ll, Hl, cx: sd * (PEAK ? 16 : 10.5) + sd * rng() * 0.8, hw, ang, v0: 24, pit: 0,
     sMin: s0 - hw * Math.abs(Math.sin(ang)) - 1, end: s0 + (L + gap + Ll) * Math.cos(ang) + hw * Math.abs(Math.sin(ang)) + 1 };
 }
 const hipUV = (p, x, s) => { const dx = x - p.cx, ds = s - p.s0, sa = Math.sin(p.ang), ca = Math.cos(p.ang); return [ds * ca + dx * sa, dx * ca - ds * sa]; };
@@ -339,7 +339,7 @@ function addInterlude(kind) {
     len = 150; f.label = "Steep chute · whoops and a kick"; addKnot(genS + 15, 0.5); addKnot(genS + len - 15, 0.52); addKnot(genS + len, 0.4);
     pcs.push({ a: genS, b: genS + len, x: x0, jump: true });
     f.parts.push({ type: "rollers", s0: genS + 22, n: 5, sp: 8, amp: 0.55, cx: x0, hw: 80, end: genS + 62 });
-    if (PEAK) { f.parts.push({ type: "couloir", s0: genS + 6, end: genS + 150, cx: x0, hw: 9.5, H: 8 }); f.label = "Couloir · steep and narrow"; } const k = mkKicker(genS + 80, 1, x0, 4.0, 0.3, 1); f.parts.push(k); len = Math.max(len, k.end - genS + 8);
+    if (PEAK) { f.parts.push({ type: "couloir", s0: genS + 6, end: genS + 150, cx: x0, hw: 9.5, H: 8 }); f.label = "Couloir · steep and narrow"; } const k = mkKicker(genS + 80, 2, x0, 4.0, 0.3, 1); f.parts.push(k); len = Math.max(len, k.end - genS + 8);
   } else {
     len = 150; f.label = "Flat cruiser · pop the rollers"; addKnot(genS + 20, 0.1); addKnot(genS + len - 20, 0.1); addKnot(genS + len, BASE * 0.8);
     pcs.push({ a: genS, b: genS + len, x: x0, jump: true });
@@ -351,8 +351,8 @@ function addInterlude(kind) {
 let pendingFiller = false, microCount = 0;
 function addMicro() {
   const i = microCount++, diff = Math.min(1, secCount / 16), f = { s0: genS, parts: [], label: "", boost: null, rail: null, coins: [], mainCx: 0, idx: -1, micro: true }, t = PEAK ? [0, 1, 1, 3][i % 4] : i % 4;
-  { const k = mkKicker(genS, i % 3 === 2 ? 2 : 1, 0, 4.2, diff, 1); f.parts.push(k); f.label = k.label;
-    if (i % 2 === 1) { const rs0 = k.s0 + k.L + k.gap + k.Ll * 0.1; f.rail = { s0: rs0, s1: rs0 + k.Ll * 0.72, x: (rng() - 0.5) * 1.2 }; f.label += " + rail"; } }
+  { const k = mkKicker(genS, i % 3 === 0 ? 1 : 2, 0, 4.2, diff, 1); f.parts.push(k); f.label = k.label;
+    if (i % 2 === 1) { const rs0 = k.s0 + k.L + k.gap + k.Ll * 0.1; f.rail = { s0: rs0, s1: rs0 + Math.min(k.Ll * 0.72, 36), x: (rng() - 0.5) * 1.2 }; f.label += " + rail"; } }
   if (PEAK) f.rail = null;
   if (!PEAK && t !== 2 && rng() < 0.75) sideHouse(f, rng() < 0.5 ? -1 : 1, genS + 4 + rng() * 6, 0);
   f.end = Math.max(...f.parts.map(p => p.end), f.rail ? f.rail.s1 : 0);
@@ -431,15 +431,15 @@ function addSection() {
     const n = 4 + Math.floor(rng() * 3), sp = 7 + rng() * 2;
     f.parts.push({ type: "rollers", s0: genS, n, sp, amp: 0.5 + rng() * 0.35 + diff * 0.15, cx: 0, hw: 80, end: genS + n * sp }); f.label = "Rollers";
   } else {
-    const kp = (pick - 0.2) / 0.8, pS = 0.36 - 0.22 * diff, kind = PEAK ? 1 : kp < 0.65 ? 1 : 2;
+    const kp = (pick - 0.2) / 0.8, pS = 0.36 - 0.22 * diff, kind = kp < 0.4 ? 1 : 2;
     const cx = (rng() - 0.5) * 3, hw = 3.8 + rng() * 1.8;
     const k = mkKicker(genS, kind, cx, hw, diff); f.parts.push(k); f.label = k.label; f.mainCx = cx;
-    if (kind > 0 && rng() < 0.28) { const rs0 = k.s0 + k.L + k.gap + k.Ll * 0.1; f.rail = { s0: rs0, s1: rs0 + k.Ll * 0.72, x: cx + (rng() - 0.5) * 1.2 }; f.label += " + rail"; }
+    if (kind > 0 && rng() < 0.28) { const rs0 = k.s0 + k.L + k.gap + k.Ll * 0.1; f.rail = { s0: rs0, s1: rs0 + Math.min(k.Ll * 0.72, 36), x: cx + (rng() - 0.5) * 1.2 }; f.label += " + rail"; }
     if (kind > 0 && rng() < 0.7) f.boost = { s0: genS - 22, s1: genS - 16, cx, hw: 1.4 };
     const nSide = rng() < 0.9 ? (rng() < 0.45 ? 2 : 1) : 0, sides = rng() < 0.5 ? [-1, 1] : [1, -1];
     let houseDone = false;
     for (let q = 0; q < nSide; q++) {
-      const sd = sides[q], scx = sd * (10.8 + rng() * 0.8) * (PEAK ? 1.6 : 1);
+      const sd = sides[q], scx = sd * (10.8 + rng() * 0.8) * (PEAK ? 1.7 : 1.3);
       if (!PEAK && !houseDone && rng() < 0.85) { houseDone = true; sideHouse(f, sd, genS + rng() * 8, 0); }
       else if (PEAK || rng() < 0.6) { const sp2 = mkKicker(genS + rng() * 14, 1, scx, 3.0 + rng() * 0.5, diff); sp2.side = true; sp2.rocky = rng() < 0.55; f.parts.push(sp2); f.label += sp2.rocky ? " + rock kicker" : " + side kicker"; }
       else { const s0b = genS + rng() * 12, len = 9 + rng() * 5; f.parts.push({ type: "box", s0: s0b, len, end: s0b + len, B: 0.7, cx: scx, hw: 2.1 }); f.label += " + jib box"; }
@@ -578,13 +578,13 @@ function mkTrailSection(t, g, x) {
   const diff = Math.min(1, 0.25 + trails.length / 8), pick = rng();
   const f = { s0: g, parts: [], label: "", boost: null, rail: null, coins: [], mainCx: x, woods: true };
   const boost = () => {};
-  if (pick < 0.2) { f.parts.push(mkKicker(g, 0, x, 3.0, diff, 0.85)); f.label = "Log kicker"; }
-  else if (pick < 0.4) { f.parts.push(mkKicker(g, 1, x, 3.2, diff, 0.85)); f.label = "Forest kicker"; if (rng() < 0.6) boost(); }
-  else if (pick < 0.52) { f.parts.push(mkKicker(g, 2, x, 3.5, diff, 0.85)); f.label = "Treeline big air"; boost(); }
+  if (pick < 0.2) { f.parts.push(mkKicker(g, 0, x, 3.0, diff, 1)); f.label = "Log kicker"; }
+  else if (pick < 0.4) { f.parts.push(mkKicker(g, 1, x, 3.2, diff, 1)); f.label = "Forest kicker"; if (rng() < 0.6) boost(); }
+  else if (pick < 0.52) { f.parts.push(mkKicker(g, 2, x, 3.5, diff, 1)); f.label = "Treeline big air"; boost(); }
   else if (pick < 0.64) { const n = 5 + Math.floor(rng() * 4), sp = 6.5 + rng() * 1.5; f.parts.push({ type: "rollers", s0: g, n, sp, amp: 0.75 + rng() * 0.3, cx: x, hw: 4.2, end: g + n * sp }); f.label = "Whoops"; }
   else if (pick < 0.78) { f.parts.push({ type: "box", s0: g + 4, len: 12, end: g + 16, B: 0.75, cx: x, hw: 1.7 }); f.label = "Log slide"; }
-  else if (pick < 0.9) { const k = mkKicker(g, 1, x, 3.2, diff, 0.85); f.parts.push(k); const rs0 = k.s0 + k.L + k.gap + k.Ll * 0.1; f.rail = { s0: rs0, s1: rs0 + k.Ll * 0.72, x: x + (rng() - 0.5) * 0.8 }; f.label = "Pine rail jump"; boost(); }
-  else { f.parts.push(mkKicker(g, 2, x, 3.6, diff, 0.85)); f.label = "Treeline big air"; boost(); }
+  else if (pick < 0.9) { const k = mkKicker(g, 1, x, 3.2, diff, 1); f.parts.push(k); const rs0 = k.s0 + k.L + k.gap + k.Ll * 0.1; f.rail = { s0: rs0, s1: rs0 + Math.min(k.Ll * 0.72, 36), x: x + (rng() - 0.5) * 0.8 }; f.label = "Pine rail jump"; boost(); }
+  else { f.parts.push(mkKicker(g, 2, x, 3.6, diff, 1)); f.label = "Treeline big air"; boost(); }
   f.end = Math.max(...f.parts.map(p => p.end), f.rail ? f.rail.s1 : 0);
   flankRocks(f);
   return f;
