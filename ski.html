@@ -885,7 +885,7 @@ function initRender() {
   try {
     renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true, powerPreference: "high-performance" });
   } catch (e) { renderer = null; return false; }
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25));
   renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = PEAK ? 0.95 : 1.12;
   scene = new THREE.Scene();
@@ -895,7 +895,7 @@ function initRender() {
   camera = new THREE.PerspectiveCamera(64, 1, 0.1, 1500);
   scene.add(PEAK ? new THREE.HemisphereLight(0xb4d0ff, 0xdfe8f6, 0.62) : new THREE.HemisphereLight(0xb79bc9, 0xd9a89c, 0.95));
   const sun = new THREE.DirectionalLight(PEAK ? 0xfff2dd : 0xffa458, PEAK ? 3.3 : 2.1); sun.position.set(SUN.x * 120, SUN.y * 120, SUN.z * 120); scene.add(sun); scene.add(sun.target); scene.userData.sun = sun;
-  sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0003; sun.shadow.normalBias = 0.07;
+  sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024); sun.shadow.bias = -0.0003; sun.shadow.normalBias = 0.07;
   Object.assign(sun.shadow.camera, { left: -34, right: 34, top: 34, bottom: -34, near: 20, far: 280 }); sun.shadow.camera.updateProjectionMatrix();
   const fill = new THREE.DirectionalLight(0x7f90ff, 0.45); fill.position.set(30, 40, 90); scene.add(fill); scene.userData.fill = fill;
 
@@ -1785,6 +1785,20 @@ function render(dt, time) {
   renderer.render(scene, camera);
 }
 
+/* adaptive quality: drop resolution, then shadows, when the frame rate stays low */
+let qLevel = 0, qAcc = 0, qN = 0, qWait = 90;
+function setQuality(l) {
+  qLevel = l; const base = Math.min(window.devicePixelRatio || 1, 1.25);
+  renderer.setPixelRatio(l >= 3 ? 0.7 : l >= 1 ? Math.min(base, 1) : base);
+  if (scene.userData.sun) scene.userData.sun.castShadow = l < 2;
+  resize();
+}
+function watchFps(dt) {
+  if (!renderer || mode !== "play" || paused) { qAcc = 0; qN = 0; return; }
+  if (qWait > 0) { qWait--; return; }
+  qAcc += dt; qN++;
+  if (qN >= 45) { const avg = qAcc / qN; qAcc = 0; qN = 0; if (avg > 1 / 40 && qLevel < 3) { setQuality(qLevel + 1); qWait = 60; } }
+}
 function resize() {
   if (!renderer) return;
   const r = cv.getBoundingClientRect(); renderer.setSize(r.width, r.height, false);
@@ -1797,7 +1811,7 @@ function resize() {
 let last = performance.now(), acc = 0, shown = {};
 function setText(id, v) { if (shown[id] !== v) { shown[id] = v; $(id).textContent = v; } }
 function frame(now) {
-  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  const dt = Math.min(0.05, (now - last) / 1000); last = now; watchFps(dt);
   const wantSlow = mode === "play" && K.focus && sk.air && !sk.crashed && focus > 0.01;
   timeScale += ((wantSlow ? 0.38 : 1) - timeScale) * Math.min(1, 10 * dt);
   if (wantSlow) focus = Math.max(0, focus - dt / 3.4); else if (mode === "play" && !sk.air) focus = Math.min(1, focus + dt * 0.04);
@@ -1857,7 +1871,7 @@ function setSong() {
   const box = $("music"), id = SONG_IDS[outfit.song], yid = outfit.song === "youtube" ? ytId(outfit.yt) : ""; box.textContent = "";
   if (!id && !yid) { box.hidden = true; return; }
   const f = document.createElement("iframe");
-  if (yid) { f.src = "https://www.youtube-nocookie.com/embed/" + yid + "?autoplay=1&loop=1&playlist=" + yid + "&playsinline=1"; f.width = "320"; f.height = "180"; }
+  if (yid) { f.src = "https://www.youtube-nocookie.com/embed/" + yid + "?autoplay=1&loop=1&playlist=" + yid + "&playsinline=1"; f.width = "240"; f.height = "135"; }
   else { f.src = "https://open.spotify.com/embed/track/" + id + "?theme=0"; f.width = "320"; f.height = "80"; }
   f.allow = "autoplay; encrypted-media; clipboard-write; picture-in-picture"; f.title = "Music player"; f.style.border = "0"; f.style.borderRadius = "10px";
   const a = document.createElement("a"); a.href = yid ? "https://www.youtube.com/watch?v=" + yid : "https://open.spotify.com/track/" + id; a.target = "_blank"; a.rel = "noopener"; a.className = "mlink"; a.textContent = "Player blank? Open in a new tab";
