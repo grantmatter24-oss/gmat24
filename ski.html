@@ -1706,7 +1706,7 @@ function manageWorld() {
   if (PEAK && !startHut) { startHut = buildStartHut(); scene.add(startHut); }
   if (sk.s > COURSE_END - 450 && !finishMesh) { finishMesh = PEAK ? buildFinishPeak() : buildFinish(); scene.add(finishMesh); }
   const cmin = Math.floor((sk.s - 90) / CH), cmax = Math.floor((sk.s + 360) / CH);
-  for (let ci = cmin; ci <= cmax; ci++) if (ci >= 0 && !chunks.has(ci)) { const g = buildChunk(ci); chunks.set(ci, g); scene.add(g); }
+  for (let ci = cmin; ci <= cmax; ci++) if (ci >= (PARK ? -2 : 0) && !chunks.has(ci)) { const g = buildChunk(ci); chunks.set(ci, g); scene.add(g); }
   for (const [ci, g] of chunks) if (ci < cmin - 1 || ci > cmax + 1) { scene.remove(g); g.traverse(o => { if (o.geometry) o.geometry.dispose(); }); chunks.delete(ci); }
   ensure(sk.s + 300);
   const manageSecs = list => {
