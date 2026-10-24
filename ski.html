@@ -271,7 +271,7 @@ function flightD(L, Hh, v0, roof) { // where a nominal flight from the lip comes
 function mkKicker(s0, kind, cx, hw, diff, sc) {
   sc = sc || 1;
   const T = [[8, 1.5, 0.15, 22, 0.5, 10, 32, "Small kicker"], [11, 2, 0.17, 26, 0.55, 18, 50, "Kicker"], [14, 2, 0.2, 30, 0.6, 28, 80, "Big air"], [14, 2, 0.22, 30, 0.33, 18, 55, "Gap jump"], [18, 2, 0.28, 36, 0.6, 50, 140, "Mega air"]][kind];
-  const L = (T[0] + rng() * T[1]) * (sc < 1 ? 0.8 : 1) * (kind < 4 ? 1.3 : 1.15), ratio = (T[2] + rng() * 0.02) * (kind < 4 ? 1.2 : 1.05), v0 = T[3] + 2;
+  const L = (T[0] + rng() * T[1]) * (sc < 1 ? 0.8 : 1) * (kind < 4 ? 1.1 : 1.1), ratio = (T[2] + rng() * 0.02) * (kind < 4 ? 1.55 : 1.25), v0 = T[3] + 2;
   const Hh = L * ratio * (kind < 3 ? 1 + 0.1 * diff : 1), fd = flightD(L, Hh, v0);
   const gap = clamp(T[4] * fd.d * sc, T[5] * sc, T[6] * sc * 1.3), Ll = clamp(gap * 1.1 + 16, 26, 90);
   const Hl = clamp((fd.tanA - BASE) * 0.5 * Ll / 1.5, 0.8, 9), pit = kind === 3 ? 3.6 : 0;
@@ -279,7 +279,7 @@ function mkKicker(s0, kind, cx, hw, diff, sc) {
   p.end = s0 + L + gap + Ll; return p;
 }
 function mkHip(sBase, sd, diff) {
-  const L = 11 + rng() * 1.5, Hh = L * (0.22 + rng() * 0.02) * (1 + 0.1 * diff), fd = flightD(L, Hh, 24), gap = clamp(0.55 * fd.d, 14, 30), Ll = clamp(gap * 1.1 + 16, 28, 60), hw = PEAK ? 5.2 : 3.6, ang = -sd * (0.36 + rng() * 0.1);
+  const L = 10 + rng() * 1.5, Hh = L * (0.3 + rng() * 0.02) * (1 + 0.1 * diff), fd = flightD(L, Hh, 24), gap = clamp(0.55 * fd.d, 14, 30), Ll = clamp(gap * 1.1 + 16, 28, 60), hw = PEAK ? 5.2 : 3.6, ang = -sd * (0.36 + rng() * 0.1);
   const s0 = sBase + hw * Math.abs(Math.sin(ang)) + 2 + rng() * 4, Hl = clamp((fd.tanA - BASE) * 0.5 * Ll / 1.5, 0.8, 6);
   return { type: "hip", label: "Hip jump", s0, L, H: Hh, gap, Ll, Hl, cx: sd * (PEAK ? 16 : 10.5) + sd * rng() * 0.8, hw, ang, v0: 24, pit: 0,
     sMin: s0 - hw * Math.abs(Math.sin(ang)) - 1, end: s0 + (L + gap + Ll) * Math.cos(ang) + hw * Math.abs(Math.sin(ang)) + 1 };
