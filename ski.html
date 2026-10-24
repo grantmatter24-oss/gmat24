@@ -115,7 +115,7 @@
         <dt>Shift</dt><dd>Hold to speed up</dd>
         <dt>F</dt><dd>Hold in the air for slow motion. Clean tricks refill it</dd>
         <dt>Gap jumps</dt><dd>Hold Shift to build speed. Land short and you fall in</dd>
-        <dt>Houses</dt><dd>Jump onto a roof, or ride a ramp up to it, then slide the roof and grind its rail</dd>
+        <dt>Houses</dt><dd>Lodges beside the run too: hit the little kicker up to a roof, pop the roof kicker, slide it and grind its rail</dd>
         <dt>Run types</dt><dd>Carving S-turns, steep chutes, mogul fields and flat cruisers between the jumps</dd>
         <dt>Switch</dt><dd>Land a 180 and you stay backwards until you spin again</dd>
         <dt>Woods trails</dt><dd>Side trails leave the piste into the trees, with their own jumps, whoops, cliff drops and rails. They rejoin the main run later</dd>
@@ -215,6 +215,7 @@ function mkHip(sBase, sd, diff) {
     sMin: s0 - hw * Math.abs(Math.sin(ang)) - 1, end: s0 + (L + gap + Ll) * Math.cos(ang) + hw * Math.abs(Math.sin(ang)) + 1 };
 }
 const hipUV = (p, x, s) => { const dx = x - p.cx, ds = s - p.s0, sa = Math.sin(p.ang), ca = Math.cos(p.ang); return [ds * ca + dx * sa, dx * ca - ds * sa]; };
+const boxShape = (p, x, s) => { const u = s - p.s0; return latW(p, x, 0.5) * Math.min(smooth(u / (p.rise || 1.8)), smooth((p.len - u) / 0.45)); };
 function partOff(p, x, s) {
   if (s < (p.sMin !== undefined ? p.sMin : p.s0) || s > p.end) return 0;
   if (p.type === "hip") {
@@ -226,7 +227,7 @@ function partOff(p, x, s) {
   }
   if (p.type === "moguls") { const e = smooth((s - p.s0) / 10) * smooth((p.end - s) / 10), xr = x - p.cx; return p.amp * e * (1 - smooth((Math.abs(xr) - (PISTE - 2)) / 4)) * Math.sin(xr * 0.9 + 0.7) * Math.sin(s * 0.65); }
   if (p.type === "rollers") { const u = (s - p.s0) / p.sp; return p.amp * Math.pow(Math.sin(Math.PI * u), 2) * latW(p, x, 1.5); }
-  if (p.type === "box") { const u = s - p.s0, lw = latW(p, x, 0.5); return p.B * lw * Math.min(smooth(u / (p.rise || 1.8)), smooth((p.len - u) / 0.45)); }
+  if (p.type === "box") return boxShape(p, x, s) * (p.B - (p.flat ? bermAt(x - pc(s)) : 0));
   const lw = latW(p, x, 1.5), lip = p.s0 + p.L;
   if (lw <= 0) return 0;
   if (s <= lip) { const t = (s - p.s0) / p.L; return p.H * t * t * lw; }
@@ -282,6 +283,7 @@ function addMicro() {
   else if (t === 1) { f.parts.push(mkKicker(genS, 0, 0, 3.4, diff, 0.8)); f.label = "Little kicker"; }
   else if (t === 2) { f.parts.push({ type: "box", s0: genS, len: 12, end: genS + 12, B: 0.7, cx: -2.5, hw: 1.8 }, { type: "box", s0: genS + 22, len: 12, end: genS + 34, B: 0.7, cx: 2.5, hw: 1.8 }); f.label = "Jib line"; }
   else { const k = mkKicker(genS, 0, 0, 3.2, diff, 0.8); f.parts.push(k); const rs0 = k.s0 + k.L + k.gap + k.Ll * 0.1; f.rail = { s0: rs0, s1: rs0 + k.Ll * 0.72, x: (rng() - 0.5) * 1.2 }; f.label = "Kicker + rail"; }
+  if (t !== 2 && rng() < 0.5) sideHouse(f, rng() < 0.5 ? -1 : 1, genS + 4 + rng() * 6, 0);
   f.end = Math.max(...f.parts.map(p => p.end), f.rail ? f.rail.s1 : 0);
   const last = pcs[pcs.length - 1], a = f.s0 - 14, px = clamp(last.x + (rng() - 0.5) * 2 * Math.min(8, 0.35 * Math.max(8, a - last.b)), -30, 30);
   shiftSection(f, px); flankRocks(f); feats.push(f); regRocks(f);
@@ -292,8 +294,23 @@ function addMicro() {
   genS = f.end + 64 + rng() * 16;
   return f;
 }
+const WALLS = [[0.5, 0.33, 0.22], [0.62, 0.5, 0.36], [0.45, 0.46, 0.5], [0.55, 0.22, 0.18], [0.33, 0.42, 0.33]];
+function roofKicker(box, cx) { // little kicker on a roof, kept inside the roof length
+  const k = mkKicker(box.s0 + 6, 0, cx, 2.6, 0, 0.5), room = box.len - 1 - 6 - k.L - k.gap;
+  if (room < 6) return null;
+  if (k.Ll > room) { k.Hl *= room / k.Ll; k.Ll = room; }
+  k.end = k.s0 + k.L + k.gap + k.Ll; k.label = "Roof kicker"; k.roof = true; return k;
+}
+function sideHouse(f, sd, sBase, x0) { // lodge beside the piste: kicker up to the roof, kicker on the roof
+  const B = 4.8 + rng() * 1.0, L = 22, H = B + 1.0, v0 = 28, fd = flightD(L, H, v0, B), gap = fd.d * 0.55, len = clamp(fd.d * 0.75 + 6, 30, 40);
+  const lead = { type: "kicker", label: "House kicker", s0: sBase, L, H, gap, Ll: 1, Hl: 0, cx: x0 + sd * 13, hw: 3.0, v0, pit: 0, side: true }; lead.end = lead.s0 + L + gap + 1;
+  const hs0 = sBase + L + gap, box = { type: "box", house: true, flat: true, s0: hs0, len, end: hs0 + len, B, rise: 0.6, cx: x0 + sd * (PISTE + 2.4), hw: 6.4, wall: WALLS[Math.floor(rng() * WALLS.length)] };
+  f.parts.push(lead, box);
+  if (rng() < 0.85) { const k = roofKicker(box, box.cx - sd * 1.5); if (k) f.parts.push(k); }
+  f.label += " + side house";
+}
 function houseSection(f, diff) {
-  const B = 4.2 + rng() * 1.4, hw = 5.6 + rng() * 0.8, cx = 0, ramp = Math.floor(secCount / 6) % 2 === 1, walls = [[0.5, 0.33, 0.22], [0.62, 0.5, 0.36], [0.45, 0.46, 0.5], [0.55, 0.22, 0.18], [0.33, 0.42, 0.33]];
+  const B = 4.2 + rng() * 1.4, hw = 5.6 + rng() * 0.8, cx = 0, ramp = Math.floor(secCount / 6) % 2 === 1, walls = WALLS;
   let box;
   if (!ramp) {
     const L = 22, H = B + 1.0, v0 = 28, fd = flightD(L, H, v0, B), gap = fd.d * 0.55, len = clamp(fd.d * 0.75 + 6, 28, 40);
@@ -304,7 +321,8 @@ function houseSection(f, diff) {
     const len = 26 + rng() * 8, hs0 = genS + 6; box = { type: "box", house: true, s0: hs0, len, end: hs0 + len, B, rise: 18, cx, hw, wall: walls[Math.floor(rng() * walls.length)] };
     f.parts.push(box); f.label = "House ramp · ride up onto the roof";
   }
-  if (rng() < 0.55) f.rail = { s0: box.s0 + 4 + (ramp ? 14 : 0), s1: box.s0 + box.len - 3, x: cx + (rng() - 0.5) * 1.4 };
+  let rk = null; if (!ramp && rng() < 0.7) { rk = roofKicker(box, cx); if (rk) f.parts.push(rk); }
+  if (rng() < 0.55) f.rail = { s0: box.s0 + 4 + (ramp ? 14 : 0), s1: box.s0 + box.len - 3, x: cx + (rk ? 3.6 * (rng() < 0.5 ? -1 : 1) : (rng() - 0.5) * 1.4) };
   f.mainCx = cx; f.house = box;
 }
 function addSection() {
@@ -338,9 +356,11 @@ function addSection() {
     if (kind > 0 && rng() < 0.28) { const rs0 = k.s0 + k.L + k.gap + k.Ll * 0.1; f.rail = { s0: rs0, s1: rs0 + k.Ll * 0.72, x: cx + (rng() - 0.5) * 1.2 }; f.label += " + rail"; }
     if (kind > 0 && rng() < 0.7) f.boost = { s0: genS - 22, s1: genS - 16, cx, hw: 1.4 };
     const nSide = rng() < 0.8 ? (rng() < 0.45 ? 2 : 1) : 0, sides = rng() < 0.5 ? [-1, 1] : [1, -1];
+    let houseDone = false;
     for (let q = 0; q < nSide; q++) {
       const sd = sides[q], scx = sd * (10.8 + rng() * 0.8);
-      if (rng() < 0.6) { const sp2 = mkKicker(genS + rng() * 14, 0, scx, 2.5 + rng() * 0.5, diff); sp2.side = true; sp2.rocky = rng() < 0.55; f.parts.push(sp2); f.label += sp2.rocky ? " + rock kicker" : " + side kicker"; }
+      if (!houseDone && rng() < 0.6) { houseDone = true; sideHouse(f, sd, genS + rng() * 8, 0); }
+      else if (rng() < 0.6) { const sp2 = mkKicker(genS + rng() * 14, 0, scx, 2.5 + rng() * 0.5, diff); sp2.side = true; sp2.rocky = rng() < 0.55; f.parts.push(sp2); f.label += sp2.rocky ? " + rock kicker" : " + side kicker"; }
       else { const s0b = genS + rng() * 12, len = 9 + rng() * 5; f.parts.push({ type: "box", s0: s0b, len, end: s0b + len, B: 0.7, cx: scx, hw: 2.1 }); f.label += " + jib box"; }
     }
   }
@@ -1169,7 +1189,7 @@ function lodgesForChunk(ci) {
     out.push({ kind, x, s, yaw: sd < 0 ? Math.PI / 2 : -Math.PI / 2, seed: Math.floor(rt() * 1e6) });
   };
   const n = rt() < 0.4 ? 1 : 0, n2 = rt() < 0.12 ? 1 : 0;
-  for (let i = 0; i < n + n2; i++) { const r = rt(), kind = r < 0.32 ? 0 : r < 0.5 ? 1 : r < 0.62 ? 2 : r < 0.82 ? 3 : r < 0.92 ? 0 : 4; place(kind, rt() < 0.5 ? -1 : 1, PISTE + 8 + rt() * 18, s0 + 4 + rt() * (CH - 8)); }
+  for (let i = 0; i < n + n2; i++) { const r = rt(), kind = r < 0.32 ? 0 : r < 0.5 ? 1 : r < 0.62 ? 2 : r < 0.82 ? 3 : r < 0.92 ? 0 : 4; place(kind, rt() < 0.5 ? -1 : 1, PISTE + 28 + rt() * 14, s0 + 4 + rt() * (CH - 8)); }
   if (ci === 0) place(2, -1, PISTE + 16, 22);
   if (ci === Math.floor((COURSE_END + 30) / CH)) place(2, 1, PISTE + 14, COURSE_END + 30);
   return out;
@@ -1206,7 +1226,7 @@ function buildChunk(ci) {
           else if (lw > 0.5 && s > lip + p.gap) { R = 0.92; Gc = 0.95; B = 0.985; }
           else if (p.pit && lw > 0.3 && s > lip + 0.4 && s < lip + p.gap) { R = 0.6; Gc = 0.68; B = 0.8; }
         } else if (p.type === "box" && p.house) {
-          if (s >= p.s0 && s <= p.end && Math.abs(x - p.cx) < p.hw + 0.6) { const rr = partOff(p, x, s) / p.B; if (rr > 0.03 && rr < 0.97) { wallV[(r * nx + c)] = 1; R = p.wall[0]; Gc = p.wall[1]; B = p.wall[2]; } else if (rr >= 0.97) { R = 0.96; Gc = 0.97; B = 1.0; } }
+          if (s >= p.s0 && s <= p.end && Math.abs(x - p.cx) < p.hw + 0.6) { const rr = p.flat ? boxShape(p, x, s) : partOff(p, x, s) / p.B; if (rr > 0.03 && rr < 0.97) { wallV[(r * nx + c)] = 1; R = p.wall[0]; Gc = p.wall[1]; B = p.wall[2]; } else if (rr >= 0.97) { R = 0.96; Gc = 0.97; B = 1.0; } }
         } else if (p.type === "box" && s >= p.s0 && s <= p.end && Math.abs(x - p.cx) < p.hw) { if (p.drop) { R = 0.9; Gc = 0.93; B = 0.98; } else { R = 0.8; Gc = 0.86; B = 0.95; } }
       }
       const n = (hash(x * 3.1 + s * 1.7) - 0.5) * 0.03; col[i] = R + n; col[i + 1] = Gc + n; col[i + 2] = B + n;
