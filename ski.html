@@ -222,13 +222,13 @@ function mkKicker(s0, kind, cx, hw, diff, sc) {
   const Hh = L * ratio * (kind < 3 ? 1 + 0.1 * diff : 1), fd = flightD(L, Hh, v0);
   const gap = clamp(T[4] * fd.d * sc, T[5] * sc, T[6] * sc), Ll = clamp(gap * 0.8 + 8, 14, 60);
   const Hl = clamp((fd.tanA - BASE) * 0.6 * Ll / 1.5, 0.4, 5), pit = kind === 3 ? 3.6 : 0;
-  const p = { type: "kicker", label: T[7], s0, L, H: Hh, gap, Ll, Hl, cx, hw, v0, pit };
+  const p = { type: "kicker", label: T[7], s0, L, H: Hh, gap, Ll, Hl, cx, hw: PEAK && kind < 4 ? hw * 1.7 : hw, v0, pit };
   p.end = s0 + L + gap + Ll; return p;
 }
 function mkHip(sBase, sd, diff) {
-  const L = 8 + rng() * 1.5, Hh = L * (0.19 + rng() * 0.02) * (1 + 0.1 * diff), fd = flightD(L, Hh, 22), gap = clamp(0.5 * fd.d, 10, 24), Ll = clamp(gap * 0.8 + 8, 16, 26), hw = 2.8, ang = -sd * (0.36 + rng() * 0.1);
+  const L = 8 + rng() * 1.5, Hh = L * (0.19 + rng() * 0.02) * (1 + 0.1 * diff), fd = flightD(L, Hh, 22), gap = clamp(0.5 * fd.d, 10, 24), Ll = clamp(gap * 0.8 + 8, 16, 26), hw = PEAK ? 4.4 : 2.8, ang = -sd * (0.36 + rng() * 0.1);
   const s0 = sBase + hw * Math.abs(Math.sin(ang)) + 2 + rng() * 4, Hl = clamp((fd.tanA - BASE) * 0.6 * Ll / 1.5, 0.4, 3.5);
-  return { type: "hip", label: "Hip jump", s0, L, H: Hh, gap, Ll, Hl, cx: sd * (9 + rng() * 0.8), hw, ang, v0: 22, pit: 0,
+  return { type: "hip", label: "Hip jump", s0, L, H: Hh, gap, Ll, Hl, cx: sd * (PEAK ? 15 : 9) + (PEAK ? sd * rng() * 0.8 : sd * rng() * 0.8), hw, ang, v0: 22, pit: 0,
     sMin: s0 - hw * Math.abs(Math.sin(ang)) - 1, end: s0 + (L + gap + Ll) * Math.cos(ang) + hw * Math.abs(Math.sin(ang)) + 1 };
 }
 const hipUV = (p, x, s) => { const dx = x - p.cx, ds = s - p.s0, sa = Math.sin(p.ang), ca = Math.cos(p.ang); return [ds * ca + dx * sa, dx * ca - ds * sa]; };
@@ -376,7 +376,7 @@ function addSection() {
     const nSide = rng() < 0.9 ? (rng() < 0.45 ? 2 : 1) : 0, sides = rng() < 0.5 ? [-1, 1] : [1, -1];
     let houseDone = false;
     for (let q = 0; q < nSide; q++) {
-      const sd = sides[q], scx = sd * (10.8 + rng() * 0.8);
+      const sd = sides[q], scx = sd * (10.8 + rng() * 0.8) * (PEAK ? 1.6 : 1);
       if (!PEAK && !houseDone && rng() < 0.85) { houseDone = true; sideHouse(f, sd, genS + rng() * 8, 0); }
       else if (PEAK || rng() < 0.6) { const sp2 = mkKicker(genS + rng() * 14, 0, scx, 2.5 + rng() * 0.5, diff); sp2.side = true; sp2.rocky = rng() < 0.55; f.parts.push(sp2); f.label += sp2.rocky ? " + rock kicker" : " + side kicker"; }
       else { const s0b = genS + rng() * 12, len = 9 + rng() * 5; f.parts.push({ type: "box", s0: s0b, len, end: s0b + len, B: 0.7, cx: scx, hw: 2.1 }); f.label += " + jib box"; }
@@ -388,7 +388,7 @@ function addSection() {
   // plateau for the centre line and slope knots: curve and steepness change in the gap before this section
   const last = pcs[pcs.length - 1], px = i < 1 ? 0 : clamp(last.x + (rng() - 0.5) * 2 * Math.min(14, 0.35 * Math.max(8, f.s0 - 34 - last.b)), -30, 30);
   shiftSection(f, px);
-  if (f.cliff) { f.rocks = []; for (const sd of [-1, 1]) for (let q = 0; q < 5; q++) f.rocks.push({ x: px + sd * (PISTE + 1.2 + q * 2.6 + rng()), s: f.cliff.s - 2.5 + rng() * 5, r: 1.6 + rng() * 1.8 }); [-1, 1].forEach(sd => f.rocks.push({ x: px + sd * (PISTE - 0.5), s: f.cliff.s - 1.5, r: 2.4 })); }
+  if (f.cliff) { f.rocks = []; for (const sd of [-1, 1]) for (let q = 0; q < 5; q++) f.rocks.push({ x: px + sd * (PISTE + (PEAK ? 15 : 1.2) + q * 2.6 + rng()), s: f.cliff.s - 2.5 + rng() * 5, r: 1.6 + rng() * 1.8 }); [-1, 1].forEach(sd => f.rocks.push({ x: px + sd * (PISTE + (PEAK ? 14 : -0.5)), s: f.cliff.s - 1.5, r: 2.4 })); }
   else flankRocks(f);
   feats.push(f); regRocks(f);
   const a = f.s0 - 34, prevEnd = knots[knots.length - 1].s, gapLen = a - prevEnd;
@@ -410,7 +410,7 @@ function und(xr, s) { return (1 - 0.88 * jumpMask(s)) * (2.4 * Math.sin(s * 0.02
 function H_(x, s) {
   const xr = x - pc(s), ax = Math.abs(xr), lv = baseY(s) + cliffOff(s);
   let y = lv + und(xr, s) + 0.35 * Math.sin(s * 0.09 + xr * 0.12) + 0.25 * Math.sin(xr * 0.21 - s * 0.045);
-  if (PEAK) { const fade = 0.3 + 0.7 * smooth(ax / 16); y += fade * (4.6 * Math.sin(x * 0.09 + 1.7 * Math.sin(s * 0.006 + x * 0.01)) + 2.6 * Math.sin(x * 0.21 + s * 0.012 + 0.7) + 1.0 * Math.sin(x * 0.47 - s * 0.02)); }
+  if (PEAK) { const fade = 0.2 + 0.8 * smooth((ax - 6) / 26); y += fade * (4.6 * Math.sin(x * 0.09 + 1.7 * Math.sin(s * 0.006 + x * 0.01)) + 2.6 * Math.sin(x * 0.21 + s * 0.012 + 0.7) + 1.0 * Math.sin(x * 0.47 - s * 0.02)); }
   else y += 3.5 * smooth((ax - PISTE + 1) / 5) + 0.12 * Math.max(0, ax - PISTE - 5);
   y += clamp(-xr * pcc(s) * 4, -3.5, 3.5) * (1 - smooth((ax - PISTE - 2) / 6)); // banked turns
   const j = featIndex(s);
@@ -422,6 +422,7 @@ function H_(x, s) {
     const k = idxIn(T.sec, s);
     if (k >= 0 && s <= T.sec[k].end) y += featOff(T.sec[k], x, s);
   }
+  if (PEAK && s < 24) { const w = smooth((s + 16) / 6) * (1 - smooth((s - 10) / 12)) * (1 - smooth((Math.abs(x) - 10) / 6)); if (w > 0) y = lerp(y, baseY(4) + 0.5, w); }
   return y;
 }
 function H(x, s) { ensure(s); return H_(x, s); }
@@ -448,9 +449,9 @@ function flankRocks(f) { // boulders on the outer flanks of side kickers, woods 
 function rocksForChunk(ci) {
   const rt = mulberry(ci * 313 + 7), s0 = ci * CH, out = [];
   const ok = (x, s) => { const T = trailFor(s); return !(T && Math.abs(x - trailXc(T, s)) < T.hw + 4); };
-  for (let i = 0; i < 9; i++) { const side = rt() < 0.5 ? -1 : 1, s = s0 + rt() * CH, x = pc(s) + side * (PISTE + 1.8 + rt() * 9), r = 0.9 + rt() * 1.7; if (ok(x, s)) out.push({ x, s, r }); }
+  for (let i = 0; i < 9; i++) { const side = rt() < 0.5 ? -1 : 1, s = s0 + rt() * CH, x = pc(s) + side * (PISTE + (PEAK ? 16 : 1.8) + rt() * 9), r = 0.9 + rt() * 1.7; if (ok(x, s)) out.push({ x, s, r }); }
   for (let i = 0; i < 12; i++) { const s = s0 + rt() * CH, T = trailFor(s), sd = rt() < 0.5 ? -1 : 1, big = rt() < 0.3, r = big ? 2.6 + rt() * 2.6 : 1 + rt() * 1.6; if (T) { const x = trailXc(T, s) + sd * (T.hw + 4.5 + rt() * 8); if (Math.abs(x - pc(s)) > PISTE + 2.5) out.push({ x, s, r }); } }
-  if (PEAK) for (let i = 0; i < 16; i++) { const side = rt() < 0.5 ? -1 : 1, s = s0 + rt() * CH, big = rt() < 0.4; out.push({ x: pc(s) + side * (PISTE + 2.5 + rt() * 24), s, r: big ? 2.4 + rt() * 3.2 : 1 + rt() * 1.6 }); }
+  if (PEAK) for (let i = 0; i < 16; i++) { const side = rt() < 0.5 ? -1 : 1, s = s0 + rt() * CH, big = rt() < 0.4; out.push({ x: pc(s) + side * (PISTE + 16 + rt() * 24), s, r: big ? 2.4 + rt() * 3.2 : 1 + rt() * 1.6 }); }
   return out;
 }
 function rockGroup(list) {
@@ -659,7 +660,7 @@ function respawn() {
   const rs = f ? Math.max(12, f.s0 - 40) : inT ? T.s0 + 60 : 12;
   sk = newSkier(inT ? trailXc(T, rs) : f ? f.mainCx : 0, rs, 13); snapCam = true;
 }
-function restart() { score = 0; mult = 1; rings = 0; focus = 1; runT = 0; endShown = false; stats = { tricks: 0, biggest: 0, wipes: 0, jumps: 0 }; $("end").hidden = true; for (const f of feats) f.coins.forEach(c => c.got = false); for (const t of trails) for (const f of t.sec) f.coins.forEach(c => c.got = false); sk = newSkier(0, 10, 9); snapCam = true; $("pop").className = ""; }
+function restart() { score = 0; mult = 1; rings = 0; focus = 1; runT = 0; endShown = false; stats = { tricks: 0, biggest: 0, wipes: 0, jumps: 0 }; $("end").hidden = true; for (const f of feats) f.coins.forEach(c => c.got = false); for (const t of trails) for (const f of t.sec) f.coins.forEach(c => c.got = false); sk = newSkier(0, PEAK ? 3 : 10, PEAK ? 4 : 9); snapCam = true; $("pop").className = ""; }
 
 const DT = 1 / 120;
 function step(dt) {
@@ -1523,6 +1524,48 @@ function buildFeature(f) {
 }
 
 let finishMesh = null;
+let startHut = null;
+function buildStartHut() {
+  const g = new THREE.Group(), b = 7, Hh = 8.5, Sl = Math.hypot(Hh, b), y0 = baseY(4) + 0.5, navy = new THREE.MeshStandardMaterial({ color: 0x16285a, roughness: 0.7, side: THREE.DoubleSide });
+  const wood = LM(0x6b4a2f), dark = LM(0x2a1d14);
+  const face = door => {
+    const sh = new THREE.Shape();
+    if (door) { sh.moveTo(-b, 0); sh.lineTo(-1.6, 0); sh.lineTo(-1.6, 3.9); sh.lineTo(1.6, 3.9); sh.lineTo(1.6, 0); sh.lineTo(b, 0); } else { sh.moveTo(-b, 0); sh.lineTo(b, 0); }
+    sh.lineTo(0, Sl); sh.closePath();
+    const geo = new THREE.ShapeGeometry(sh), pa = geo.attributes.position;
+    for (let i = 0; i < pa.count; i++) { const u = pa.getX(i), v = pa.getY(i); pa.setXYZ(i, u, v * Hh / Sl, b - v * b / Sl); }
+    geo.computeVertexNormals(); return geo;
+  };
+  for (let k = 0; k < 4; k++) {
+    const fg = new THREE.Group(); fg.rotation.y = k * Math.PI / 2; g.add(fg);
+    const m = new THREE.Mesh(face(k === 0), navy); m.castShadow = true; m.receiveShadow = true; fg.add(m);
+    if (k !== 0) {
+      const d = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 1.15), new THREE.MeshBasicMaterial({ map: labelTex(k === 2 ? "COULOIR PEAK" : "DROP IN", "#16285a", "#f4f7fb") }));
+      d.rotation.x = -Math.atan(b / Hh); d.position.set(k === 2 ? -1.6 : 1.4, Sl * 0.34 * Hh / Sl + 0.2, b - Sl * 0.34 * b / Sl + 0.18); fg.add(d);
+    }
+    [-1, 1].forEach(sd => { const e = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.22, Sl), wood); e.position.set(sd * b / 2, Hh / 2, b / 2); e.rotation.order = "YXZ"; e.lookAt(0, 0, 0); fg.add(e); e.visible = false; });
+  }
+  const floor = new THREE.Mesh(new THREE.BoxGeometry(2 * b, 0.4, 2 * b), wood); floor.position.y = -0.2; floor.receiveShadow = true; g.add(floor);
+  [-1, 1].forEach(sd => { const post = new THREE.Mesh(new THREE.BoxGeometry(0.28, 4.1, 0.28), dark); post.position.set(sd * 1.75, 2.05, b); g.add(post); });
+  const lintel = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.3, 0.3), dark); lintel.position.set(0, 4.05, b); g.add(lintel);
+  const lanternG = (x, y, z, cordTo) => {
+    const l = new THREE.Group(); l.position.set(x, y, z);
+    const cord = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, cordTo, 4), dark); cord.position.y = cordTo / 2 + 0.2; l.add(cord);
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.34, 8), new THREE.MeshBasicMaterial({ color: 0xffc766 })); l.add(body);
+    const cap = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.14, 8), dark); cap.position.y = 0.24; l.add(cap);
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.06, 8), dark); base.position.y = -0.2; l.add(base);
+    const gl = new THREE.Sprite(glowMat()); gl.scale.set(3.2, 3.2, 1); l.add(gl); g.add(l); return l;
+  };
+  const ceilH = (x, z) => Hh * (1 - Math.max(Math.abs(x), Math.abs(z)) / b);
+  [[-3.6, -3.6], [3.6, -3.6], [-3.6, 0.5], [3.6, 0.5], [0, -4.2], [0, 3.8]].forEach(([x, z]) => { const y = 3.0 + (Math.abs(x) + Math.abs(z)) * 0.0; lanternG(x, y, z, Math.max(0.3, ceilH(x, z) - y - 0.2)); });
+  [-1, 1].forEach(sd => { const post = new THREE.Mesh(new THREE.BoxGeometry(0.16, 2.6, 0.16), dark); post.position.set(sd * 3.3, 1.3, b + 1.2); g.add(post); const arm = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.1, 0.1), dark); arm.position.set(sd * 3.3 - sd * 0.3, 2.55, b + 1.2); g.add(arm); lanternG(sd * 3.3 - sd * 0.62, 2.2, b + 1.2, 0.2); });
+  const pl = new THREE.PointLight(0xffb866, 1.6, 16, 1.6); pl.position.set(0, 3.0, 1); g.add(pl);
+  const pl2 = new THREE.PointLight(0xffb866, 1.0, 10, 1.6); pl2.position.set(0, 2.4, b + 1); g.add(pl2);
+  g.position.set(0, y0, 0); g.rotation.y = Math.PI; g.scale.z = 1; 
+  // door faces down the mountain (+s = -z in the scene): hut local +z must map to -z
+  return g;
+}
+
 function buildFinish() {
   const g = new THREE.Group(), px = pc(COURSE_END), pm = LM(0x2a3038);
   [-1, 1].forEach(sd => { const x = px + sd * (PISTE - 1), y = H(x, COURSE_END), p = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.28, 9, 10), pm); p.position.set(x, y + 4.5, -COURSE_END); p.castShadow = true; g.add(p); });
@@ -1537,6 +1580,7 @@ function buildFinish() {
   return g;
 }
 function manageWorld() {
+  if (PEAK && !startHut) { startHut = buildStartHut(); scene.add(startHut); }
   if (sk.s > COURSE_END - 450 && !finishMesh && !PEAK) { finishMesh = buildFinish(); scene.add(finishMesh); }
   const cmin = Math.floor((sk.s - 90) / CH), cmax = Math.floor((sk.s + 360) / CH);
   for (let ci = cmin; ci <= cmax; ci++) if (ci >= 0 && !chunks.has(ci)) { const g = buildChunk(ci); chunks.set(ci, g); scene.add(g); }
@@ -1747,7 +1791,7 @@ tBtns.forEach(b => {
 });
 new ResizeObserver(resize).observe(cv);
 
-sk = newSkier(0, 10, 0);
+sk = newSkier(0, PEAK ? 3 : 10, 0);
 const glOK = typeof THREE !== "undefined" && initRender();
 if (!glOK) { $("nogl").hidden = false; $("go").disabled = true; }
 window.__game = { pc, pcs, cliffs, knots, baseY, get runT() { return runT; }, get sw() { return sk.sw; }, get spin() { return sk.spin; }, get endShown() { return endShown; }, COURSE_END, trails, trailFor, trailXc, sectionsAt, step, get sk() { return sk; }, feats, H, K, restart, begin, get score() { return score; }, get mult() { return mult; }, setMode(m) { mode = m; }, pop() { popReq = true; } };
