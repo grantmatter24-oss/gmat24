@@ -41,6 +41,7 @@
   #pause[hidden] { display: none; }
   #music { position: absolute; left: 12px; bottom: 54px; z-index: 2; pointer-events: auto; display: flex; flex-direction: column; gap: 3px; }
   #music[hidden] { display: none; }
+  #music .mplay { font: 700 13px var(--body); letter-spacing: .06em; color: var(--ink); background: var(--jacket); border-radius: 6px; padding: 8px 12px; text-decoration: none; max-width: 340px; }
   #music .mlink { font: 600 11px var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--dim); text-decoration: underline; }
   .pcard { width: min(330px, 100%); overflow: auto; background: rgba(11,26,41,.86); border: 1px solid rgba(244,248,253,.22); border-radius: 10px; padding: 16px; color: var(--text); }
   .pcard h2 { font: 900 30px/1 var(--display); letter-spacing: .06em; text-transform: uppercase; margin-bottom: 12px; }
@@ -98,7 +99,6 @@
       <div>Distance <b id="dist">0</b> / <span id="dtot">6000</span> m</div>
       <div>Best <b id="best">0</b></div>
       <div>Resort <b id="resortname"></b></div>
-      <button id="snd" type="button">Sound on</button>
       <button id="pausebtn" type="button">Pause</button>
       <button id="globe" type="button" aria-label="Change ski resort" title="Change ski resort"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><ellipse cx="12" cy="12" rx="4" ry="9.5"/><path d="M2.5 12h19M4 7h16M4 17h16"/></svg></button>
     </div>
@@ -804,6 +804,7 @@ function showEnd() {
    ===================================================================== */
 let ac = null, windG = null, windF = null, grindG = null, muted = false;
 function audioInit() {
+  return; // built-in game audio removed: the song comes from Spotify
   if (ac) { if (ac.state === "suspended") ac.resume(); return; }
   try {
     ac = new (window.AudioContext || window.webkitAudioContext)();
@@ -820,6 +821,7 @@ function tone(freq, t0, dur, type, vol) {
   o.connect(g); g.connect(ac.destination); o.start(t0); o.stop(t0 + dur + 0.05);
 }
 function sfx(kind, k) {
+  return;
   if (!ac || muted) return;
   const t = ac.currentTime;
   if (kind === "thud" || kind === "crash") {
@@ -844,6 +846,7 @@ function sfx(kind, k) {
   }
 }
 function audioUpdate() {
+  return;
   if (!ac || !windG) return;
   const live = mode === "play" && sk && !sk.crashed;
   const sp = live ? (sk.air ? Math.hypot(sk.vx, sk.vs, sk.vy) : sk.sp) : 0;
@@ -1844,9 +1847,8 @@ const SONG_IDS = { hypa: "7hQUvQN4IcDVhuBeaX7wwW", yosemite: "6Z3cE0ZK0tmj7131PF
 function setSong() {
   const box = $("music"), id = SONG_IDS[outfit.song]; box.textContent = "";
   if (!id) { box.hidden = true; return; }
-  const f = document.createElement("iframe"); f.src = "https://open.spotify.com/embed/track/" + id + "?theme=0"; f.width = "320"; f.height = "80"; f.allow = "autoplay; encrypted-media; clipboard-write"; f.title = "Spotify player"; f.style.border = "0"; f.style.borderRadius = "12px";
-  const a = document.createElement("a"); a.href = "https://open.spotify.com/track/" + id; a.target = "_blank"; a.rel = "noopener"; a.textContent = "Open in Spotify"; a.className = "mlink";
-  box.append(f, a); box.hidden = false;
+  const a = document.createElement("a"); a.href = "https://open.spotify.com/track/" + id; a.target = "_blank"; a.rel = "noopener"; a.className = "mplay"; a.textContent = "\u266A Play on Spotify: " + OUTFIT_OPTS.song[outfit.song];
+  box.append(a); box.hidden = false;
 }
 setSong();
 buildPauseUI();
@@ -1870,8 +1872,7 @@ addEventListener("keyup", e => { const k = MAP[e.key]; if (k) { K[k] = 0; syncTo
 addEventListener("blur", () => { for (const k in K) K[k] = 0; syncTouch(); });
 $("go").onclick = begin;
 $("again").onclick = () => restart();
-function toggleSound() { muted = !muted; $("snd").textContent = muted ? "Sound off" : "Sound on"; }
-$("snd").onclick = toggleSound;
+function toggleSound() { }
 const tBtns = document.querySelectorAll("#touch button");
 function syncTouch() { tBtns.forEach(b => { const k = b.dataset.k; b.classList.toggle("on", k === "spin" ? !!(K.spinL || K.spinR) : !!K[k]); }); }
 let spinDir = 0;
