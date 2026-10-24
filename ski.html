@@ -610,7 +610,7 @@ let popReq = false;
 const GRABS = ["Mute", "Indy", "Tail", "Melon", "Nose", "Stalefish"];
 let comboT = 0, focus = 1, timeScale = 1, mode = "title", score = 0, mult = 1, best = 0, rings = 0, boostPulse = 0, shake = 0, lastCheck = null;
 best = store.get("kb-score-" + RES, 0);
-let bestTime = store.get("kb-time-" + RES, 0), ghostData = store.get("kb-ghost-" + RES, null), recP = [], recT = 0, endNewBest = false;
+let bestTime = store.get("kb-time-" + RES, 0), endNewBest = false;
 let sk, runT = 0, endShown = false, stats = { tricks: 0, biggest: 0, wipes: 0, jumps: 0 };
 
 function newSkier(x, s, sp) {
@@ -698,12 +698,12 @@ function respawn() {
   sk = newSkier(inT ? trailXc(T, rs) : f ? f.mainCx : 0, rs, 13); snapCam = true;
 }
 function startIntro() { if (PEAK) return; if (PARK) startBike(); else startHeli(); }
-function restart() { recP = []; recT = 0; endNewBest = false; score = 0; mult = 1; rings = 0; focus = 1; runT = 0; endShown = false; stats = { tricks: 0, biggest: 0, wipes: 0, jumps: 0 }; $("end").hidden = true; for (const f of feats) f.coins.forEach(c => c.got = false); for (const t of trails) for (const f of t.sec) f.coins.forEach(c => c.got = false); sk = newSkier(0, PEAK ? 3 : 10, PEAK ? 4 : 9); startIntro(); snapCam = true; $("pop").className = ""; }
+function restart() { endNewBest = false; score = 0; mult = 1; rings = 0; focus = 1; runT = 0; endShown = false; stats = { tricks: 0, biggest: 0, wipes: 0, jumps: 0 }; $("end").hidden = true; for (const f of feats) f.coins.forEach(c => c.got = false); for (const t of trails) for (const f of t.sec) f.coins.forEach(c => c.got = false); sk = newSkier(0, PEAK ? 3 : 10, PEAK ? 4 : 9); startIntro(); snapCam = true; $("pop").className = ""; }
 
 const DT = 1 / 120;
 function step(dt) {
   if (mode !== "play") return;
-  if (!sk.finished) { runT += dt; recT += dt; if (recT >= 0.1) { recT -= 0.1; recP.push(+sk.x.toFixed(2), +sk.y.toFixed(2), +sk.s.toFixed(2)); } }
+  if (!sk.finished) runT += dt;
   if (!sk.air && !sk.grind && !sk.bike && !sk.crashed && K.down && sk.sp > 3) { sk.butterT = (sk.butterT || 0) + dt; if (Math.random() < 0.4) spray(sk.x, sk.y, sk.s - 0.7, 1, 2); }
   else { if (sk.butterT > 0.8 && !sk.crashed) payout(sk.butterT * 110, "Tail butter", false, true); sk.butterT = 0; }
   if (mult > 1 && !sk.air && !sk.grind) { comboT -= dt; if (comboT <= 0) { mult = 1; comboT = 0; } }
@@ -1062,6 +1062,7 @@ const UNLOCK = {
   "skis.pink": ["Land 40 tricks", p => p.tricks >= 40],
   "skis.black": ["Finish all 3 resorts", p => p.fin.length >= 3]
 };
+try { for (const r of ["alpine", "peak", "park"]) localStorage.removeItem("kb-ghost-" + r); } catch (e) { }
 let prog = store.get("kickerProg", null);
 if (!prog) { prog = { fin: [], tricks: 0, rails: 0, maxScore: 0, unlocked: [] }; for (const k in DEFAULT_OUTFIT) if (OUTFIT_OPTS[k][outfit[k]]) prog.unlocked.push(k + "." + outfit[k]); store.set("kickerProg", prog); }
 const isUnlocked = (cat, key) => { const u = UNLOCK[cat + "." + key]; return !u || prog.unlocked.includes(cat + "." + key) || u[1](prog); };
@@ -1073,7 +1074,7 @@ function checkUnlocks() {
 }
 function onFinish() {
   const t = runT; endNewBest = false;
-  if (!bestTime || t < bestTime) { bestTime = t; endNewBest = true; store.set("kb-time-" + RES, t); ghostData = { p: recP.slice() }; store.set("kb-ghost-" + RES, ghostData); }
+  if (!bestTime || t < bestTime) { bestTime = t; endNewBest = true; store.set("kb-time-" + RES, t); }
   if (!prog.fin.includes(RES)) prog.fin.push(RES);
   prog.maxScore = Math.max(prog.maxScore, score); checkUnlocks();
 }
@@ -1798,22 +1799,6 @@ function updateBike(dt) {
   bikeObj.position.set(x, y, -bikeS); bikeObj.rotation.set(Math.atan(sl), 0, 0);
   if (!bikeFree) bikeObj.userData.wheels.forEach(w => { w.rotation.x -= 12 * dt / 0.34; });
 }
-let ghostMesh = null;
-function updateGhost() {
-  if (!ghostData || !ghostData.p || ghostData.p.length < 6 || mode !== "play" || sk.finished) { if (ghostMesh) ghostMesh.visible = false; return; }
-  if (!ghostMesh) {
-    ghostMesh = new THREE.Group(); ghostMesh.rotation.order = "YXZ";
-    const gm = new THREE.MeshBasicMaterial({ color: 0x7fe9ff, transparent: true, opacity: 0.4, depthWrite: false });
-    const add = (geo, x, y, z) => { const m = new THREE.Mesh(geo, gm); m.position.set(x, y, z); ghostMesh.add(m); };
-    add(new THREE.BoxGeometry(0.4, 0.62, 0.24), 0, 1.0, 0); add(new THREE.SphereGeometry(0.13, 10, 8), 0, 1.5, 0); add(new THREE.BoxGeometry(0.3, 0.62, 0.2), 0, 0.5, 0.05);
-    [-0.13, 0.13].forEach(x => add(new THREE.BoxGeometry(0.09, 0.03, 1.4), x, 0.04, 0.05)); scene.add(ghostMesh);
-  }
-  const P = ghostData.p, n = P.length / 3, f = Math.min(runT / 0.1, n - 1), i0 = Math.floor(f), i1 = Math.min(n - 1, i0 + 1), u = f - i0;
-  ghostMesh.visible = true;
-  ghostMesh.position.set(lerp(P[i0 * 3], P[i1 * 3], u), lerp(P[i0 * 3 + 1], P[i1 * 3 + 1], u), -lerp(P[i0 * 3 + 2], P[i1 * 3 + 2], u));
-  const dx = P[i1 * 3] - P[i0 * 3], ds = P[i1 * 3 + 2] - P[i0 * 3 + 2], dy = P[i1 * 3 + 1] - P[i0 * 3 + 1], hv = Math.hypot(dx, ds);
-  if (hv > 0.02) { ghostMesh.rotation.y = -Math.atan2(dx, ds); ghostMesh.rotation.x = Math.atan2(dy, hv); }
-}
 function updateHeli(dt) {
   if (PEAK) return;
   if (!heliMesh) { heliMesh = buildHeli(); scene.add(heliMesh); }
@@ -1872,7 +1857,7 @@ function updateCamera(dt) {
 const _n = typeof THREE !== "undefined" ? new THREE.Vector3() : null, _q = typeof THREE !== "undefined" ? new THREE.Quaternion() : null, _z = typeof THREE !== "undefined" ? new THREE.Vector3(0, 0, 1) : null;
 function render(dt, time) {
   if (!renderer) return;
-  manageWorld(); updateHeli(dt); updateBike(dt); updateGhost();
+  manageWorld(); updateHeli(dt); updateBike(dt);
   poseSkier(dt, time);
   const R = skierRig;
   R.root.position.set(sk.x, sk.y, -sk.s);
