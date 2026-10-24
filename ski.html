@@ -388,7 +388,8 @@ function addSection() {
   // plateau for the centre line and slope knots: curve and steepness change in the gap before this section
   const last = pcs[pcs.length - 1], px = i < 1 ? 0 : clamp(last.x + (rng() - 0.5) * 2 * Math.min(14, 0.35 * Math.max(8, f.s0 - 34 - last.b)), -30, 30);
   shiftSection(f, px);
-  if (f.cliff) { f.rocks = []; for (const sd of [-1, 1]) for (let q = 0; q < 5; q++) f.rocks.push({ x: px + sd * (PISTE + (PEAK ? 15 : 1.2) + q * 2.6 + rng()), s: f.cliff.s - 2.5 + rng() * 5, r: 1.6 + rng() * 1.8 }); [-1, 1].forEach(sd => f.rocks.push({ x: px + sd * (PISTE + (PEAK ? 14 : -0.5)), s: f.cliff.s - 1.5, r: 2.4 })); }
+  if (f.cliff && PEAK) f.rocks = [];
+  else if (f.cliff) { f.rocks = []; for (const sd of [-1, 1]) for (let q = 0; q < 5; q++) f.rocks.push({ x: px + sd * (PISTE + (PEAK ? 15 : 1.2) + q * 2.6 + rng()), s: f.cliff.s - 2.5 + rng() * 5, r: 1.6 + rng() * 1.8 }); [-1, 1].forEach(sd => f.rocks.push({ x: px + sd * (PISTE + (PEAK ? 14 : -0.5)), s: f.cliff.s - 1.5, r: 2.4 })); }
   else flankRocks(f);
   feats.push(f); regRocks(f);
   const a = f.s0 - 34, prevEnd = knots[knots.length - 1].s, gapLen = a - prevEnd;
@@ -422,7 +423,7 @@ function H_(x, s) {
     const k = idxIn(T.sec, s);
     if (k >= 0 && s <= T.sec[k].end) y += featOff(T.sec[k], x, s);
   }
-  if (PEAK && s < 24) { const w = smooth((s + 16) / 6) * (1 - smooth((s - 10) / 12)) * (1 - smooth((Math.abs(x) - 10) / 6)); if (w > 0) y = lerp(y, baseY(4) + 0.5, w); }
+  if (PEAK && s < 24) { const w = smooth((s + 16) / 6) * (1 - smooth((s - 10) / 12)) * (1 - smooth((Math.abs(x) - 10) / 6)); if (w > 0) y = lerp(y, baseY(4) + 0.44, w); }
   return y;
 }
 function H(x, s) { ensure(s); return H_(x, s); }
@@ -435,7 +436,8 @@ function rockHit(x, y, s) {
   return false;
 }
 function regRocks(f) { if (f.rocks) f.rocks.forEach(r => addRock(r.x, r.s, r.r)); }
-function flankRocks(f) { // boulders on the outer flanks of side kickers, woods kickers and cliffs
+function flankRocks(f) {
+  if (PEAK) return; // boulders on the outer flanks of side kickers, woods kickers and cliffs
   f.rocks = f.rocks || [];
   for (const p of f.parts) {
     if ((p.type === "kicker" && (p.rocky || f.woods) && !p.pit && p.hw < 6) || (p.type === "box" && p.drop && p.B > 2.5)) {
@@ -449,9 +451,9 @@ function flankRocks(f) { // boulders on the outer flanks of side kickers, woods 
 function rocksForChunk(ci) {
   const rt = mulberry(ci * 313 + 7), s0 = ci * CH, out = [];
   const ok = (x, s) => { const T = trailFor(s); return !(T && Math.abs(x - trailXc(T, s)) < T.hw + 4); };
-  for (let i = 0; i < 9; i++) { const side = rt() < 0.5 ? -1 : 1, s = s0 + rt() * CH, x = pc(s) + side * (PISTE + (PEAK ? 16 : 1.8) + rt() * 9), r = 0.9 + rt() * 1.7; if (ok(x, s)) out.push({ x, s, r }); }
+  for (let i = 0; i < (PEAK ? 2 : 9); i++) { const side = rt() < 0.5 ? -1 : 1, s = s0 + rt() * CH, x = pc(s) + side * (PISTE + (PEAK ? 16 : 1.8) + rt() * 9), r = 0.9 + rt() * 1.7; if (ok(x, s)) out.push({ x, s, r }); }
   for (let i = 0; i < 12; i++) { const s = s0 + rt() * CH, T = trailFor(s), sd = rt() < 0.5 ? -1 : 1, big = rt() < 0.3, r = big ? 2.6 + rt() * 2.6 : 1 + rt() * 1.6; if (T) { const x = trailXc(T, s) + sd * (T.hw + 4.5 + rt() * 8); if (Math.abs(x - pc(s)) > PISTE + 2.5) out.push({ x, s, r }); } }
-  if (PEAK) for (let i = 0; i < 16; i++) { const side = rt() < 0.5 ? -1 : 1, s = s0 + rt() * CH, big = rt() < 0.4; out.push({ x: pc(s) + side * (PISTE + 16 + rt() * 24), s, r: big ? 2.4 + rt() * 3.2 : 1 + rt() * 1.6 }); }
+  if (PEAK) for (let i = 0; i < 3; i++) { const side = rt() < 0.5 ? -1 : 1, s = s0 + rt() * CH, big = rt() < 0.4; out.push({ x: pc(s) + side * (PISTE + 16 + rt() * 24), s, r: big ? 2.4 + rt() * 3.2 : 1 + rt() * 1.6 }); }
   return out;
 }
 function rockGroup(list) {
@@ -1625,6 +1627,13 @@ function updateCamera(dt) {
   camY = Math.max(camY, H(camX, camS) + 1.6);
   camera.position.set(camX + (Math.random() - 0.5) * shake * 0.3, camY + (Math.random() - 0.5) * shake * 0.3, -camS);
   if (window.__cam) { camera.position.set(...window.__cam.pos); camera.lookAt(...window.__cam.look); return; }
+  const e0 = PEAK && mode === "play" && !sk.crashed ? clamp((sk.s - 3.5) / 9, 0, 1) : 1;
+  if (e0 < 1) { // drop-in: start on the face, circle round behind as the skier leaves the hut
+    const e = smooth(e0), th = camHead + Math.PI * e, Rr = lerp(1.3, back, e), hg = lerp(1.55, height, e), ah = 2.2 * e;
+    camera.position.set(sk.x + Math.sin(th) * Rr, sk.y + hg, -(sk.s + Math.cos(th) * Rr));
+    camera.lookAt(lerp(sk.x, sk.x + Math.sin(camHead) * ah, e), lerp(sk.y + 1.5, sk.y + 0.7, e), -lerp(sk.s, sk.s + Math.cos(camHead) * ah, e));
+    camera.fov = lerp(36, 54 + clamp(speed, 0, 50) * 0.62, e); camera.updateProjectionMatrix(); lastFov = camera.fov; return;
+  }
   const ahead = 2.2, lx = sk.x + Math.sin(camHead) * ahead, ls = sk.s + Math.cos(camHead) * ahead;
   camera.lookAt(lx, sk.y + 0.7, -ls);
   camera.rotateZ(-sk.turn * 0.035 * (sk.air ? 0.3 : 1));
