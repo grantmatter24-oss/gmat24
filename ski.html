@@ -30,11 +30,20 @@
   @keyframes bump { 0% { transform: scale(1.5); } 100% { transform: scale(1); } }
   .side { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; font-size: 15px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); text-shadow: 0 1px 0 rgba(11,26,41,.5); }
   .side b { color: var(--text); font-variant-numeric: tabular-nums; }
-  #snd { pointer-events: auto; margin-top: 6px; font: 600 13px var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--text); background: rgba(11,26,41,.5); border: 1px solid rgba(244,248,253,.3); border-radius: 6px; padding: 6px 10px; cursor: pointer; }
+  #snd, #pausebtn { pointer-events: auto; margin-top: 6px; font: 600 13px var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--text); background: rgba(11,26,41,.5); border: 1px solid rgba(244,248,253,.3); border-radius: 6px; padding: 6px 10px; cursor: pointer; }
   #prog { position: absolute; left: 50%; transform: translateX(-50%); top: 54px; width: min(280px, 40vw); height: 5px; border-radius: 3px; background: rgba(11,26,41,.45); overflow: hidden; pointer-events: none; }
   #progbar { display: block; height: 100%; width: 0; background: var(--peach); }
   #end { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; background: linear-gradient(rgba(11,26,41,.45), rgba(11,26,41,.8)); z-index: 3; }
   #end[hidden] { display: none; }
+  #pause { position: absolute; inset: 0; z-index: 4; display: flex; align-items: stretch; justify-content: flex-start; padding: 14px; background: linear-gradient(90deg, rgba(11,26,41,.55), rgba(11,26,41,0) 62%); }
+  #pause[hidden] { display: none; }
+  .pcard { width: min(330px, 100%); overflow: auto; background: rgba(11,26,41,.86); border: 1px solid rgba(244,248,253,.22); border-radius: 10px; padding: 16px; color: var(--text); }
+  .pcard h2 { font: 900 30px/1 var(--display); letter-spacing: .06em; text-transform: uppercase; margin-bottom: 12px; }
+  .pcard h3 { font: 700 13px var(--body); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); margin: 14px 0 6px; }
+  .pcard .opt { display: block; width: 100%; text-align: left; font: 600 15px var(--body); color: var(--text); background: rgba(244,248,253,.07); border: 1px solid rgba(244,248,253,.2); border-radius: 6px; padding: 8px 10px; margin-bottom: 5px; cursor: pointer; }
+  .pcard .opt.on { background: var(--jacket); border-color: var(--jacket); color: var(--ink); }
+  .pcard .opt:focus-visible, #resume:focus-visible { outline: 3px solid var(--text); outline-offset: 2px; }
+  #resume { margin-top: 14px; width: 100%; font: 900 22px/1 var(--display); letter-spacing: .06em; text-transform: uppercase; color: var(--ink); background: var(--jacket); border: 0; border-radius: 6px; padding: 12px 16px; cursor: pointer; }
   #again { align-self: flex-start; font: 900 28px/1 var(--display); letter-spacing: .06em; text-transform: uppercase; color: var(--ink); background: var(--jacket); border: 0; border-radius: 6px; padding: 14px 26px 12px; cursor: pointer; }
   #next { position: absolute; left: 50%; transform: translateX(-50%); top: 14px; font: 800 18px var(--display); letter-spacing: .12em; text-transform: uppercase; color: var(--ink); background: var(--peach); padding: 5px 12px 3px; border-radius: 4px; pointer-events: none; white-space: nowrap; }
   #next[hidden] { display: none; }
@@ -68,7 +77,7 @@
   dt { font-weight: 600; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
   dd { margin: 0; color: var(--dim); }
   #go { align-self: flex-start; font: 900 28px/1 var(--display); letter-spacing: .06em; text-transform: uppercase; color: var(--ink); background: var(--jacket); border: 0; border-radius: 6px; padding: 14px 26px 12px; cursor: pointer; }
-  #go:focus-visible, #snd:focus-visible { outline: 3px solid var(--text); outline-offset: 2px; }
+  #go:focus-visible, #snd:focus-visible, #pausebtn:focus-visible { outline: 3px solid var(--text); outline-offset: 2px; }
   #nogl { color: var(--jacket); font-weight: 600; }
   @media (prefers-reduced-motion: reduce) { #pop.show, #toast.show { animation-duration: .01s; animation-fill-mode: forwards; } #mult.bump { animation: none; } }
 </style>
@@ -84,6 +93,7 @@
       <div>Distance <b id="dist">0</b> / 6000 m</div>
       <div>Best <b id="best">0</b></div>
       <button id="snd" type="button">Sound on</button>
+      <button id="pausebtn" type="button">Pause</button>
     </div>
   </div>
   <div id="next" hidden></div>
@@ -91,11 +101,12 @@
   <div id="focuswrap"><span>Slow-mo</span><div class="bar"><i id="focus"></i></div><span>F</span></div>
   <div id="pop"><div class="t"></div><div class="s"></div></div>
   <div id="toast"></div>
-  <div id="hint">← → steer &nbsp;·&nbsp; ↑ ↓ flip &nbsp;·&nbsp; Q E spin (flip + spin = cork) &nbsp;·&nbsp; Space = jump / grab &nbsp;·&nbsp; Shift = speed up &nbsp;·&nbsp; J = slow down &nbsp;·&nbsp; F = slow-mo</div>
+  <div id="hint">← → steer &nbsp;·&nbsp; ↑ ↓ flip &nbsp;·&nbsp; Q E spin (flip + spin = cork) &nbsp;·&nbsp; Space = jump / grab &nbsp;·&nbsp; Shift = speed up &nbsp;·&nbsp; J = slow down &nbsp;·&nbsp; F = slow-mo &nbsp;·&nbsp; P = pause</div>
   <div id="touch">
     <div class="grp"><button data-k="left">Left</button><button data-k="right">Right</button></div>
     <div class="grp"><button data-k="up">Front flip</button><button data-k="down">Back / tuck</button><button data-k="spin">Spin</button><button data-k="grab">Pop / grab</button><button data-k="boost">Speed</button><button data-k="brake">Slow</button><button data-k="focus">Focus</button></div>
   </div>
+  <div id="pause" hidden><div class="pcard"><h2>Paused</h2><div id="opts"></div><button id="resume" type="button">Resume</button></div></div>
   <div id="end" hidden>
     <div class="card">
       <h1>Run <span>complete</span></h1>
@@ -717,8 +728,7 @@ function step(dt) {
         if (Math.abs(sk.spin - sk.spinTarget) < 0.02) { sk.spin = 0; sk.spinTarget = 0; }
         if (sk.sp > 7 && Math.random() < 0.55) spray(sk.x - hx * 0.4, sk.y, sk.s - hs * 0.4, 1, 2);
         if (steer && sk.sp > 6 && sk.carve > 0.2) spray(sk.x - steer * 0.35 - hx * 0.2, sk.y, sk.s - hs * 0.2, 2, 3, -steer * (3 + sk.carve * 4));
-        if (offTrack(sk.x, sk.s)) crash("Hit the trees");
-        else if (rockHit(sk.x, sk.y, sk.s)) crash("Hit a rock");
+        if (rockHit(sk.x, sk.y, sk.s)) crash("Hit a rock");
         if (boxAt(sk.x, sk.s)) sk.boxT += dt;
         else { if (sk.boxT > 0.45) { payout(100 + sk.boxT * 110, "Box slide", false, true); sfx("chime", 1); } sk.boxT = 0; }
       }
@@ -761,7 +771,6 @@ function step(dt) {
     if (railHit) {
       sk.y = H(sk.x, sk.s) + RAIL_H; landing("rail", railHit);
     } else if (sk.y <= H(sk.x, sk.s)) { sk.y = H(sk.x, sk.s); landing("ground"); }
-    else if (offTrack(sk.x, sk.s)) crash("Hit the trees");
     else if (rockHit(sk.x, sk.y, sk.s)) crash("Hit a rock");
   }
   popReq = false;
@@ -933,7 +942,7 @@ function initRender() {
   const tg = new THREE.BufferGeometry(); tg.setAttribute("position", new THREE.BufferAttribute(tp, 3)); tg.setIndex(ti);
   const trail = new THREE.Mesh(tg, new THREE.MeshBasicMaterial({ color: 0x8a7fae, transparent: true, opacity: 0.5, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
   trail.frustumCulled = false; scene.add(trail); scene.userData.trail = { mesh: trail, pos: tp, n: 0, NQ, lx: 1e9, ls: 1e9 };
-  skierRig = buildSkier(); scene.add(skierRig.root);
+  skierRig = buildSkier(); applyOutfit(skierRig); scene.add(skierRig.root);
   skierRig.root.traverse(o => { if (o.isMesh) o.castShadow = true; });
   const blob = new THREE.Mesh(new THREE.CircleGeometry(0.85, 20), new THREE.MeshBasicMaterial({ color: 0x1d2a3c, transparent: true, opacity: 0.3, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }));
   scene.add(blob); skierRig.shadow = blob;
@@ -962,6 +971,24 @@ function initRender() {
 }
 
 function canvasTex(w, h, draw) { const c = document.createElement("canvas"); c.width = w; c.height = h; draw(c.getContext("2d"), w, h); return new THREE.CanvasTexture(c); }
+const OUTFIT_OPTS = {
+  helmet: { frog: "Frog hat", beanie: "Beanie with ball", redbull: "Red Bull helmet", santa: "Santa hat" },
+  jacket: { trench: "Black trench coat", vest: "Grey vest, white long sleeve", santa: "Red Santa coat" },
+  pants: { santa: "Red Santa pants", suit: "Black suit pants", shorts: "Grey shorts", blue: "Blue pants", khaki: "Khakis" }
+};
+const JACKETS = { trench: { j: 0x15171b, t: 0x0c0d10, arm: 0x15171b, cuff: 0x0c0d10, sc: [0x7a1f26, 0x2a2a2e] }, vest: { j: 0x80868e, t: 0x5d636b, arm: 0xf2f3f5, cuff: 0xe4e6ea, sc: [0xf2f3f5, 0x80868e] }, santa: { j: 0xc4161c, t: 0xf6f6f2, arm: 0xc4161c, cuff: 0xf6f6f2, sc: [0xf6f6f2, 0xc4161c] } };
+const PANTS = { santa: [0xc4161c, 0xc4161c], suit: [0x17191e, 0x17191e], shorts: [0x7d838b, -1], blue: [0x2f5fa8, 0x2f5fa8], khaki: [0xb59f72, 0xb59f72] };
+let outfit = { helmet: "redbull", jacket: "vest", pants: "blue" };
+try { const o = JSON.parse(localStorage.getItem("kickerOutfit") || "null"); if (o) for (const k in outfit) if (OUTFIT_OPTS[k][o[k]]) outfit[k] = o[k]; } catch (e) { }
+function applyOutfit(R) {
+  if (!R) return; const m = R.mats, J = JACKETS[outfit.jacket], P = PANTS[outfit.pants], h = outfit.helmet;
+  m.jacket.color.setHex(J.j); m.jacket2.color.setHex(J.t); m.jacketArm.color.setHex(J.arm); m.cuffM.color.setHex(J.cuff);
+  m.scarfMat[0].color.setHex(J.sc[0]); m.scarfMat[1].color.setHex(J.sc[1]);
+  for (const k in R.ex) R.ex[k].visible = k === outfit.jacket;
+  m.pants.color.setHex(P[0]); m.pantsLow.color.setHex(P[1] < 0 ? m.skin.color.getHex() : P[1]);
+  R.helmetG.visible = h === "redbull"; m.helmet.color.setHex(0x0d2a5e); m.stripeM.color.setHex(0xd9232d);
+  for (const k in R.hats) R.hats[k].visible = k === h;
+}
 function buildSkier() {
   const root = new THREE.Group(), pivot = new THREE.Group(), rig = new THREE.Group();
   pivot.position.y = 0.9; rig.position.y = -0.9; root.add(pivot); pivot.add(rig);
@@ -971,6 +998,7 @@ function buildSkier() {
   const logoTex = canvasTex(128, 128, (x, w, h) => { x.fillStyle = "#14181f"; x.fillRect(0, 0, w, h); x.fillStyle = "#f08a3a"; x.beginPath(); x.moveTo(64, 14); x.lineTo(112, 108); x.lineTo(16, 108); x.closePath(); x.fill(); x.fillStyle = "#f4f6f9"; x.beginPath(); x.moveTo(64, 46); x.lineTo(84, 88); x.lineTo(44, 88); x.closePath(); x.fill(); });
   const jacket = M(0x2f8f8c, { roughness: 0.62 }), jacket2 = M(0x2b3036, { roughness: 0.7 }), pants = M(0x2c3445, { roughness: 0.8 }), boot = M(0x1a1f29, { roughness: 0.5 }), helmet = M(0x15181d, { roughness: 0.22, metalness: 0.2 });
   const black = M(0x14181f), glove = M(0x1b1f27, { roughness: 0.6 }), skin = M(0xe5b794, { roughness: 0.6 }), white = M(0xf4f6f9), orange = M(0xf08a3a), skiM = M(0xffffff, { map: skiTex, roughness: 0.35 });
+  const jacketArm = M(0x2f8f8c, { roughness: 0.62 }), cuffM = M(0x2b3036, { roughness: 0.7 }), pantsLow = M(0x2c3445, { roughness: 0.8 }), stripeM = M(0xf4f6f9); jacket.side = THREE.DoubleSide;
   const lens = M(0xffffff, { map: lensTex, roughness: 0.1, metalness: 0.7 }), gaiter = M(0x434a57), hair = M(0x4a3426, { roughness: 0.9 });
   const add = (geo, m, x, y, z, parent) => { const mm = new THREE.Mesh(geo, m); mm.position.set(x, y, z); (parent || rig).add(mm); return mm; };
   const limb = (r0, r1, len, m) => { const g = new THREE.CylinderGeometry(r0, r1, len, 16); g.translate(0, -len / 2, 0); return new THREE.Mesh(g, m); };
@@ -990,9 +1018,9 @@ function buildSkier() {
     const hip = new THREE.Group(); rig.add(hip);
     hip.add(limb(0.118, 0.098, a, pants));
     const knee = new THREE.Group(); knee.position.y = -a; hip.add(knee);
-    knee.add(new THREE.Mesh(new THREE.SphereGeometry(0.1, 12, 10), pants));
-    knee.add(limb(0.098, 0.088, b, pants));
-    const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.095, 0.1, 0.1, 14), pants); cuff.position.y = -b + 0.02; knee.add(cuff);
+    knee.add(new THREE.Mesh(new THREE.SphereGeometry(0.1, 12, 10), pantsLow));
+    knee.add(limb(0.098, 0.088, b, pantsLow));
+    const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.095, 0.1, 0.1, 14), pantsLow); cuff.position.y = -b + 0.02; knee.add(cuff);
     legs.push({ hip, knee, x });
   });
   const hipG = new THREE.Group(); rig.add(hipG);
@@ -1003,21 +1031,56 @@ function buildSkier() {
   add(new THREE.CylinderGeometry(0.222, 0.225, 0.1, 22), jacket2, 0, 0.04, 0, torso).scale.set(1.2, 1, 0.84);
   add(new THREE.CylinderGeometry(0.218, 0.218, 0.13, 22), jacket2, 0, 0.37, 0, torso).scale.set(1.2, 1, 0.84);
   add(new THREE.SphereGeometry(0.21, 16, 10), jacket, 0, 0.56, 0, torso).scale.set(1.22, 0.5, 0.82);
-  const logo = add(new THREE.PlaneGeometry(0.2, 0.2), new THREE.MeshStandardMaterial({ map: logoTex, roughness: 0.8 }), 0, 0.3, 0.172, torso);
-  [-0.255, 0.255].forEach(x => add(new THREE.SphereGeometry(0.1, 14, 10), jacket, x, 0.56, 0, torso));
+  const logo = add(new THREE.PlaneGeometry(0.2, 0.2), new THREE.MeshStandardMaterial({ map: logoTex, roughness: 0.8 }), 0, 0.3, 0.172, torso); logo.visible = false;
+  [-0.255, 0.255].forEach(x => add(new THREE.SphereGeometry(0.1, 14, 10), jacketArm, x, 0.56, 0, torso));
   add(new THREE.SphereGeometry(0.155, 14, 10), jacket, 0, 0.7, 0.115, torso).scale.set(1.2, 0.85, 0.9); // hood
   add(new THREE.CylinderGeometry(0.082, 0.095, 0.11, 14), gaiter, 0, 0.66, 0, torso);
   const head = new THREE.Group(); head.position.y = 0.8; torso.add(head);
   add(new THREE.SphereGeometry(0.113, 18, 14), skin, 0, 0, 0, head);
   add(new THREE.SphereGeometry(0.06, 10, 8), hair, 0, -0.075, 0.105, head).scale.set(1.3, 0.8, 0.9);
-  add(new THREE.SphereGeometry(0.139, 22, 14, 0, TAU, 0, Math.PI * 0.62), helmet, 0, 0.012, 0.012, head);
-  const stripe = add(new THREE.TorusGeometry(0.141, 0.011, 6, 28, Math.PI), white, 0, 0.012, 0.012, head); stripe.rotation.y = Math.PI / 2;
-  [-0.045, 0, 0.045].forEach(z => add(new THREE.BoxGeometry(0.1, 0.012, 0.03), black, 0, 0.145, z - 0.0, head));
-  add(new THREE.BoxGeometry(0.29, 0.022, 0.07), helmet, 0, 0.072, -0.122, head);
-  [-1, 1].forEach(sd => { add(new THREE.CylinderGeometry(0.042, 0.042, 0.032, 12), helmet, sd * 0.135, -0.012, 0.012, head).rotation.z = Math.PI / 2; });
+  const helmetG = new THREE.Group(); head.add(helmetG);
+  add(new THREE.SphereGeometry(0.139, 22, 14, 0, TAU, 0, Math.PI * 0.62), helmet, 0, 0.012, 0.012, helmetG);
+  const stripe = add(new THREE.TorusGeometry(0.141, 0.011, 6, 28, Math.PI), stripeM, 0, 0.012, 0.012, helmetG); stripe.rotation.y = Math.PI / 2;
+  [-0.045, 0, 0.045].forEach(z => add(new THREE.BoxGeometry(0.1, 0.012, 0.03), black, 0, 0.145, z - 0.0, helmetG));
+  add(new THREE.BoxGeometry(0.29, 0.022, 0.07), helmet, 0, 0.072, -0.122, helmetG);
+  [-1, 1].forEach(sd => { add(new THREE.CylinderGeometry(0.042, 0.042, 0.032, 12), helmet, sd * 0.135, -0.012, 0.012, helmetG).rotation.z = Math.PI / 2; });
   add(new THREE.BoxGeometry(0.28, 0.1, 0.075), white, 0, 0.012, -0.108, head);
   add(new THREE.BoxGeometry(0.215, 0.062, 0.025), lens, 0, 0.012, -0.152, head);
   const strap = add(new THREE.TorusGeometry(0.133, 0.027, 8, 24), white, 0, 0.012, 0, head); strap.rotation.x = Math.PI / 2;
+  // outfit extras and hats (toggled by applyOutfit)
+  const ex = { trench: new THREE.Group(), santa: new THREE.Group(), vest: new THREE.Group() }; Object.values(ex).forEach(g => torso.add(g));
+  const skirt = add(new THREE.CylinderGeometry(0.235, 0.33, 0.62, 24, 1, true), jacket, 0, -0.22, 0, ex.trench); skirt.scale.set(1.2, 1, 0.86);
+  [-1, 1].forEach(sd => { const l = add(new THREE.BoxGeometry(0.07, 0.3, 0.02), jacket2, sd * 0.075, 0.42, 0.172, ex.trench); l.rotation.z = -sd * 0.28; });
+  add(new THREE.TorusGeometry(0.125, 0.045, 8, 18), jacket, 0, 0.62, 0, ex.trench).rotation.x = Math.PI / 2;
+  add(new THREE.CylinderGeometry(0.215, 0.215, 0.05, 22), jacket2, 0, 0.1, 0, ex.trench).scale.set(1.2, 1, 0.84);
+  const beltM = M(0x14161a), goldM = M(0xd4af37, { metalness: 0.6, roughness: 0.35 }), furM = M(0xf6f6f2, { roughness: 0.95 });
+  add(new THREE.CylinderGeometry(0.226, 0.226, 0.08, 22), beltM, 0, 0.1, 0, ex.santa).scale.set(1.2, 1, 0.84);
+  add(new THREE.BoxGeometry(0.09, 0.09, 0.03), goldM, 0, 0.1, 0.182, ex.santa);
+  add(new THREE.TorusGeometry(0.118, 0.042, 8, 18), furM, 0, 0.63, 0, ex.santa).rotation.x = Math.PI / 2;
+  add(new THREE.BoxGeometry(0.05, 0.46, 0.02), furM, 0, 0.34, 0.172, ex.santa);
+  add(new THREE.TorusGeometry(0.105, 0.03, 8, 18), M(0xf2f3f5), 0, 0.64, 0, ex.vest).rotation.x = Math.PI / 2;
+  add(new THREE.BoxGeometry(0.13, 0.24, 0.012), M(0xf2f3f5), 0, 0.5, 0.168, ex.vest);
+  [0.3, 0.2, 0.1].forEach(y => add(new THREE.SphereGeometry(0.016, 8, 6), M(0x2b2e33), 0, y, 0.177, ex.vest));
+  const hats = { frog: new THREE.Group(), beanie: new THREE.Group(), santa: new THREE.Group() }; Object.values(hats).forEach(g => head.add(g));
+  const frogM = M(0x4aa83a, { roughness: 0.55 }), frogD = M(0x2f7d2a, { roughness: 0.6 }), eyeW = M(0xffffff, { roughness: 0.3 });
+  add(new THREE.SphereGeometry(0.15, 24, 14, 0, TAU, 0, Math.PI * 0.55), frogM, 0, 0.012, 0.012, hats.frog).scale.set(1.04, 0.9, 1.04);
+  [-1, 1].forEach(sd => {
+    add(new THREE.SphereGeometry(0.052, 14, 10), frogM, sd * 0.07, 0.135, -0.055, hats.frog);
+    add(new THREE.SphereGeometry(0.044, 14, 10), eyeW, sd * 0.07, 0.15, -0.06, hats.frog);
+    add(new THREE.SphereGeometry(0.022, 10, 8), black, sd * 0.07, 0.153, -0.098, hats.frog);
+    add(new THREE.SphereGeometry(0.018, 8, 6), frogD, sd * 0.03, 0.1, -0.13, hats.frog).scale.set(1, 0.6, 1);
+  });
+  [[-0.09, 0.05, 0.06], [0.07, 0.07, 0.09], [0.0, 0.12, 0.1]].forEach(q => add(new THREE.SphereGeometry(0.022, 8, 6), frogD, q[0], q[1] + 0.06, q[2], hats.frog).scale.set(1.4, 0.5, 1.4));
+  const bnM = M(0x2f4b9a, { roughness: 0.95 });
+  add(new THREE.SphereGeometry(0.15, 24, 14, 0, TAU, 0, Math.PI * 0.58), bnM, 0, 0.012, 0.012, hats.beanie);
+  add(new THREE.TorusGeometry(0.146, 0.03, 8, 28), M(0x233a78, { roughness: 0.95 }), 0, -0.016, 0.012, hats.beanie).rotation.x = Math.PI / 2;
+  add(new THREE.SphereGeometry(0.048, 14, 10), M(0xf2f3f5, { roughness: 1 }), 0, 0.185, 0.012, hats.beanie);
+  const sHat = new THREE.Group(); sHat.position.set(0, 0.0, 0.015); sHat.rotation.x = 0.55; hats.santa.add(sHat);
+  add(new THREE.ConeGeometry(0.145, 0.34, 22), M(0xc4161c, { roughness: 0.85 }), 0, 0.17, 0, sHat);
+  add(new THREE.TorusGeometry(0.14, 0.036, 8, 26), furM, 0, 0.012, 0, sHat).rotation.x = Math.PI / 2;
+  add(new THREE.SphereGeometry(0.05, 12, 10), furM, 0, 0.35, 0, sHat);
+  const rbTex = canvasTex(128, 128, (x, w, h) => { x.clearRect(0, 0, w, h); x.fillStyle = "#ffd21f"; x.beginPath(); x.arc(64, 64, 44, 0, TAU); x.fill(); x.fillStyle = "#d9232d"; [-1, 1].forEach(sd => { x.beginPath(); x.ellipse(64 + sd * 24, 72, 18, 12, 0, 0, TAU); x.fill(); x.beginPath(); x.moveTo(64 + sd * 34, 62); x.lineTo(64 + sd * 46, 38); x.lineTo(64 + sd * 26, 56); x.fill(); }); });
+  [-1, 1].forEach(sd => { const d = add(new THREE.PlaneGeometry(0.1, 0.1), new THREE.MeshStandardMaterial({ map: rbTex, transparent: true, roughness: 0.6 }), sd * 0.1415, 0.045, 0.0, helmetG); d.rotation.y = sd * Math.PI / 2; });
   // scarf trailing off the gaiter
   const scarf = [], scarfMat = [M(0xf08a3a), M(0x2f8f8c)]; let sp = new THREE.Group(); sp.position.set(0.08, 0.66, 0.12); torso.add(sp);
   for (let i = 0; i < 6; i++) { const seg = new THREE.Group(); seg.position.z = i ? 0.17 : 0; sp.add(seg); const m = add(new THREE.BoxGeometry(0.11 - i * 0.008, 0.018, 0.18), scarfMat[i % 2], 0, 0, 0.09, seg); scarf.push(seg); sp = seg; }
@@ -1025,11 +1088,11 @@ function buildSkier() {
   const arms = [];
   [-1, 1].forEach(sd => {
     const sh = new THREE.Group(); sh.position.set(sd * 0.265, 0.56, 0); torso.add(sh);
-    sh.add(limb(0.07, 0.06, 0.3, jacket));
+    sh.add(limb(0.07, 0.06, 0.3, jacketArm));
     const el = new THREE.Group(); el.position.y = -0.3; sh.add(el);
-    el.add(new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), jacket));
-    el.add(limb(0.06, 0.052, 0.3, jacket));
-    const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.064, 0.064, 0.09, 12), jacket2); cuff.position.y = -0.24; el.add(cuff);
+    el.add(new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), jacketArm));
+    el.add(limb(0.06, 0.052, 0.3, jacketArm));
+    const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.064, 0.064, 0.09, 12), cuffM); cuff.position.y = -0.24; el.add(cuff);
     const hand = new THREE.Mesh(new THREE.SphereGeometry(0.062, 12, 10), glove); hand.position.y = -0.335; hand.scale.set(0.95, 1.1, 1.1); el.add(hand);
     const thumb = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 6), glove); thumb.position.set(-sd * 0.045, -0.31, -0.03); el.add(thumb);
     const pg = new THREE.CylinderGeometry(0.011, 0.011, 1.18, 8); pg.translate(0, -0.59, 0);
@@ -1038,7 +1101,7 @@ function buildSkier() {
     const basket = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.04, 0.012, 12), M(0x14181f)); basket.position.y = -1.05; pole.add(basket);
     arms.push({ sh, el, pole, pole_v: new THREE.Vector3(sd * 0.7, -0.3, 0.8).normalize(), sd });
   });
-  return { root, pivot, rig, legs, hipG, torso, head, arms, scarf, pose: { c: 0.3, lean: 0.2, carve: 0, L: new THREE.Vector3(-0.36, 0.92, -0.3), Rh: new THREE.Vector3(0.36, 0.92, -0.3), headY: 0 }, a, b };
+  return { mats: { jacket, jacket2, jacketArm, cuffM, pants, pantsLow, helmet, stripeM, skin, scarfMat }, helmetG, hats, ex, root, pivot, rig, legs, hipG, torso, head, arms, scarf, pose: { c: 0.3, lean: 0.2, carve: 0, L: new THREE.Vector3(-0.36, 0.92, -0.3), Rh: new THREE.Vector3(0.36, 0.92, -0.3), headY: 0 }, a, b };
 }
 
 const Y_DOWN = typeof THREE !== "undefined" ? new THREE.Vector3(0, -1, 0) : null;
@@ -1470,7 +1533,14 @@ function manageWorld() {
 }
 
 let camHead = 0, camX = 0, camS = 0, camY = 0, airBlend = 0, lastFov = 0;
+let paused = false, pauseT = 0;
 function updateCamera(dt) {
+  if (paused) {
+    pauseT += dt; const a = camHead + Math.sin(pauseT * 0.6) * 0.7, W = cv.clientWidth, Hh = cv.clientHeight;
+    camera.position.set(sk.x + Math.sin(a) * 3.3, sk.y + 1.25, -(sk.s + Math.cos(a) * 3.3)); camera.lookAt(sk.x, sk.y + 0.8, -sk.s);
+    camera.setViewOffset(W, Hh, -Math.min(W * 0.2, 170), 0, W, Hh); camera.fov = 46; camera.updateProjectionMatrix(); lastFov = 46; return;
+  }
+  if (camera.view && camera.view.enabled) { camera.clearViewOffset(); camera.updateProjectionMatrix(); }
   if (snapCam) { camHead = sk.psi; airBlend = 0; }
   camHead += wrap(sk.psi - camHead) * Math.min(1, 2.6 * dt);
   airBlend += ((sk.air && !sk.crashed ? 1 : 0) - airBlend) * Math.min(1, 2.2 * dt);
@@ -1567,7 +1637,7 @@ function frame(now) {
   timeScale += ((wantSlow ? 0.38 : 1) - timeScale) * Math.min(1, 10 * dt);
   if (wantSlow) focus = Math.max(0, focus - dt / 3.4); else if (mode === "play" && !sk.air) focus = Math.min(1, focus + dt * 0.04);
   $("stage").classList.toggle("slow", wantSlow);
-  if (mode === "play") { acc += dt * timeScale; while (acc >= DT) { step(DT); acc -= DT; } }
+  if (mode === "play" && !paused) { acc += dt * timeScale; while (acc >= DT) { step(DT); acc -= DT; } }
   shake *= Math.exp(-6 * dt); boostPulse *= Math.exp(-3 * dt);
   if (renderer) render(dt, now / 1000);
   audioUpdate();
@@ -1592,10 +1662,30 @@ function nextInfo() {
   } else for (let q = Math.max(0, trails.length - 4); q < trails.length; q++) { const t = trails[q]; if (t.s0 > sk.s - 3 && (!best || t.s0 < best.s)) best = { label: t.label, s: t.s0 }; }
   return best;
 }
+function setPaused(v) {
+  if (v && (mode !== "play" || !$("end").hidden)) return;
+  paused = v; $("pause").hidden = !v; if (v) { for (const k in K) K[k] = 0; syncTouch(); pauseT = 0; } else { last = performance.now(); acc = 0; }
+}
+function buildPauseUI() {
+  const box = $("opts"); box.textContent = "";
+  for (const cat of ["helmet", "jacket", "pants"]) {
+    const h = document.createElement("h3"); h.textContent = cat === "helmet" ? "Helmet" : cat === "jacket" ? "Jacket" : "Pants"; box.appendChild(h);
+    for (const key in OUTFIT_OPTS[cat]) {
+      const b = document.createElement("button"); b.type = "button"; b.className = "opt" + (outfit[cat] === key ? " on" : ""); b.textContent = OUTFIT_OPTS[cat][key];
+      b.onclick = () => { outfit[cat] = key; try { localStorage.setItem("kickerOutfit", JSON.stringify(outfit)); } catch (e) { } applyOutfit(skierRig); buildPauseUI(); };
+      box.appendChild(b);
+    }
+  }
+}
+buildPauseUI();
+$("pausebtn").onclick = () => { $("pausebtn").blur(); setPaused(true); };
+$("resume").onclick = () => setPaused(false);
 function begin() { audioInit(); $("intro").hidden = true; if (mode !== "play") { mode = "play"; restart(); } }
 const MAP = { ArrowLeft: "left", a: "left", A: "left", ArrowRight: "right", d: "right", D: "right", ArrowUp: "up", w: "up", W: "up", ArrowDown: "down", s: "down", S: "down", q: "spinL", Q: "spinL", e: "spinR", E: "spinR", " ": "grab", Shift: "boost", f: "focus", F: "focus", j: "brake", J: "brake" };
 addEventListener("keydown", e => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (mode === "play" && (e.key === "p" || e.key === "P" || e.key === "Escape")) { e.preventDefault(); setPaused(!paused); return; }
+  if (paused) return;
   if (mode === "title") { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); begin(); } return; }
   const k = MAP[e.key];
   if (k) { e.preventDefault(); if (k === "grab" && !K.grab) popReq = true; K[k] = 1; syncTouch(); }
