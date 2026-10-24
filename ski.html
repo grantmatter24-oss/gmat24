@@ -113,7 +113,9 @@
         <dt>↑ W · ↓ S</dt><dd>Front flip / back flip in the air. ↓ tucks for speed on snow</dd>
         <dt>Q E</dt><dd>Spin left / right. Flip and spin together for a cork bonus</dd>
         <dt>Shift</dt><dd>Hold in the air for slow-motion focus. Clean tricks refill it</dd>
-        <dt>Gap jumps</dt><dd>Hit the boost pad and tuck. Land short and you fall in</dd>
+        <dt>Gap jumps</dt><dd>Keep your speed up and tuck. Land short and you fall in</dd>
+        <dt>Houses</dt><dd>Jump onto a roof, or ride a ramp up to it, then slide the roof and grind its rail</dd>
+        <dt>Run types</dt><dd>Carving S-turns, steep chutes, mogul fields and flat cruisers between the jumps</dd>
         <dt>Switch</dt><dd>Land a 180 and you stay backwards until you spin again</dd>
         <dt>Woods trails</dt><dd>Side trails leave the piste into the trees, with their own jumps, whoops, cliff drops and rails. They rejoin the main run later</dd>
         <dt>Side jumps</dt><dd>Small kickers and jib boxes sit beside the main jump</dd>
@@ -175,7 +177,7 @@ function cliffOff(s) {
   const c = cliffs[r]; return -(c.pre + c.D * smooth((s - c.s) / c.w));
 }
 
-function bump(u) { return smooth(u / 0.12) * (1 - smooth((u - 0.12) / 0.88)); }
+function bump(u) { return smooth(u / 0.4) * (1 - smooth((u - 0.4) / 0.6)); }
 function ensure(s) {
   if (generating) return;
   while (genS < s + 460 && genS < COURSE_END - 420) { generating = true; const f = addSection(); generating = false; handleTrail(f); }
@@ -189,34 +191,26 @@ function featIndex(s) {
 const latW = (p, x, edge) => 1 - smooth((Math.abs(x - p.cx) - (p.hw - edge)) / edge);
 
 /* a "part" is one ramp, roller set or box. A section holds the main jump plus side parts. */
-function mkKicker(s0, kind, cx, hw, diff) {
-  let L, Hh, gap, Ll, label, v0, pit = 0;
-  if (kind === 0) { L = 5.5 + rng(); Hh = L * (0.22 + rng() * 0.04); gap = 4.5 + rng() * 2; Ll = 11 + rng() * 2; label = "Small kicker"; v0 = 13; }
-  else if (kind === 1) { L = 7 + rng() * 1.5; Hh = L * (0.25 + rng() * 0.04); gap = 7 + rng() * 3; Ll = 15 + rng() * 3; label = "Kicker"; v0 = 16; }
-  else if (kind === 2) { L = 9 + rng() * 2; Hh = L * (0.28 + rng() * 0.04); gap = 12 + rng() * 5; Ll = 20 + rng() * 5; label = "Big air"; v0 = 19; }
-  else if (kind === 4) {
-    L = 15 + rng() * 2; Hh = L * (0.4 + rng() * 0.02); Ll = 52 + rng() * 6; label = "Mega air"; v0 = 28;
-    const ang = Math.atan(2 * Hh / L - BASE), vh = 28 * Math.cos(ang);
-    let vy = 28 * Math.sin(ang), d = 0, y = 0;
-    for (let k = 0; k < 3600; k++) { vy -= G / 120; d += vh / 120; y += vy / 120; if (y <= -Hh - BASE * d) break; }
-    gap = clamp(0.5 * d, 30, 90);
-  }
-  else {
-    L = 10.5 + rng(); Hh = L * (0.31 + rng() * 0.02); Ll = 30 + rng() * 4; label = "Gap jump"; v0 = 21; pit = 3.6;
-    // flight distance at a nominal 18 m/s on the bare slope; the gap is half of it so about 13 m/s clears it
-    const ang = Math.atan(2 * Hh / L - BASE), vh = 21 * Math.cos(ang);
-    let vy = 21 * Math.sin(ang), d = 0, y = 0;
-    for (let k = 0; k < 2400; k++) { vy -= G / 120; d += vh / 120; y += vy / 120; if (y <= -Hh - BASE * d) break; }
-    gap = clamp(0.56 * d, 16, 46);
-  }
-  if (kind < 3) Hh *= 1 + 0.12 * diff;
-  const p = { type: "kicker", label, s0, L, H: Hh, gap, Ll, Hl: Hh * (0.75 + rng() * 0.15), cx, hw, v0, pit };
+function flightD(L, Hh, v0, roof) { // where a nominal flight from the lip comes down, and how steeply
+  const ang = Math.atan(2 * Hh / L - BASE), vh = v0 * Math.cos(ang);
+  let vy = v0 * Math.sin(ang), d = 0, y = 0, tanA = 0.3;
+  for (let k = 0; k < 9000; k++) { vy -= G / 120; d += vh / 120; y += vy / 120; if (y <= -Hh + (roof || 0) - BASE * d) { tanA = Math.abs(vy) / vh; break; } }
+  return { d, tanA };
+}
+function mkKicker(s0, kind, cx, hw, diff, sc) {
+  sc = sc || 1;
+  const T = [[8, 1.5, 0.15, 22, 0.5, 10, 32, "Small kicker"], [11, 2, 0.17, 26, 0.55, 18, 50, "Kicker"], [14, 2, 0.2, 30, 0.6, 28, 80, "Big air"], [14, 2, 0.22, 30, 0.4, 20, 60, "Gap jump"], [18, 2, 0.28, 36, 0.6, 50, 140, "Mega air"]][kind];
+  const L = (T[0] + rng() * T[1]) * (sc < 1 ? 0.8 : 1), ratio = T[2] + rng() * 0.02, v0 = T[3];
+  const Hh = L * ratio * (kind < 3 ? 1 + 0.1 * diff : 1), fd = flightD(L, Hh, v0);
+  const gap = clamp(T[4] * fd.d * sc, T[5] * sc, T[6] * sc), Ll = clamp(gap * 0.8 + 8, 14, 60);
+  const Hl = clamp((fd.tanA - BASE) * 0.6 * Ll / 1.5, 0.4, 5), pit = kind === 3 ? 3.6 : 0;
+  const p = { type: "kicker", label: T[7], s0, L, H: Hh, gap, Ll, Hl, cx, hw, v0, pit };
   p.end = s0 + L + gap + Ll; return p;
 }
 function mkHip(sBase, sd, diff) {
-  const L = 6.5 + rng(), Hh = L * (0.27 + rng() * 0.03) * (1 + 0.1 * diff), gap = 5 + rng() * 2, Ll = 12 + rng() * 2, hw = 2.8, ang = -sd * (0.36 + rng() * 0.1);
-  const s0 = sBase + hw * Math.abs(Math.sin(ang)) + 2 + rng() * 4;
-  return { type: "hip", label: "Hip jump", s0, L, H: Hh, gap, Ll, Hl: Hh * (0.75 + rng() * 0.15), cx: sd * (9 + rng() * 0.8), hw, ang, v0: 15, pit: 0,
+  const L = 8 + rng() * 1.5, Hh = L * (0.19 + rng() * 0.02) * (1 + 0.1 * diff), fd = flightD(L, Hh, 22), gap = clamp(0.5 * fd.d, 10, 24), Ll = clamp(gap * 0.8 + 8, 16, 26), hw = 2.8, ang = -sd * (0.36 + rng() * 0.1);
+  const s0 = sBase + hw * Math.abs(Math.sin(ang)) + 2 + rng() * 4, Hl = clamp((fd.tanA - BASE) * 0.6 * Ll / 1.5, 0.4, 3.5);
+  return { type: "hip", label: "Hip jump", s0, L, H: Hh, gap, Ll, Hl, cx: sd * (9 + rng() * 0.8), hw, ang, v0: 22, pit: 0,
     sMin: s0 - hw * Math.abs(Math.sin(ang)) - 1, end: s0 + (L + gap + Ll) * Math.cos(ang) + hw * Math.abs(Math.sin(ang)) + 1 };
 }
 const hipUV = (p, x, s) => { const dx = x - p.cx, ds = s - p.s0, sa = Math.sin(p.ang), ca = Math.cos(p.ang); return [ds * ca + dx * sa, dx * ca - ds * sa]; };
@@ -229,6 +223,7 @@ function partOff(p, x, s) {
     const w = (u - p.L - p.gap) / p.Ll;
     return w >= 0 && w <= 1 ? p.Hl * bump(w) * lw : 0;
   }
+  if (p.type === "moguls") { const e = smooth((s - p.s0) / 10) * smooth((p.end - s) / 10), xr = x - p.cx; return p.amp * e * (1 - smooth((Math.abs(xr) - (PISTE - 2)) / 4)) * Math.sin(xr * 0.9 + 0.7) * Math.sin(s * 0.65); }
   if (p.type === "rollers") { const u = (s - p.s0) / p.sp; return p.amp * Math.pow(Math.sin(Math.PI * u), 2) * latW(p, x, 1.5); }
   if (p.type === "box") { const u = s - p.s0, lw = latW(p, x, 0.5); return p.B * lw * Math.min(smooth(u / (p.rise || 1.8)), smooth((p.len - u) / 0.45)); }
   const lw = latW(p, x, 1.5), lip = p.s0 + p.L;
@@ -259,9 +254,44 @@ function shiftSection(f, off) {
   f.parts.forEach(p => { p.cx += off; });
   if (f.boost) f.boost.cx += off; if (f.rail) f.rail.x += off; f.mainCx += off;
 }
+let pendingInterlude = null, secCount = 0, interCount = 0;
+function addInterlude(kind) {
+  const f = { s0: genS, parts: [], label: "", boost: null, rail: null, coins: [], mainCx: 0, interlude: kind, idx: -1 }, last = pcs[pcs.length - 1], x0 = last.x, sgn = rng() < 0.5 ? -1 : 1;
+  let len;
+  if (kind === "moguls") { len = 170; f.parts.push({ type: "moguls", s0: genS + 14, end: genS + len - 6, amp: 0.5, cx: x0, hw: 80 }); f.label = "Mogul field · stay loose"; addKnot(genS, 0.3); addKnot(genS + len, 0.3); pcs.push({ a: genS, b: genS + len, x: x0 }); }
+  else if (kind === "carve") {
+    len = 300; const x1 = clamp(x0 + sgn * (24 + rng() * 10), -34, 34), x2 = clamp(x1 - sgn * (28 + rng() * 10), -34, 34); f.label = "Carving run · S-turns";
+    addKnot(genS + 40, 0.22); addKnot(genS + 130, 0.32); addKnot(genS + 220, 0.2); addKnot(genS + len, BASE);
+    pcs.push({ a: genS + 75, b: genS + 83, x: x1 }, { a: genS + 180, b: genS + 188, x: x2 }, { a: genS + len - 6, b: genS + len, x: x2 });
+  } else if (kind === "chute") {
+    len = 210; f.label = "Steep chute · let it run"; addKnot(genS + 20, 0.52); addKnot(genS + len - 20, 0.56); addKnot(genS + len, 0.4);
+    pcs.push({ a: genS + len * 0.45, b: genS + len * 0.45 + 8, x: clamp(x0 + (rng() - 0.5) * 22, -30, 30) });
+  } else {
+    len = 220; f.label = "Flat cruiser · carve it"; addKnot(genS + 30, 0.1); addKnot(genS + len - 30, 0.1); addKnot(genS + len, BASE * 0.8);
+    pcs.push({ a: genS + len * 0.5, b: genS + len * 0.5 + 8, x: clamp(x0 + sgn * 18, -30, 30) });
+  }
+  f.end = genS + len; feats.push(f); genS = f.end + 70 + rng() * 40;
+  return f;
+}
+function houseSection(f, diff) {
+  const B = 4.2 + rng() * 1.4, hw = 5 + rng() * 1.4, cx = (rng() - 0.5) * 6, ramp = Math.floor(secCount / 6) % 2 === 1, walls = [[0.5, 0.33, 0.22], [0.62, 0.5, 0.36], [0.45, 0.46, 0.5], [0.55, 0.22, 0.18], [0.33, 0.42, 0.33]];
+  let box;
+  if (!ramp) {
+    const L = 22, H = B + 1.0, v0 = 28, fd = flightD(L, H, v0, B), gap = fd.d * 0.55, len = clamp(fd.d * 0.75 + 6, 28, 40);
+    const lead = { type: "kicker", label: "House kicker", s0: genS, L, H, gap, Ll: 1, Hl: 0, cx, hw: 4.2, v0, pit: 0 }; lead.end = lead.s0 + L + gap + 1;
+    const hs0 = genS + L + gap; box = { type: "box", house: true, s0: hs0, len, end: hs0 + len, B, rise: 0.6, cx, hw, wall: walls[Math.floor(rng() * walls.length)] };
+    f.parts.push(lead, box); f.label = "HOUSE JUMP · land on the roof";
+  } else {
+    const len = 26 + rng() * 8, hs0 = genS + 6; box = { type: "box", house: true, s0: hs0, len, end: hs0 + len, B, rise: 18, cx, hw, wall: walls[Math.floor(rng() * walls.length)] };
+    f.parts.push(box); f.label = "House ramp · ride up onto the roof";
+  }
+  if (rng() < 0.55) f.rail = { s0: box.s0 + 4 + (ramp ? 14 : 0), s1: box.s0 + box.len - 3, x: cx + (rng() - 0.5) * 1.4 };
+  f.mainCx = cx; f.house = box;
+}
 function addSection() {
-  const i = feats.length, diff = Math.min(1, i / 16), pick = rng();
-  const f = { s0: genS, parts: [], label: "", boost: null, rail: null, coins: [], mainCx: 0 };
+  if (pendingInterlude) { const k = pendingInterlude; pendingInterlude = null; return addInterlude(k); }
+  const i = secCount++, diff = Math.min(1, i / 16), pick = rng();
+  const f = { s0: genS, parts: [], label: "", boost: null, rail: null, coins: [], mainCx: 0, idx: i };
   if (i % 6 === 1) {
     const sd = rng() < 0.5 ? -1 : 1, a = mkHip(genS, sd, diff), b = mkHip(genS + 40, -sd, diff);
     f.parts.push(a, b); f.label = "Hip jumps · pick a side"; f.boost = { s0: genS - 22, s1: genS - 16, cx: 0, hw: 1.4 };
@@ -273,8 +303,10 @@ function addSection() {
     f.parts.push(mkKicker(genS, 4, 0, 8.5, diff)); f.label = "MEGA AIR · commit to it";
     f.boost = { s0: genS - 30, s1: genS - 23, cx: 0, hw: 1.7, amt: 18 };
     f.mainCx = 0;
+  } else if (i % 6 === 2) {
+    houseSection(f, diff);
   } else if (i % 6 === 3 || pick < 0.06) {
-    f.parts.push(mkKicker(genS, 3, 0, PISTE - 1.5, diff)); f.label = "Gap jump · keep your speed";
+    f.parts.push(mkKicker(genS, 3, 0, PISTE - 1.5, diff)); f.label = "Gap jump · keep your speed up";
     f.boost = { s0: genS - 26, s1: genS - 20, cx: 0, hw: 1.6, amt: 12 };
   } else if (pick < 0.2) {
     const n = 4 + Math.floor(rng() * 3), sp = 7 + rng() * 2;
@@ -292,18 +324,20 @@ function addSection() {
       else { const s0b = genS + rng() * 12, len = 9 + rng() * 5; f.parts.push({ type: "box", s0: s0b, len, end: s0b + len, B: 0.7, cx: scx, hw: 2.1 }); f.label += " + jib box"; }
     }
   }
+  f.boost = null; // no boost pads
   f.end = f.cliff ? f.cliffEnd : Math.max(...f.parts.map(p => p.end), f.rail ? f.rail.s1 : 0);
   // plateau for the centre line and slope knots: curve and steepness change in the gap before this section
-  const last = pcs[pcs.length - 1], px = i < 1 ? 0 : clamp(last.x + (rng() - 0.5) * 30, -22, 22);
+  const last = pcs[pcs.length - 1], px = i < 1 ? 0 : clamp(last.x + (rng() - 0.5) * 40, -30, 30);
   shiftSection(f, px);
   if (f.cliff) { f.rocks = []; for (const sd of [-1, 1]) for (let q = 0; q < 5; q++) f.rocks.push({ x: px + sd * (PISTE + 1.2 + q * 2.6 + rng()), s: f.cliff.s - 2.5 + rng() * 5, r: 1.6 + rng() * 1.8 }); [-1, 1].forEach(sd => f.rocks.push({ x: px + sd * (PISTE - 0.5), s: f.cliff.s - 1.5, r: 2.4 })); }
   else flankRocks(f);
   feats.push(f); regRocks(f);
   const a = f.s0 - 34, prevEnd = knots[knots.length - 1].s, gapLen = a - prevEnd;
-  if (i > 0 && gapLen > 40) { const v = [0.14, 0.2, 0.2, 0.36, 0.44, 0.5][Math.floor(rng() * 6)]; addKnot(prevEnd + gapLen * 0.3, v); addKnot(prevEnd + gapLen * 0.7, v); }
+  if (i > 0 && gapLen > 20) { const v = (i % 6 === 3 || i % 6 === 5) ? 0.44 : [0.14, 0.2, 0.2, 0.36, 0.44, 0.5][Math.floor(rng() * 6)]; addKnot(prevEnd + gapLen * 0.3, v); addKnot(prevEnd + gapLen * 0.7, v); }
   addKnot(a, BASE); addKnot(f.end + 10, BASE);
-  pcs.push({ a, b: f.end + 10, x: px });
-  genS = f.end + 90 + rng() * 50;
+  pcs.push({ a, b: f.end + 10, x: px, jump: !f.cliff });
+  if (i > 1 && rng() < 0.6) { const fast = secCount % 6 === 3 || secCount % 6 === 5, order = ["moguls", "carve", "chute", "cruiser"]; let k = order[interCount++ % 4]; if (fast && k === "cruiser") k = "chute"; pendingInterlude = k; genS = f.end + 36 + rng() * 10; }
+  else genS = f.end + 90 + rng() * 50;
   return f;
 }
 function H_(x, s) {
@@ -378,7 +412,7 @@ function trailXc(t, s) {
   const x0 = pc(t.s0) + t.side * (PISTE - 2), pl = t.pl;
   if (s <= t.s0 || !pl.length) return x0;
   let xa, sa, xb, sb, bulge = 0;
-  if (s < pl[0].a) { xa = x0; sa = t.s0; xb = pl[0].x; sb = pl[0].a; }
+  if (s < pl[0].a) { xa = x0; sa = t.s0; xb = pl[0].x; sb = pl[0].a; bulge = t.eb || 0; }
   else {
     let i = pl.length - 1; while (i > 0 && pl[i].a > s) i--;
     if (s <= pl[i].b) return pl[i].x;
@@ -407,14 +441,14 @@ function sectionsAt(s, pad) {
 function mkTrailSection(t, g, x) {
   const diff = Math.min(1, 0.25 + trails.length / 8), pick = rng();
   const f = { s0: g, parts: [], label: "", boost: null, rail: null, coins: [], mainCx: x, woods: true };
-  const boost = () => { f.boost = { s0: g - 22, s1: g - 16, cx: x, hw: 1.3 }; };
-  if (pick < 0.2) { f.parts.push(mkKicker(g, 0, x, 3.0, diff)); f.label = "Log kicker"; }
-  else if (pick < 0.4) { f.parts.push(mkKicker(g, 1, x, 3.2, diff)); f.label = "Forest kicker"; if (rng() < 0.6) boost(); }
-  else if (pick < 0.52) { f.parts.push(mkKicker(g, 2, x, 3.5, diff)); f.label = "Treeline big air"; boost(); }
+  const boost = () => {};
+  if (pick < 0.2) { f.parts.push(mkKicker(g, 0, x, 3.0, diff, 0.55)); f.label = "Log kicker"; }
+  else if (pick < 0.4) { f.parts.push(mkKicker(g, 1, x, 3.2, diff, 0.55)); f.label = "Forest kicker"; if (rng() < 0.6) boost(); }
+  else if (pick < 0.52) { f.parts.push(mkKicker(g, 2, x, 3.5, diff, 0.55)); f.label = "Treeline big air"; boost(); }
   else if (pick < 0.64) { const n = 5 + Math.floor(rng() * 4), sp = 6.5 + rng() * 1.5; f.parts.push({ type: "rollers", s0: g, n, sp, amp: 0.75 + rng() * 0.3, cx: x, hw: 4.2, end: g + n * sp }); f.label = "Whoops"; }
   else if (pick < 0.78) { f.parts.push({ type: "box", s0: g + 4, len: 12, end: g + 16, B: 0.75, cx: x, hw: 1.7 }); f.label = "Log slide"; }
-  else if (pick < 0.9) { const k = mkKicker(g, 1, x, 3.2, diff); f.parts.push(k); const rs0 = k.s0 + k.L + k.gap + k.Ll * 0.1; f.rail = { s0: rs0, s1: rs0 + k.Ll * 0.72, x: x + (rng() - 0.5) * 0.8 }; f.label = "Pine rail jump"; boost(); }
-  else { f.parts.push(mkKicker(g, 2, x, 3.6, diff)); f.label = "Treeline big air"; boost(); }
+  else if (pick < 0.9) { const k = mkKicker(g, 1, x, 3.2, diff, 0.55); f.parts.push(k); const rs0 = k.s0 + k.L + k.gap + k.Ll * 0.1; f.rail = { s0: rs0, s1: rs0 + k.Ll * 0.72, x: x + (rng() - 0.5) * 0.8 }; f.label = "Pine rail jump"; boost(); }
+  else { f.parts.push(mkKicker(g, 2, x, 3.6, diff, 0.55)); f.label = "Treeline big air"; boost(); }
   f.end = Math.max(...f.parts.map(p => p.end), f.rail ? f.rail.s1 : 0);
   flankRocks(f);
   return f;
@@ -422,12 +456,12 @@ function mkTrailSection(t, g, x) {
 function closeTrail(t, f) { t.s1 = f.end + 44; t.closed = true; t.dirty = true; openTrail = null; }
 function handleTrail(f) {
   if (openTrail) { if (f.end >= openTrail.sTarget) closeTrail(openTrail, f); return; }
-  const idx = feats.length - 1;
-  if (idx > 1 && idx % 6 < 2 && rng() < 0.75 && f.end + 950 < COURSE_END - 420) startTrail(f);
+  const idx = f.idx;
+  if (idx > 1 && idx % 6 < 2 && rng() < 0.8 && f.end + 950 < COURSE_END - 420) startTrail(f);
 }
 function startTrail(f) {
   const side = rng() < 0.5 ? -1 : 1, s0 = f.end + 4;
-  const t = { side, s0, s1: Infinity, sTarget: Math.min(s0 + 480 + rng() * 300, COURSE_END - 700), sec: [], pl: [], closed: false, ready: false, dirty: false, hw: 4.4, label: side < 0 ? "Woods trail ◀ left" : "Woods trail ▶ right" };
+  const t = { eb: (rng() < 0.5 ? -1 : 1) * (7 + rng() * 6), side, s0, s1: Infinity, sTarget: Math.min(s0 + 720 + rng() * 360, COURSE_END - 700), sec: [], pl: [], closed: false, ready: false, dirty: false, hw: 4.4, label: side < 0 ? "Woods trail ◀ left" : "Woods trail ▶ right" };
   trails.push(t); openTrail = t;
   generating = true;
   while (!t.closed && genS < COURSE_END - 420) { const g = addSection(); if (g.end >= t.sTarget) closeTrail(t, g); }
@@ -436,14 +470,14 @@ function startTrail(f) {
   // trail jumps sit inside the straight stretches of the main course so the slope and centre line are constant there
   let xr = 38 + rng() * 6;
   for (const P of pcs) {
-    if (P.a < t.s0 + 100 || P.b > t.s1 - 70 || rng() < 0.22) continue;
+    if (!P.jump || P.a < t.s0 + 100 || P.b > t.s1 - 70 || rng() < 0.22) continue;
     xr = clamp(xr + (rng() - 0.5) * 14, 32, 48);
     const x = P.x + side * xr, g = P.a + 30, sec = mkTrailSection(t, g, x);
     if (sec.end > P.b - 2) continue;
     t.sec.push(sec); regRocks(sec);
     t.pl.push({ a: g - 28, b: sec.end + 14, x, bulge: (rng() < 0.5 ? -1 : 1) * (5 + rng() * 7) });
   }
-  if (t.pl.length < 2) { trails.pop(); return; }
+  if (t.pl.length < 1) { trails.pop(); return; }
   t.ready = true;
 }
 
@@ -510,6 +544,7 @@ function landing(surfaceType, rail) {
   const spinOff = Math.abs(sk.spin - Math.round(sk.spin / Math.PI) * Math.PI);
   const real = sk.airT > 0.3;
   if (real && (Math.abs(diff) > 1.2 || spinOff > 0.9)) return crash(spinOff > 0.9 && Math.abs(diff) <= 1.2 ? "Sketchy spin landing" : "Bad landing");
+  sk.rot = sA + diff; // normalise so a flip never unwinds on the ground
   const vh = Math.hypot(sk.vx, sk.vs);
   sk.psi = Math.atan2(sk.vx, sk.vs);
   const vt = vh * Math.cos(sA) + sk.vy * Math.sin(sA);
@@ -610,7 +645,7 @@ function step(dt) {
       const nx = sk.x + sk.sp * c * hx * dt, ns = sk.s + sk.sp * c * hs * dt, yp = sk.y + sk.sp * sn * dt;
       const hn = H(nx, ns);
       // boost pads
-      for (const bf of sectionsAt(ns, 30)) {
+      for (const bf of []) {
         const b = bf.boost;
         if (b && ns >= b.s0 && ns <= b.s1 && Math.abs(nx - b.cx) < b.hw && sk.boostCd <= 0) {
           sk.sp = Math.min(sk.sp + (b.amt || 7), MAXV + 6); sk.boostCd = 1; boostPulse = 1; toast("Boost"); sfx("boost");
@@ -626,7 +661,7 @@ function step(dt) {
         sk.airT = 0; sk.flipAcc = 0; sk.spin = 0; sk.spinV = 0; sk.grabT = 0; sk.rotV = 0; sk.spinTarget = 0; if (popNow) sk.popT = 0.2;
       } else {
         sk.x = nx; sk.s = ns; sk.y = hn;
-        sk.rot += (sA - sk.rot) * Math.min(1, 14 * dt);
+        sk.rot += wrap(sA - sk.rot) * Math.min(1, 10 * dt);
         sk.spin += (sk.spinTarget - sk.spin) * Math.min(1, 9 * dt);
         if (Math.abs(sk.spin - sk.spinTarget) < 0.02) { sk.spin = 0; sk.spinTarget = 0; }
         if (sk.sp > 7 && Math.random() < 0.55) spray(sk.x - hx * 0.4, sk.y, sk.s - hs * 0.4, 1, 2);
@@ -1122,11 +1157,11 @@ function lodgeGroup(list) {
 
 const lodgeChunks = new Set();
 function buildChunk(ci) {
-  const s0 = ci * CH, XS = xsFor(ci * CH), nx = XS.length, ns = 81, pos = new Float32Array(nx * ns * 3), col = new Float32Array(nx * ns * 3), uvs = new Float32Array(nx * ns * 2);
+  const s0 = ci * CH, XS = xsFor(ci * CH), nx = XS.length, ns = 81, pos = new Float32Array(nx * ns * 3), col = new Float32Array(nx * ns * 3), uvs = new Float32Array(nx * ns * 2), wallV = new Uint8Array(nx * ns);
   for (let r = 0; r < ns; r++) {
     const s = s0 + (r / (ns - 1)) * CH, secs = sectionsAt(s, 0), T = trailFor(s), xcT = T ? trailXc(T, s) : 0, pcS = pc(s);
     for (let c = 0; c < nx; c++) {
-      const x = XS[c], i = (r * nx + c) * 3, y = H(x, s);
+      const x = XS[c], i = (r * nx + c) * 3, y = H(x, s); let wall = 0;
       pos[i] = x; pos[i + 1] = y; pos[i + 2] = -s; uvs[(r * nx + c) * 2] = x / 2.4; uvs[(r * nx + c) * 2 + 1] = s / 6;
       let R = 0.9, Gc = 0.935, B = 0.975;
       const ax = Math.abs(x - pcS);
@@ -1141,6 +1176,8 @@ function buildChunk(ci) {
           if (lw > 0.5 && s >= p.s0 && s <= lip) { R = 0.93; Gc = 0.96; B = 0.99; }
           else if (lw > 0.5 && s > lip + p.gap) { R = 0.92; Gc = 0.95; B = 0.985; }
           else if (p.pit && lw > 0.3 && s > lip + 0.4 && s < lip + p.gap) { R = 0.6; Gc = 0.68; B = 0.8; }
+        } else if (p.type === "box" && p.house) {
+          if (s >= p.s0 && s <= p.end && Math.abs(x - p.cx) < p.hw + 0.6) { const rr = partOff(p, x, s) / p.B; if (rr > 0.03 && rr < 0.97) { wallV[(r * nx + c)] = 1; R = p.wall[0]; Gc = p.wall[1]; B = p.wall[2]; } else if (rr >= 0.97) { R = 0.96; Gc = 0.97; B = 1.0; } }
         } else if (p.type === "box" && s >= p.s0 && s <= p.end && Math.abs(x - p.cx) < p.hw) { if (p.drop) { R = 0.9; Gc = 0.93; B = 0.98; } else { R = 0.8; Gc = 0.86; B = 0.95; } }
       }
       const n = (hash(x * 3.1 + s * 1.7) - 0.5) * 0.03; col[i] = R + n; col[i + 1] = Gc + n; col[i + 2] = B + n;
@@ -1150,7 +1187,7 @@ function buildChunk(ci) {
   g.setAttribute("position", new THREE.BufferAttribute(pos, 3)); g.setAttribute("color", new THREE.BufferAttribute(col, 3)); g.setAttribute("uv", new THREE.BufferAttribute(uvs, 2)); g.setIndex(new THREE.BufferAttribute(idxFor(nx), 1));
   g.computeVertexNormals();
   { const nn = g.attributes.normal.array, cc = g.attributes.color.array;
-    for (let v = 0; v < nx * ns; v++) { const ny = nn[v * 3 + 1], st = clamp((0.8 - ny) / 0.28, 0, 1); if (st > 0) { const hh = hash(pos[v * 3] * 2.3 + pos[v * 3 + 2] * 1.9) * 0.1, k = Math.min(1, st * 1.15); cc[v * 3] = lerp(cc[v * 3], 0.42 + hh, k); cc[v * 3 + 1] = lerp(cc[v * 3 + 1], 0.4 + hh, k); cc[v * 3 + 2] = lerp(cc[v * 3 + 2], 0.45 + hh, k); } } }
+    for (let v = 0; v < nx * ns; v++) { const ny = nn[v * 3 + 1], st = clamp((0.8 - ny) / 0.28, 0, 1); if (wallV[v]) { if (ny > 0.72) { cc[v * 3] = 0.96; cc[v * 3 + 1] = 0.97; cc[v * 3 + 2] = 1.0; } } else if (st > 0) { const hh = hash(pos[v * 3] * 2.3 + pos[v * 3 + 2] * 1.9) * 0.1, k = Math.min(1, st * 1.15); cc[v * 3] = lerp(cc[v * 3], 0.42 + hh, k); cc[v * 3 + 1] = lerp(cc[v * 3 + 1], 0.4 + hh, k); cc[v * 3 + 2] = lerp(cc[v * 3 + 2], 0.45 + hh, k); } } }
   const grp = new THREE.Group();
   const tm = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ vertexColors: true, map: snowTex(), bumpMap: bumpTex(), bumpScale: 0.5, roughness: 0.9, metalness: 0, envMapIntensity: 0.35 })); tm.receiveShadow = true; grp.add(tm);
   // piste edge poles
@@ -1284,13 +1321,26 @@ function buildFeature(f) {
         [0.05, 0.55, 1].forEach(u => { const [cx2, cs2] = mp(p.L + p.gap + p.Ll * u, sd * p.hw); const c = new THREE.Mesh(cone, cm); c.position.set(cx2, H(cx2, cs2) + 0.4, -cs2); grp.add(c); });
       });
       const lp = []; for (let q = 0; q <= 10; q++) { const [x, s] = mp(lip - 0.02, -(p.hw - 0.75) + (2 * p.hw - 1.5) * q / 10); lp.push(new THREE.Vector3(x, H(x, s) + 0.04, -s)); } seg(lp);
+    } else if (p.type === "box" && p.house) {
+      const gAt = (x, s) => H_(x, s) - partOff(p, x, s), wm = winMat();
+      if (p.rise < 3) {
+        const fz = p.s0 + 0.15;
+        for (let x = p.cx - p.hw + 1.4; x <= p.cx + p.hw - 1.2; x += 2.4) { if (Math.abs(x - p.cx) < 1.1) continue; const m = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 1.1), wm); m.position.set(x, gAt(x, fz - 0.2) + p.B * 0.55, -fz + 0.12); grp.add(m); }
+        const dr = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 2.4), new THREE.MeshBasicMaterial({ color: 0x3a2a20 })); dr.position.set(p.cx, gAt(p.cx, fz - 0.2) + 1.2, -fz + 0.14); grp.add(dr);
+      }
+      [-1, 1].forEach(sd => { for (let s = p.s0 + (p.rise > 3 ? p.rise : 3); s < p.end - 2; s += 3.6) { const x = p.cx + sd * (p.hw - 0.1), m = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 1.0), wm); m.rotation.y = sd * Math.PI / 2; m.position.set(x + sd * 0.06, gAt(x + sd * 0.9, s) + p.B * 0.55, -s); grp.add(m); } });
+      const cs = p.s0 + p.len * 0.62, cxp = p.cx + p.hw * 0.45, ch = new THREE.Mesh(new THREE.BoxGeometry(1.0, 2.6, 1.0), LM(0x6a6e76)); ch.position.set(cxp, H(cxp, cs) + 1.2, -cs); ch.castShadow = true; grp.add(ch);
+      const sn = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.25, 1.2), LM(0xf2f5fa)); sn.position.set(cxp, H(cxp, cs) + 2.6, -cs); grp.add(sn);
+      for (let q = 0; q < 12; q++) { const x = p.cx - p.hw + 0.8 + q * (2 * p.hw - 1.6) / 11, l = new THREE.Mesh(new THREE.SphereGeometry(0.11, 6, 5), wm), s = p.rise < 3 ? p.s0 + 0.9 : p.s0 + p.len - 1.2; l.position.set(x, H(x, s) + 0.45, -s); grp.add(l); }
+      const names = ["SKI LODGE", "SUMMIT HALL", "ALPINE INN", "BASE CAMP"], sg = new THREE.Mesh(new THREE.PlaneGeometry(6, 1.5), new THREE.MeshBasicMaterial({ map: labelTex(names[Math.floor(hash(p.s0) * names.length)], "#3a2a20", "#f4e6c8"), side: THREE.DoubleSide }));
+      const sgs = p.rise < 3 ? p.s0 + 1.2 : p.s0 + p.len - 0.8; sg.position.set(p.cx, H(p.cx, sgs) + 1.5, -sgs); grp.add(sg);
     } else if (p.type === "box") {
       const bm = new THREE.LineBasicMaterial({ color: 0xff8a3d });
       [-1, 1].forEach(sd => { const ex = p.cx + sd * (p.hw - 0.2), pts = []; for (let q = 0; q <= 24; q++) { const ss = p.s0 + p.len * q / 24; pts.push(new THREE.Vector3(ex, H(ex, ss) + 0.05, -ss)); } grp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), bm)); });
       [p.s0 + 0.3, p.end].forEach(ss => { const c = new THREE.Mesh(cone, cm); c.position.set(p.cx, H(p.cx, ss) + 0.4, -ss); grp.add(c); });
     }
   });
-  if (f.boost) {
+  if (false && f.boost) {
     const b = f.boost, n = 12, pos = [], uv = [], idx = [];
     for (let i = 0; i <= n; i++) { const s = b.s0 + (b.s1 - b.s0) * i / n; [-b.hw, b.hw].forEach((dx, k) => { pos.push(b.cx + dx, H(b.cx + dx, s) + 0.08, -s); uv.push(k, 1 - i / n); }); }
     for (let i = 0; i < n; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
