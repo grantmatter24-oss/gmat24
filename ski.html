@@ -1291,7 +1291,11 @@ function poseSkier(dt, time) {
   const kf = R.a * Math.sin(t1), t2 = Math.atan2(-ankZ - kf, R.a * Math.cos(t1) - ddy);
   const inside = p.carve * tn * 0.07; // hips drop toward the inside of a carve
   R.legs.forEach(l => { l.hip.position.set(l.x - inside, hipY, 0.04); l.hip.rotation.x = t1; l.hip.rotation.z = -tn * p.carve * 0.12; l.knee.rotation.x = t2 - t1; });
-  R.skiBack.visible = bikeOn; R.skiG.forEach((sg, i) => { sg.visible = !bikeOn; sg.position.set(sg.position.x, 0.2 + (ankY - foot), 0.06 + ankZ); sg.rotation.x = GP.pitch * tg; sg.rotation.y = (i ? -1 : 1) * GP.cross * tg; });
+  const swp = sk.bikeJump ? clamp(sk.airT / 0.45, 0, 1) : 1, ease = 1 + 2.7 * Math.pow(swp - 1, 3) + 1.7 * Math.pow(swp - 1, 2);
+  if (sk.bikeJump && !sk.swapDone && swp > 0.05) { sk.swapDone = true; spray(sk.x, sk.y + 0.2, sk.s, 16, 6); toast("Skis on!"); }
+  if (sk.bikeJump && swp >= 1) sk.bikeJump = false;
+  R.skiBack.visible = bikeOn || (sk.bikeJump && swp < 0.3); R.skiBack.scale.setScalar(bikeOn ? 1 : Math.max(0.01, 1 - swp / 0.3));
+  R.skiG.forEach((sg, i) => { sg.visible = !bikeOn && swp > 0.05; sg.scale.setScalar(bikeOn ? 0.01 : Math.max(0.01, ease)); sg.position.set(sg.position.x, 0.2 + (ankY - foot), 0.06 + ankZ); sg.rotation.x = GP.pitch * tg; sg.rotation.y = (i ? -1 : 1) * GP.cross * tg; });
   R.hipG.position.set(-inside, hipY + 0.02, 0.04 + 0.04 * p.c); R.hipG.updateMatrix();
   R.torso.rotation.y = air ? 0 : -tn * p.carve * 0.28 - sk.turn * 0.06; R.torso.rotation.x = -p.lean; R.torso.rotation.z = tn * p.carve * 0.16 + (air ? 0 : 0); R.torso.scale.y = 1 + 0.006 * Math.sin(time * 3.2);
   R.torso.updateMatrix();
@@ -1755,13 +1759,13 @@ function buildHeli() {
 }
 let bikeObj = null, bikeS = 0, bikeFree = false, bikeFreeT = 0;
 function startBike() {
-  ensure(80); sk = newSkier(0, -36, 11); sk.bike = true; sk.heli = true; sk.psi = 0; sk.jumpS = 10;
+  ensure(80); sk = newSkier(0, -17, 12); sk.bike = true; sk.heli = true; sk.psi = 0; sk.jumpS = 5; sk.bikeJump = false; sk.swapDone = false;
   intro = { active: true, landed: false, landS: 0 }; bikeFree = false; bikeFreeT = 0; bikeS = sk.s;
 }
 function bikeStep(dt) {
-  sk.sp = 11; sk.psi = 0; sk.s += sk.sp * dt; sk.y = H(sk.x, sk.s); sk.grind = null; sk.sw = false;
+  sk.sp = 12; sk.psi = 0; sk.s += sk.sp * dt; sk.y = H(sk.x, sk.s); sk.grind = null; sk.sw = false;
   sk.rot += (sA_(sk.x, sk.s, 0) - sk.rot) * Math.min(1, 10 * dt);
-  if (sk.s >= sk.jumpS) { sk.bike = false; sk.air = true; sk.vx = 0; sk.vs = 11; sk.vy = 6; sk.airT = 0; sk.flipAcc = 0; sk.spin = 0; sk.spinV = 0; sk.grabT = 0; sk.rotV = 0; sk.jumpNo++; bikeFree = true; bikeFreeT = 0; }
+  if (sk.s >= sk.jumpS) { sk.bike = false; sk.air = true; sk.vx = 0; sk.vs = 12; sk.vy = 6.5; sk.bikeJump = true; sk.swapDone = false; sk.airT = 0; sk.flipAcc = 0; sk.spin = 0; sk.spinV = 0; sk.grabT = 0; sk.rotV = 0; sk.jumpNo++; bikeFree = true; bikeFreeT = 0; }
 }
 function buildBike() {
   const g = new THREE.Group(), blk = new THREE.MeshStandardMaterial({ color: 0x1b1d22, roughness: 0.6 }), org = new THREE.MeshStandardMaterial({ color: 0xff6a1f, roughness: 0.5 }), met = new THREE.MeshStandardMaterial({ color: 0x9aa3ad, roughness: 0.3, metalness: 0.7 });
@@ -1782,7 +1786,7 @@ function buildBike() {
 function updateBike(dt) {
   if (!PARK) return;
   if (!bikeObj) { bikeObj = buildBike(); scene.add(bikeObj); }
-  if (bikeFree) { bikeS += 11 * dt; bikeFreeT += dt; } else if (sk.bike) bikeS = sk.s;
+  if (bikeFree) { bikeS += 12 * dt; bikeFreeT += dt; } else if (sk.bike) bikeS = sk.s;
   bikeObj.visible = (sk.bike || (bikeFree && bikeFreeT < 6)) && mode === "play";
   if (!bikeObj.visible) return;
   const x = bikeFree ? 0 : sk.x, y = H(x, bikeS), sl = (H(x, bikeS + 0.8) - H(x, bikeS - 0.8)) / 1.6;
