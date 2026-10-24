@@ -32,6 +32,10 @@
   .side b { color: var(--text); font-variant-numeric: tabular-nums; }
   #resorts { display: flex; gap: 6px; margin-top: 6px; justify-content: flex-end; }
   #resorts button { pointer-events: auto; color: var(--text); background: rgba(11,26,41,.5); border: 1px solid rgba(244,248,253,.3); border-radius: 6px; padding: 5px 8px; cursor: pointer; line-height: 0; }
+  #tods { display: flex; gap: 6px; margin-top: 6px; justify-content: flex-end; }
+  #tods button { pointer-events: auto; color: var(--text); background: rgba(11,26,41,.5); border: 1px solid rgba(244,248,253,.3); border-radius: 6px; padding: 5px 8px; cursor: pointer; line-height: 0; }
+  #tods button.on { background: var(--jacket); border-color: var(--jacket); color: var(--ink); }
+  #tods button:focus-visible { outline: 3px solid var(--text); outline-offset: 2px; }
   #resorts button.on { background: var(--jacket); border-color: var(--jacket); color: var(--ink); }
   #resorts button:focus-visible { outline: 3px solid var(--text); outline-offset: 2px; }
   #globe { pointer-events: auto; margin-top: 6px; color: var(--text); background: rgba(11,26,41,.5); border: 1px solid rgba(244,248,253,.3); border-radius: 6px; padding: 5px 9px; cursor: pointer; line-height: 0; }
@@ -131,6 +135,11 @@
         <button type="button" data-r="alpine" title="Evergreen Run" aria-label="Evergreen Run, forest run"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l5 7h-3l4 6H6l4-6H7z"/><path d="M12 16v5"/></svg></button>
         <button type="button" data-r="peak" title="Couloir Peak" aria-label="Couloir Peak, steep open faces"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 20l7-12 4 6 3-4 6 10z"/></svg></button>
         <button type="button" data-r="park" title="Kicker Park" aria-label="Kicker Park, rails and boxes"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3 8h18M6 8v11M18 8v11M3 19h18"/></svg></button>
+      </div>
+      <div id="tods" role="group" aria-label="Time of day">
+        <button type="button" data-t="day" title="Midday" aria-label="Midday"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg></button>
+        <button type="button" data-t="sunset" title="Sunset" aria-label="Sunset"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6.5 16a5.5 5.5 0 0 1 11 0M3 16h18M5 20h14M12 6v2.5M4.6 9.6l1.8 1.6M19.4 9.6l-1.8 1.6"/></svg></button>
+        <button type="button" data-t="night" title="Night" aria-label="Night"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg></button>
       </div>
     </div>
   </div>
@@ -962,6 +971,18 @@ function coinHit(q, co) { const m = coinMeshes.get(co); if (m) m.visible = false
 
 function mat(color, extra) { return new THREE.MeshLambertMaterial(Object.assign({ color, flatShading: true }, extra || {})); }
 
+const TODS = {
+  sunset: { sun: [-0.5, 0.25, -0.83], hemi: [0xb79bc9, 0xd9a89c, 0.95], sunC: 0xffa458, sunI: 2.1, fill: [0x7f90ff, 0.45], fog: 0xe3ada0, exp: 1.12, glow: 1,
+    sky: { cH: [1, .56, .34], cM: [.8, .46, .58], cT: [.14, .17, .42], haze: [.89, .68, .63], g1: [1, .5, .22], g2: [1, .78, .45], gStr: 1, stars: 0 }, cloud: { op: 0.9, color: 0xffffff }, sunSpr: { op: 1, color: 0xffffff, scale: 520 },
+    pal: { sn: [.98, .9, .9], fogc: [.89, .68, .63], tree: [.11, .18, .2], snowLine: .38, snowUp: .22, lit: [1, .7, .5], sh: [.55, .55, .78], gain: 1.9 } },
+  day: { sun: [-0.35, 0.85, -0.4], hemi: [0xb4d0ff, 0xdfe8f6, 0.62], sunC: 0xfff2dd, sunI: 3.3, fill: [0x9fb4ff, 0.35], fog: 0xcfe0f2, exp: 0.95, glow: 0.1,
+    sky: { cH: [.8, .89, .98], cM: [.5, .69, .95], cT: [.17, .4, .8], haze: [.81, .88, .95], g1: [1, .95, .85], g2: [1, .97, .9], gStr: .35, stars: 0 }, cloud: { op: 0.35, color: 0xcfe3ff }, sunSpr: { op: 0.35, color: 0xfff6dd, scale: 380 },
+    pal: { sn: [.97, .98, 1], fogc: [.81, .88, .95], tree: [.5, .52, .58], snowLine: .1, snowUp: .12, lit: [1, .98, .92], sh: [.6, .7, .92], gain: 1.9 } },
+  night: { sun: [0.35, 0.55, -0.75], hemi: [0x34428a, 0x141a3a, 0.85], sunC: 0x93aaff, sunI: 1.0, fill: [0x5a6ad0, 0.25], fog: 0x0a0f2a, exp: 1.05, glow: 1.7,
+    sky: { cH: [.1, .13, .3], cM: [.05, .07, .2], cT: [.015, .025, .09], haze: [.04, .06, .16], g1: [.35, .45, .9], g2: [.7, .8, 1], gStr: .5, stars: 1 }, cloud: { op: 0.12, color: 0x7f8fd8 }, sunSpr: { op: 0.6, color: 0xcfe0ff, scale: 260 },
+    pal: { sn: [.55, .65, .95], fogc: [.04, .06, .16], tree: [.12, .14, .22], snowLine: .12, snowUp: .15, lit: [.5, .6, 1], sh: [.14, .17, .35], gain: 1.5 } }
+};
+let todName = store.get("kb-tod", PEAK ? "day" : "sunset"); if (!TODS[todName]) todName = "sunset";
 function initRender() {
   try {
     renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true, powerPreference: "high-performance" });
@@ -974,34 +995,34 @@ function initRender() {
   const FOG = PEAK ? 0xcfe0f2 : 0xe3ada0;
   scene.fog = new THREE.Fog(FOG, 60, 400);
   camera = new THREE.PerspectiveCamera(64, 1, 0.1, 1500);
-  scene.add(PEAK ? new THREE.HemisphereLight(0xb4d0ff, 0xdfe8f6, 0.62) : new THREE.HemisphereLight(0xb79bc9, 0xd9a89c, 0.95));
+  const hemi = new THREE.HemisphereLight(0xb79bc9, 0xd9a89c, 0.95); scene.add(hemi); scene.userData.hemi = hemi;
   const sun = new THREE.DirectionalLight(PEAK ? 0xfff2dd : 0xffa458, PEAK ? 3.3 : 2.1); sun.position.set(SUN.x * 120, SUN.y * 120, SUN.z * 120); scene.add(sun); scene.add(sun.target); scene.userData.sun = sun;
   sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024); sun.shadow.bias = -0.0003; sun.shadow.normalBias = 0.07;
   Object.assign(sun.shadow.camera, { left: -34, right: 34, top: 34, bottom: -34, near: 20, far: 280 }); sun.shadow.camera.updateProjectionMatrix();
   const fill = new THREE.DirectionalLight(0x7f90ff, 0.45); fill.position.set(30, 40, 90); scene.add(fill); scene.userData.fill = fill;
 
   // sky dome
+  const v3 = (r, g, b) => ({ value: new THREE.Vector3(r, g, b) });
   const sky = new THREE.Mesh(new THREE.SphereGeometry(1200, 32, 20), new THREE.ShaderMaterial({
-    side: THREE.BackSide, depthWrite: false, fog: false, uniforms: { sunDir: { value: new THREE.Vector3(SUN.x, SUN.y, SUN.z).normalize() } },
+    side: THREE.BackSide, depthWrite: false, fog: false, uniforms: { sunDir: { value: new THREE.Vector3(SUN.x, SUN.y, SUN.z).normalize() }, cH: v3(1, .56, .34), cM: v3(.8, .46, .58), cT: v3(.14, .17, .42), cHaze: v3(.89, .68, .63), cG1: v3(1, .5, .22), cG2: v3(1, .78, .45), stars: { value: 0 }, gStr: { value: 1 } },
     vertexShader: "varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }",
-    fragmentShader: "uniform vec3 sunDir; varying vec3 vP; void main(){ vec3 v = normalize(vP); float h = clamp(v.y,0.0,1.0); vec3 horizon = vec3(1.0,0.56,0.34); vec3 mid = vec3(0.80,0.46,0.58); vec3 top = vec3(0.14,0.17,0.42); vec3 c = mix(horizon, mid, smoothstep(0.0,0.2,h)); c = mix(c, top, smoothstep(0.16,0.7,h)); float d = max(dot(v, sunDir), 0.0); c += vec3(1.0,0.5,0.22)*pow(d,5.0)*0.6 + vec3(1.0,0.78,0.45)*pow(d,50.0)*0.9 + vec3(1.0,0.96,0.85)*pow(d,1200.0)*4.0; c = mix(c, vec3(0.89,0.68,0.63), 1.0 - smoothstep(-0.2,0.0,v.y)); gl_FragColor = vec4(clamp(c, 0.0, 4.0),1.0); }"
+    fragmentShader: "uniform vec3 sunDir, cH, cM, cT, cHaze, cG1, cG2; uniform float stars, gStr; varying vec3 vP; float h21(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); } void main(){ vec3 v = normalize(vP); float h = clamp(v.y,0.0,1.0); vec3 c = mix(cH, cM, smoothstep(0.0,0.2,h)); c = mix(c, cT, smoothstep(0.16,0.7,h)); float d = max(dot(v, sunDir), 0.0); c += cG1*pow(d,5.0)*gStr*0.6 + cG2*pow(d,50.0)*gStr*0.9 + vec3(1.0,0.96,0.85)*pow(d,1200.0)*4.0*gStr; if (stars > 0.0) { vec2 q = floor(vec2(atan(v.x, v.z)*70.0, v.y*140.0)); float r = h21(q); c += vec3(step(0.996, r)) * smoothstep(0.04, 0.3, v.y) * stars; } c = mix(c, cHaze, 1.0 - smoothstep(-0.2,0.0,v.y)); gl_FragColor = vec4(clamp(c, 0.0, 4.0), 1.0); }"
   }));
-  if (PEAK) sky.material.fragmentShader = "uniform vec3 sunDir; varying vec3 vP; void main(){ vec3 v = normalize(vP); float h = clamp(v.y,0.0,1.0); vec3 c = mix(vec3(0.80,0.89,0.98), vec3(0.50,0.69,0.95), smoothstep(0.0,0.25,h)); c = mix(c, vec3(0.17,0.40,0.80), smoothstep(0.2,0.8,h)); float d = max(dot(v, sunDir), 0.0); c += vec3(1.0,0.95,0.85)*pow(d,8.0)*0.25 + vec3(1.0,0.97,0.9)*pow(d,1500.0)*3.0; c = mix(c, vec3(0.81,0.88,0.95), 1.0 - smoothstep(-0.2,0.0,v.y)); gl_FragColor = vec4(clamp(c, 0.0, 4.0),1.0); }";
   sky.renderOrder = -10; scene.add(sky); scene.userData.sky = sky;
   // wispy clouds
   const cc = document.createElement("canvas"); cc.width = 256; cc.height = 64; const cx2 = cc.getContext("2d");
   for (let i = 0; i < 26; i++) { const x = 20 + hash(i) * 216, y = 22 + hash(i + 50) * 20, rw = 20 + hash(i + 9) * 50, rh = 3 + hash(i + 3) * 7; const g2 = cx2.createRadialGradient(x, y, 0, x, y, rw); g2.addColorStop(0, "rgba(255,200,170,.45)"); g2.addColorStop(1, "rgba(255,160,150,0)"); cx2.save(); cx2.translate(x, y); cx2.scale(1, rh / rw); cx2.translate(-x, -y); cx2.fillStyle = g2; cx2.fillRect(0, 0, 256, 256); cx2.restore(); }
   const cloudTex = new THREE.CanvasTexture(cc);
-  for (let i = 0; i < 7; i++) { const cs = new THREE.Sprite(new THREE.SpriteMaterial({ map: cloudTex, fog: false, depthWrite: false, transparent: true, opacity: PEAK ? 0.3 : 0.9, color: PEAK ? 0xcfe3ff : 0xffffff })); cs.scale.set(900, 225, 1); const a = -1.4 + i * 0.45; cs.position.set(Math.sin(a) * 1000, 300 + (i % 3) * 90, -Math.cos(a) * 1000); sky.add(cs); }
+  const cloudMats = [];
+  for (let i = 0; i < 7; i++) { const cs = new THREE.Sprite(new THREE.SpriteMaterial({ map: cloudTex, fog: false, depthWrite: false, transparent: true, opacity: 0.9, color: 0xffffff })); cloudMats.push(cs.material); cs.scale.set(900, 225, 1); const a = -1.4 + i * 0.45; cs.position.set(Math.sin(a) * 1000, 300 + (i % 3) * 90, -Math.cos(a) * 1000); sky.add(cs); }
   // sun glow
   const gc = document.createElement("canvas"); gc.width = gc.height = 128; const gx = gc.getContext("2d");
   const gr = gx.createRadialGradient(64, 64, 0, 64, 64, 64); gr.addColorStop(0, "rgba(255,240,200,1)"); gr.addColorStop(0.25, "rgba(255,170,100,.45)"); gr.addColorStop(1, "rgba(255,120,80,0)");
   gx.fillStyle = gr; gx.fillRect(0, 0, 128, 128);
-  const sunS = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(gc), fog: false, depthWrite: false, transparent: true, opacity: PEAK ? 0.35 : 1, color: PEAK ? 0xfff6dd : 0xffffff }));
+  const sunS = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(gc), fog: false, depthWrite: false, transparent: true, opacity: 1, color: 0xffffff }));
   sunS.scale.set(520, 520, 1); sunS.position.set(SUN.x * 1000, SUN.y * 1000, SUN.z * 1000); sky.add(sunS);
   // mountain ranges: ridged skyline with snow, lit warmer on the side facing the sun
-  const mtn = new THREE.Group(), sunAz = Math.atan2(SUN.x, SUN.z);
-  const sunV = new THREE.Vector3(SUN.x, SUN.y, SUN.z).normalize();
+  const mtn = new THREE.Group(); let pal = TODS.sunset.pal; const sunV = new THREE.Vector3();
   const range = (R, hMax, seed, haze, treeLine) => {
     const N = 720, rows = 16, pos = [], idx = [], P = (i, r) => (i * rows + r) * 3;
     const ridge = th => { let a = 0, nrm = 0; for (let k = 1; k <= 11; k++) { a += Math.pow(1 - Math.abs(Math.sin(th * k * 2.7 + seed * k * 1.3)), 1.4 + k * 0.08) / Math.pow(k, 0.9); nrm += 1 / Math.pow(k, 0.9); } return a / nrm; };
@@ -1013,7 +1034,7 @@ function initRender() {
         pos.push(Math.sin(th) * rad, y, Math.cos(th) * rad);
       }
     }
-    const col = new Float32Array(pos.length), sn = PEAK ? [0.97, 0.98, 1.0] : [0.98, 0.9, 0.9], FOGC = PEAK ? [0.81, 0.88, 0.95] : [0.89, 0.68, 0.63];
+    const col = new Float32Array(pos.length), sn = pal.sn, FOGC = pal.fogc;
     for (let i = 0; i <= N; i++) for (let r = 0; r < rows; r++) {
       const a = P(Math.max(0, i - 1), r), b = P(Math.min(N, i + 1), r), c = P(i, Math.max(0, r - 1)), d = P(i, Math.min(rows - 1, r + 1)), o = P(i, r);
       const t1 = new THREE.Vector3(pos[b] - pos[a], pos[b + 1] - pos[a + 1], pos[b + 2] - pos[a + 2]), t2 = new THREE.Vector3(pos[d] - pos[c], pos[d + 1] - pos[c + 1], pos[d + 2] - pos[c + 2]);
@@ -1021,20 +1042,32 @@ function initRender() {
       const y = pos[o + 1], th = (i / N) * TAU, nz = Math.sin(th * 97 + y * 0.05) * 0.5 + Math.sin(th * 211 - y * 0.11) * 0.3 + Math.sin(th * 23 + y * 0.02) * 0.2;
       const ndl = clamp(n.dot(sunV) * 0.8 + 0.2, 0, 1), up = clamp(n.y, 0, 1);
       let al;
-      if (y < treeLine * (1 + nz * 0.25)) al = PEAK ? [0.5, 0.52, 0.58] : [0.11, 0.18, 0.2];
-      else if (y > hMax * ((PEAK ? 0.1 : 0.38) + nz * 0.07) && (up > (PEAK ? 0.12 : 0.22) + 0.2 * nz || y > hMax * 0.8)) al = sn;
+      if (y < treeLine * (1 + nz * 0.25)) al = pal.tree;
+      else if (y > hMax * (pal.snowLine + nz * 0.07) && (up > pal.snowUp + 0.2 * nz || y > hMax * 0.8)) al = sn;
       else al = [0.34 + nz * 0.04, 0.3 + nz * 0.03, 0.31];
-      const lit = PEAK ? [1.0, 0.98, 0.92] : [1.0, 0.7, 0.5], sh = PEAK ? [0.6, 0.7, 0.92] : [0.55, 0.55, 0.78], k = Math.pow(ndl, 0.9);
-      const cr = al[0] * lerp(sh[0], lit[0], k) * 1.9, cg = al[1] * lerp(sh[1], lit[1], k) * 1.9, cb = al[2] * lerp(sh[2], lit[2], k) * 1.9;
+      const lit = pal.lit, sh = pal.sh, k = Math.pow(ndl, 0.9), G = pal.gain;
+      const cr = al[0] * lerp(sh[0], lit[0], k) * G, cg = al[1] * lerp(sh[1], lit[1], k) * G, cb = al[2] * lerp(sh[2], lit[2], k) * G;
       col[o] = lerp(cr, FOGC[0], haze); col[o + 1] = lerp(cg, FOGC[1], haze); col[o + 2] = lerp(cb, FOGC[2], haze);
     }
     for (let i = 0; i < N; i++) for (let r = 0; r < rows - 1; r++) { const a0 = i * rows + r, b0 = a0 + rows; idx.push(a0, b0, a0 + 1, b0, b0 + 1, a0 + 1); }
     const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute("color", new THREE.BufferAttribute(col, 3)); g.setIndex(idx);
     return new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, fog: false, side: THREE.DoubleSide }));
   };
-  if (PEAK) mtn.add(range(1180, 620, 2.1, 0.4, 40), range(800, 400, 5.3, 0.2, 38), range(560, 210, 8.7, 0.08, 40)); else mtn.add(range(1180, 340, 2.1, 0.5, 40), range(930, 200, 5.3, 0.2, 38), range(720, 85, 8.7, 0.06, 40));
+  const buildMtn = () => {
+    while (mtn.children.length) { const o = mtn.children.pop(); o.geometry.dispose(); o.material.dispose(); }
+    sunV.set(SUN.x, SUN.y, SUN.z).normalize();
+    if (PEAK) mtn.add(range(1180, 620, 2.1, 0.4, 40), range(800, 400, 5.3, 0.2, 38), range(560, 210, 8.7, 0.08, 40)); else mtn.add(range(1180, 340, 2.1, 0.5, 40), range(930, 200, 5.3, 0.2, 38), range(720, 85, 8.7, 0.06, 40));
+  };
   scene.add(mtn); scene.userData.mtn = mtn;
-  const valley = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000), new THREE.MeshBasicMaterial({ color: PEAK ? 0xcfe0f2 : 0xe3ada0 })); valley.rotation.x = -Math.PI / 2; scene.add(valley); scene.userData.valley = valley;
+  const valley = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000), new THREE.MeshBasicMaterial({ color: 0xe3ada0 })); valley.rotation.x = -Math.PI / 2; scene.add(valley); scene.userData.valley = valley;
+  scene.userData.applyTOD = name => {
+    const T = TODS[name] || TODS.sunset; pal = T.pal; SUN.x = T.sun[0]; SUN.y = T.sun[1]; SUN.z = T.sun[2];
+    scene.fog.color.setHex(T.fog); valley.material.color.setHex(T.fog); hemi.color.setHex(T.hemi[0]); hemi.groundColor.setHex(T.hemi[1]); hemi.intensity = T.hemi[2];
+    sun.color.setHex(T.sunC); sun.intensity = T.sunI; fill.color.setHex(T.fill[0]); fill.intensity = T.fill[1]; renderer.toneMappingExposure = T.exp;
+    const u = sky.material.uniforms, S = T.sky; u.sunDir.value.set(SUN.x, SUN.y, SUN.z).normalize(); u.cH.value.set(...S.cH); u.cM.value.set(...S.cM); u.cT.value.set(...S.cT); u.cHaze.value.set(...S.haze); u.cG1.value.set(...S.g1); u.cG2.value.set(...S.g2); u.gStr.value = S.gStr; u.stars.value = S.stars;
+    cloudMats.forEach(m => { m.opacity = T.cloud.op; m.color.setHex(T.cloud.color); }); sunS.material.opacity = T.sunSpr.op; sunS.material.color.setHex(T.sunSpr.color); sunS.scale.set(T.sunSpr.scale, T.sunSpr.scale, 1); sunS.position.set(SUN.x * 1000, SUN.y * 1000, SUN.z * 1000);
+    glowMat().opacity = T.glow; buildMtn();
+  };
 
   // ski tracks left in the snow
   const NQ = 500, tp = new Float32Array(NQ * 2 * 4 * 3).fill(-9999), ti = [];
@@ -2054,6 +2087,7 @@ $("pausebtn").onclick = () => { $("pausebtn").blur(); setPaused(true); };
 $("resume").onclick = () => setPaused(false);
 $("homebtn").onclick = () => { location.hash = "#home"; location.reload(); };
 $("resortname").textContent = RESORT_NAMES[RES];
+document.querySelectorAll("#tods button").forEach(b => { if (b.dataset.t === todName) b.classList.add("on"); b.onclick = () => { todName = b.dataset.t; store.set("kb-tod", todName); document.querySelectorAll("#tods button").forEach(x => x.classList.toggle("on", x === b)); b.blur(); if (scene && scene.userData.applyTOD) scene.userData.applyTOD(todName); }; });
 document.querySelectorAll("#resorts button").forEach(b => { if (b.dataset.r === RES) b.classList.add("on"); b.onclick = () => { if (b.dataset.r === RES) return; b.blur(); location.hash = "#" + b.dataset.r; location.reload(); }; });
 function begin() { audioInit(); $("intro").hidden = true; $("home").hidden = true; stopHome(); if (mode !== "play") { mode = "play"; restart(); } }
 const MAP = { ArrowLeft: "left", a: "left", A: "left", ArrowRight: "right", d: "right", D: "right", ArrowUp: "up", w: "up", W: "up", ArrowDown: "down", s: "down", S: "down", q: "spinL", Q: "spinL", e: "spinR", E: "spinR", " ": "grab", Shift: "boost", f: "focus", F: "focus", j: "brake", J: "brake", x: "grabN", X: "grabN", c: "grabI", C: "grabI" };
@@ -2090,7 +2124,7 @@ new ResizeObserver(resize).observe(cv);
 
 sk = newSkier(0, PEAK ? 3 : 10, 0);
 const glOK = typeof THREE !== "undefined" && initRender();
-if (glOK) applyGfx();
+if (glOK) { applyGfx(); scene.userData.applyTOD(todName); }
 if (!glOK) { $("nogl").hidden = false; $("go").disabled = true; }
 window.__game = { pc, pcs, cliffs, knots, baseY, get runT() { return runT; }, get sw() { return sk.sw; }, get spin() { return sk.spin; }, get endShown() { return endShown; }, COURSE_END, trails, trailFor, trailXc, sectionsAt, step, get sk() { return sk; }, feats, H, K, restart, begin, get score() { return score; }, get mult() { return mult; }, setMode(m) { mode = m; }, pop() { popReq = true; } };
 requestAnimationFrame(frame);
