@@ -1366,7 +1366,7 @@ function poseSkier(dt, time) {
   const dh = (R.a + R.b) * (0.97 - 0.42 * clamp(p.c, -0.2, 1.1)), foot = 0.26, ankY = lerp(foot, GP.ay, tg) + 0.34 * bt, ankZ = GP.az * tg + 0.12 * bt, hipY = lerp(foot + dh, GP.hy, tg) + 0.3 * bt;
   const ddy = hipY - ankY, dist = Math.min(Math.hypot(ddy, ankZ), R.a + R.b - 0.005), phi = Math.atan2(ankZ, ddy);
   const cosA = clamp((R.a * R.a + dist * dist - R.b * R.b) / (2 * R.a * dist), -1, 1), th = Math.acos(cosA), t1 = th - phi;
-  const kf = R.a * Math.sin(t1), t2 = Math.atan2(-ankZ - kf, R.a * Math.cos(t1) - ddy);
+  const kf = R.a * Math.sin(t1), t2 = Math.atan2(-ankZ - kf, ddy - R.a * Math.cos(t1));
   const inside = p.carve * tn * 0.07; // hips drop toward the inside of a carve
   R.legs.forEach(l => { l.hip.position.set(l.x - inside, hipY, 0.04); l.hip.rotation.x = t1; l.hip.rotation.z = -tn * p.carve * 0.12; l.knee.rotation.x = t2 - t1; });
   const swp = sk.bikeJump ? clamp(sk.airT / 0.45, 0, 1) : 1, ease = 1 + 2.7 * Math.pow(swp - 1, 3) + 1.7 * Math.pow(swp - 1, 2);
@@ -2131,7 +2131,7 @@ sk = newSkier(0, PEAK ? 3 : 10, 0);
 const glOK = typeof THREE !== "undefined" && initRender();
 if (glOK) { applyGfx(); scene.userData.applyTOD(todName); }
 if (!glOK) { $("nogl").hidden = false; $("go").disabled = true; }
-window.__game = { pc, pcs, cliffs, knots, baseY, get runT() { return runT; }, get sw() { return sk.sw; }, get spin() { return sk.spin; }, get endShown() { return endShown; }, COURSE_END, trails, trailFor, trailXc, sectionsAt, step, get sk() { return sk; }, feats, H, K, restart, begin, get score() { return score; }, get mult() { return mult; }, setMode(m) { mode = m; }, pop() { popReq = true; } };
+window.__game = { get rig() { return skierRig; }, pc, pcs, cliffs, knots, baseY, get runT() { return runT; }, get sw() { return sk.sw; }, get spin() { return sk.spin; }, get endShown() { return endShown; }, COURSE_END, trails, trailFor, trailXc, sectionsAt, step, get sk() { return sk; }, feats, H, K, restart, begin, get score() { return score; }, get mult() { return mult; }, setMode(m) { mode = m; }, pop() { popReq = true; } };
 requestAnimationFrame(frame);
 $("dtot").textContent = COURSE_END;
 /* ---------- homepage: animated sunset, mountains and a skier doing a backflip ---------- */
