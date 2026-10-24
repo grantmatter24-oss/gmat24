@@ -81,7 +81,7 @@
     <div class="side">
       <div>Speed <b id="spd">0</b> km/h</div>
       <div>Time <b id="clock">0:00</b></div>
-      <div>Distance <b id="dist">0</b> / 4200 m</div>
+      <div>Distance <b id="dist">0</b> / 6000 m</div>
       <div>Best <b id="best">0</b></div>
       <button id="snd" type="button">Sound on</button>
     </div>
@@ -106,7 +106,7 @@
   <div id="intro">
     <div class="card">
       <h1>Kicker <span>Run</span></h1>
-      <p class="lede">One run down the mountain: 4,200 m, around three to five minutes from drop-in to the finish arch. The piste bends, steepens and flattens, with kickers, hips, rails, giant cliffs and woods trails along the way. Throw tricks, land them clean and chain your multiplier.</p>
+      <p class="lede">One run down the mountain: 6,000 m, around three to five minutes from drop-in to the finish arch. The piste bends, steepens and flattens, with kickers, hips, rails, giant cliffs and woods trails along the way. Throw tricks, land them clean and chain your multiplier.</p>
       <dl>
         <dt>← → or A D</dt><dd>Carve on snow: hold a turn and the edges bite, tighter and faster. Nudge in the air</dd>
         <dt>Space</dt><dd>Spam it on the flat to pump for speed. Tap at a ramp lip to pop. Hold in the air to grab</dd>
@@ -141,8 +141,8 @@ const hash = n => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s
 /* =====================================================================
    COURSE: coordinates are (x across, y up, s down the mountain). Render z = -s.
    ===================================================================== */
-const G = 18, BASE = 0.28, RAIL_H = 0.55, PISTE = 18, MAXV = 28;
-const COURSE_END = 4200;
+const G = 18, BASE = 0.28, RAIL_H = 0.55, PISTE = 18, MAXV = 400;
+const COURSE_END = 6000;
 const rng = mulberry(2024);
 const feats = [];
 let genS = 140, generating = false, finalized = false;
@@ -517,7 +517,7 @@ function landing(surfaceType, rail) {
   sk.air = false; if (sk.airT > 0.15) sk.landT = 0.35;
   const kHalf = Math.round(sk.spin / Math.PI), odd = Math.abs(kHalf) % 2 === 1;
   let tr = null;
-  if (real) {
+  if (real && sk.airT > 0.75) {
     tr = trickInfo();
     const perfect = Math.abs(diff) < 0.4;
     let pts = sk.airT * 150;
@@ -536,7 +536,7 @@ function landing(surfaceType, rail) {
     } else sk.carry = { pts, label, trick: tr.flips || tr.halves || tr.grab };
     sfx("thud", clamp(sk.airT, 0.4, 1.2)); shake = Math.min(0.5, 0.15 + sk.airT * 0.2);
     spray(sk.x, sk.y, sk.s, 22, 5);
-  } else sk.rot = sA;
+  } else { sk.rot = sA; if (sk.airT > 0.15) { sfx("thud", 0.35); spray(sk.x, sk.y, sk.s, 6, 3); } }
   sk.spin -= kHalf * Math.PI; sk.spinTarget = 0; if (odd) sk.sw = !sk.sw;
   sk.rotV = 0; sk.flipAcc = 0; sk.spinV = 0; sk.grabT = 0; sk.airT = 0; sk.jumpNo++;
   if (surfaceType === "rail") { sk.grind = rail; sk.grindT = 0; sk.psi = 0; sk.spinTarget = 0; }
@@ -578,7 +578,7 @@ function step(dt) {
       const r = sk.grind;
       sk.grindT += dt; sk.psi = 0;
       const sA = sA_(sk.x, sk.s, 0);
-      sk.sp = clamp(sk.sp + (-G * Math.sin(sA) - 0.2 * sk.sp) * dt, 6, MAXV);
+      sk.sp = clamp(sk.sp + (-G * Math.sin(sA) - 0.1 * sk.sp - 0.0025 * sk.sp * sk.sp) * dt, 6, MAXV);
       sk.s += sk.sp * Math.cos(sA) * dt; sk.y = H(sk.x, sk.s) + RAIL_H;
       sk.rot += (sA - sk.rot) * Math.min(1, 14 * dt);
       if (sk.grindT > 0.2 && Math.random() < 0.6) spray(sk.x, sk.y, sk.s, 1, 3);
@@ -603,8 +603,9 @@ function step(dt) {
       sk.psi = clamp(sk.psi, -1.1, 1.1);
       const hx = Math.sin(sk.psi), hs = Math.cos(sk.psi);
       const sA = sA_(sk.x, sk.s, sk.psi), c = Math.cos(sA), sn = Math.sin(sA);
-      const drag = (K.down ? 0.18 : 0.26) + Math.abs(steer) * (0.34 - 0.24 * sk.carve) + Math.abs(hx) * 0.4;
-      sk.sp = clamp(sk.sp + (-G * sn - drag * sk.sp) * dt, sk.finished ? 0 : 3, MAXV);
+      // linear scrub from turning plus air drag that grows with speed, so there is no hard cap
+      const lin = 0.05 + Math.abs(steer) * (0.34 - 0.24 * sk.carve) + Math.abs(hx) * 0.4, quad = K.down ? 0.0025 : 0.0036;
+      sk.sp = clamp(sk.sp + (-G * sn - lin * sk.sp - quad * sk.sp * sk.sp) * dt, sk.finished ? 0 : 3, MAXV);
       if (sk.finished) sk.sp = Math.max(0, sk.sp - 9 * dt);
       const nx = sk.x + sk.sp * c * hx * dt, ns = sk.s + sk.sp * c * hs * dt, yp = sk.y + sk.sp * sn * dt;
       const hn = H(nx, ns);
@@ -617,13 +618,10 @@ function step(dt) {
       }
       // coins on the ground are not reachable; ground contact
       // Space: pop when a ramp lip is close, otherwise pump for speed
-      const popNow = popReq && nearLip(sk.x, sk.s);
-      if (popReq && !popNow) {
-        sk.sp = Math.min(sk.sp + 1.8 * Math.max(0, 1 - sk.sp / (MAXV + 2)), MAXV + 2); sk.pumpT = 0.2;
-        spray(sk.x - hx * 0.5, sk.y, sk.s - hs * 0.5, 3, 2); sfx("pump");
-      }
+      const popNow = popReq;
+      if (popNow) { sk.sp += 0.9 * Math.max(0, 1 - sk.sp / 45); spray(sk.x - hx * 0.5, sk.y, sk.s - hs * 0.5, 4, 3); sfx("pump"); }
       if (popNow || yp > hn + 0.12) {
-        sk.air = true; sk.vx = sk.sp * c * hx; sk.vs = sk.sp * c * hs; sk.vy = sk.sp * sn + (popNow ? 5 : 0);
+        sk.air = true; sk.vx = sk.sp * c * hx; sk.vs = sk.sp * c * hs; sk.vy = sk.sp * sn + (popNow ? (nearLip(sk.x, sk.s) ? 6.5 : 5.2) : 0);
         sk.x = nx; sk.s = ns; sk.y = popNow ? Math.max(yp, hn) + 0.02 : yp;
         sk.airT = 0; sk.flipAcc = 0; sk.spin = 0; sk.spinV = 0; sk.grabT = 0; sk.rotV = 0; sk.spinTarget = 0; if (popNow) sk.popT = 0.2;
       } else {
@@ -740,8 +738,8 @@ function audioUpdate() {
   if (!ac || !windG) return;
   const live = mode === "play" && sk && !sk.crashed;
   const sp = live ? (sk.air ? Math.hypot(sk.vx, sk.vs, sk.vy) : sk.sp) : 0;
-  windG.gain.setTargetAtTime(muted ? 0 : clamp(sp / 28, 0, 1) * (live && sk.air ? 0.14 : 0.09), ac.currentTime, 0.1);
-  windF.frequency.setTargetAtTime(350 + sp * 40, ac.currentTime, 0.1);
+  windG.gain.setTargetAtTime(muted ? 0 : clamp(sp / 45, 0, 1) * (live && sk.air ? 0.15 : 0.1), ac.currentTime, 0.1);
+  windF.frequency.setTargetAtTime(350 + sp * 55, ac.currentTime, 0.1);
   grindG.gain.setTargetAtTime(!muted && live && (sk.grind ? 0.12 : !sk.air ? sk.carve * 0.045 : 0), ac.currentTime, 0.05);
 }
 
@@ -841,9 +839,15 @@ function initRender() {
   const blob = new THREE.Mesh(new THREE.CircleGeometry(0.85, 20), new THREE.MeshBasicMaterial({ color: 0x1d2a3c, transparent: true, opacity: 0.3, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }));
   scene.add(blob); skierRig.shadow = blob;
 
+  // speed streaks: thin lines rushing past the camera, only visible when you are fast
+  { const NS = 100, sp = new Float32Array(NS * 6), meta = [];
+    for (let i = 0; i < NS; i++) { const a = Math.random() * TAU, r = 2.2 + Math.random() * 7; meta.push({ x: Math.cos(a) * r, y: Math.sin(a) * r * 0.7 - 0.5, z: -Math.random() * 40 }); }
+    const sg2 = new THREE.BufferGeometry(); sg2.setAttribute("position", new THREE.BufferAttribute(sp, 3));
+    const lines = new THREE.LineSegments(sg2, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, fog: false })); lines.frustumCulled = false; camera.add(lines); scene.add(camera);
+    scene.userData.streaks = { lines, sp, meta, NS }; }
   // sun glints sparkling on the snow
-  const GN = 140, gg = new THREE.BufferGeometry(); gg.setAttribute("position", new THREE.BufferAttribute(new Float32Array(GN * 3).fill(-9999), 3));
-  const glint = new THREE.Points(gg, new THREE.PointsMaterial({ color: 0xfff2dc, map: dotTexG(), size: 0.16, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })); glint.frustumCulled = false; scene.add(glint); scene.userData.glint = { pts: glint, n: GN, t: 0 };
+  const GN = 45, gg = new THREE.BufferGeometry(); gg.setAttribute("position", new THREE.BufferAttribute(new Float32Array(GN * 3).fill(-9999), 3));
+  const glint = new THREE.Points(gg, new THREE.PointsMaterial({ color: 0xfff2dc, map: dotTexG(), size: 0.1, transparent: true, opacity: 0.4, depthWrite: false, blending: THREE.AdditiveBlending })); glint.frustumCulled = false; scene.add(glint); scene.userData.glint = { pts: glint, n: GN, t: 0 };
   // particles
   const sg = new THREE.BufferGeometry(); sg.setAttribute("position", new THREE.BufferAttribute(new Float32Array(SP * 3), 3));
   const dot = document.createElement('canvas'); dot.width = dot.height = 32; const dx = dot.getContext('2d'); const dg = dx.createRadialGradient(16, 16, 0, 16, 16, 16); dg.addColorStop(0, 'rgba(255,255,255,1)'); dg.addColorStop(1, 'rgba(255,255,255,0)'); dx.fillStyle = dg; dx.fillRect(0, 0, 32, 32); const dotTex = new THREE.CanvasTexture(dot);
@@ -1148,7 +1152,7 @@ function buildChunk(ci) {
   { const nn = g.attributes.normal.array, cc = g.attributes.color.array;
     for (let v = 0; v < nx * ns; v++) { const ny = nn[v * 3 + 1], st = clamp((0.8 - ny) / 0.28, 0, 1); if (st > 0) { const hh = hash(pos[v * 3] * 2.3 + pos[v * 3 + 2] * 1.9) * 0.1, k = Math.min(1, st * 1.15); cc[v * 3] = lerp(cc[v * 3], 0.42 + hh, k); cc[v * 3 + 1] = lerp(cc[v * 3 + 1], 0.4 + hh, k); cc[v * 3 + 2] = lerp(cc[v * 3 + 2], 0.45 + hh, k); } } }
   const grp = new THREE.Group();
-  const tm = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ vertexColors: true, map: snowTex(), bumpMap: bumpTex(), bumpScale: 1.1, roughness: 0.9, metalness: 0, envMapIntensity: 0.35 })); tm.receiveShadow = true; grp.add(tm);
+  const tm = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ vertexColors: true, map: snowTex(), bumpMap: bumpTex(), bumpScale: 0.5, roughness: 0.9, metalness: 0, envMapIntensity: 0.35 })); tm.receiveShadow = true; grp.add(tm);
   // piste edge poles
   const pm = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.04, 0.04, 2.2, 5), new THREE.MeshLambertMaterial({ color: 0xf08a3a }), 2 * 8), pd = new THREE.Object3D();
   const inCorr = (px, ps) => { const T = trailFor(ps); return T && Math.abs(px - trailXc(T, ps)) < T.hw + 3; };
@@ -1231,8 +1235,8 @@ function snowTex() {
   x.fillStyle = "#f4f7fb"; x.fillRect(0, 0, 256, 256);
   const r = mulberry(5);
   // groomed corduroy: fine lines along the slope
-  for (let i = 0; i < 64; i++) { x.fillStyle = "rgba(150,170,205," + (i % 2 ? 0.16 : 0.05) + ")"; x.fillRect(i * 4, 0, 2, 256); }
-  for (let i = 0; i < 2200; i++) { x.fillStyle = "rgba(" + (170 + r() * 40 | 0) + "," + (190 + r() * 40 | 0) + ",240," + (0.04 + r() * 0.08) + ")"; x.fillRect(r() * 256, r() * 256, 2 + r() * 3, 1 + r() * 2); }
+  for (let i = 0; i < 64; i++) { x.fillStyle = "rgba(150,170,205," + (i % 2 ? 0.09 : 0.03) + ")"; x.fillRect(i * 4, 0, 2, 256); }
+  for (let i = 0; i < 1400; i++) { x.fillStyle = "rgba(" + (170 + r() * 40 | 0) + "," + (190 + r() * 40 | 0) + ",240," + (0.03 + r() * 0.04) + ")"; x.fillRect(r() * 256, r() * 256, 2 + r() * 3, 1 + r() * 2); }
   const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8;
   return snowTex.t = t;
 }
@@ -1355,7 +1359,7 @@ function updateCamera(dt) {
   camHead += wrap(sk.psi - camHead) * Math.min(1, 2.6 * dt);
   airBlend += ((sk.air && !sk.crashed ? 1 : 0) - airBlend) * Math.min(1, 2.2 * dt);
   const speed = sk.air ? Math.hypot(sk.vx, sk.vs) : sk.sp;
-  const back = lerp(5.4, 8.0, airBlend) + clamp(speed, 0, 26) * 0.04, height = lerp(4.4, 5.8, airBlend);
+  const back = lerp(5.4, 8.0, airBlend) + clamp(speed, 0, 50) * 0.05, height = lerp(4.4, 5.8, airBlend);
   const tx = sk.x - back * Math.sin(camHead), ts = sk.s - back * Math.cos(camHead), ty = sk.y + height;
   if (snapCam) { camX = tx; camS = ts; camY = ty; snapCam = false; }
   camX += (tx - camX) * Math.min(1, 8 * dt); camS += (ts - camS) * Math.min(1, 10 * dt); camY += (ty - camY) * Math.min(1, 4.5 * dt);
@@ -1365,7 +1369,7 @@ function updateCamera(dt) {
   const ahead = 2.2, lx = sk.x + Math.sin(camHead) * ahead, ls = sk.s + Math.cos(camHead) * ahead;
   camera.lookAt(lx, sk.y + 0.7, -ls);
   camera.rotateZ(-sk.turn * 0.035 * (sk.air ? 0.3 : 1));
-  const fov = 56 + clamp(speed, 0, 28) * 0.55 + boostPulse * 8 + airBlend * 3;
+  const fov = 54 + clamp(speed, 0, 50) * 0.62 + boostPulse * 8 + airBlend * 3;
   if (Math.abs(fov - lastFov) > 0.05) { camera.fov = fov; camera.updateProjectionMatrix(); lastFov = fov; }
 }
 
@@ -1399,8 +1403,8 @@ function render(dt, time) {
     T.lx = sk.x; T.ls = sk.s; T.mesh.geometry.attributes.position.needsUpdate = true;
   }
   { const G2 = scene.userData.glint; G2.t -= dt;
-    if (G2.t <= 0) { G2.t = 0.09; const arr = G2.pts.geometry.attributes.position.array, hx = Math.sin(sk.psi), hs = Math.cos(sk.psi);
-      for (let i = 0; i < G2.n; i++) { if (Math.random() < 0.45) { const ahead = 3 + Math.random() * 38, side = (Math.random() - 0.5) * 22, gx = sk.x + hx * ahead + hs * side, gs = sk.s + hs * ahead - hx * side; arr[i * 3] = gx; arr[i * 3 + 1] = H_(gx, gs) + 0.06; arr[i * 3 + 2] = -gs; } else arr[i * 3 + 1] = -9999; }
+    if (G2.t <= 0) { G2.t = 0.35; const arr = G2.pts.geometry.attributes.position.array, hx = Math.sin(sk.psi), hs = Math.cos(sk.psi);
+      for (let i = 0; i < G2.n; i++) { if (Math.random() < 0.3) { const ahead = 3 + Math.random() * 38, side = (Math.random() - 0.5) * 22, gx = sk.x + hx * ahead + hs * side, gs = sk.s + hs * ahead - hx * side; arr[i * 3] = gx; arr[i * 3 + 1] = H_(gx, gs) + 0.06; arr[i * 3 + 2] = -gs; } else arr[i * 3 + 1] = -9999; }
       G2.pts.geometry.attributes.position.needsUpdate = true; } }
   // rings spin
   coinMeshes.forEach(m => { if (m.visible) m.rotation.y = Math.sin(time * 2 + m.position.z) * 0.5; });
@@ -1420,6 +1424,11 @@ function render(dt, time) {
   }
   snowPts.geometry.attributes.position.needsUpdate = true;
   updateCamera(dt);
+  { const S = scene.userData.streaks, speed = sk.crashed ? 0 : (sk.air ? Math.hypot(sk.vx, sk.vs) : sk.sp), amt = clamp((speed - 18) / 22, 0, 1);
+    S.lines.material.opacity = amt * 0.7;
+    if (amt > 0) for (let i = 0; i < S.NS; i++) { const m = S.meta[i]; m.z += speed * dt * 1.15; if (m.z > -1.5) { m.z = -40 - Math.random() * 10; const a = Math.random() * TAU, r = 2.2 + Math.random() * 7; m.x = Math.cos(a) * r; m.y = Math.sin(a) * r * 0.7 - 0.5; }
+      const len = 0.5 + speed * 0.07; S.sp[i * 6] = m.x; S.sp[i * 6 + 1] = m.y; S.sp[i * 6 + 2] = m.z; S.sp[i * 6 + 3] = m.x; S.sp[i * 6 + 4] = m.y; S.sp[i * 6 + 5] = m.z - len; }
+    S.lines.geometry.attributes.position.needsUpdate = true; }
   scene.userData.sky.position.copy(camera.position);
   scene.userData.mtn.position.set(camera.position.x, sk.y - 130, camera.position.z); scene.userData.valley.position.set(camera.position.x, sk.y - 126, camera.position.z);
   renderer.render(scene, camera);
