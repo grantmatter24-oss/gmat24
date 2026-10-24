@@ -1861,7 +1861,8 @@ function setSong() {
   else { f.src = "https://open.spotify.com/embed/track/" + id + "?theme=0"; f.width = "320"; f.height = "80"; }
   f.allow = "autoplay; encrypted-media; clipboard-write; picture-in-picture"; f.title = "Music player"; f.style.border = "0"; f.style.borderRadius = "10px";
   const a = document.createElement("a"); a.href = yid ? "https://www.youtube.com/watch?v=" + yid : "https://open.spotify.com/track/" + id; a.target = "_blank"; a.rel = "noopener"; a.className = "mlink"; a.textContent = "Player blank? Open in a new tab";
-  box.append(f, a); box.hidden = false;
+  if (window.claude) { a.className = "mplay"; a.textContent = "\u266A Play in a new tab: " + (yid ? "YouTube" : OUTFIT_OPTS.song[outfit.song]); box.append(a); } else box.append(f, a);
+  box.hidden = false;
 }
 setSong();
 buildPauseUI();
