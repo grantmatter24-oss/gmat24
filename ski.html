@@ -38,6 +38,9 @@
   #end { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; background: linear-gradient(rgba(11,26,41,.45), rgba(11,26,41,.8)); z-index: 3; }
   #end[hidden] { display: none; }
   #pause { position: absolute; inset: 0; z-index: 4; display: flex; align-items: stretch; justify-content: flex-start; padding: 14px; background: linear-gradient(90deg, rgba(11,26,41,.55), rgba(11,26,41,0) 62%); }
+  #combo { position: absolute; left: max(16px, env(safe-area-inset-left, 0px)); top: 66px; width: 118px; height: 5px; border-radius: 3px; background: rgba(11,26,41,.45); overflow: hidden; pointer-events: none; }
+  #combofill { display: block; height: 100%; width: 0; background: var(--jacket); }
+  .tl { margin-bottom: 4px; } .tl summary { cursor: pointer; font: 700 13px var(--body); letter-spacing: .1em; text-transform: uppercase; color: var(--dim); } .tl dl { margin-top: 8px; font-size: 13px; display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; } .tl dt { font-weight: 700; } .tl dd { color: var(--dim); }
   #pause[hidden] { display: none; }
   .ytrow { display: flex; gap: 6px; } .ytrow input { flex: 1; min-width: 0; font: 500 14px var(--body); padding: 8px 10px; border-radius: 6px; border: 1px solid rgba(244,248,253,.3); background: rgba(244,248,253,.08); color: var(--text); } .ytrow .ytgo { width: auto; text-align: center; margin: 0; }
   #music { position: absolute; left: 12px; bottom: 54px; z-index: 2; pointer-events: auto; display: flex; flex-direction: column; gap: 3px; }
@@ -48,6 +51,7 @@
   .pcard h2 { font: 900 30px/1 var(--display); letter-spacing: .06em; text-transform: uppercase; margin-bottom: 12px; }
   .pcard h3 { font: 700 13px var(--body); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); margin: 14px 0 6px; }
   .pcard .opt { display: block; width: 100%; text-align: left; font: 600 15px var(--body); color: var(--text); background: rgba(244,248,253,.07); border: 1px solid rgba(244,248,253,.2); border-radius: 6px; padding: 8px 10px; margin-bottom: 5px; cursor: pointer; }
+  .pcard .opt.locked { opacity: .5; cursor: not-allowed; }
   .pcard .opt.on { background: var(--jacket); border-color: var(--jacket); color: var(--ink); }
   .pcard .opt:focus-visible, #resume:focus-visible { outline: 3px solid var(--text); outline-offset: 2px; }
   #resume { margin-top: 14px; width: 100%; font: 900 22px/1 var(--display); letter-spacing: .06em; text-transform: uppercase; color: var(--ink); background: var(--jacket); border: 0; border-radius: 6px; padding: 12px 16px; cursor: pointer; }
@@ -99,23 +103,26 @@
       <div>Time <b id="clock">0:00</b></div>
       <div>Distance <b id="dist">0</b> / <span id="dtot">6000</span> m</div>
       <div>Best <b id="best">0</b></div>
+      <div>Best time <b id="btime">–</b></div>
       <div>Resort <b id="resortname"></b></div>
       <button id="pausebtn" type="button">Pause</button>
       <button id="globe" type="button" aria-label="Change ski resort" title="Change ski resort"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><ellipse cx="12" cy="12" rx="4" ry="9.5"/><path d="M2.5 12h19M4 7h16M4 17h16"/></svg></button>
     </div>
   </div>
+  <div id="combo"><i id="combofill"></i></div>
   <div id="next" hidden></div>
   <div id="prog"><i id="progbar"></i></div>
   <div id="focuswrap"><span>Slow-mo</span><div class="bar"><i id="focus"></i></div><span>F</span></div>
   <div id="pop"><div class="t"></div><div class="s"></div></div>
   <div id="toast"></div>
-  <div id="hint">← → steer &nbsp;·&nbsp; ↑ ↓ flip &nbsp;·&nbsp; Q E spin (flip + spin = cork) &nbsp;·&nbsp; Space = jump / grab &nbsp;·&nbsp; Shift = speed up &nbsp;·&nbsp; J = slow down &nbsp;·&nbsp; F = slow-mo &nbsp;·&nbsp; P = pause</div>
+  <div id="hint">← → steer &nbsp;·&nbsp; ↑ ↓ flip &nbsp;·&nbsp; Q E spin (flip + spin = cork) &nbsp;·&nbsp; Space = jump / tail grab &nbsp;·&nbsp; X = nose grab &nbsp;·&nbsp; C = indy grab &nbsp;·&nbsp; Shift = speed up &nbsp;·&nbsp; J = slow down &nbsp;·&nbsp; F = slow-mo &nbsp;·&nbsp; P = pause</div>
   <div id="touch">
     <div class="grp"><button data-k="left">Left</button><button data-k="right">Right</button></div>
-    <div class="grp"><button data-k="up">Front flip</button><button data-k="down">Back / tuck</button><button data-k="spin">Spin</button><button data-k="grab">Pop / grab</button><button data-k="boost">Speed</button><button data-k="brake">Slow</button><button data-k="focus">Focus</button></div>
+    <div class="grp"><button data-k="up">Front flip</button><button data-k="down">Back / tuck</button><button data-k="spin">Spin</button><button data-k="grab">Pop / tail</button><button data-k="grabN">Nose</button><button data-k="grabI">Indy</button><button data-k="boost">Speed</button><button data-k="brake">Slow</button><button data-k="focus">Focus</button></div>
   </div>
   <div id="music" hidden></div>
-  <div id="pause" hidden><div class="pcard"><h2>Paused</h2><div id="opts"></div><button id="resume" type="button">Resume</button></div></div>
+  <div id="pause" hidden><div class="pcard"><h2>Paused</h2><details class="tl"><summary>Controls and tricks</summary><dl>
+<dt>Arrows / A D</dt><dd>Steer and carve</dd><dt>Up / Down</dt><dd>Front flip / back flip (hold Down on the ground to tuck)</dd><dt>Q / E</dt><dd>Spin in the air. On a rail it flips you 180°. Spin plus flip makes a cork</dd><dt>Space</dt><dd>Jump anywhere. In the air, hold for a tail grab</dd><dt>X / C</dt><dd>Nose grab / indy grab, held in the air</dd><dt>Shift / J</dt><dd>Speed up / slow down</dd><dt>F</dt><dd>Slow-motion in the air</dd><dt>P</dt><dd>Pause</dd><dt>Combo</dt><dd>Each trick adds ×1 to your multiplier. The bar under the score shows how long you have to land the next one before it resets</dd></dl></details><div id="opts"></div><button id="resume" type="button">Resume</button></div></div>
   <div id="end" hidden>
     <div class="card">
       <h1>Run <span>complete</span></h1>
@@ -159,17 +166,20 @@ const lerp = (a, b, t) => a + (b - a) * t;
 const wrap = a => { a = (a + Math.PI) % TAU; if (a < 0) a += TAU; return a - Math.PI; };
 const smooth = t => { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); };
 const $ = id => document.getElementById(id);
+const store = { get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { } } };
 function mulberry(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 const hash = n => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
 
 /* =====================================================================
    COURSE: coordinates are (x across, y up, s down the mountain). Render z = -s.
    ===================================================================== */
-const RES = location.hash === "#peak" ? "peak" : "alpine", PEAK = RES === "peak", KS = PEAK ? 1.45 : 1;
+const RES = location.hash === "#peak" ? "peak" : location.hash === "#park" ? "park" : "alpine", PEAK = RES === "peak", PARK = RES === "park", KS = PEAK ? 1.45 : 1;
+const RESORT_NAMES = { alpine: "Evergreen Run", peak: "Couloir Peak", park: "Kicker Park" };
 const G = 18, BASE = PEAK ? 0.4 : 0.28, RAIL_H = 0.55, PISTE = 15, MAXV = 400;
-const COURSE_END = location.hash === "#peak" ? 7500 : 6000;
+const COURSE_END = location.hash === "#peak" ? 7500 : location.hash === "#park" ? 5200 : 6000;
 const rng = mulberry(2024);
 const feats = [];
+const railsOf = f => f.rail ? (f.rail2 ? [f.rail, ...f.rail2] : [f.rail]) : (f.rail2 || []);
 let genS = 140, generating = false, finalized = false;
 
 /* steepness profile: piecewise-linear slope between knots, integrated into a height */
@@ -247,6 +257,7 @@ function partOff(p, x, s) {
     const w = (u - p.L - p.gap) / p.Ll;
     return w >= 0 && w <= 1 ? p.Hl * bump(w) * lw : 0;
   }
+  if (p.type === "couloir") return p.H * smooth((Math.abs(x - p.cx) - p.hw) / 4.5) * smooth((s - p.s0) / 14) * smooth((p.end - s) / 14);
   if (p.type === "moguls") { const e = smooth((s - p.s0) / 10) * smooth((p.end - s) / 10), xr = x - p.cx; return p.amp * e * (1 - smooth((Math.abs(xr) - (PISTE - 2)) / 4)) * Math.sin(xr * 0.9 + 0.7) * Math.sin(s * 0.65); }
   if (p.type === "rollers") { const u = (s - p.s0) / p.sp; return p.amp * Math.pow(Math.sin(Math.PI * u), 2) * latW(p, x, 1.5); }
   if (p.type === "box") return boxShape(p, x, s) * (p.B + (p.pitch ? p.pitch * (1 - Math.abs(x - p.cx) / p.hw) + 0.25 : 0) - (p.flat ? bermAt(x - pc(s)) : 0));
@@ -276,7 +287,7 @@ function genCoins(f, p) {
 }
 function shiftSection(f, off) {
   f.parts.forEach(p => { p.cx += off; });
-  if (f.boost) f.boost.cx += off; if (f.rail) f.rail.x += off; f.mainCx += off;
+  if (f.boost) f.boost.cx += off; if (f.rail) f.rail.x += off; if (f.rail2) f.rail2.forEach(r => { r.x += off; }); f.mainCx += off;
 }
 let pendingInterlude = null, secCount = 0, interCount = 0;
 function addInterlude(kind) {
@@ -289,7 +300,8 @@ function addInterlude(kind) {
   } else if (kind === "chute") {
     len = 150; f.label = "Steep chute · whoops and a kick"; addKnot(genS + 15, 0.5); addKnot(genS + len - 15, 0.52); addKnot(genS + len, 0.4);
     pcs.push({ a: genS, b: genS + len, x: x0, jump: true });
-    f.parts.push({ type: "rollers", s0: genS + 22, n: 5, sp: 8, amp: 0.55, cx: x0, hw: 80, end: genS + 62 }); const k = mkKicker(genS + 80, 1, x0, 4.0, 0.3, 1); f.parts.push(k); len = Math.max(len, k.end - genS + 8);
+    f.parts.push({ type: "rollers", s0: genS + 22, n: 5, sp: 8, amp: 0.55, cx: x0, hw: 80, end: genS + 62 });
+    if (PEAK) { f.parts.push({ type: "couloir", s0: genS + 6, end: genS + 150, cx: x0, hw: 9.5, H: 8 }); f.label = "Couloir · steep and narrow"; } const k = mkKicker(genS + 80, 1, x0, 4.0, 0.3, 1); f.parts.push(k); len = Math.max(len, k.end - genS + 8);
   } else {
     len = 150; f.label = "Flat cruiser · pop the rollers"; addKnot(genS + 20, 0.1); addKnot(genS + len - 20, 0.1); addKnot(genS + len, BASE * 0.8);
     pcs.push({ a: genS, b: genS + len, x: x0, jump: true });
@@ -350,20 +362,31 @@ function addSection() {
   if (pendingFiller) { pendingFiller = false; return addMicro(); }
   const i = secCount++, diff = Math.min(1, i / 16), pick = rng();
   const f = { s0: genS, parts: [], label: "", boost: null, rail: null, coins: [], mainCx: 0, idx: i };
-  if (PEAK ? i % 4 === 1 : i % 6 === 1) {
+  if (PARK && i % 5 === 0) { // rail garden
+    [[-8, 0], [0, 22], [8, 44]].forEach(([x, o], q) => { const r = { s0: genS + o, s1: genS + o + 24, x }; if (q) f.rail2.push(r); else { f.rail = r; f.rail2 = []; } });
+    f.label = "Rail garden"; f.endExtra = genS + 70;
+  } else if (PARK && i % 5 === 1) { // box line
+    [[-4, 0, 16], [4, 26, 18], [-3, 54, 14], [3, 78, 20]].forEach(([x, o, len]) => f.parts.push({ type: "box", s0: genS + o, len, end: genS + o + len, B: 0.75, cx: x, hw: 1.9 }));
+    f.label = "Box line";
+  } else if (PARK && i % 5 === 3) { // down rail
+    f.rail = { s0: genS + 6, s1: genS + 56, x: 0 }; f.label = "Down rail"; f.endExtra = genS + 62;
+  } else if (PARK && i === 7) { // the one big line
+    const k = mkKicker(genS, 4, 0, 8.5, diff); f.parts.push(k); const rs0 = k.s0 + k.L + k.gap + k.Ll * 0.1; f.rail = { s0: rs0, s1: rs0 + k.Ll * 0.7, x: 0 };
+    const k2 = mkKicker(k.end + 26, 2, 0, 5.5, diff); f.parts.push(k2); f.label = "THE BIG LINE · mega air, rail, big air";
+  } else if (!PARK && (PEAK ? i % 4 === 1 : i % 6 === 1)) {
     const sd = rng() < 0.5 ? -1 : 1, a = mkHip(genS, sd, diff), b = mkHip(genS + 40, -sd, diff);
     f.parts.push(a, b); f.label = "Hip jumps · pick a side"; f.boost = { s0: genS - 22, s1: genS - 16, cx: 0, hw: 1.4 };
-  } else if (PEAK ? i % 4 === 2 : (i % 6 === 5 && Math.floor(i / 6) % 2 === 0 && !openTrail)) {
+  } else if (!PARK && (PEAK ? i % 4 === 2 : (i % 6 === 5 && Math.floor(i / 6) % 2 === 0 && !openTrail))) {
     const D = PEAK ? 11 + rng() * 9 : 9 + rng() * 7, cs = genS + 10, w = D * 0.3 + 1.2, last = cliffs[cliffs.length - 1];
     cliffs.push({ s: cs, D, w, pre: last ? last.pre + last.D : 0 });
     f.cliff = { s: cs, D, w }; f.label = "GIANT CLIFF · " + Math.round(D) + " m drop"; f.boost = { s0: genS - 24, s1: genS - 18, cx: 0, hw: 1.5, amt: 9 }; f.cliffEnd = cs + w + 44;
-  } else if (!PEAK && i % 6 === 5) {
+  } else if (!PEAK && !PARK && i % 6 === 5) {
     f.parts.push(mkKicker(genS, 4, 0, 8.5, diff)); f.label = "MEGA AIR · commit to it";
     f.boost = { s0: genS - 30, s1: genS - 23, cx: 0, hw: 1.7, amt: 18 };
     f.mainCx = 0;
-  } else if (!PEAK && i % 6 === 2) {
+  } else if (!PEAK && !PARK && i % 6 === 2) {
     houseSection(f, diff);
-  } else if (PEAK ? pick < 0.05 : (i % 6 === 3 || pick < 0.06)) {
+  } else if (PEAK || PARK ? pick < 0.05 : (i % 6 === 3 || pick < 0.06)) {
     f.parts.push(mkKicker(genS, 3, 0, PISTE - 1.5, diff)); f.label = "Gap jump · hold Shift for speed";
     f.boost = { s0: genS - 26, s1: genS - 20, cx: 0, hw: 1.6, amt: 12 };
   } else if (pick < 0.2) {
@@ -386,7 +409,7 @@ function addSection() {
   }
   f.boost = null; // no boost pads
   if (PEAK) f.rail = null;
-  f.end = f.cliff ? f.cliffEnd : Math.max(...f.parts.map(p => p.end), f.rail ? f.rail.s1 : 0);
+  f.end = f.cliff ? f.cliffEnd : Math.max(...f.parts.map(p => p.end), ...railsOf(f).map(r => r.s1), f.endExtra || 0);
   // plateau for the centre line and slope knots: curve and steepness change in the gap before this section
   const last = pcs[pcs.length - 1], px = i < 1 ? 0 : clamp(last.x + (rng() - 0.5) * 2 * Math.min(14, 0.35 * Math.max(8, f.s0 - 34 - last.b)), -30, 30);
   shiftSection(f, px);
@@ -395,7 +418,7 @@ function addSection() {
   else flankRocks(f);
   feats.push(f); regRocks(f);
   const a = f.s0 - 34, prevEnd = knots[knots.length - 1].s, gapLen = a - prevEnd;
-  if (i > 0 && gapLen > 20) { const v = (i % 6 === 3 || i % 6 === 5) ? 0.44 : [0.14, 0.2, 0.2, 0.36, 0.44, 0.5][Math.floor(rng() * 6)]; addKnot(prevEnd + gapLen * 0.3, v); addKnot(prevEnd + gapLen * 0.7, v); }
+  if (i > 0 && gapLen > 20) { const v = (PARK && i % 5 === 3) ? 0.5 : (i % 6 === 3 || i % 6 === 5) ? 0.44 : [0.14, 0.2, 0.2, 0.36, 0.44, 0.5][Math.floor(rng() * 6)]; addKnot(prevEnd + gapLen * 0.3, v); addKnot(prevEnd + gapLen * 0.7, v); }
   addKnot(a, BASE); addKnot(f.end + 10, BASE);
   pcs.push({ a, b: f.end + 10, x: px, jump: !f.cliff });
   if (i > 1 && rng() < (PEAK ? 0.9 : 0.45)) { const fast = secCount % 6 === 3 || secCount % 6 === 5, order = PEAK ? ["chute", "carve", "chute"] : ["carve", "chute", "cruiser"]; let k = order[interCount++ % 3]; if (fast && k === "cruiser") k = "chute"; pendingInterlude = k; genS = f.end + 44 + rng() * 10; }
@@ -425,6 +448,7 @@ function H_(x, s) {
     const k = idxIn(T.sec, s);
     if (k >= 0 && s <= T.sec[k].end) y += featOff(T.sec[k], x, s);
   }
+  if (PEAK && s < 200) y -= smooth((ax - 10) / 10) * 12 * (1 - smooth((s - 40) / 160));
   if (PEAK && s < 24) { const w = smooth((s + 16) / 6) * (1 - smooth((s - 10) / 12)) * (1 - smooth((Math.abs(x) - 10) / 6)); if (w > 0) y = lerp(y, baseY(4) + 0.44, w); }
   return y;
 }
@@ -529,7 +553,7 @@ function mkTrailSection(t, g, x) {
 }
 function closeTrail(t, f) { t.s1 = f.end + 44; t.closed = true; t.dirty = true; openTrail = null; }
 function handleTrail(f) {
-  if (PEAK) return;
+  if (PEAK || PARK) return;
   if (openTrail) { if (f.end >= openTrail.sTarget) closeTrail(openTrail, f); return; }
   const idx = f.idx;
   if (idx > 1 && idx % 6 < 2 && rng() < 0.8 && f.end + 950 < COURSE_END - 420) startTrail(f);
@@ -573,11 +597,12 @@ function boxAt(x, s) {
 /* =====================================================================
    PHYSICS
    ===================================================================== */
-const K = { left: 0, right: 0, up: 0, down: 0, spinL: 0, spinR: 0, grab: 0, focus: 0, boost: 0, brake: 0 };
+const K = { left: 0, right: 0, up: 0, down: 0, spinL: 0, spinR: 0, grab: 0, grabN: 0, grabI: 0, focus: 0, boost: 0, brake: 0 };
 let popReq = false;
 const GRABS = ["Mute", "Indy", "Tail", "Melon", "Nose", "Stalefish"];
-let focus = 1, timeScale = 1, mode = "title", score = 0, mult = 1, best = 0, rings = 0, boostPulse = 0, shake = 0, lastCheck = null;
-try { best = +localStorage.getItem("kicker-best3d") || 0; } catch (e) {}
+let comboT = 0, focus = 1, timeScale = 1, mode = "title", score = 0, mult = 1, best = 0, rings = 0, boostPulse = 0, shake = 0, lastCheck = null;
+best = store.get("kb-score-" + RES, 0);
+let bestTime = store.get("kb-time-" + RES, 0), ghostData = store.get("kb-ghost-" + RES, null), recP = [], recT = 0, endNewBest = false;
 let sk, runT = 0, endShown = false, stats = { tricks: 0, biggest: 0, wipes: 0, jumps: 0 };
 
 function newSkier(x, s, sp) {
@@ -601,15 +626,15 @@ function trickInfo() {
   const halves = Math.round(Math.abs(sk.spin) / Math.PI);
   if (halves > 0) names.push(halves * 180);
   const grab = sk.grabT > 0.3;
-  if (grab) names.push(GRABS[sk.jumpNo % GRABS.length] + " Grab");
+  if (grab) names.push((sk.grabKind || "Tail") + " Grab");
   return { flips, halves, grab, label: names.join(" + ") };
 }
 function payout(pts, label, perfect, isTrick, cork) {
-  pts = Math.round(pts / 10) * 10;
+  pts = Math.round(pts / 10) * 10; if (typeof prog !== "undefined") { prog.maxScore = Math.max(prog.maxScore, score + pts * mult); }
   const gain = pts * mult; score += gain;
   if (label) popup(label, "+" + gain.toLocaleString() + (mult > 1 ? "  ×" + mult : "") + (perfect ? "  · perfect landing" : "") + (cork ? "  · cork bonus" : ""));
-  if (isTrick) { mult = Math.min(mult + 1, 8); const m = $("mult"); m.classList.remove("bump"); void m.offsetWidth; m.classList.add("bump"); }
-  if (score > best) { best = score; try { localStorage.setItem("kicker-best3d", String(best)); } catch (e) {} }
+  if (isTrick) { comboT = 7; mult = Math.min(mult + 1, 8); const m = $("mult"); m.classList.remove("bump"); void m.offsetWidth; m.classList.add("bump"); }
+  if (score > best) { best = score; store.set("kb-score-" + RES, best); }
 }
 function landing(surfaceType, rail) {
   if (surfaceType !== "rail") {
@@ -640,7 +665,7 @@ function landing(surfaceType, rail) {
     const label = (tr.label || (sk.airT > 0.8 ? "Clean air" : "")) + (odd ? (tr.label ? " · " : "") + "Switch" : "");
     if (surfaceType !== "rail") {
       payout(pts, label, perfect, tr.flips || tr.halves || tr.grab, tr.flips && tr.halves);
-      stats.jumps++; if (tr.flips || tr.halves || tr.grab) stats.tricks++; stats.biggest = Math.max(stats.biggest, sk.airT);
+      stats.jumps++; if (tr.flips || tr.halves || tr.grab) { stats.tricks++; prog.tricks++; checkUnlocks(); } stats.biggest = Math.max(stats.biggest, sk.airT);
       if (tr.flips || tr.halves) focus = Math.min(1, focus + 0.2);
       if (tr.flips || tr.halves || tr.grab) sfx("chime", tr.flips + (tr.halves ? 1 : 0));
     } else sk.carry = { pts, label, trick: tr.flips || tr.halves || tr.grab };
@@ -664,12 +689,13 @@ function respawn() {
   const rs = f ? Math.max(12, f.s0 - 40) : inT ? T.s0 + 60 : 12;
   sk = newSkier(inT ? trailXc(T, rs) : f ? f.mainCx : 0, rs, 13); snapCam = true;
 }
-function restart() { score = 0; mult = 1; rings = 0; focus = 1; runT = 0; endShown = false; stats = { tricks: 0, biggest: 0, wipes: 0, jumps: 0 }; $("end").hidden = true; for (const f of feats) f.coins.forEach(c => c.got = false); for (const t of trails) for (const f of t.sec) f.coins.forEach(c => c.got = false); sk = newSkier(0, PEAK ? 3 : 10, PEAK ? 4 : 9); startHeli(); snapCam = true; $("pop").className = ""; }
+function restart() { recP = []; recT = 0; endNewBest = false; score = 0; mult = 1; rings = 0; focus = 1; runT = 0; endShown = false; stats = { tricks: 0, biggest: 0, wipes: 0, jumps: 0 }; $("end").hidden = true; for (const f of feats) f.coins.forEach(c => c.got = false); for (const t of trails) for (const f of t.sec) f.coins.forEach(c => c.got = false); sk = newSkier(0, PEAK ? 3 : 10, PEAK ? 4 : 9); startHeli(); snapCam = true; $("pop").className = ""; }
 
 const DT = 1 / 120;
 function step(dt) {
   if (mode !== "play") return;
-  if (!sk.finished) runT += dt;
+  if (!sk.finished) { runT += dt; recT += dt; if (recT >= 0.1) { recT -= 0.1; recP.push(+sk.x.toFixed(2), +sk.y.toFixed(2), +sk.s.toFixed(2)); } }
+  if (mult > 1 && !sk.air && !sk.grind) { comboT -= dt; if (comboT <= 0) { mult = 1; comboT = 0; } }
   sk.boostCd = Math.max(0, sk.boostCd - dt); sk.pumpT = Math.max(0, sk.pumpT - dt); sk.landT = Math.max(0, sk.landT - dt); sk.popT = Math.max(0, sk.popT - dt);
   if (sk.crashed) {
     sk.crashT += dt;
@@ -704,6 +730,7 @@ function step(dt) {
         const base = sk.carry ? sk.carry.pts : 0, lab = (sk.carry && sk.carry.label ? sk.carry.label + " → " : "") + (railSpins ? "Rail spin" : "Rail grind");
         payout(pts + base, lab, false, wasGood || (sk.carry && sk.carry.trick));
         if (wasGood) sfx("chime", 2);
+        prog.rails++; checkUnlocks();
         sk.carry = null; sk.grind = null; sk.grindT = 0; sk.railNet = 0; sk.railOn = false;
       }
     } else {
@@ -770,7 +797,7 @@ function step(dt) {
     if (spinIn) sk.spinV += clamp(spinIn * 9 - sk.spinV, -60 * dt, 60 * dt);
     else { sk.spinV *= Math.exp(-5 * dt); const tgt = Math.round(sk.spin / Math.PI) * Math.PI; sk.spin += (tgt - sk.spin) * Math.min(1, 4 * dt); }
     sk.spin += sk.spinV * dt;
-    if (K.grab) sk.grabT += dt;
+    if (K.grab || K.grabN || K.grabI) { sk.grabT += dt; sk.grabKind = K.grab ? "Tail" : K.grabN ? "Nose" : "Indy"; }
     // air steering rotates the velocity a little
     const ang = steer * 0.7 * dt, ca = Math.cos(ang), sa = Math.sin(ang), nvx = sk.vx * ca + sk.vs * sa, nvs = -sk.vx * sa + sk.vs * ca;
     sk.vx = nvx; sk.vs = nvs; sk.psi += ang;
@@ -781,25 +808,25 @@ function step(dt) {
       if (co.got) continue;
       if (Math.abs(co.s - sk.s) < 1.7 && Math.abs(co.x - sk.x) < 1.7 && Math.abs(co.y - (sk.y + 0.9)) < 1.7) {
         co.got = true; rings++; const pts = 100 * mult; score += pts; sfx("coin", Math.min(8, rings % 9)); coinHit(0, co);
-        if (score > best) { best = score; try { localStorage.setItem("kicker-best3d", String(best)); } catch (e) {} }
+        if (score > best) { best = score; store.set("kb-score-" + RES, best); }
       }
     }
     // rails
     let railHit = null;
-    for (const f of nearSecs) if (f.rail && sk.vy <= 1 && sk.s >= f.rail.s0 && sk.s <= f.rail.s1 && Math.abs(sk.x - f.rail.x) < 0.95 && sk.y <= H(sk.x, sk.s) + RAIL_H + 0.08) railHit = f.rail;
+    for (const f of nearSecs) for (const rl of railsOf(f)) if (sk.vy <= 1 && sk.s >= rl.s0 && sk.s <= rl.s1 && Math.abs(sk.x - rl.x) < 0.95 && sk.y <= H(sk.x, sk.s) + RAIL_H + 0.08) railHit = rl;
     if (railHit) {
       sk.y = H(sk.x, sk.s) + RAIL_H; landing("rail", railHit);
     } else if (sk.y <= H(sk.x, sk.s)) { sk.y = H(sk.x, sk.s); landing("ground"); }
     else if (rockHit(sk.x, sk.y, sk.s)) crash("Hit a rock");
   }
   popReq = false;
-  if (!sk.finished && !sk.crashed && !sk.air && sk.s >= COURSE_END) { sk.finished = true; sk.finT = 0; popup("Finish!", "Time " + fmtTime(runT)); sfx("chime", 3); }
+  if (!sk.finished && !sk.crashed && !sk.air && sk.s >= COURSE_END) { sk.finished = true; onFinish(); sk.finT = 0; popup("Finish!", "Time " + fmtTime(runT)); sfx("chime", 3); }
   if (sk.finished) { sk.finT += dt; if (sk.finT > 1.8 && !endShown) showEnd(); }
 }
 function fmtTime(t) { const m = Math.floor(t / 60), sec = Math.floor(t % 60); return m + ":" + (sec < 10 ? "0" : "") + sec; }
 function showEnd() {
   endShown = true;
-  const rows = [["Time", fmtTime(runT)], ["Score", Math.round(score).toLocaleString()], ["Best score", Math.round(best).toLocaleString()], ["Tricks landed", stats.tricks + " of " + stats.jumps + " jumps"], ["Biggest air", stats.biggest.toFixed(1) + " s"], ["Wipeouts", stats.wipes]];
+  const rows = [["Time", fmtTime(runT)], ["Score", Math.round(score).toLocaleString()], ["Best score", Math.round(best).toLocaleString()], ["Best time", (endNewBest ? "New best · " : "") + fmtTime(bestTime)], ["Tricks landed", stats.tricks + " of " + stats.jumps + " jumps"], ["Biggest air", stats.biggest.toFixed(1) + " s"], ["Wipeouts", stats.wipes]];
   $("endstats").innerHTML = rows.map(r => "<dt>" + r[0] + "</dt><dd>" + r[1] + "</dd>").join("");
   $("end").hidden = false;
 }
@@ -999,13 +1026,44 @@ const OUTFIT_OPTS = {
   jacket: { trench: "Black trench coat", vest: "Grey vest, white long sleeve", santa: "Red Santa coat" },
   skis: { black: "Black wider skis", purple: "Purple skis", current: "Current skis", red: "Red skis", pink: "Pink skis" },
   song: { off: "No music", hypa: "Hypa · Silva Bumpa", yosemite: "Yosemite · KETTAMA", think: "Think of You · KETTAMA & Prospa", fly: "Fly Away XTC · KETTAMA", nite: "On 2nite · Silva Bumpa", doin: "Doin' it ft. MC DT · Silva Bumpa", youtube: "My YouTube link" },
+  gfx: { auto: "Auto", low: "Low", med: "Medium", high: "High" },
   accessory: { scarf: "Scarf", ninja: "Ninja headband", cape: "Cape", phones: "Headphones" },
   pants: { santa: "Red Santa pants", suit: "Black suit pants", shorts: "Grey shorts", blue: "Blue pants", khaki: "Khakis" }
 };
 const JACKETS = { trench: { j: 0x15171b, t: 0x0c0d10, arm: 0x15171b, cuff: 0x0c0d10, sc: [0x7a1f26, 0x2a2a2e] }, vest: { j: 0x80868e, t: 0x5d636b, arm: 0xf2f3f5, cuff: 0xe4e6ea, sc: [0xf2f3f5, 0x80868e] }, santa: { j: 0xc4161c, t: 0xf6f6f2, arm: 0xc4161c, cuff: 0xf6f6f2, sc: [0xf6f6f2, 0xc4161c] } };
 const PANTS = { santa: [0xc4161c, 0xc4161c], suit: [0x17191e, 0x17191e], shorts: [0x7d838b, -1], blue: [0x2f5fa8, 0x2f5fa8], khaki: [0xb59f72, 0xb59f72] };
-let outfit = { helmet: "redbull", jacket: "vest", pants: "blue", accessory: "scarf", skis: "current", song: "off", yt: "" };
+let outfit = { helmet: "redbull", jacket: "vest", pants: "blue", accessory: "scarf", skis: "current", song: "off", yt: "", gfx: "auto" };
 try { const o = JSON.parse(localStorage.getItem("kickerOutfit") || "null"); if (o) { for (const k in outfit) if (OUTFIT_OPTS[k] && OUTFIT_OPTS[k][o[k]]) outfit[k] = o[k]; if (typeof o.yt === "string") outfit.yt = o.yt; } } catch (e) { }
+/* progress: unlockable outfit pieces */
+const DEFAULT_OUTFIT = { helmet: "redbull", jacket: "vest", pants: "blue", accessory: "scarf", skis: "current" };
+const UNLOCK = {
+  "helmet.frog": ["Finish any resort", p => p.fin.length >= 1],
+  "helmet.santa": ["Finish Couloir Peak", p => p.fin.includes("peak")],
+  "jacket.trench": ["Score 5,000 in one run", p => p.maxScore >= 5000],
+  "jacket.santa": ["Finish Evergreen Run", p => p.fin.includes("alpine")],
+  "pants.suit": ["Finish Kicker Park", p => p.fin.includes("park")],
+  "pants.santa": ["Finish Evergreen Run", p => p.fin.includes("alpine")],
+  "accessory.ninja": ["Grind 25 rails", p => p.rails >= 25],
+  "accessory.cape": ["Score 15,000 in one run", p => p.maxScore >= 15000],
+  "skis.purple": ["Finish 2 resorts", p => p.fin.length >= 2],
+  "skis.pink": ["Land 40 tricks", p => p.tricks >= 40],
+  "skis.black": ["Finish all 3 resorts", p => p.fin.length >= 3]
+};
+let prog = store.get("kickerProg", null);
+if (!prog) { prog = { fin: [], tricks: 0, rails: 0, maxScore: 0, unlocked: [] }; for (const k in DEFAULT_OUTFIT) if (OUTFIT_OPTS[k][outfit[k]]) prog.unlocked.push(k + "." + outfit[k]); store.set("kickerProg", prog); }
+const isUnlocked = (cat, key) => { const u = UNLOCK[cat + "." + key]; return !u || prog.unlocked.includes(cat + "." + key) || u[1](prog); };
+for (const k in DEFAULT_OUTFIT) if (!isUnlocked(k, outfit[k])) outfit[k] = DEFAULT_OUTFIT[k];
+const saveProg = () => store.set("kickerProg", prog);
+function checkUnlocks() {
+  for (const id in UNLOCK) if (!prog.unlocked.includes(id) && UNLOCK[id][1](prog)) { prog.unlocked.push(id); const [cat, key] = id.split("."); setTimeout(() => popup("Unlocked!", OUTFIT_OPTS[cat][key] + " · pause menu"), 1200); }
+  saveProg();
+}
+function onFinish() {
+  const t = runT; endNewBest = false;
+  if (!bestTime || t < bestTime) { bestTime = t; endNewBest = true; store.set("kb-time-" + RES, t); ghostData = { p: recP.slice() }; store.set("kb-ghost-" + RES, ghostData); }
+  if (!prog.fin.includes(RES)) prog.fin.push(RES);
+  prog.maxScore = Math.max(prog.maxScore, score); checkUnlocks();
+}
 function applyOutfit(R) {
   if (!R) return; const m = R.mats, J = JACKETS[outfit.jacket], P = PANTS[outfit.pants], h = outfit.helmet;
   m.jacket.color.setHex(J.j); m.jacket2.color.setHex(J.t); m.jacketArm.color.setHex(J.arm); m.cuffM.color.setHex(J.cuff);
@@ -1034,10 +1092,11 @@ function buildSkier() {
   const add = (geo, m, x, y, z, parent) => { const mm = new THREE.Mesh(geo, m); mm.position.set(x, y, z); (parent || rig).add(mm); return mm; };
   const limb = (r0, r1, len, m) => { const g = new THREE.CylinderGeometry(r0, r1, len, 16); g.translate(0, -len / 2, 0); return new THREE.Mesh(g, m); };
   // skis, bindings, boots
-  const skiG = [], tailM = [];
+  const skiG = [], tailM = [], noseM = [], midM = [];
   [-0.13, 0.13].forEach(x => {
     const sg = new THREE.Group(); sg.position.set(x, 0.2, 0.06); sg.rotation.order = "YXZ"; rig.add(sg); const ig = new THREE.Group(); ig.position.set(-x, -0.2, -0.06); sg.add(ig);
     const tm = new THREE.Object3D(); tm.position.set(x, 0.05, 0.78); ig.add(tm); skiG.push(sg); tailM.push(tm);
+    const nm = new THREE.Object3D(); nm.position.set(x, 0.05, -0.84); ig.add(nm); noseM.push(nm); const mm2 = new THREE.Object3D(); mm2.position.set(x, 0.06, -0.05); ig.add(mm2); midM.push(mm2);
     const addS = (g, m, px, py, pz) => add(g, m, px, py, pz, ig);
     addS(new THREE.BoxGeometry(0.095, 0.02, 1.4), skiM, x, 0.03, 0.05);
     const t1 = addS(new THREE.BoxGeometry(0.095, 0.02, 0.24), skiM, x, 0.052, -0.78); t1.rotation.x = 0.26;
@@ -1154,7 +1213,7 @@ function buildSkier() {
     arms.push({ sh, el, pole, pole_v: new THREE.Vector3(sd * 0.7, -0.3, 0.8).normalize(), sd });
   });
   const skiMeshes = []; skiG.forEach(g => g.traverse(o => { if (o.isMesh && o.material === skiM) skiMeshes.push(o); }));
-  return { skiM, skiTexes, skiMeshes, acc, ninjaTails, capeGeo, capeBase, cuffs, skiG, tailM, mats: { jacket, jacket2, jacketArm, cuffM, pants, pantsLow, helmet, stripeM, skin, scarfMat }, helmetG, hats, ex, root, pivot, rig, legs, hipG, torso, head, arms, scarf, pose: { c: 0.3, lean: 0.2, carve: 0, L: new THREE.Vector3(-0.36, 0.92, -0.3), Rh: new THREE.Vector3(0.36, 0.92, -0.3), headY: 0 }, a, b };
+  return { noseM, midM, skiM, skiTexes, skiMeshes, acc, ninjaTails, capeGeo, capeBase, cuffs, skiG, tailM, mats: { jacket, jacket2, jacketArm, cuffM, pants, pantsLow, helmet, stripeM, skin, scarfMat }, helmetG, hats, ex, root, pivot, rig, legs, hipG, torso, head, arms, scarf, pose: { c: 0.3, lean: 0.2, carve: 0, L: new THREE.Vector3(-0.36, 0.92, -0.3), Rh: new THREE.Vector3(0.36, 0.92, -0.3), headY: 0 }, a, b };
 }
 
 const _tv = typeof THREE !== "undefined" ? new THREE.Vector3() : null;
@@ -1175,12 +1234,14 @@ function ikArm(arm, tgt) { // two-bone arm IK in torso space, hand reaches tgt
 // where each grab puts a hand, in rig space (x right, y up, z back); arm = which hand
 const GRAB_POSE = [{ arm: 0, t: [0.12, 0.12, -0.3] }, { arm: 1, t: [0.1, 0.12, -0.12] }, { arm: 1, t: [0.16, 0.12, 0.5] }, { arm: 0, t: [-0.26, 0.12, 0.15] }, { arm: 0, t: [-0.14, 0.16, -0.6] }, { arm: 1, t: [-0.1, 0.12, 0.32] }];
 
+const GRAB_P = { tail: { ay: 0.64, az: 0.3, hy: 0.9, pitch: -1.15, cross: 0.5 }, nose: { ay: 0.6, az: -0.22, hy: 0.92, pitch: 1.0, cross: 0.4 }, indy: { ay: 0.42, az: 0.04, hy: 0.8, pitch: -0.05, cross: 0 } };
 function poseSkier(dt, time) {
   const R = skierRig, p = R.pose, air = sk.air;
-  const flipping = air && Math.abs(sk.rotV) > 2.5, grab = air && K.grab && !sk.crashed, tuck = !air && (K.down || K.boost) && !sk.grind && !sk.crashed;
+  const flipping = air && Math.abs(sk.rotV) > 2.5, gk = air && !sk.crashed ? (K.grab ? "tail" : K.grabN ? "nose" : K.grabI ? "indy" : null) : null, grab = !!gk, tuck = !air && (K.down || K.boost) && !sk.grind && !sk.crashed;
   const sliding = sk.grind || sk.boxT > 0.15;
   const tailT = [0.3, 1.1, 0.55];
-  if (grab) { R.rig.updateMatrixWorld(true); R.tailM[0].getWorldPosition(_tv); R.rig.worldToLocal(_tv); tailT[0] = _tv.x; tailT[1] = _tv.y + 0.02; tailT[2] = _tv.z; }
+  if (gk) p.kind = gk;
+  if (grab) { R.rig.updateMatrixWorld(true); (p.kind === "nose" ? R.noseM[1] : p.kind === "indy" ? R.midM[0] : R.tailM[0]).getWorldPosition(_tv); R.rig.worldToLocal(_tv); tailT[0] = _tv.x; tailT[1] = _tv.y + 0.02; tailT[2] = _tv.z; }
   let c = 0.3, lean = 0.2, L = [-0.36, 0.92, -0.3], Rt = [0.36, 0.92, -0.3], poleThrust = 0;
   const carve = sk.carve * Math.abs(sk.turn), tn = Math.sign(sk.turn);
   if (sk.crashed) { c = 0.4; lean = 0.2; const w = Math.sin(time * 16); L = [-0.75, 1.45 + w * 0.2, 0.1]; Rt = [0.75, 1.45 - w * 0.2, 0.1]; }
@@ -1211,14 +1272,14 @@ function poseSkier(dt, time) {
   p.L.x += (L[0] - p.L.x) * kh; p.L.y += (L[1] - p.L.y) * kh; p.L.z += (L[2] - p.L.z) * kh;
   p.Rh.x += (Rt[0] - p.Rh.x) * kh; p.Rh.y += (Rt[1] - p.Rh.y) * kh; p.Rh.z += (Rt[2] - p.Rh.z) * kh;
   // legs: two-bone IK, feet stay on the skis; tail grab swings the feet up and back, skis crossed
-  p.tg = (p.tg || 0) + ((grab ? 1 : 0) - (p.tg || 0)) * Math.min(1, 12 * dt); const tg = p.tg;
-  const dh = (R.a + R.b) * (0.97 - 0.42 * clamp(p.c, -0.2, 1.1)), foot = 0.26, ankY = lerp(foot, 0.64, tg), ankZ = 0.3 * tg, hipY = lerp(foot + dh, 0.9, tg);
+  p.tg = (p.tg || 0) + ((grab ? 1 : 0) - (p.tg || 0)) * Math.min(1, 12 * dt); const tg = p.tg, GP = GRAB_P[p.kind || "tail"];
+  const dh = (R.a + R.b) * (0.97 - 0.42 * clamp(p.c, -0.2, 1.1)), foot = 0.26, ankY = lerp(foot, GP.ay, tg), ankZ = GP.az * tg, hipY = lerp(foot + dh, GP.hy, tg);
   const ddy = hipY - ankY, dist = Math.min(Math.hypot(ddy, ankZ), R.a + R.b - 0.005), phi = Math.atan2(ankZ, ddy);
   const cosA = clamp((R.a * R.a + dist * dist - R.b * R.b) / (2 * R.a * dist), -1, 1), th = Math.acos(cosA), t1 = th - phi;
   const kf = R.a * Math.sin(t1), t2 = Math.atan2(-ankZ - kf, R.a * Math.cos(t1) - ddy);
   const inside = p.carve * tn * 0.07; // hips drop toward the inside of a carve
   R.legs.forEach(l => { l.hip.position.set(l.x - inside, hipY, 0.04); l.hip.rotation.x = t1; l.hip.rotation.z = -tn * p.carve * 0.12; l.knee.rotation.x = t2 - t1; });
-  R.skiG.forEach((sg, i) => { sg.position.set(sg.position.x, 0.2 + (ankY - foot), 0.06 + ankZ); sg.rotation.x = -1.15 * tg; sg.rotation.y = (i ? -1 : 1) * 0.5 * tg; });
+  R.skiG.forEach((sg, i) => { sg.position.set(sg.position.x, 0.2 + (ankY - foot), 0.06 + ankZ); sg.rotation.x = GP.pitch * tg; sg.rotation.y = (i ? -1 : 1) * GP.cross * tg; });
   R.hipG.position.set(-inside, hipY + 0.02, 0.04 + 0.04 * p.c); R.hipG.updateMatrix();
   R.torso.rotation.y = air ? 0 : -tn * p.carve * 0.28 - sk.turn * 0.06; R.torso.rotation.x = -p.lean; R.torso.rotation.z = tn * p.carve * 0.16 + (air ? 0 : 0); R.torso.scale.y = 1 + 0.006 * Math.sin(time * 3.2);
   R.torso.updateMatrix();
@@ -1381,7 +1442,7 @@ function buildChunk(ci) {
   g.setAttribute("position", new THREE.BufferAttribute(pos, 3)); g.setAttribute("color", new THREE.BufferAttribute(col, 3)); g.setAttribute("uv", new THREE.BufferAttribute(uvs, 2)); g.setIndex(new THREE.BufferAttribute(idxFor(nx), 1));
   g.computeVertexNormals();
   { const nn = g.attributes.normal.array, cc = g.attributes.color.array;
-    for (let v = 0; v < nx * ns; v++) { const ny = nn[v * 3 + 1], st = clamp((0.8 - ny) / 0.28, 0, 1); if (wallV[v]) { if (ny > 0.72) { cc[v * 3] = 0.96; cc[v * 3 + 1] = 0.97; cc[v * 3 + 2] = 1.0; } } else if (st > 0) { const hh = hash(pos[v * 3] * 2.3 + pos[v * 3 + 2] * 1.9) * 0.1, k = Math.min(1, st * 1.15) * (PEAK ? clamp((hash(Math.floor(pos[v * 3] * 0.7) * 7.1 + Math.floor(pos[v * 3 + 2] * 0.7) * 3.3) - 0.45) * 4, 0, 1) : 1); cc[v * 3] = lerp(cc[v * 3], 0.42 + hh, k); cc[v * 3 + 1] = lerp(cc[v * 3 + 1], 0.4 + hh, k); cc[v * 3 + 2] = lerp(cc[v * 3 + 2], 0.45 + hh, k); } } }
+    for (let v = 0; v < nx * ns; v++) { const ny = nn[v * 3 + 1], st = clamp((0.8 - ny) / 0.28, 0, 1); if (wallV[v]) { if (ny > 0.72) { cc[v * 3] = 0.96; cc[v * 3 + 1] = 0.97; cc[v * 3 + 2] = 1.0; } } else if (st > 0) { const hh = hash(pos[v * 3] * 2.3 + pos[v * 3 + 2] * 1.9) * 0.1, k = Math.min(1, st * 1.15) * (PEAK ? (ny < 0.62 ? 1 : clamp((hash(Math.floor(pos[v * 3] * 0.7) * 7.1 + Math.floor(pos[v * 3 + 2] * 0.7) * 3.3) - 0.45) * 4, 0, 1)) : 1); cc[v * 3] = lerp(cc[v * 3], 0.42 + hh, k); cc[v * 3 + 1] = lerp(cc[v * 3 + 1], 0.4 + hh, k); cc[v * 3 + 2] = lerp(cc[v * 3 + 2], 0.45 + hh, k); } } }
   const grp = new THREE.Group();
   const tm = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ vertexColors: true, map: PEAK ? null : snowTex(), bumpMap: PEAK ? bumpTexNat() : bumpTex(), bumpScale: PEAK ? 0.3 : 0.5, roughness: 0.9, metalness: 0, envMapIntensity: 0.35 })); tm.receiveShadow = true; grp.add(tm);
   const inCorr = (px, ps) => { if (PEAK) return true; const T = trailFor(ps); return T && Math.abs(px - trailXc(T, ps)) < T.hw + 3; };
@@ -1549,8 +1610,8 @@ function buildFeature(f) {
     const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx);
     grp.add(new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: chevronTex(), transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 })));
   }
-  if (f.rail) {
-    const r = f.rail, rm = new THREE.MeshLambertMaterial({ color: 0xffb300, flatShading: true }), pm = new THREE.MeshLambertMaterial({ color: 0x13222f });
+  for (const r of railsOf(f)) {
+    const rm = new THREE.MeshLambertMaterial({ color: 0xffb300, flatShading: true }), pm = new THREE.MeshLambertMaterial({ color: 0x13222f });
     const segs = Math.ceil((r.s1 - r.s0) / 1.2);
     for (let i = 0; i < segs; i++) {
       const sa = r.s0 + i * 1.2, sb = Math.min(r.s1, sa + 1.2), pa = new THREE.Vector3(r.x, H(r.x, sa) + RAIL_H, -sa), pb = new THREE.Vector3(r.x, H(r.x, sb) + RAIL_H, -sb);
@@ -1609,6 +1670,13 @@ function buildStartHut() {
   return g;
 }
 
+function buildFinishPeak() { // a line painted in the snow on the valley floor
+  const g = new THREE.Group(), px = pc(COURSE_END), pos = [], idx = [], n = 36;
+  for (let i = 0; i <= n; i++) { const x = px - 36 + 72 * i / n; [0, 1.6].forEach(ds => pos.push(x, H(x, COURSE_END + ds) + 0.07, -(COURSE_END + ds))); }
+  for (let i = 0; i < n; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(idx);
+  g.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0x24429a, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }))); return g;
+}
 function buildFinish() {
   const g = new THREE.Group(), px = pc(COURSE_END), pm = LM(0x2a3038);
   [-1, 1].forEach(sd => { const x = px + sd * (PISTE - 1), y = H(x, COURSE_END), p = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.28, 9, 10), pm); p.position.set(x, y + 4.5, -COURSE_END); p.castShadow = true; g.add(p); });
@@ -1624,7 +1692,7 @@ function buildFinish() {
 }
 function manageWorld() {
   if (PEAK && !startHut) { startHut = buildStartHut(); scene.add(startHut); }
-  if (sk.s > COURSE_END - 450 && !finishMesh && !PEAK) { finishMesh = buildFinish(); scene.add(finishMesh); }
+  if (sk.s > COURSE_END - 450 && !finishMesh) { finishMesh = PEAK ? buildFinishPeak() : buildFinish(); scene.add(finishMesh); }
   const cmin = Math.floor((sk.s - 90) / CH), cmax = Math.floor((sk.s + 360) / CH);
   for (let ci = cmin; ci <= cmax; ci++) if (ci >= 0 && !chunks.has(ci)) { const g = buildChunk(ci); chunks.set(ci, g); scene.add(g); }
   for (const [ci, g] of chunks) if (ci < cmin - 1 || ci > cmax + 1) { scene.remove(g); g.traverse(o => { if (o.geometry) o.geometry.dispose(); }); chunks.delete(ci); }
@@ -1672,6 +1740,22 @@ function buildHeli() {
   m(new THREE.BoxGeometry(0.05, 1.0, 1.5), dk, 1.45, 0.05, 0.3); // open side door
   g.traverse(o => { if (o.isMesh) o.castShadow = true; });
   return g;
+}
+let ghostMesh = null;
+function updateGhost() {
+  if (!ghostData || !ghostData.p || ghostData.p.length < 6 || mode !== "play" || sk.finished) { if (ghostMesh) ghostMesh.visible = false; return; }
+  if (!ghostMesh) {
+    ghostMesh = new THREE.Group(); ghostMesh.rotation.order = "YXZ";
+    const gm = new THREE.MeshBasicMaterial({ color: 0x7fe9ff, transparent: true, opacity: 0.4, depthWrite: false });
+    const add = (geo, x, y, z) => { const m = new THREE.Mesh(geo, gm); m.position.set(x, y, z); ghostMesh.add(m); };
+    add(new THREE.BoxGeometry(0.4, 0.62, 0.24), 0, 1.0, 0); add(new THREE.SphereGeometry(0.13, 10, 8), 0, 1.5, 0); add(new THREE.BoxGeometry(0.3, 0.62, 0.2), 0, 0.5, 0.05);
+    [-0.13, 0.13].forEach(x => add(new THREE.BoxGeometry(0.09, 0.03, 1.4), x, 0.04, 0.05)); scene.add(ghostMesh);
+  }
+  const P = ghostData.p, n = P.length / 3, f = Math.min(runT / 0.1, n - 1), i0 = Math.floor(f), i1 = Math.min(n - 1, i0 + 1), u = f - i0;
+  ghostMesh.visible = true;
+  ghostMesh.position.set(lerp(P[i0 * 3], P[i1 * 3], u), lerp(P[i0 * 3 + 1], P[i1 * 3 + 1], u), -lerp(P[i0 * 3 + 2], P[i1 * 3 + 2], u));
+  const dx = P[i1 * 3] - P[i0 * 3], ds = P[i1 * 3 + 2] - P[i0 * 3 + 2], dy = P[i1 * 3 + 1] - P[i0 * 3 + 1], hv = Math.hypot(dx, ds);
+  if (hv > 0.02) { ghostMesh.rotation.y = -Math.atan2(dx, ds); ghostMesh.rotation.x = Math.atan2(dy, hv); }
 }
 function updateHeli(dt) {
   if (PEAK) return;
@@ -1731,7 +1815,7 @@ function updateCamera(dt) {
 const _n = typeof THREE !== "undefined" ? new THREE.Vector3() : null, _q = typeof THREE !== "undefined" ? new THREE.Quaternion() : null, _z = typeof THREE !== "undefined" ? new THREE.Vector3(0, 0, 1) : null;
 function render(dt, time) {
   if (!renderer) return;
-  manageWorld(); updateHeli(dt);
+  manageWorld(); updateHeli(dt); updateGhost();
   poseSkier(dt, time);
   const R = skierRig;
   R.root.position.set(sk.x, sk.y, -sk.s);
@@ -1793,11 +1877,13 @@ function render(dt, time) {
 let qLevel = 0, qAcc = 0, qN = 0, qWait = 90;
 function setQuality(l) {
   qLevel = l; const base = Math.min(window.devicePixelRatio || 1, 1.25);
-  renderer.setPixelRatio(l >= 3 ? 0.7 : l >= 1 ? Math.min(base, 1) : base);
+  renderer.setPixelRatio(l >= 3 ? 0.7 : l >= 1 ? Math.min(base, 1) : l < 0 ? Math.min(window.devicePixelRatio || 1, 2) : base);
   if (scene.userData.sun) scene.userData.sun.castShadow = l < 2;
   resize();
 }
+function applyGfx() { if (!renderer) return; const m = outfit.gfx; qWait = 90; setQuality(m === "low" ? 3 : m === "med" ? 1 : m === "high" ? -1 : 0); }
 function watchFps(dt) {
+  if (outfit.gfx !== "auto") return;
   if (!renderer || mode !== "play" || paused) { qAcc = 0; qN = 0; return; }
   if (qWait > 0) { qWait--; return; }
   qAcc += dt; qN++;
@@ -1826,6 +1912,8 @@ function frame(now) {
   audioUpdate();
   const sp = Math.round((sk.air ? Math.hypot(sk.vx, sk.vs) : sk.sp) * 3.6);
   const fe = $("focus"), fw = Math.round(focus * 100) + "%"; if (shown.focusw !== fw) { shown.focusw = fw; fe.style.width = fw; }
+  { const cw = mult > 1 ? clamp(comboT / 7 * 100, 0, 100).toFixed(0) + "%" : "0%"; if (shown.cw !== cw) { shown.cw = cw; $("combofill").style.width = cw; } }
+  setText("btime", bestTime ? fmtTime(bestTime) : "–");
   setText("score", Math.round(score).toLocaleString()); setText("mult", "×" + mult); setText("spd", sp);
   setText("dist", clamp(Math.round(sk.s - 10), 0, COURSE_END - 10)); setText("clock", fmtTime(runT));
   { const pw = clamp((sk.s - 10) / (COURSE_END - 10) * 100, 0, 100).toFixed(1) + "%"; if (shown.pw !== pw) { shown.pw = pw; $("progbar").style.width = pw; } } setText("best", Math.round(best).toLocaleString());
@@ -1833,7 +1921,7 @@ function frame(now) {
   if (mode === "play" && ni && ni.s - sk.s < 170 && !sk.air) { nx.hidden = false; setText("next", ni.label + " · " + Math.max(0, Math.round(ni.s - sk.s)) + " m"); } else nx.hidden = true;
   requestAnimationFrame(frame);
 $("dtot").textContent = COURSE_END;
-if (location.hash === "#peak" || location.hash === "#alpine") { begin(); if (PEAK) setTimeout(() => popup("Couloir Peak", "Open faces · chutes · cliffs"), 500); }
+if (location.hash === "#peak" || location.hash === "#alpine" || location.hash === "#park") { begin(); if (PEAK) setTimeout(() => popup("Couloir Peak", "Open faces · chutes · cliffs"), 500); if (PARK) setTimeout(() => popup("Kicker Park", "Rails · boxes · one big line"), 500); }
 }
 function nextInfo() {
   let best = null;
@@ -1853,11 +1941,12 @@ function setPaused(v) {
 }
 function buildPauseUI() {
   const box = $("opts"); box.textContent = "";
-  for (const cat of ["helmet", "jacket", "pants", "accessory", "skis", "song"]) {
-    const h = document.createElement("h3"); h.textContent = cat === "helmet" ? "Helmet" : cat === "jacket" ? "Jacket" : cat === "pants" ? "Pants" : cat === "accessory" ? "Accessory" : cat === "skis" ? "Skis" : "Song"; box.appendChild(h);
+  for (const cat of ["gfx", "helmet", "jacket", "pants", "accessory", "skis", "song"]) {
+    const h = document.createElement("h3"); h.textContent = cat === "helmet" ? "Helmet" : cat === "jacket" ? "Jacket" : cat === "pants" ? "Pants" : cat === "accessory" ? "Accessory" : cat === "skis" ? "Skis" : cat === "gfx" ? "Graphics quality" : "Song"; box.appendChild(h);
     for (const key in OUTFIT_OPTS[cat]) {
       const b = document.createElement("button"); b.type = "button"; b.className = "opt" + (outfit[cat] === key ? " on" : ""); b.textContent = OUTFIT_OPTS[cat][key];
-      b.onclick = () => { outfit[cat] = key; if (cat === "song") setSong(); try { localStorage.setItem("kickerOutfit", JSON.stringify(outfit)); } catch (e) { } applyOutfit(skierRig); buildPauseUI(); };
+      if (!isUnlocked(cat, key)) { b.className = "opt locked"; b.disabled = true; b.textContent = OUTFIT_OPTS[cat][key] + " · locked: " + UNLOCK[cat + "." + key][0]; }
+      b.onclick = () => { outfit[cat] = key; if (cat === "song") setSong(); if (cat === "gfx") applyGfx(); try { localStorage.setItem("kickerOutfit", JSON.stringify(outfit)); } catch (e) { } applyOutfit(skierRig); buildPauseUI(); };
       box.appendChild(b);
     }
     if (cat === "song") {
@@ -1886,10 +1975,10 @@ setSong();
 buildPauseUI();
 $("pausebtn").onclick = () => { $("pausebtn").blur(); setPaused(true); };
 $("resume").onclick = () => setPaused(false);
-$("resortname").textContent = PEAK ? "Couloir Peak" : "Evergreen Run";
-$("globe").onclick = () => { $("globe").blur(); location.hash = PEAK ? "#alpine" : "#peak"; location.reload(); };
+$("resortname").textContent = RESORT_NAMES[RES];
+$("globe").onclick = () => { $("globe").blur(); location.hash = PEAK ? "#park" : PARK ? "#alpine" : "#peak"; location.reload(); };
 function begin() { audioInit(); $("intro").hidden = true; if (mode !== "play") { mode = "play"; restart(); } }
-const MAP = { ArrowLeft: "left", a: "left", A: "left", ArrowRight: "right", d: "right", D: "right", ArrowUp: "up", w: "up", W: "up", ArrowDown: "down", s: "down", S: "down", q: "spinL", Q: "spinL", e: "spinR", E: "spinR", " ": "grab", Shift: "boost", f: "focus", F: "focus", j: "brake", J: "brake" };
+const MAP = { ArrowLeft: "left", a: "left", A: "left", ArrowRight: "right", d: "right", D: "right", ArrowUp: "up", w: "up", W: "up", ArrowDown: "down", s: "down", S: "down", q: "spinL", Q: "spinL", e: "spinR", E: "spinR", " ": "grab", Shift: "boost", f: "focus", F: "focus", j: "brake", J: "brake", x: "grabN", X: "grabN", c: "grabI", C: "grabI" };
 addEventListener("keydown", e => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   if (mode === "play" && (e.key === "p" || e.key === "P" || e.key === "Escape")) { e.preventDefault(); setPaused(!paused); return; }
@@ -1923,6 +2012,7 @@ new ResizeObserver(resize).observe(cv);
 
 sk = newSkier(0, PEAK ? 3 : 10, 0);
 const glOK = typeof THREE !== "undefined" && initRender();
+if (glOK) applyGfx();
 if (!glOK) { $("nogl").hidden = false; $("go").disabled = true; }
 window.__game = { pc, pcs, cliffs, knots, baseY, get runT() { return runT; }, get sw() { return sk.sw; }, get spin() { return sk.spin; }, get endShown() { return endShown; }, COURSE_END, trails, trailFor, trailXc, sectionsAt, step, get sk() { return sk; }, feats, H, K, restart, begin, get score() { return score; }, get mult() { return mult; }, setMode(m) { mode = m; }, pop() { popReq = true; } };
 requestAnimationFrame(frame);
