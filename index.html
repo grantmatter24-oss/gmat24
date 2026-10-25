@@ -31,10 +31,12 @@
   .spacer { flex: 1; }
   #steps { display: grid; gap: 3px; }
   .row { display: grid; grid-template-columns: repeat(16, 1fr); gap: 3px; }
-  .step { height: 8px; border-radius: 3px; background: #23232f; }
+  .step { height: 26px; border-radius: 4px; background: #23232f; cursor: pointer; touch-action: manipulation; }
   .step.beat { background: #2f2f40; }
   .step.has { background: #6b5cff; }
-  .step.now { background: var(--play); }
+  .step.now { outline: 2px solid #fff; outline-offset: 1px; filter: brightness(1.5); }
+  .step:hover { filter: brightness(1.35); }
+  .pad.sel { outline: 2px solid #fff; outline-offset: 2px; }
   #pads { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
   .pad { position: relative; aspect-ratio: 1; border-radius: 16px; border: 1px solid color-mix(in srgb, var(--c) 45%, #000);
     background: color-mix(in srgb, var(--c) 16%, var(--panel)); color: var(--text);
@@ -83,7 +85,7 @@
   <div id="msg"></div>
   <div class="note">
     Sounds are synthesized in the browser in the style of Kettama's rave-house (Fly Away XTC) and UK breaks / garage &mdash; not samples from their records.
-    Keys: 1-4, Q-R, A-F, Z-V play pads &middot; Space = stop (ends recording) &middot; P = play loop &middot; Enter = record. Hits snap to 16th notes. Pads marked &ldquo;hold me&rdquo; sustain while held.
+    Keys: 1-4, Q-R, A-F, Z-V play pads &middot; Space = stop (ends recording) &middot; P = play loop &middot; Enter = record. Hits snap to 16th notes. Tap a pad, then tap steps on the grid to place it. Pads marked &ldquo;hold me&rdquo; sustain while held.
   </div>
 </main>
 
@@ -314,6 +316,7 @@ const PADS = [
 const S = {
   bpm: 132, bars: 4, playing: false, recording: false, metro: false, erase: false,
   events: [],            // {step, pad, sess}
+  sel: null,             // pad picked for placing on the step grid
   sess: 0,
   nextStep: 0, nextTime: 0,
   queue: [],             // visual events {time, step, pads[]}
@@ -361,6 +364,7 @@ function curStep() {
 const held = new Map(); // input key -> {voice, t0, i, ev}
 function press(i, key) {
   initAudio();
+  if (!S.erase) { S.sel = i; padEls.forEach((el, k) => el.classList.toggle("sel", k === i)); ui(); }
   if (S.erase) {
     S.events = S.events.filter(e => e.pad !== i);
     flash(i); renderSteps();
@@ -415,18 +419,31 @@ function renderSteps() {
     for (let b = 0; b < S.bars; b++) {
       const r = document.createElement("div"); r.className = "row";
       for (let s = 0; s < 16; s++) {
-        const d = document.createElement("div"); d.className = "step" + (s % 4 === 0 ? " beat" : "");
+        const d = document.createElement("div"), idx = stepEls.length; d.className = "step" + (s % 4 === 0 ? " beat" : ""); d.title = "Tap to place the selected beat here";
+        d.addEventListener("pointerdown", e => { e.preventDefault(); placeAt(idx); });
         r.appendChild(d); stepEls.push(d);
       }
       wrap.appendChild(r);
     }
   }
-  const has = new Set(S.events.map(e => e.step));
-  stepEls.forEach((el, i) => el.classList.toggle("has", has.has(i)));
+  const by = new Map(); S.events.forEach(e => { if (!by.has(e.step)) by.set(e.step, new Set()); by.get(e.step).add(e.pad); });
+  stepEls.forEach((el, i) => {
+    const ps = [...(by.get(i) || [])]; el.classList.toggle("has", ps.length > 0);
+    el.style.background = !ps.length ? "" : ps.length === 1 ? PADS[ps[0]].c : "linear-gradient(90deg," + ps.map((q, k) => PADS[q].c + " " + (k * 100 / ps.length) + "% " + ((k + 1) * 100 / ps.length) + "%").join(",") + ")";
+  });
   const used = new Set(S.events.map(e => e.pad));
   padEls.forEach((el, i) => el.classList.toggle("has-hits", used.has(i)));
 }
 
+function placeAt(idx) {
+  initAudio();
+  if (S.erase) { S.events = S.events.filter(e => e.step !== idx); renderSteps(); return; }
+  if (S.sel == null) { $("msg").textContent = "Tap a pad first, then tap a step to place it."; return; }
+  const found = S.events.findIndex(e => e.step === idx && e.pad === S.sel);
+  if (found >= 0) S.events.splice(found, 1);
+  else { S.sess++; S.events.push({ step: idx, pad: S.sel, sess: S.sess, len: PADS[S.sel].hold ? 2 : undefined }); trigger(S.sel, ctx.currentTime, PADS[S.sel].hold ? 2 : undefined); flash(S.sel); }
+  renderSteps();
+}
 let lastNow = -1;
 function frame() {
   if (ctx && S.playing) {
@@ -452,7 +469,7 @@ function ui() {
   $("metro").classList.toggle("on", S.metro);
   $("erase").classList.toggle("on", S.erase);
   document.body.classList.toggle("erasing", S.erase);
-  $("msg").textContent = S.erase ? "Erase on - tap a pad to delete all of its hits from the loop. Tap Erase pad again to finish."
+  $("msg").textContent = !S.erase && !S.recording && S.sel != null ? "Placing " + PADS[S.sel].name + ": tap a step above to add it, tap it again to remove. Tap another pad to switch." : S.erase ? "Erase on - tap a pad to delete all of its hits from the loop. Tap Erase pad again to finish."
     : S.recording ? "Recording - silent until you play. Hit pads and they loop back."
     : S.playing ? "Looping. Hit Rec to overdub more layers." : "Hit Rec and play pads, or pick a Starter beat and tap Load.";
 }
