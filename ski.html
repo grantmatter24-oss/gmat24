@@ -698,7 +698,7 @@ function landing(surfaceType, rail) {
   const sA = sA_(sk.x, sk.s, sk.psi), diff = wrap(sk.rot - sA);
   const spinOff = Math.abs(sk.spin - Math.round(sk.spin / Math.PI) * Math.PI);
   const real = sk.airT > 0.3, heli = sk.heli; sk.heli = false;
-  if (real && !heli && (Math.abs(diff) > 1.2 || spinOff > 0.9)) return crash(spinOff > 0.9 && Math.abs(diff) <= 1.2 ? "Sketchy spin landing" : "Bad landing");
+  if (real && !heli && Math.abs(diff) > 1.2) return crash("Bad landing"); // a sideways spin never crashes: the skis swing round to the nearest forward or backward
   sk.rot = sA + diff; // normalise so a flip never unwinds on the ground
   const vh = Math.hypot(sk.vx, sk.vs);
   sk.psi = Math.atan2(sk.vx, sk.vs);
