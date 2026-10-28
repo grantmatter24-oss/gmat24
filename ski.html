@@ -150,14 +150,14 @@
   <div id="focuswrap"><span>Slow-mo</span><div class="bar"><i id="focus"></i></div><span>F</span></div>
   <div id="pop"><div class="t"></div><div class="s"></div></div>
   <div id="toast"></div>
-  <div id="hint">← → steer &nbsp;·&nbsp; ↑ ↓ flip &nbsp;·&nbsp; Q E spin (flip + spin = cork) &nbsp;·&nbsp; Space = jump / tail grab &nbsp;·&nbsp; X = nose grab &nbsp;·&nbsp; C = indy grab &nbsp;·&nbsp; Shift = speed up &nbsp;·&nbsp; J = slow down &nbsp;·&nbsp; F = slow-mo &nbsp;·&nbsp; P = pause</div>
+  <div id="hint">← → steer &nbsp;·&nbsp; ↑ ↓ flip &nbsp;·&nbsp; A D spin (flip + spin = cork) &nbsp;·&nbsp; Space = jump / tail grab &nbsp;·&nbsp; Q = method &nbsp;·&nbsp; E = japan &nbsp;·&nbsp; X = nose &nbsp;·&nbsp; C = indy &nbsp;·&nbsp; Shift = speed up &nbsp;·&nbsp; J = slow down &nbsp;·&nbsp; F = slow-mo &nbsp;·&nbsp; P = pause</div>
   <div id="touch">
     <div class="grp"><button data-k="left">Left</button><button data-k="right">Right</button></div>
-    <div class="grp"><button data-k="up">Front flip</button><button data-k="down">Back / butter</button><button data-k="spin">Spin</button><button data-k="grab">Pop / tail</button><button data-k="grabN">Nose</button><button data-k="grabI">Indy</button><button data-k="boost">Speed</button><button data-k="brake">Slow</button><button data-k="focus">Focus</button></div>
+    <div class="grp"><button data-k="up">Front flip</button><button data-k="down">Back / butter</button><button data-k="spin">Spin</button><button data-k="grab">Pop / tail</button><button data-k="grabN">Nose</button><button data-k="grabQ">Method</button><button data-k="grabE">Japan</button><button data-k="grabI">Indy</button><button data-k="boost">Speed</button><button data-k="brake">Slow</button><button data-k="focus">Focus</button></div>
   </div>
   <div id="music" hidden></div>
   <div id="pause" hidden><div class="pcard"><h2>Paused</h2><details class="tl"><summary>Controls and tricks</summary><dl>
-<dt>Arrows / A D</dt><dd>Steer and carve</dd><dt>Up / Down</dt><dd>Front flip / back flip in the air. Hold Down (or S) on the ground for a tail butter: tips up, riding on the backs of your skis</dd><dt>Q / E</dt><dd>Spin in the air or on a rail. Spin plus flip makes a cork</dd><dt>Space</dt><dd>Jump anywhere. In the air, hold for a tail grab</dd><dt>X / C</dt><dd>Nose grab / indy grab, held in the air</dd><dt>Shift / J</dt><dd>Speed up / slow down</dd><dt>F</dt><dd>Slow-motion in the air</dd><dt>P</dt><dd>Pause</dd><dt>Combo</dt><dd>Each trick adds ×1 to your multiplier. The bar under the score shows how long you have to land the next one before it resets</dd></dl></details><div id="opts"></div><button id="resume" type="button">Resume</button><button id="homebtn" type="button">Back to homepage</button></div></div>
+<dt>Arrow keys</dt><dd>Steer and carve</dd><dt>Up / Down</dt><dd>Front flip / back flip in the air. Hold Down (or S) on the ground for a tail butter: tips up, riding on the backs of your skis</dd><dt>A / D</dt><dd>Spin in the air or on a rail. Spin plus flip makes a cork</dd><dt>Space</dt><dd>Jump anywhere. In the air, hold for a tail grab</dd><dt>Q / E / X / C</dt><dd>Method grab (arched back, skis rolled out), japan grab (skis crossed, body twisted), nose grab, indy grab. Hold in the air</dd><dt>Shift / J</dt><dd>Speed up / slow down</dd><dt>F</dt><dd>Slow-motion in the air</dd><dt>P</dt><dd>Pause</dd><dt>Combo</dt><dd>Each trick adds ×1 to your multiplier. The bar under the score shows how long you have to land the next one before it resets</dd></dl></details><div id="opts"></div><button id="resume" type="button">Resume</button><button id="homebtn" type="button">Back to homepage</button></div></div>
   <div id="end" hidden>
     <div class="card">
       <h1>Run <span>complete</span></h1>
@@ -652,7 +652,7 @@ function boxAt(x, s) {
 /* =====================================================================
    PHYSICS
    ===================================================================== */
-const K = { left: 0, right: 0, up: 0, down: 0, spinL: 0, spinR: 0, grab: 0, grabN: 0, grabI: 0, focus: 0, boost: 0, brake: 0 };
+const K = { left: 0, right: 0, up: 0, down: 0, spinL: 0, spinR: 0, grab: 0, grabN: 0, grabI: 0, grabQ: 0, grabE: 0, focus: 0, boost: 0, brake: 0 };
 let popReq = false;
 const GRABS = ["Mute", "Indy", "Tail", "Melon", "Nose", "Stalefish"];
 let comboT = 0, focus = 1, timeScale = 1, mode = "title", score = 0, mult = 1, best = 0, rings = 0, boostPulse = 0, shake = 0, lastCheck = null;
@@ -805,7 +805,7 @@ function step(dt) {
       const hx = Math.sin(sk.psi), hs = Math.cos(sk.psi);
       const sA = sA_(sk.x, sk.s, sk.psi), c = Math.cos(sA), sn = Math.sin(sA);
       // linear scrub from turning plus air drag that grows with speed, so there is no hard cap
-      const lin = 0.05 + Math.abs(steer) * (0.34 - 0.24 * sk.carve) + Math.abs(hx) * 0.4, quad = K.down || K.boost ? 0.0025 : 0.0036, push = K.boost && !sk.finished ? 7 : 0, brk = K.brake && !sk.finished ? 16 : 0;
+      const lin = 0.05 + Math.abs(steer) * (0.34 - 0.24 * sk.carve) + Math.abs(hx) * 0.4, quad = K.down || K.boost ? 0.0042 : 0.0058, push = K.boost && !sk.finished ? 7 : 0, brk = K.brake && !sk.finished ? 16 : 0;
       sk.sp = clamp(sk.sp + (-G * sn - lin * sk.sp - quad * sk.sp * sk.sp + push - brk) * dt, sk.finished ? 0 : 3, MAXV);
       if (brk && sk.sp > 4 && Math.random() < 0.7) spray(sk.x, sk.y, sk.s, 3, 3);
       if (push) { boostPulse = Math.max(boostPulse, 0.55); if (Math.random() < 0.6) spray(sk.x - hx * 0.6, sk.y, sk.s - hs * 0.6, 2, 2); }
@@ -824,7 +824,7 @@ function step(dt) {
       const popNow = popReq;
       if (popNow) { sk.sp += 0.9 * Math.max(0, 1 - sk.sp / 45); spray(sk.x - hx * 0.5, sk.y, sk.s - hs * 0.5, 4, 3); sfx("pump"); }
       if (popNow || yp > hn + 0.12) {
-        sk.air = true; sk.vx = sk.sp * c * hx; sk.vs = sk.sp * c * hs; sk.vy = sk.sp * sn + (popNow ? (nearLip(sk.x, sk.s) ? 6.5 : 5.2) : 0);
+        sk.air = true; sk.vx = sk.sp * c * hx; sk.vs = sk.sp * c * hs; sk.vy = sk.sp * sn + (popNow ? (nearLip(sk.x, sk.s) ? 6.5 : 5.2) : 0) + 2.4;
         sk.x = nx; sk.s = ns; sk.y = popNow ? Math.max(yp, hn) + 0.02 : yp;
         sk.airT = 0; sk.flipAcc = 0; sk.spin = 0; sk.spinV = 0; sk.grabT = 0; sk.rotV = 0; sk.spinTarget = 0; if (popNow) sk.popT = 0.2;
       } else {
@@ -857,7 +857,7 @@ function step(dt) {
     if (spinIn) sk.spinV += clamp(spinIn * 9 - sk.spinV, -60 * dt, 60 * dt);
     else { sk.spinV *= Math.exp(-5 * dt); const tgt = Math.round(sk.spin / Math.PI) * Math.PI; sk.spin += (tgt - sk.spin) * Math.min(1, 4 * dt); }
     sk.spin += sk.spinV * dt;
-    if (K.grab || K.grabN || K.grabI) { sk.grabT += dt; sk.grabKind = K.grab ? "Tail" : K.grabN ? "Nose" : "Indy"; }
+    if (K.grab || K.grabN || K.grabI || K.grabQ || K.grabE) { sk.grabT += dt; sk.grabKind = K.grab ? "Tail" : K.grabN ? "Nose" : K.grabI ? "Indy" : K.grabQ ? "Method" : "Japan"; }
     // air steering rotates the velocity a little
     const ang = steer * 0.7 * dt, ca = Math.cos(ang), sa = Math.sin(ang), nvx = sk.vx * ca + sk.vs * sa, nvs = -sk.vx * sa + sk.vs * ca;
     sk.vx = nvx; sk.vs = nvs; sk.psi += ang;
@@ -974,17 +974,18 @@ function mat(color, extra) { return new THREE.MeshLambertMaterial(Object.assign(
 
 const TODS = {
   sunset: { sun: [-0.5, 0.25, -0.83], hemi: [0xb79bc9, 0xd9a89c, 0.95], sunC: 0xffa458, sunI: 2.1, fill: [0x7f90ff, 0.45], fog: 0xe3ada0, exp: 1.12, glow: 1,
-    sky: { cH: [1, .56, .34], cM: [.8, .46, .58], cT: [.14, .17, .42], haze: [.89, .68, .63], g1: [1, .5, .22], g2: [1, .78, .45], gStr: 1, stars: 0 }, cloud: { op: 0.9, color: 0xffffff }, sunSpr: { op: 1, color: 0xffffff, scale: 520 },
+    sky: { cH: [1, .56, .34], cM: [.8, .46, .58], cT: [.14, .17, .42], haze: [.89, .68, .63], g1: [1, .5, .22], g2: [1, .78, .45], gStr: 1, stars: 0 }, cloud: { op: 0.9, color: 0xffffff }, sunSpr: { op: 1, color: 0xffffff, scale: 520 }, face: { op: 0.8, color: 0xffd9bf, rays: 0xffc88a, rop: 0.35 },
     pal: { sn: [.98, .9, .9], fogc: [.89, .68, .63], tree: [.11, .18, .2], snowLine: .38, snowUp: .22, lit: [1, .7, .5], sh: [.55, .55, .78], gain: 1.9 } },
   day: { sun: [-0.35, 0.85, -0.4], hemi: [0xb4d0ff, 0xdfe8f6, 0.62], sunC: 0xfff2dd, sunI: 3.3, fill: [0x9fb4ff, 0.35], fog: 0xcfe0f2, exp: 0.95, glow: 0.1,
-    sky: { cH: [.8, .89, .98], cM: [.5, .69, .95], cT: [.17, .4, .8], haze: [.81, .88, .95], g1: [1, .95, .85], g2: [1, .97, .9], gStr: .35, stars: 0 }, cloud: { op: 0.35, color: 0xcfe3ff }, sunSpr: { op: 0.35, color: 0xfff6dd, scale: 380 },
+    sky: { cH: [.8, .89, .98], cM: [.5, .69, .95], cT: [.17, .4, .8], haze: [.81, .88, .95], g1: [1, .95, .85], g2: [1, .97, .9], gStr: .35, stars: 0 }, cloud: { op: 0.35, color: 0xcfe3ff }, sunSpr: { op: 0.35, color: 0xfff6dd, scale: 380 }, face: { op: 0.85, color: 0xffffff, rays: 0xffffff, rop: 0.22 },
     pal: { sn: [.97, .98, 1], fogc: [.81, .88, .95], tree: [.5, .52, .58], snowLine: .1, snowUp: .12, lit: [1, .98, .92], sh: [.6, .7, .92], gain: 1.9 } },
   night: { sun: [0.35, 0.55, -0.75], hemi: [0x34428a, 0x141a3a, 0.85], sunC: 0x93aaff, sunI: 1.0, fill: [0x5a6ad0, 0.25], fog: 0x0a0f2a, exp: 1.05, glow: 1.7,
-    sky: { cH: [.1, .13, .3], cM: [.05, .07, .2], cT: [.015, .025, .09], haze: [.04, .06, .16], g1: [.35, .45, .9], g2: [.7, .8, 1], gStr: .5, stars: 1 }, cloud: { op: 0.12, color: 0x7f8fd8 }, sunSpr: { op: 0.6, color: 0xcfe0ff, scale: 260 },
+    sky: { cH: [.1, .13, .3], cM: [.05, .07, .2], cT: [.015, .025, .09], haze: [.04, .06, .16], g1: [.35, .45, .9], g2: [.7, .8, 1], gStr: .5, stars: 1 }, cloud: { op: 0.12, color: 0x7f8fd8 }, sunSpr: { op: 0.6, color: 0xcfe0ff, scale: 260 }, face: { op: 0.6, color: 0x7f8fe0, rays: 0x8fa6ff, rop: 0.25 },
     pal: { sn: [.55, .65, .95], fogc: [.04, .06, .16], tree: [.12, .14, .22], snowLine: .12, snowUp: .15, lit: [.5, .6, 1], sh: [.14, .17, .35], gain: 1.5 } }
 };
 let snowOn = store.get("kb-snow", true) !== false;
 let todName = store.get("kb-tod", PEAK ? "day" : "sunset"); if (!TODS[todName]) todName = "sunset";
+const FACE_SRC = "";
 function initRender() {
   try {
     renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true, powerPreference: "high-performance" });
@@ -1023,6 +1024,16 @@ function initRender() {
   gx.fillStyle = gr; gx.fillRect(0, 0, 128, 128);
   const sunS = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(gc), fog: false, depthWrite: false, transparent: true, opacity: 1, color: 0xffffff }));
   sunS.scale.set(520, 520, 1); sunS.position.set(SUN.x * 1000, SUN.y * 1000, SUN.z * 1000); sky.add(sunS);
+  // a huge face in the sky behind the mountains, with slow god rays
+  const rc = document.createElement("canvas"); rc.width = rc.height = 512; const rx = rc.getContext("2d"); rx.translate(256, 256);
+  for (let i = 0; i < 26; i++) { const a = i / 26 * TAU, w = 0.07; const g3 = rx.createRadialGradient(0, 0, 10, 0, 0, 256); g3.addColorStop(0, "rgba(255,255,255,.55)"); g3.addColorStop(1, "rgba(255,255,255,0)"); rx.fillStyle = g3; rx.beginPath(); rx.moveTo(0, 0); rx.lineTo(Math.cos(a - w) * 260, Math.sin(a - w) * 260); rx.lineTo(Math.cos(a + w) * 260, Math.sin(a + w) * 260); rx.closePath(); rx.fill(); }
+  const raysMat = new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(rc), fog: false, depthWrite: false, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending });
+  const raysS = new THREE.Sprite(raysMat); raysS.scale.set(2000, 2000, 1); raysS.position.set(0, -60, -985); raysS.renderOrder = -9; sky.add(raysS); scene.userData.rays = raysMat;
+  const faceMat = new THREE.SpriteMaterial({ fog: false, depthWrite: false, transparent: true, opacity: 0.8 }), faceS = new THREE.Sprite(faceMat);
+  faceS.scale.set(895, 1244, 1); faceS.position.set(0, -170, -970); faceS.renderOrder = -8; sky.add(faceS);
+  { const im = new Image(); im.onload = () => { const fc = document.createElement("canvas"); fc.width = im.width; fc.height = im.height; const fx = fc.getContext("2d"); fx.drawImage(im, 0, 0);
+      fx.globalCompositeOperation = "destination-in"; fx.translate(fc.width / 2, fc.height / 2); fx.scale(fc.width / fc.height, 1); const mg = fx.createRadialGradient(0, 0, fc.height * 0.2, 0, 0, fc.height * 0.5); mg.addColorStop(0, "rgba(0,0,0,1)"); mg.addColorStop(0.55, "rgba(0,0,0,.95)"); mg.addColorStop(1, "rgba(0,0,0,0)"); fx.fillStyle = mg; fx.fillRect(-fc.height, -fc.height, 2 * fc.height, 2 * fc.height);
+      faceMat.map = new THREE.CanvasTexture(fc); faceMat.needsUpdate = true; }; im.src = FACE_SRC; }
   // mountain ranges: ridged skyline with snow, lit warmer on the side facing the sun
   const mtn = new THREE.Group(); let pal = TODS.sunset.pal; const sunV = new THREE.Vector3();
   const range = (R, hMax, seed, haze, treeLine) => {
@@ -1068,7 +1079,7 @@ function initRender() {
     sun.color.setHex(T.sunC); sun.intensity = T.sunI; fill.color.setHex(T.fill[0]); fill.intensity = T.fill[1]; renderer.toneMappingExposure = T.exp;
     const u = sky.material.uniforms, S = T.sky; u.sunDir.value.set(SUN.x, SUN.y, SUN.z).normalize(); u.cH.value.set(...S.cH); u.cM.value.set(...S.cM); u.cT.value.set(...S.cT); u.cHaze.value.set(...S.haze); u.cG1.value.set(...S.g1); u.cG2.value.set(...S.g2); u.gStr.value = S.gStr; u.stars.value = S.stars;
     cloudMats.forEach(m => { m.opacity = T.cloud.op; m.color.setHex(T.cloud.color); }); sunS.material.opacity = T.sunSpr.op; sunS.material.color.setHex(T.sunSpr.color); sunS.scale.set(T.sunSpr.scale, T.sunSpr.scale, 1); sunS.position.set(SUN.x * 1000, SUN.y * 1000, SUN.z * 1000);
-    glowMat().opacity = T.glow; buildMtn();
+    glowMat().opacity = T.glow; faceMat.opacity = T.face.op; faceMat.color.setHex(T.face.color); raysMat.opacity = T.face.rop; raysMat.color.setHex(T.face.rays); buildMtn();
   };
 
   // ski tracks left in the snow
@@ -1321,14 +1332,14 @@ function ikArm(arm, tgt) { // two-bone arm IK in torso space, hand reaches tgt
 // where each grab puts a hand, in rig space (x right, y up, z back); arm = which hand
 const GRAB_POSE = [{ arm: 0, t: [0.12, 0.12, -0.3] }, { arm: 1, t: [0.1, 0.12, -0.12] }, { arm: 1, t: [0.16, 0.12, 0.5] }, { arm: 0, t: [-0.26, 0.12, 0.15] }, { arm: 0, t: [-0.14, 0.16, -0.6] }, { arm: 1, t: [-0.1, 0.12, 0.32] }];
 
-const GRAB_P = { bike: { ay: 0.5, az: -0.14, hy: 0.9, pitch: 0, cross: 0 }, tail: { ay: 0.64, az: 0.3, hy: 0.9, pitch: -1.15, cross: 0.5 }, nose: { ay: 0.6, az: -0.22, hy: 0.92, pitch: 1.0, cross: 0.4 }, indy: { ay: 0.42, az: 0.04, hy: 0.8, pitch: -0.05, cross: 0 } };
+const GRAB_P = { method: { ay: 0.72, az: 0.2, hy: 0.88, pitch: -0.5, cross: 0.1, roll: 1.0, lean: -0.5, twist: 0 }, japan: { ay: 0.82, az: 0.0, hy: 0.93, pitch: 0.2, cross: 0.95, roll: 0, lean: 0.35, twist: 0.55 }, bike: { ay: 0.5, az: -0.14, hy: 0.9, pitch: 0, cross: 0 }, tail: { ay: 0.64, az: 0.3, hy: 0.9, pitch: -1.15, cross: 0.5 }, nose: { ay: 0.6, az: -0.22, hy: 0.92, pitch: 1.0, cross: 0.4 }, indy: { ay: 0.42, az: 0.04, hy: 0.8, pitch: -0.05, cross: 0 } };
 function poseSkier(dt, time) {
   const R = skierRig, p = R.pose, air = sk.air;
-  const flipping = air && Math.abs(sk.rotV) > 2.5, gk = air && !sk.crashed ? (K.grab ? "tail" : K.grabN ? "nose" : K.grabI ? "indy" : null) : null, grab = !!gk, bikeOn = !!sk.bike, tuck = !air && K.boost && !sk.grind && !sk.crashed;
+  const flipping = air && Math.abs(sk.rotV) > 2.5, gk = air && !sk.crashed ? (K.grab ? "tail" : K.grabN ? "nose" : K.grabI ? "indy" : K.grabQ ? "method" : K.grabE ? "japan" : null) : null, grab = !!gk, bikeOn = !!sk.bike, tuck = !air && K.boost && !sk.grind && !sk.crashed;
   const sliding = sk.grind || sk.boxT > 0.15, butter = !air && K.down && !sliding && !sk.crashed && !sk.bike && sk.sp > 2;
   const tailT = [0.3, 1.1, 0.55];
   if (gk) p.kind = gk;
-  if (grab) { R.rig.updateMatrixWorld(true); (p.kind === "nose" ? R.noseM[1] : p.kind === "indy" ? R.midM[0] : R.tailM[0]).getWorldPosition(_tv); R.rig.worldToLocal(_tv); tailT[0] = _tv.x; tailT[1] = _tv.y + 0.02; tailT[2] = _tv.z; }
+  if (grab) { R.rig.updateMatrixWorld(true); (p.kind === "nose" ? R.noseM[1] : (p.kind === "indy" || p.kind === "japan") ? R.midM[0] : R.tailM[0]).getWorldPosition(_tv); R.rig.worldToLocal(_tv); tailT[0] = _tv.x; tailT[1] = _tv.y + 0.02; tailT[2] = _tv.z; }
   let c = 0.3, lean = 0.2, L = [-0.36, 0.92, -0.3], Rt = [0.36, 0.92, -0.3], poleThrust = 0;
   const carve = sk.carve * Math.abs(sk.turn), tn = Math.sign(sk.turn);
   if (bikeOn) { c = 0.9; lean = 0.5; L = [-0.3, 0.78, -0.42]; Rt = [0.3, 0.78, -0.42]; }
@@ -1336,7 +1347,7 @@ function poseSkier(dt, time) {
   else if (sliding) { c = 0.55; lean = 0.3; L = [-0.7, 1.0, -0.2]; Rt = [0.7, 1.0, -0.2]; }
   else if (grab) {
     c = 0.93; lean = 0.62; L = [-0.82, 1.2, -0.1]; Rt = [0.82, 1.2, -0.1];
-    c = 0.9; lean = 0.15; L = [-0.75, 1.1, -0.05]; Rt = tailT;
+    c = 0.9; lean = GRAB_P[p.kind || "tail"].lean !== undefined ? GRAB_P[p.kind || "tail"].lean : 0.15; L = [-0.75, 1.1, -0.05]; Rt = tailT;
   }
   else if (flipping) { c = 0.96; lean = 0.95; L = [-0.2, 0.5, -0.34]; Rt = [0.2, 0.5, -0.34]; }
   else if (air) { c = 0.5; lean = 0.25; L = [-0.78, 1.32, -0.05]; Rt = [0.78, 1.32, -0.05]; }
@@ -1373,9 +1384,9 @@ function poseSkier(dt, time) {
   if (sk.bikeJump && !sk.swapDone && swp > 0.05) { sk.swapDone = true; spray(sk.x, sk.y + 0.2, sk.s, 16, 6); }
   if (sk.bikeJump && swp >= 1) sk.bikeJump = false;
   R.skiBack.visible = bikeOn || (sk.bikeJump && swp < 0.3); R.skiBack.scale.setScalar(bikeOn ? 1 : Math.max(0.01, 1 - swp / 0.3));
-  R.skiG.forEach((sg, i) => { sg.visible = !bikeOn && swp > 0.05; sg.scale.setScalar(bikeOn ? 0.01 : Math.max(0.01, ease)); sg.position.set(sg.position.x, 0.2 + (ankY - foot), 0.06 + ankZ); sg.rotation.x = GP.pitch * tg + 0.5 * bt; sg.rotation.y = (i ? -1 : 1) * GP.cross * tg; });
+  R.skiG.forEach((sg, i) => { sg.visible = !bikeOn && swp > 0.05; sg.scale.setScalar(bikeOn ? 0.01 : Math.max(0.01, ease)); sg.position.set(sg.position.x, 0.2 + (ankY - foot), 0.06 + ankZ); sg.rotation.x = GP.pitch * tg + 0.5 * bt; sg.rotation.y = (i ? -1 : 1) * GP.cross * tg; sg.rotation.z = (i ? 1 : -1) * (GP.roll || 0) * tg; });
   R.hipG.position.set(-inside, hipY + 0.02, 0.04 + 0.04 * p.c); R.hipG.updateMatrix();
-  R.torso.rotation.y = air ? 0 : -tn * p.carve * 0.28 - sk.turn * 0.06; R.torso.rotation.x = -p.lean; R.torso.rotation.z = tn * p.carve * 0.16 + (air ? 0 : 0); R.torso.scale.y = 1 + 0.006 * Math.sin(time * 3.2);
+  R.torso.rotation.y = air ? (GP.twist || 0) * tg : -tn * p.carve * 0.28 - sk.turn * 0.06; R.torso.rotation.x = -p.lean; R.torso.rotation.z = tn * p.carve * 0.16 + (air ? 0 : 0); R.torso.scale.y = 1 + 0.006 * Math.sin(time * 3.2);
   R.torso.updateMatrix();
   // arms: targets are in rig space, convert to torso space
   _a.m.copy(R.hipG.matrix).multiply(R.torso.matrix).invert();
@@ -1893,7 +1904,7 @@ function updateCamera(dt) {
   camHead += wrap(sk.psi - camHead) * Math.min(1, 2.6 * dt);
   airBlend += ((sk.air && !sk.crashed ? 1 : 0) - airBlend) * Math.min(1, 2.2 * dt);
   const speed = sk.air ? Math.hypot(sk.vx, sk.vs) : sk.sp;
-  const back = lerp(5.4, 8.0, airBlend) + clamp(speed, 0, 50) * 0.05, height = lerp(4.4, 5.8, airBlend);
+  const back = (lerp(5.4, 8.0, airBlend) + clamp(speed, 0, 50) * 0.05) * 0.78, height = 0.7 + (lerp(4.4, 5.8, airBlend) - 0.7) * 0.78;
   const tx = sk.x - back * Math.sin(camHead), ts = sk.s - back * Math.cos(camHead), ty = sk.y + height;
   if (snapCam) { camX = tx; camS = ts; camY = ty; snapCam = false; }
   camX += (tx - camX) * Math.min(1, 8 * dt); camS += (ts - camS) * Math.min(1, 10 * dt); camY += (ty - camY) * Math.min(1, 4.5 * dt);
@@ -1919,7 +1930,7 @@ function updateCamera(dt) {
     camera.lookAt(lerp(sk.x, sk.x + Math.sin(camHead) * ah, e), lerp(sk.y + 1.5, sk.y + 0.7, e), -lerp(sk.s, sk.s + Math.cos(camHead) * ah, e));
     camera.fov = lerp(36, 54 + clamp(speed, 0, 50) * 0.62, e); camera.updateProjectionMatrix(); lastFov = camera.fov; return;
   }
-  const ahead = 2.2, lx = sk.x + Math.sin(camHead) * ahead, ls = sk.s + Math.cos(camHead) * ahead;
+  const ahead = 1.7, lx = sk.x + Math.sin(camHead) * ahead, ls = sk.s + Math.cos(camHead) * ahead;
   camera.lookAt(lx, sk.y + 0.7, -ls);
   camera.rotateZ(-sk.turn * 0.035 * (sk.air ? 0.3 : 1));
   const fov = 54 + clamp(speed, 0, 50) * 0.62 + boostPulse * 8 + airBlend * 3;
@@ -1929,6 +1940,7 @@ function updateCamera(dt) {
 const _n = typeof THREE !== "undefined" ? new THREE.Vector3() : null, _q = typeof THREE !== "undefined" ? new THREE.Quaternion() : null, _z = typeof THREE !== "undefined" ? new THREE.Vector3(0, 0, 1) : null;
 function render(dt, time) {
   if (!renderer) return;
+  if (scene.userData.rays) scene.userData.rays.rotation += dt * 0.02;
   manageWorld(); updateHeli(dt); updateBike(dt);
   poseSkier(dt, time);
   const R = skierRig;
@@ -2095,7 +2107,7 @@ $("wxbtn").onclick = () => { snowOn = !snowOn; store.set("kb-snow", snowOn); $("
 applySnow();
 document.querySelectorAll("#resorts button").forEach(b => { if (b.dataset.r === RES) b.classList.add("on"); b.onclick = () => { if (b.dataset.r === RES) return; b.blur(); location.hash = "#" + b.dataset.r; location.reload(); }; });
 function begin() { audioInit(); $("intro").hidden = true; $("home").hidden = true; stopHome(); if (mode !== "play") { mode = "play"; restart(); } }
-const MAP = { ArrowLeft: "left", a: "left", A: "left", ArrowRight: "right", d: "right", D: "right", ArrowUp: "up", w: "up", W: "up", ArrowDown: "down", s: "down", S: "down", q: "spinL", Q: "spinL", e: "spinR", E: "spinR", " ": "grab", Shift: "boost", f: "focus", F: "focus", j: "brake", J: "brake", x: "grabN", X: "grabN", c: "grabI", C: "grabI" };
+const MAP = { ArrowLeft: "left", ArrowRight: "right", ArrowUp: "up", w: "up", W: "up", ArrowDown: "down", s: "down", S: "down", a: "spinL", A: "spinL", d: "spinR", D: "spinR", q: "grabQ", Q: "grabQ", e: "grabE", E: "grabE", " ": "grab", Shift: "boost", f: "focus", F: "focus", j: "brake", J: "brake", x: "grabN", X: "grabN", c: "grabI", C: "grabI" };
 addEventListener("keydown", e => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   if (mode === "play" && (e.key === "p" || e.key === "P" || e.key === "Escape")) { e.preventDefault(); setPaused(!paused); return; }
@@ -2152,11 +2164,14 @@ function startHome() {
     x.strokeStyle = "#16122e"; x.lineWidth = 5; x.beginPath(); x.moveTo(-3, 20); x.lineTo(-8, 30); x.moveTo(3, 20); x.lineTo(9, 30); x.moveTo(0, 0); x.lineTo(-17, -6); x.moveTo(0, 0); x.lineTo(17, -10); x.stroke();
     x.strokeStyle = "#f4f8fd"; x.lineWidth = 1.6; x.beginPath(); x.moveTo(-17, -6); x.lineTo(-26, 22); x.moveTo(17, -10); x.lineTo(28, 20); x.stroke(); x.restore();
   };
+  let fmask = null; { const im = new Image(); im.onload = () => { const fc = document.createElement("canvas"); fc.width = im.width; fc.height = im.height; const fx = fc.getContext("2d"); fx.drawImage(im, 0, 0); fx.globalCompositeOperation = "destination-in"; fx.translate(fc.width / 2, fc.height / 2); fx.scale(fc.width / fc.height, 1); const mg = fx.createRadialGradient(0, 0, fc.height * 0.2, 0, 0, fc.height * 0.5); mg.addColorStop(0, "rgba(0,0,0,1)"); mg.addColorStop(0.55, "rgba(0,0,0,.95)"); mg.addColorStop(1, "rgba(0,0,0,0)"); fx.fillStyle = mg; fx.fillRect(-fc.height, -fc.height, 2 * fc.height, 2 * fc.height); fmask = fc; }; im.src = FACE_SRC; }
   const t0 = performance.now();
   const draw = now => {
     const t = (now - t0) / 1000; if (W !== cv.clientWidth || H2 !== cv.clientHeight) size();
     const g = x.createLinearGradient(0, 0, 0, H2); g.addColorStop(0, "#2b1a5c"); g.addColorStop(0.35, "#8a3a88"); g.addColorStop(0.62, "#ff7a55"); g.addColorStop(0.82, "#ffc07a"); x.fillStyle = g; x.fillRect(0, 0, W, H2);
     const sx = W * 0.72, sy = H2 * 0.5, sg = x.createRadialGradient(sx, sy, 0, sx, sy, H2 * 0.5); sg.addColorStop(0, "rgba(255,244,214,.95)"); sg.addColorStop(0.12, "rgba(255,196,130,.55)"); sg.addColorStop(1, "rgba(255,120,80,0)"); x.fillStyle = sg; x.fillRect(0, 0, W, H2);
+    { const cxF = W * 0.5, cyF = H2 * 0.4; x.save(); x.globalCompositeOperation = "lighter"; x.translate(cxF, cyF); x.rotate(t * 0.04); for (let i = 0; i < 22; i++) { const a = i / 22 * 6.2832, w = 0.06, R = Math.max(W, H2) * 1.1, gg = x.createRadialGradient(0, 0, 20, 0, 0, R); gg.addColorStop(0, "rgba(255,200,140,.22)"); gg.addColorStop(1, "rgba(255,200,140,0)"); x.fillStyle = gg; x.beginPath(); x.moveTo(0, 0); x.lineTo(Math.cos(a - w) * R, Math.sin(a - w) * R); x.lineTo(Math.cos(a + w) * R, Math.sin(a + w) * R); x.closePath(); x.fill(); } x.restore();
+      if (fmask) { const fh = H2 * 1.2, fw = fh * fmask.width / fmask.height; x.globalAlpha = 0.78; x.drawImage(fmask, cxF - fw / 2, cyF - fh * 0.42, fw, fh); x.globalAlpha = 1; } }
     const dr = t * 4;
     ridge(H2 * 0.62, H2 * 0.42, 1.3, "#a56ab0", dr * 0.3); ridge(H2 * 0.7, H2 * 0.34, 4.1, "#6c3f86", dr * 0.6); ridge(H2 * 0.8, H2 * 0.24, 7.7, "#3a2459", dr);
     // snowy slope with a kicker
