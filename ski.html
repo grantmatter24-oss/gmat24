@@ -150,14 +150,14 @@
   <div id="focuswrap"><span>Slow-mo</span><div class="bar"><i id="focus"></i></div><span>F</span></div>
   <div id="pop"><div class="t"></div><div class="s"></div></div>
   <div id="toast"></div>
-  <div id="hint">← → steer &nbsp;·&nbsp; ↑ ↓ flip &nbsp;·&nbsp; A D spin (flip + spin = cork) &nbsp;·&nbsp; Space = jump / tail grab &nbsp;·&nbsp; Q = method &nbsp;·&nbsp; E = japan &nbsp;·&nbsp; X = nose &nbsp;·&nbsp; C = indy &nbsp;·&nbsp; Shift = speed up &nbsp;·&nbsp; J = slow down &nbsp;·&nbsp; F = slow-mo &nbsp;·&nbsp; P = pause</div>
+  <div id="hint">A D or ← → steer, spin in the air (flip + spin = cork) &nbsp;·&nbsp; ↑ ↓ flip &nbsp;·&nbsp; Space = jump / tail grab &nbsp;·&nbsp; Q = japan &nbsp;·&nbsp; E = nose &nbsp;·&nbsp; C = indy &nbsp;·&nbsp; Shift = speed up &nbsp;·&nbsp; J = slow down &nbsp;·&nbsp; F = slow-mo &nbsp;·&nbsp; P = pause</div>
   <div id="touch">
     <div class="grp"><button data-k="left">Left</button><button data-k="right">Right</button></div>
-    <div class="grp"><button data-k="up">Front flip</button><button data-k="down">Back / butter</button><button data-k="spin">Spin</button><button data-k="grab">Pop / tail</button><button data-k="grabN">Nose</button><button data-k="grabQ">Method</button><button data-k="grabE">Japan</button><button data-k="grabI">Indy</button><button data-k="boost">Speed</button><button data-k="brake">Slow</button><button data-k="focus">Focus</button></div>
+    <div class="grp"><button data-k="up">Front flip</button><button data-k="down">Back / butter</button><button data-k="spin">Spin</button><button data-k="grab">Pop / tail</button><button data-k="grabN">Nose</button><button data-k="grabQ">Japan</button><button data-k="grabI">Indy</button><button data-k="boost">Speed</button><button data-k="brake">Slow</button><button data-k="focus">Focus</button></div>
   </div>
   <div id="music" hidden></div>
   <div id="pause" hidden><div class="pcard"><h2>Paused</h2><details class="tl"><summary>Controls and tricks</summary><dl>
-<dt>Arrow keys</dt><dd>Steer and carve</dd><dt>Up / Down</dt><dd>Front flip / back flip in the air. Hold Down (or S) on the ground for a tail butter: tips up, riding on the backs of your skis</dd><dt>A / D</dt><dd>Spin in the air or on a rail. Spin plus flip makes a cork</dd><dt>Space</dt><dd>Jump anywhere. In the air, hold for a tail grab</dd><dt>Q / E / X / C</dt><dd>Method grab (arched back, skis rolled out), japan grab (skis crossed, body twisted), nose grab, indy grab. Hold in the air</dd><dt>Shift / J</dt><dd>Speed up / slow down</dd><dt>F</dt><dd>Slow-motion in the air</dd><dt>P</dt><dd>Pause</dd><dt>Combo</dt><dd>Each trick adds ×1 to your multiplier. The bar under the score shows how long you have to land the next one before it resets</dd></dl></details><div id="opts"></div><button id="resume" type="button">Resume</button><button id="homebtn" type="button">Back to homepage</button></div></div>
+<dt>A D or arrows</dt><dd>Steer and carve on the ground</dd><dt>Up / Down</dt><dd>Front flip / back flip in the air. Hold Down (or S) on the ground for a tail butter: tips up, riding on the backs of your skis</dd><dt>A / D in the air</dt><dd>Spin in the air or on a rail. Spin plus flip makes a cork</dd><dt>Space</dt><dd>Jump anywhere. In the air, hold for a tail grab</dd><dt>Q / E / C</dt><dd>Japan grab (skis crossed, body twisted) / nose grab / indy grab. Hold in the air. X is also a nose grab</dd><dt>Shift / J</dt><dd>Speed up / slow down</dd><dt>F</dt><dd>Slow-motion in the air</dd><dt>P</dt><dd>Pause</dd><dt>Combo</dt><dd>Each trick adds ×1 to your multiplier. The bar under the score shows how long you have to land the next one before it resets</dd></dl></details><div id="opts"></div><button id="resume" type="button">Resume</button><button id="homebtn" type="button">Back to homepage</button></div></div>
   <div id="end" hidden>
     <div class="card">
       <h1>Run <span>complete</span></h1>
@@ -764,7 +764,7 @@ function step(dt) {
     if (sk.crashT > 1.8) respawn();
     return;
   }
-  const steer = sk.finished ? 0 : (K.right ? 1 : 0) - (K.left ? 1 : 0);
+  const onGr = !sk.air && !sk.grind, steer = sk.finished ? 0 : ((K.right || (onGr && K.spinR)) ? 1 : 0) - ((K.left || (onGr && K.spinL)) ? 1 : 0);
   if (sk.finished) popReq = false;
   sk.turn = lerp(sk.turn, steer, Math.min(1, 10 * dt));
   if (sk.bike) { bikeStep(dt); popReq = false; }
@@ -857,7 +857,7 @@ function step(dt) {
     if (spinIn) sk.spinV += clamp(spinIn * 9 - sk.spinV, -60 * dt, 60 * dt);
     else { sk.spinV *= Math.exp(-5 * dt); const tgt = Math.round(sk.spin / Math.PI) * Math.PI; sk.spin += (tgt - sk.spin) * Math.min(1, 4 * dt); }
     sk.spin += sk.spinV * dt;
-    if (K.grab || K.grabN || K.grabI || K.grabQ || K.grabE) { sk.grabT += dt; sk.grabKind = K.grab ? "Tail" : K.grabN ? "Nose" : K.grabI ? "Indy" : K.grabQ ? "Method" : "Japan"; }
+    if (K.grab || K.grabN || K.grabI || K.grabQ) { sk.grabT += dt; sk.grabKind = K.grab ? "Tail" : K.grabN ? "Nose" : K.grabI ? "Indy" : "Japan"; }
     // air steering rotates the velocity a little
     const ang = steer * 0.7 * dt, ca = Math.cos(ang), sa = Math.sin(ang), nvx = sk.vx * ca + sk.vs * sa, nvs = -sk.vx * sa + sk.vs * ca;
     sk.vx = nvx; sk.vs = nvs; sk.psi += ang;
@@ -1335,7 +1335,7 @@ const GRAB_POSE = [{ arm: 0, t: [0.12, 0.12, -0.3] }, { arm: 1, t: [0.1, 0.12, -
 const GRAB_P = { method: { ay: 0.72, az: 0.2, hy: 0.88, pitch: -0.5, cross: 0.1, roll: 1.0, lean: -0.5, twist: 0 }, japan: { ay: 0.82, az: 0.0, hy: 0.93, pitch: 0.2, cross: 0.95, roll: 0, lean: 0.35, twist: 0.55 }, bike: { ay: 0.5, az: -0.14, hy: 0.9, pitch: 0, cross: 0 }, tail: { ay: 0.64, az: 0.3, hy: 0.9, pitch: -1.15, cross: 0.5 }, nose: { ay: 0.6, az: -0.22, hy: 0.92, pitch: 1.0, cross: 0.4 }, indy: { ay: 0.42, az: 0.04, hy: 0.8, pitch: -0.05, cross: 0 } };
 function poseSkier(dt, time) {
   const R = skierRig, p = R.pose, air = sk.air;
-  const flipping = air && Math.abs(sk.rotV) > 2.5, gk = air && !sk.crashed ? (K.grab ? "tail" : K.grabN ? "nose" : K.grabI ? "indy" : K.grabQ ? "method" : K.grabE ? "japan" : null) : null, grab = !!gk, bikeOn = !!sk.bike, tuck = !air && K.boost && !sk.grind && !sk.crashed;
+  const flipping = air && Math.abs(sk.rotV) > 2.5, gk = air && !sk.crashed ? (K.grab ? "tail" : K.grabN ? "nose" : K.grabI ? "indy" : K.grabQ ? "japan" : null) : null, grab = !!gk, bikeOn = !!sk.bike, tuck = !air && K.boost && !sk.grind && !sk.crashed;
   const sliding = sk.grind || sk.boxT > 0.15, butter = !air && K.down && !sliding && !sk.crashed && !sk.bike && sk.sp > 2;
   const tailT = [0.3, 1.1, 0.55];
   if (gk) p.kind = gk;
@@ -2107,7 +2107,7 @@ $("wxbtn").onclick = () => { snowOn = !snowOn; store.set("kb-snow", snowOn); $("
 applySnow();
 document.querySelectorAll("#resorts button").forEach(b => { if (b.dataset.r === RES) b.classList.add("on"); b.onclick = () => { if (b.dataset.r === RES) return; b.blur(); location.hash = "#" + b.dataset.r; location.reload(); }; });
 function begin() { audioInit(); $("intro").hidden = true; $("home").hidden = true; stopHome(); if (mode !== "play") { mode = "play"; restart(); } }
-const MAP = { ArrowLeft: "left", ArrowRight: "right", ArrowUp: "up", w: "up", W: "up", ArrowDown: "down", s: "down", S: "down", a: "spinL", A: "spinL", d: "spinR", D: "spinR", q: "grabQ", Q: "grabQ", e: "grabE", E: "grabE", " ": "grab", Shift: "boost", f: "focus", F: "focus", j: "brake", J: "brake", x: "grabN", X: "grabN", c: "grabI", C: "grabI" };
+const MAP = { ArrowLeft: "left", ArrowRight: "right", ArrowUp: "up", w: "up", W: "up", ArrowDown: "down", s: "down", S: "down", a: "spinL", A: "spinL", d: "spinR", D: "spinR", q: "grabQ", Q: "grabQ", e: "grabN", E: "grabN", " ": "grab", Shift: "boost", f: "focus", F: "focus", j: "brake", J: "brake", x: "grabN", X: "grabN", c: "grabI", C: "grabI" };
 addEventListener("keydown", e => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   if (mode === "play" && (e.key === "p" || e.key === "P" || e.key === "Escape")) { e.preventDefault(); setPaused(!paused); return; }
