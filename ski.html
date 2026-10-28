@@ -1122,13 +1122,14 @@ const OUTFIT_OPTS = {
   jacket: { trench: "Black trench coat", vest: "Grey vest, white long sleeve", santa: "Red Santa coat" },
   skis: { black: "Black wider skis", purple: "Purple skis", current: "Current skis", red: "Red skis", pink: "Pink skis" },
   song: { off: "No music", hypa: "Hypa · Silva Bumpa", yosemite: "Yosemite · KETTAMA", think: "Think of You · KETTAMA & Prospa", fly: "Fly Away XTC · KETTAMA", nite: "On 2nite · Silva Bumpa", doin: "Doin' it ft. MC DT · Silva Bumpa", youtube: "My YouTube link" },
+  style: { simple: "Simple mannequin", detailed: "Detailed" },
   gfx: { auto: "Auto", low: "Low", med: "Medium", high: "High" },
   accessory: { scarf: "Scarf", ninja: "Ninja headband", cape: "Cape", phones: "Headphones" },
   pants: { santa: "Red Santa pants", suit: "Black suit pants", shorts: "Grey shorts", blue: "Blue pants", khaki: "Khakis" }
 };
 const JACKETS = { trench: { j: 0x15171b, t: 0x0c0d10, arm: 0x15171b, cuff: 0x0c0d10, sc: [0x7a1f26, 0x2a2a2e] }, vest: { j: 0x80868e, t: 0x5d636b, arm: 0xf2f3f5, cuff: 0xe4e6ea, sc: [0xf2f3f5, 0x80868e] }, santa: { j: 0xc4161c, t: 0xf6f6f2, arm: 0xc4161c, cuff: 0xf6f6f2, sc: [0xf6f6f2, 0xc4161c] } };
 const PANTS = { santa: [0xc4161c, 0xc4161c], suit: [0x17191e, 0x17191e], shorts: [0x7d838b, -1], blue: [0x2f5fa8, 0x2f5fa8], khaki: [0xb59f72, 0xb59f72] };
-let outfit = { helmet: "redbull", jacket: "vest", pants: "blue", accessory: "scarf", skis: "current", song: "off", yt: "", gfx: "auto" };
+let outfit = { helmet: "redbull", jacket: "vest", pants: "blue", accessory: "scarf", skis: "current", song: "off", yt: "", gfx: "auto", style: "simple" };
 try { const o = JSON.parse(localStorage.getItem("kickerOutfit") || "null"); if (o) { for (const k in outfit) if (OUTFIT_OPTS[k] && OUTFIT_OPTS[k][o[k]]) outfit[k] = o[k]; if (typeof o.yt === "string") outfit.yt = o.yt; } } catch (e) { }
 /* progress: unlockable outfit pieces */
 const DEFAULT_OUTFIT = { helmet: "redbull", jacket: "vest", pants: "blue", accessory: "scarf", skis: "current" };
@@ -1170,6 +1171,7 @@ function applyOutfit(R) {
   R.helmetG.visible = h === "redbull"; m.helmet.color.setHex(0x0d2a5e); m.stripeM.color.setHex(0xd9232d);
   for (const k in R.hats) R.hats[k].visible = k === h;
   R.cuffs.forEach(c => c.visible = outfit.pants !== "shorts");
+  R.detail.forEach(m => { m.visible = outfit.style !== "simple"; });
   for (const k in R.acc) R.acc[k].visible = k === outfit.accessory;
   R.skiM.map = R.skiTexes[outfit.skis === "current" ? "current" : outfit.skis]; R.skiM.needsUpdate = true; R.skiMeshes.forEach(m => m.scale.x = outfit.skis === "black" ? 1.55 : 1);
 }
@@ -1219,7 +1221,7 @@ function buildSkier() {
   });
   const hipG = new THREE.Group(); rig.add(hipG);
   add(new THREE.SphereGeometry(0.17, 16, 12), pants, 0, 0.02, 0, hipG).scale.set(1.18, 0.8, 0.88);
-  add(new THREE.BoxGeometry(0.17, 0.09, 0.07), M(0xb8601f), 0.0, 0.0, 0.16, hipG); // hip pouch
+  const pouchMat = M(0xb8601f); add(new THREE.BoxGeometry(0.17, 0.09, 0.07), pouchMat, 0.0, 0.0, 0.16, hipG); // hip pouch
   const torso = new THREE.Group(); hipG.add(torso);
   add(new THREE.CylinderGeometry(0.205, 0.19, 0.6, 22), jacket, 0, 0.31, 0, torso).scale.set(1.2, 1, 0.82);
   add(new THREE.CylinderGeometry(0.222, 0.225, 0.1, 22), jacket2, 0, 0.04, 0, torso).scale.set(1.2, 1, 0.84);
@@ -1311,7 +1313,12 @@ function buildSkier() {
   });
   const skiBack = new THREE.Group(); torso.add(skiBack); [-1, 1].forEach(sd => { const sb = new THREE.Mesh(new THREE.BoxGeometry(0.095, 1.5, 0.025), skiM); sb.position.set(sd * 0.07, 0.36, 0.22); sb.rotation.z = -sd * 0.1; sb.rotation.x = 0.1; skiBack.add(sb); }); skiBack.visible = false;
   const skiMeshes = []; skiG.forEach(g => g.traverse(o => { if (o.isMesh && o.material === skiM) skiMeshes.push(o); }));
-  return { skiBack, noseM, midM, skiM, skiTexes, skiMeshes, acc, ninjaTails, capeGeo, capeBase, cuffs, skiG, tailM, mats: { jacket, jacket2, jacketArm, cuffM, pants, pantsLow, helmet, stripeM, skin, scarfMat }, helmetG, hats, ex, root, pivot, rig, legs, hipG, torso, head, arms, scarf, pose: { c: 0.3, lean: 0.2, carve: 0, L: new THREE.Vector3(-0.36, 0.92, -0.3), Rh: new THREE.Vector3(0.36, 0.92, -0.3), headY: 0 }, a, b };
+  // detail meshes hidden in the simple mannequin style: straps, vents, bands, buckles, goggles and so on
+  const detail = [], keep = new Set([...Object.values(hats), ...Object.values(ex), ...acc ? Object.values(acc) : []]), detMats = [black, orange, lens, white, stripeM, gaiter, hair, jacket2, cuffM, pouchMat];
+  const inKeep = o => { for (let q = o.parent; q; q = q.parent) if (keep.has(q)) return true; return false; };
+  root.traverse(o => { if (o.isMesh && detMats.includes(o.material) && !inKeep(o)) detail.push(o); });
+  helmetG.children.forEach(m => { if (m.geometry.type !== "SphereGeometry") detail.push(m); });
+  return { detail, skiBack, noseM, midM, skiM, skiTexes, skiMeshes, acc, ninjaTails, capeGeo, capeBase, cuffs, skiG, tailM, mats: { jacket, jacket2, jacketArm, cuffM, pants, pantsLow, helmet, stripeM, skin, scarfMat }, helmetG, hats, ex, root, pivot, rig, legs, hipG, torso, head, arms, scarf, pose: { c: 0.3, lean: 0.2, carve: 0, L: new THREE.Vector3(-0.36, 0.92, -0.3), Rh: new THREE.Vector3(0.36, 0.92, -0.3), headY: 0 }, a, b };
 }
 
 const _tv = typeof THREE !== "undefined" ? new THREE.Vector3() : null;
@@ -2065,8 +2072,8 @@ function setPaused(v) {
 }
 function buildPauseUI() {
   const box = $("opts"); box.textContent = "";
-  for (const cat of ["gfx", "helmet", "jacket", "pants", "accessory", "skis", "song"]) {
-    const h = document.createElement("h3"); h.textContent = cat === "helmet" ? "Helmet" : cat === "jacket" ? "Jacket" : cat === "pants" ? "Pants" : cat === "accessory" ? "Accessory" : cat === "skis" ? "Skis" : cat === "gfx" ? "Graphics quality" : "Song"; box.appendChild(h);
+  for (const cat of ["style", "gfx", "helmet", "jacket", "pants", "accessory", "skis", "song"]) {
+    const h = document.createElement("h3"); h.textContent = cat === "helmet" ? "Helmet" : cat === "jacket" ? "Jacket" : cat === "pants" ? "Pants" : cat === "accessory" ? "Accessory" : cat === "skis" ? "Skis" : cat === "gfx" ? "Graphics quality" : cat === "style" ? "Character style" : "Song"; box.appendChild(h);
     for (const key in OUTFIT_OPTS[cat]) {
       const b = document.createElement("button"); b.type = "button"; b.className = "opt" + (outfit[cat] === key ? " on" : ""); b.textContent = OUTFIT_OPTS[cat][key];
       if (!isUnlocked(cat, key)) { b.className = "opt locked"; b.disabled = true; b.textContent = OUTFIT_OPTS[cat][key] + " · locked: " + UNLOCK[cat + "." + key][0]; }
