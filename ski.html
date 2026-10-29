@@ -175,7 +175,7 @@
         <button type="button" class="pick" data-r="alpine"><b>Evergreen Run</b><span>Groomed forest runs, kickers, lodges and woods trails</span><i id="pb-alpine"></i></button>
         <button type="button" class="pick" data-r="peak"><b>Couloir Peak</b><span>Steep open faces, couloirs and big cliffs. No trees</span><i id="pb-peak"></i></button>
         <button type="button" class="pick" data-r="park"><b>Kicker Park</b><span>Rail gardens, box lines and one big line</span><i id="pb-park"></i></button>
-        <button type="button" class="pick" data-r="drop"><b>X Big Air</b><span>Scaffold in-run and one huge Big Air kicker</span><i id="pb-drop"></i></button>
+        <button type="button" class="pick" data-r="drop"><b>X Big Air</b><span>One wide, steep Big Air ramp</span><i id="pb-drop"></i></button>
       </div>
       <p class="homehint">Enter starts Evergreen Run</p>
     </div>
@@ -316,6 +316,7 @@ function partOff(p, x, s) {
   if (p.type === "rollers") { const u = (s - p.s0) / p.sp; return p.amp * Math.pow(Math.sin(Math.PI * u), 2) * latW(p, x, 1.5); }
   if (p.type === "box") return boxShape(p, x, s) * (p.B + (p.pitch ? p.pitch * (1 - Math.abs(x - p.cx) / p.hw) + 0.25 : 0) - (p.flat ? bermAt(x - pc(s)) : 0));
   const lw = latW(p, x, 1.5), lwL = landW(p, x), lip = p.s0 + p.L;
+  if (p.lin && s >= p.s0 && s <= lip) { const t = (s - p.s0) / p.L, ax = Math.abs(x - p.cx), bank = 1 - smooth((ax - (p.hw + 2)) / 7), w = lw + (1 - lw) * 0.88 * bank; return p.H * (t - 0.07 * (1 - Math.exp(-t / 0.07))) / 0.93 * w; }
   if (lw <= 0 && lwL <= 0) return 0;
   if (s <= lip) { if (lw <= 0) return 0; const t = (s - p.s0) / p.L; return p.H * t * t * lw; }
   let off = 0;
@@ -422,11 +423,11 @@ function addSection() {
   const i = secCount++, diff = Math.min(1, i / 16), pick = rng();
   const f = { s0: genS, parts: [], label: "", boost: null, rail: null, coins: [], mainCx: 0, idx: i };
   if (DROP) { // X Games style big air: steep scaffold in-run, curved kicker, gap, 38 degree landing with a knuckle, flat out-run
-    const L = DLIP - genS, Hh = 7, v0 = 24, D = 5, gap = 14, Ll = 75, Tr = 45;
-    const k = { type: "kicker", label: "X GAMES BIG AIR", s0: genS, L, H: Hh, gap, Ll, Hl: 0, sl: 0.22, Tr, cx: 0, hw: 9, lhw: 17, v0, pit: 0 }; k.end = DLIP + gap + Ll + Tr;
+    const L = DLIP - genS, Hh = 11.5, v0 = 24, D = 5, gap = 14, Ll = 75, Tr = 45;
+    const k = { type: "kicker", label: "X GAMES BIG AIR", s0: genS, L, H: Hh, gap, Ll, Hl: 0, sl: 0.22, Tr, lin: true, cx: 0, hw: 13, lhw: 20, v0, pit: 0 }; k.end = DLIP + gap + Ll + Tr;
     f.parts.push(k); const cs = DLIP, w = 5, last = cliffs[cliffs.length - 1];
     cliffs.push({ s: cs, D, w, pre: last ? last.pre + last.D : 0 });
-    f.cliff = { s: cs, D, w }; f.label = "X GAMES BIG AIR · scaffold in-run, " + D + " m step-down"; f.cliffEnd = k.end + 30; f.mainCx = 0; f.xg = true;
+    f.cliff = { s: cs, D, w }; f.label = "X GAMES BIG AIR · wide steep ramp, " + D + " m step-down"; f.cliffEnd = k.end + 30; f.mainCx = 0; f.xg = false;
   } else if (PARK && i % 5 === 0) { // rail garden
     [[-8, 0], [0, 22], [8, 44]].forEach(([x, o], q) => { const r = { s0: genS + o, s1: genS + o + 24, x }; if (q) f.rail2.push(r); else { f.rail = r; f.rail2 = []; } });
     f.label = "Rail garden"; f.endExtra = genS + 70;
@@ -506,7 +507,7 @@ function H_(x, s) {
   if (PEAK) { const fade = 0.2 + 0.8 * smooth((ax - 6) / 26); y += fade * (4.6 * Math.sin(x * 0.09 + 1.7 * Math.sin(s * 0.006 + x * 0.01)) + 2.6 * Math.sin(x * 0.21 + s * 0.012 + 0.7) + 1.0 * Math.sin(x * 0.47 - s * 0.02)); }
   else y += 3.5 * smooth((ax - PISTE + 1) / 5) + 0.12 * Math.max(0, ax - PISTE - 5);
   y += clamp(-xr * pcc(s) * 4, -3.5, 3.5) * (1 - smooth((ax - PISTE - 2) / 6)); // banked turns
-  if (DROP) y -= 16 * smooth((ax - 12.5) / 4) * smooth((s - 4) / 26) * (1 - smooth((s - DLIP - 2) / 14));
+  if (DROP && false) y -= 16 * smooth((ax - 12.5) / 4) * smooth((s - 4) / 26) * (1 - smooth((s - DLIP - 2) / 14));
   const j = featIndex(s);
   if (j >= 0) y += featOff(feats[j], x, s);
   const T = trailFor(s);
@@ -2258,5 +2259,5 @@ document.querySelectorAll(".pick").forEach(b => {
 });
 if (location.hash === "#peak" || location.hash === "#alpine" || location.hash === "#park" || location.hash === "#drop" || !glOK) { $("home").hidden = true; } else startHome();
 if (!glOK) $("intro").hidden = false;
-if (location.hash === "#peak" || location.hash === "#alpine" || location.hash === "#park" || location.hash === "#drop") { begin(); if (DROP) setTimeout(() => popup("Big Air", "Scaffold in-run · one huge kicker"), 500); if (PEAK) setTimeout(() => popup("Couloir Peak", "Open faces · chutes · cliffs"), 500); if (PARK) setTimeout(() => popup("Kicker Park", "Rails · boxes · one big line"), 500); }
+if (location.hash === "#peak" || location.hash === "#alpine" || location.hash === "#park" || location.hash === "#drop") { begin(); if (DROP) setTimeout(() => popup("Big Air", "Wide steep ramp · one huge kicker"), 500); if (PEAK) setTimeout(() => popup("Couloir Peak", "Open faces · chutes · cliffs"), 500); if (PARK) setTimeout(() => popup("Kicker Park", "Rails · boxes · one big line"), 500); }
 </script>
