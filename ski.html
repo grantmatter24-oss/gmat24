@@ -1097,7 +1097,7 @@ function initRender() {
   const buildMtn = () => {
     while (mtn.children.length) { const o = mtn.children.pop(); o.geometry.dispose(); o.material.dispose(); }
     sunV.set(SUN.x, SUN.y, SUN.z).normalize();
-    if (PEAK) mtn.add(range(1180, 620, 2.1, 0.4, 40), range(800, 400, 5.3, 0.2, 38), range(560, 210, 8.7, 0.08, 40)); else if (DROP) mtn.add(range(3300, 380, 2.1, 0.4, 80), range(2700, 230, 5.3, 0.33, 70), range(2150, 110, 8.7, 0.27, 60)); else mtn.add(range(1180, 340, 2.1, 0.5, 40), range(930, 200, 5.3, 0.2, 38), range(720, 85, 8.7, 0.06, 40));
+    if (PEAK) mtn.add(range(1180, 620, 2.1, 0.4, 40), range(800, 400, 5.3, 0.2, 38), range(560, 210, 8.7, 0.08, 40)); else if (DROP) mtn.add(range(3300, 380, 2.1, 0.15, 80), range(2700, 230, 5.3, 0.12, 70), range(2150, 110, 8.7, 0.1, 60)); else mtn.add(range(1180, 340, 2.1, 0.5, 40), range(930, 200, 5.3, 0.2, 38), range(720, 85, 8.7, 0.06, 40));
   };
   scene.add(mtn); scene.userData.mtn = mtn;
   const valley = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000), new THREE.MeshBasicMaterial({ color: 0xe3ada0 })); valley.rotation.x = -Math.PI / 2; scene.add(valley); scene.userData.valley = valley;
@@ -1967,10 +1967,10 @@ function buildValleyDrop() { // big-air map: steep forested valley walls close i
   for (let i = 0; i < 8; i++) { const sprM = new THREE.SpriteMaterial({ map: cT, transparent: true, depthWrite: false, fog: false }), spr = new THREE.Sprite(sprM), cx = (r() - 0.5) * 1600, cs = S0 + 200 + r() * 1800, sc = 380 + r() * 260; spr.scale.set(sc * 2, sc, 1); spr.position.set(cx, yF + 330 + r() * 120, -cs); g.add(spr);
     const sh = new THREE.Mesh(new THREE.PlaneGeometry(sc * 1.2, sc * 0.6), new THREE.MeshBasicMaterial({ map: shT, transparent: true, depthWrite: false })); sh.rotation.x = -Math.PI / 2; sh.position.set(cx, yF + 1.2, -cs); g.add(sh); clouds.push({ spr, sh, v: 3 + r() * 4, s0: cs }); }
   const mT = canvasTex(256, 256, (c, w, h) => { for (let i = 0; i < 70; i++) { const x = r() * w, y = r() * h, rr = 22 + r() * 40, g2 = c.createRadialGradient(x, y, 0, x, y, rr); g2.addColorStop(0, "rgba(255,255,255,0.5)"); g2.addColorStop(1, "rgba(255,255,255,0)"); c.fillStyle = g2; c.fillRect(x - rr, y - rr, rr * 2, rr * 2); } }); mT.wrapS = mT.wrapT = THREE.RepeatWrapping; mT.repeat.set(5, 5);
-  const mists = [yF + 14, yF + 38, yF + 66].map((y, k) => { const mm = new THREE.Mesh(new THREE.PlaneGeometry(2600, 2800), new THREE.MeshBasicMaterial({ map: mT, transparent: true, opacity: 0.55 - k * 0.12, depthWrite: false, fog: false })); mm.rotation.x = -Math.PI / 2; mm.position.set(0, y, -(S0 + 1300)); g.add(mm); return mm; });
+  const mists = []; /* mist layers removed */ [].concat([]).map((y, k) => { const mm = new THREE.Mesh(new THREE.PlaneGeometry(2600, 2800), new THREE.MeshBasicMaterial({ map: mT, transparent: true, opacity: 0.55 - k * 0.12, depthWrite: false, fog: false })); mm.rotation.x = -Math.PI / 2; mm.position.set(0, y, -(S0 + 1300)); g.add(mm); return mm; });
   const bW = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(1.3, 0, 0.25), new THREE.Vector3(0, 0, 0.5)]), bM = new THREE.MeshBasicMaterial({ color: 0x23262e, side: THREE.DoubleSide }), birds = [];
   for (let i = 0; i < 16; i++) { const b = new THREE.Group(), a = new THREE.Mesh(bW, bM), c2 = new THREE.Mesh(bW, bM); c2.scale.x = -1; b.add(a, c2); g.add(b); birds.push({ b, a, c2, cx: VC.x + 150 + r() * 300, cs: S0 + 250 + r() * 500, rad: 80 + r() * 260, ph: r() * TAU, sp: 0.1 + r() * 0.12, hy: yF + 50 + r() * 90 }); }
-  scene.fog.near = 500; scene.fog.far = 7000; camera.far = 8000; camera.updateProjectionMatrix(); scene.userData.valley.visible = false;
+  scene.fog.near = 20000; scene.fog.far = 40000; camera.far = 8000; camera.updateProjectionMatrix(); scene.userData.valley.visible = false; scene.userData.mtn.visible = false;
   g.userData.yF = yF;
   g.userData.tick = (t, dt) => {
     chairs.forEach(c => { const up = c.t < 0.5, p = chairPos((up ? c.t * 2 : (c.t - 0.5) * 2) , up), tt = (t * 0.02 + c.t) % 1; const q = chairPos((tt < 0.5 ? tt * 2 : (tt - 0.5) * 2), tt < 0.5); c.m.position.set(q[0], q[1], q[2]); });
@@ -1989,7 +1989,7 @@ function manageWorld() {
   if (DROP && finalized && !valleyDrop) { valleyDrop = buildValleyDrop(); scene.add(valleyDrop); }
   if (PEAK && !startHut) { startHut = buildStartHut(); scene.add(startHut); }
   if (sk.s > COURSE_END - 450 && !finishMesh) { finishMesh = PEAK ? buildFinishPeak() : buildFinish(); scene.add(finishMesh); }
-  const cmin = Math.floor((sk.s - 90) / CH), cmax = Math.floor((sk.s + 360) / CH);
+  const cmin = DROP ? 0 : Math.floor((sk.s - 90) / CH), cmax = DROP ? Math.floor((COURSE_END + 60) / CH) : Math.floor((sk.s + 360) / CH);
   for (let ci = cmin; ci <= cmax; ci++) if (ci >= (PARK ? -2 : 0) && !chunks.has(ci)) { const g = buildChunk(ci); chunks.set(ci, g); scene.add(g); }
   for (const [ci, g] of chunks) if (ci < cmin - 1 || ci > cmax + 1) { scene.remove(g); g.traverse(o => { if (o.geometry) o.geometry.dispose(); }); chunks.delete(ci); }
   ensure(sk.s + 300);
