@@ -225,7 +225,7 @@ const hash = n => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s
    ===================================================================== */
 const RES = location.hash === "#peak" ? "peak" : location.hash === "#park" ? "park" : location.hash === "#drop" ? "drop" : "alpine", PEAK = RES === "peak", PARK = RES === "park", DROP = RES === "drop", KS = PEAK ? 1.45 : 1;
 const RESORT_NAMES = { alpine: "Evergreen Run", peak: "Couloir Peak", park: "Kicker Park", drop: "X Big Air" };
-const G = 18, BASE = PEAK ? 0.4 : DROP ? 0.58 : 0.28, RAIL_H = 0.55, PISTE = 15, MAXV = 400;
+const G = 18, BASE = PEAK ? 0.4 : DROP ? 0.58 : 0.28, RAIL_H = 0.55, PISTE = DROP ? 24 : 15, MAXV = 400;
 const COURSE_END = location.hash === "#peak" ? 7500 : location.hash === "#park" ? 5200 : location.hash === "#drop" ? 520 : 6000;
 const rng = mulberry(2024);
 const feats = [];
@@ -313,7 +313,7 @@ function partOff(p, x, s) {
     return w >= 0 && w <= 1 ? p.Hl * bump(w) * lwL : 0;
   }
   if (p.type === "flank") { // low rollers beside the big-air ramp, 4 m under the lip, running on down the sides of the landing
-    const k = p.k, lip = k.s0 + k.L, u = Math.abs(x - k.cx), wx = smooth((u - 7.8) / 1.2) * (1 - smooth((u - 51) / 7)); if (wx <= 0) return 0;
+    const k = p.k, lip = k.s0 + k.L, u = Math.abs(x - k.cx), wx = smooth((u - (k.hw - 1.2)) / 1.2) * (1 - smooth((u - (k.hw + 63)) / 10)); if (wx <= 0) return 0;
     const roll = p.amp * Math.pow(Math.sin(Math.PI * (s - p.s0) / p.sp), 2) * (0.75 + 0.25 * Math.sin(u * 0.28));
     if (s <= lip) { const t = (s - k.s0) / k.L; return (p.Hs * (t - 0.07 * (1 - Math.exp(-t / 0.07))) / 0.93 + roll * smooth(t * 3)) * wx; }
     return (landOff(k, s - lip - k.gap) * (1 - landW(k, x)) + p.Hs * (1 - smooth((s - lip) / 60)) + roll) * wx;
@@ -431,7 +431,7 @@ function addSection() {
   const f = { s0: genS, parts: [], label: "", boost: null, rail: null, coins: [], mainCx: 0, idx: i };
   if (DROP) { // X Games style big air: steep scaffold in-run, curved kicker, gap, 38 degree landing with a knuckle, flat out-run
     const L = DLIP - genS, Hh = 14.5, v0 = 24, D = 5, gap = 50, Ll = 130, Tr = 55;
-    const k = { type: "kicker", label: "X GAMES BIG AIR", s0: genS, L, H: Hh, gap, Ll, Hl: 0, sl: 0.3, Tr, lin: true, cx: 0, hw: 9, lhw: 27, v0, pit: 0 }; k.end = DLIP + gap + Ll + Tr;
+    const k = { type: "kicker", label: "X GAMES BIG AIR", s0: genS, L, H: Hh, gap, Ll, Hl: 0, sl: 0.3, Tr, lin: true, cx: 0, hw: 14, lhw: 40, v0, pit: 0 }; k.end = DLIP + gap + Ll + Tr;
     f.parts.push(k); f.parts.push({ type: "flank", k, s0: genS, end: k.end, Hs: Hh - 4, amp: 0.45, sp: 12, cx: 0, hw: 60 });
     const cs = DLIP, w = 5, last = cliffs[cliffs.length - 1];
     cliffs.push({ s: cs, D, w, pre: last ? last.pre + last.D : 0 });
@@ -1462,7 +1462,7 @@ function idxFor(nx) {
 }
 function xsFor(s0) {
   const iv = [];
-  for (let q = 0; q <= 4; q++) { const sq = s0 + q * CH / 4, c = pc(sq); iv.push([c - (PEAK ? 48 : 30), c + (PEAK ? 48 : 30)]); const T = trailFor(sq); if (T) { const xc = trailXc(T, sq); iv.push([xc - 14, xc + 14]); } }
+  for (let q = 0; q <= 4; q++) { const sq = s0 + q * CH / 4, c = pc(sq); iv.push([c - (PEAK ? 48 : DROP ? 95 : 30), c + (PEAK ? 48 : DROP ? 95 : 30)]); const T = trailFor(sq); if (T) { const xc = trailXc(T, sq); iv.push([xc - 14, xc + 14]); } }
   iv.sort((a, b) => a[0] - b[0]);
   const m = [iv[0].slice()]; for (let i = 1; i < iv.length; i++) { const l = m[m.length - 1]; if (iv[i][0] <= l[1]) l[1] = Math.max(l[1], iv[i][1]); else m.push(iv[i].slice()); }
   const cen = pc(s0 + CH / 2), pts = [];
