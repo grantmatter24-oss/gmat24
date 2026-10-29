@@ -135,7 +135,7 @@
         <button type="button" data-r="alpine" title="Evergreen Run" aria-label="Evergreen Run, forest run"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l5 7h-3l4 6H6l4-6H7z"/><path d="M12 16v5"/></svg></button>
         <button type="button" data-r="peak" title="Couloir Peak" aria-label="Couloir Peak, steep open faces"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 20l7-12 4 6 3-4 6 10z"/></svg></button>
         <button type="button" data-r="park" title="Kicker Park" aria-label="Kicker Park, rails and boxes"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3 8h18M6 8v11M18 8v11M3 19h18"/></svg></button>
-        <button type="button" data-r="drop" title="Big Drop" aria-label="Big Drop, one giant step-down jump"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h7l1 1v12h10"/></svg></button>
+        <button type="button" data-r="drop" title="X Big Air" aria-label="X Big Air, one huge kicker"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h7l1 1v12h10"/></svg></button>
       </div>
       <div id="tods" role="group" aria-label="Time of day">
         <button type="button" data-t="day" title="Midday" aria-label="Midday"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg></button>
@@ -175,7 +175,7 @@
         <button type="button" class="pick" data-r="alpine"><b>Evergreen Run</b><span>Groomed forest runs, kickers, lodges and woods trails</span><i id="pb-alpine"></i></button>
         <button type="button" class="pick" data-r="peak"><b>Couloir Peak</b><span>Steep open faces, couloirs and big cliffs. No trees</span><i id="pb-peak"></i></button>
         <button type="button" class="pick" data-r="park"><b>Kicker Park</b><span>Rail gardens, box lines and one big line</span><i id="pb-park"></i></button>
-        <button type="button" class="pick" data-r="drop"><b>Big Drop</b><span>Steep run-in and one giant step-down jump</span><i id="pb-drop"></i></button>
+        <button type="button" class="pick" data-r="drop"><b>X Big Air</b><span>Scaffold in-run and one huge Big Air kicker</span><i id="pb-drop"></i></button>
       </div>
       <p class="homehint">Enter starts Evergreen Run</p>
     </div>
@@ -224,12 +224,13 @@ const hash = n => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s
    COURSE: coordinates are (x across, y up, s down the mountain). Render z = -s.
    ===================================================================== */
 const RES = location.hash === "#peak" ? "peak" : location.hash === "#park" ? "park" : location.hash === "#drop" ? "drop" : "alpine", PEAK = RES === "peak", PARK = RES === "park", DROP = RES === "drop", KS = PEAK ? 1.45 : 1;
-const RESORT_NAMES = { alpine: "Evergreen Run", peak: "Couloir Peak", park: "Kicker Park", drop: "Big Drop" };
+const RESORT_NAMES = { alpine: "Evergreen Run", peak: "Couloir Peak", park: "Kicker Park", drop: "X Big Air" };
 const G = 18, BASE = PEAK ? 0.4 : DROP ? 0.58 : 0.28, RAIL_H = 0.55, PISTE = 15, MAXV = 400;
-const COURSE_END = location.hash === "#peak" ? 7500 : location.hash === "#park" ? 5200 : location.hash === "#drop" ? 1300 : 6000;
+const COURSE_END = location.hash === "#peak" ? 7500 : location.hash === "#park" ? 5200 : location.hash === "#drop" ? 1000 : 6000;
 const rng = mulberry(2024);
 const feats = [];
 const railsOf = f => f.rail ? (f.rail2 ? [f.rail, ...f.rail2] : [f.rail]) : (f.rail2 || []);
+const DLIP = 406;
 let genS = DROP ? 380 : 140, generating = false, finalized = false;
 
 /* steepness profile: piecewise-linear slope between knots, integrated into a height */
@@ -318,6 +319,7 @@ function partOff(p, x, s) {
   if (lw <= 0 && lwL <= 0) return 0;
   if (s <= lip) { if (lw <= 0) return 0; const t = (s - p.s0) / p.L; return p.H * t * t * lw; }
   let off = 0;
+  if (p.sl) { const d = s - lip - p.gap; if (d <= 0 || d > p.Ll + p.Tr) return 0; const dd = d + 6 * (Math.exp(-d / 6) - 1), Hs = p.sl * p.Ll; return lwL * (d < p.Ll ? -p.sl * dd : -(Hs - p.sl * 6 * (1 - Math.exp(-p.Ll / 6))) * (1 - smooth((d - p.Ll) / p.Tr)) - 0); }
   const u = (s - lip - p.gap) / p.Ll;
   if (u >= 0 && u <= 1) off += p.Hl * bump(u) * lwL;
   if (p.pit && s > lip + 0.4 && s < lip + p.gap) off -= p.pit * smooth((s - lip - 0.4) / 1.2) * smooth((lip + p.gap - s) / 1.2) * lwL;
@@ -419,12 +421,12 @@ function addSection() {
   if (pendingFiller) { pendingFiller = false; return addMicro(); }
   const i = secCount++, diff = Math.min(1, i / 16), pick = rng();
   const f = { s0: genS, parts: [], label: "", boost: null, rail: null, coins: [], mainCx: 0, idx: i };
-  if (DROP) {
-    const L = 30, Hh = 9, v0 = 38, D = 48, fd = flightD(L, Hh + D, v0), gap = clamp(0.3 * fd.d, 24, 40), Ll = 150, Hl = clamp((fd.tanA - BASE) * 0.5 * 90 / 1.5, 1.5, 10);
-    const k = { type: "kicker", label: "THE DROP", s0: genS, L, H: Hh, gap, Ll, Hl, cx: 0, hw: 11, lhw: PISTE + 12, v0, pit: 0 }; k.end = genS + L + gap + Ll;
-    f.parts.push(k); const cs = genS + L, w = 6, last = cliffs[cliffs.length - 1];
+  if (DROP) { // X Games style big air: steep scaffold in-run, curved kicker, gap, 38 degree landing with a knuckle, flat out-run
+    const L = DLIP - genS, Hh = 12.5, v0 = 36, D = 24, gap = 16, Ll = 125, Tr = 70;
+    const k = { type: "kicker", label: "X GAMES BIG AIR", s0: genS, L, H: Hh, gap, Ll, Hl: 0, sl: 0.22, Tr, cx: 0, hw: 11, lhw: 20, v0, pit: 0 }; k.end = DLIP + gap + Ll + Tr;
+    f.parts.push(k); const cs = DLIP, w = 8, last = cliffs[cliffs.length - 1];
     cliffs.push({ s: cs, D, w, pre: last ? last.pre + last.D : 0 });
-    f.cliff = { s: cs, D, w }; f.label = "THE BIG DROP · " + D + " m step-down"; f.cliffEnd = k.end + 40; f.mainCx = 0;
+    f.cliff = { s: cs, D, w }; f.label = "X GAMES BIG AIR · scaffold in-run, " + D + " m step-down"; f.cliffEnd = k.end + 30; f.mainCx = 0; f.xg = true;
   } else if (PARK && i % 5 === 0) { // rail garden
     [[-8, 0], [0, 22], [8, 44]].forEach(([x, o], q) => { const r = { s0: genS + o, s1: genS + o + 24, x }; if (q) f.rail2.push(r); else { f.rail = r; f.rail2 = []; } });
     f.label = "Rail garden"; f.endExtra = genS + 70;
@@ -504,6 +506,7 @@ function H_(x, s) {
   if (PEAK) { const fade = 0.2 + 0.8 * smooth((ax - 6) / 26); y += fade * (4.6 * Math.sin(x * 0.09 + 1.7 * Math.sin(s * 0.006 + x * 0.01)) + 2.6 * Math.sin(x * 0.21 + s * 0.012 + 0.7) + 1.0 * Math.sin(x * 0.47 - s * 0.02)); }
   else y += 3.5 * smooth((ax - PISTE + 1) / 5) + 0.12 * Math.max(0, ax - PISTE - 5);
   y += clamp(-xr * pcc(s) * 4, -3.5, 3.5) * (1 - smooth((ax - PISTE - 2) / 6)); // banked turns
+  if (DROP) y -= 16 * smooth((ax - 12.5) / 4) * smooth((s - 90) / 70) * (1 - smooth((s - DLIP - 4) / 22));
   const j = featIndex(s);
   if (j >= 0) y += featOff(feats[j], x, s);
   const T = trailFor(s);
@@ -1724,6 +1727,12 @@ function buildFeature(f) {
     for (let xx = -PISTE; xx <= PISTE; xx += 3.6) { const c = new THREE.Mesh(cone, cm); const x = px + xx; c.position.set(x, H(x, cs - 1.4) + 0.4, -(cs - 1.4)); grp.add(c); }
     [-1, 1].forEach(sd => { const x = px + sd * (PISTE - 1.5), y = H(x, cs - 2), pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 4.4, 6), polem); pole.position.set(x, y + 2.2, -(cs - 2)); grp.add(pole); const flag = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.8, 1.3), flagm); flag.position.set(x, y + 3.9, -(cs - 2) + 0.7); grp.add(flag); });
   }
+  if (f.xg) {
+    const pm = new THREE.MeshLambertMaterial({ color: 0xe9edf3 }), bm = new THREE.MeshLambertMaterial({ color: 0xd9dee6 }), pg = new THREE.BoxGeometry(0.28, 1, 0.28), hg = new THREE.BoxGeometry(0.16, 0.16, 1);
+    [-1, 1].forEach(sd => { const ex = sd * 13.2; for (let ss = 100; ss <= DLIP - 2; ss += 7) { const top = H(0, ss) - 0.3, bot = H(ex + sd * 5, ss) - 0.5, m = new THREE.Mesh(pg, pm); m.scale.y = top - bot; m.position.set(ex, (top + bot) / 2, -ss); grp.add(m);
+      if (ss > 100) [0.25, 0.6].forEach(fr => { const b = new THREE.Mesh(hg, pm); b.scale.z = 7; b.position.set(ex, bot + (top - bot) * fr, -(ss - 3.5)); grp.add(b); }); }
+      for (let ss = 100; ss <= DLIP - 2; ss += 2) { const b = new THREE.Mesh(hg, bm); b.scale.z = 2.05; b.position.set(sd * 11.6, H(sd * 11.6, ss + 1) + 0.6, -(ss + 1)); grp.add(b); } });
+  }
   f.parts.forEach(p => {
     if (p.type === "kicker") {
       const lip = p.s0 + p.L, big = p.hw > 8, ph = big ? 3.6 : 2.6;
@@ -2249,5 +2258,5 @@ document.querySelectorAll(".pick").forEach(b => {
 });
 if (location.hash === "#peak" || location.hash === "#alpine" || location.hash === "#park" || location.hash === "#drop" || !glOK) { $("home").hidden = true; } else startHome();
 if (!glOK) $("intro").hidden = false;
-if (location.hash === "#peak" || location.hash === "#alpine" || location.hash === "#park" || location.hash === "#drop") { begin(); if (DROP) setTimeout(() => popup("Big Drop", "Steep run-in · one giant step-down"), 500); if (PEAK) setTimeout(() => popup("Couloir Peak", "Open faces · chutes · cliffs"), 500); if (PARK) setTimeout(() => popup("Kicker Park", "Rails · boxes · one big line"), 500); }
+if (location.hash === "#peak" || location.hash === "#alpine" || location.hash === "#park" || location.hash === "#drop") { begin(); if (DROP) setTimeout(() => popup("Big Air", "Scaffold in-run · one huge kicker"), 500); if (PEAK) setTimeout(() => popup("Couloir Peak", "Open faces · chutes · cliffs"), 500); if (PARK) setTimeout(() => popup("Kicker Park", "Rails · boxes · one big line"), 500); }
 </script>
