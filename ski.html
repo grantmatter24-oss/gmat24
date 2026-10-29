@@ -423,9 +423,9 @@ function addSection() {
   const i = secCount++, diff = Math.min(1, i / 16), pick = rng();
   const f = { s0: genS, parts: [], label: "", boost: null, rail: null, coins: [], mainCx: 0, idx: i };
   if (DROP) { // X Games style big air: steep scaffold in-run, curved kicker, gap, 38 degree landing with a knuckle, flat out-run
-    const L = DLIP - genS, Hh = 14.5, v0 = 24, D = 5, gap = 38, Ll = 100, Tr = 50;
+    const L = DLIP - genS, Hh = 14.5, v0 = 24, D = 5, gap = 50, Ll = 130, Tr = 55;
     const k = { type: "kicker", label: "X GAMES BIG AIR", s0: genS, L, H: Hh, gap, Ll, Hl: 0, sl: 0.3, Tr, lin: true, cx: 0, hw: 9, lhw: 27, v0, pit: 0 }; k.end = DLIP + gap + Ll + Tr;
-    f.parts.push(k); [-1, 1].forEach(sd => f.parts.push({ type: "rollers", s0: genS + 2, n: 7, sp: 8, amp: 1.1, cx: sd * 15.5, hw: 4.2, end: genS + 58 }));
+    f.parts.push(k); [-1, 1].forEach(sd => f.parts.push({ type: "rollers", s0: genS + 2, n: 25, sp: 10, amp: 0.8, cx: sd * 16.5, hw: 7, end: genS + 252 }));
     const cs = DLIP, w = 5, last = cliffs[cliffs.length - 1];
     cliffs.push({ s: cs, D, w, pre: last ? last.pre + last.D : 0 });
     f.cliff = { s: cs, D, w }; f.label = "X GAMES BIG AIR · wide steep ramp, " + D + " m step-down"; f.cliffEnd = k.end + 30; f.mainCx = 0; f.xg = false;
