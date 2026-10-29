@@ -279,15 +279,16 @@ function flightD(L, Hh, v0, roof) { // where a nominal flight from the lip comes
   for (let k = 0; k < 9000; k++) { vy -= G / 120; d += vh / 120; y += vy / 120; if (y <= -Hh + (roof || 0) - BASE * d) { tanA = Math.abs(vy) / vh; break; } }
   return { d, tanA };
 }
-function mkKicker(s0, kind, cx, hw, diff, sc) {
+function mkKicker(s0, kind, cx, hw, diff, sc, tall) {
   sc = sc || 1;
   const T = [[8, 1.5, 0.15, 22, 0.5, 10, 32, "Small kicker"], [11, 2, 0.17, 26, 0.55, 18, 50, "Kicker"], [14, 2, 0.2, 30, 0.6, 28, 80, "Big air"], [14, 2, 0.22, 30, 0.33, 18, 55, "Gap jump"], [18, 2, 0.28, 36, 0.6, 50, 140, "Mega air"]][kind];
-  const L = (T[0] + rng() * T[1]) * (sc < 1 ? 0.8 : 1) * (kind < 4 ? 1.1 : 1.1), ratio = (T[2] + rng() * 0.02) * (kind < 4 ? 1.55 : 1.25), v0 = T[3] + 2;
+  const L = (T[0] + rng() * T[1]) * (sc < 1 ? 0.8 : 1) * (kind < 4 ? 1.1 : 1.1), ratio = (T[2] + rng() * 0.02) * (kind < 4 ? 1.55 : 1.25) * (tall ? 1.55 : 1), v0 = T[3] + 2 - (tall ? 3 : 0);
   const Hh = L * ratio * (kind < 3 ? 1 + 0.1 * diff : 1), fd = flightD(L, Hh, v0);
   const gap = kind === 3 ? clamp(T[4] * fd.d * sc, T[5] * sc, T[6] * sc * 1.3) : clamp(0.35 * fd.d * sc, 6, 40), Ll = kind === 3 ? clamp(gap * 0.8 + 10, 18, 60) : clamp(0.9 * fd.d * sc, 24, 70);
   const Hl = clamp((fd.tanA - BASE) * 0.5 * Ll / 1.5, 0.8, 7), pit = kind === 3 ? 3.6 : 0;
   const hwK = kind < 4 ? hw * (PEAK ? 1.7 : 1.3) : hw;
   const p = { type: "kicker", label: T[7], s0, L, H: Hh, gap, Ll, Hl, cx, hw: hwK, lhw: Math.min(hwK * 2, 22), v0, pit };
+  if (tall) p.label = "Sky ramp";
   p.end = s0 + L + gap + Ll; return p;
 }
 function mkHip(sBase, sd, diff) {
@@ -363,7 +364,7 @@ function addInterlude(kind) {
 let pendingFiller = false, microCount = 0;
 function addMicro() {
   const i = microCount++, diff = Math.min(1, secCount / 16), f = { s0: genS, parts: [], label: "", boost: null, rail: null, coins: [], mainCx: 0, idx: -1, micro: true }, t = PEAK ? [0, 1, 1, 3][i % 4] : i % 4;
-  { const k = mkKicker(genS, i % 3 === 0 ? 1 : 2, 0, 4.2, diff, 1); f.parts.push(k); f.label = k.label;
+  { const k = mkKicker(genS, i % 3 === 0 ? 1 : 2, 0, 4.2, diff, 1, i % 4 === 3); f.parts.push(k); f.label = k.label;
     if (i % 2 === 1) { const rs0 = k.s0 + k.L + k.gap + k.Ll * 0.1; f.rail = { s0: rs0, s1: rs0 + Math.min(k.Ll * 0.72, 36), x: (rng() - 0.5) * 1.2 }; f.label += " + rail"; } }
   if (PEAK) f.rail = null;
   if (!PEAK && t !== 2 && rng() < 0.75) sideHouse(f, rng() < 0.5 ? -1 : 1, genS + 4 + rng() * 6, 0);
@@ -449,7 +450,7 @@ function addSection() {
   } else {
     const kp = (pick - 0.2) / 0.8, pS = 0.36 - 0.22 * diff, kind = kp < 0.4 ? 1 : 2;
     const cx = (rng() - 0.5) * 3, hw = 3.8 + rng() * 1.8;
-    const k = mkKicker(genS, kind, cx, hw, diff); f.parts.push(k); f.label = k.label; f.mainCx = cx;
+    const k = mkKicker(genS, kind, cx, hw, diff, 1, kind > 0 && secCount > 2 && rng() < 0.2); f.parts.push(k); f.label = k.label; f.mainCx = cx;
     if (kind > 0 && rng() < 0.28) { const rs0 = k.s0 + k.L + k.gap + k.Ll * 0.1; f.rail = { s0: rs0, s1: rs0 + Math.min(k.Ll * 0.72, 36), x: cx + (rng() - 0.5) * 1.2 }; f.label += " + rail"; }
     if (kind > 0 && rng() < 0.7) f.boost = { s0: genS - 22, s1: genS - 16, cx, hw: 1.4 };
     const nSide = rng() < 0.9 ? (rng() < 0.45 ? 2 : 1) : 0, sides = rng() < 0.5 ? [-1, 1] : [1, -1];
@@ -532,23 +533,36 @@ function flankRocks(f) {
 function rocksForChunk(ci) {
   const rt = mulberry(ci * 313 + 7), s0 = ci * CH, out = [];
   const ok = (x, s) => { const T = trailFor(s); return !(T && Math.abs(x - trailXc(T, s)) < T.hw + 4); };
-  for (let i = 0; i < (PEAK ? 2 : 9); i++) { const side = rt() < 0.5 ? -1 : 1, s = s0 + rt() * CH, x = pc(s) + side * (PISTE + (PEAK ? 16 : 1.8) + rt() * 9), r = 0.9 + rt() * 1.7; if (ok(x, s)) out.push({ x, s, r }); }
+  for (let i = 0; i < (PEAK ? 1 : 4); i++) { const side = rt() < 0.5 ? -1 : 1, s = s0 + rt() * CH, x = pc(s) + side * (PISTE + (PEAK ? 16 : 1.8) + rt() * 9), r = 0.9 + rt() * 1.7; if (ok(x, s)) out.push({ x, s, r }); }
   for (let i = 0; i < 12; i++) { const s = s0 + rt() * CH, T = trailFor(s), sd = rt() < 0.5 ? -1 : 1, big = rt() < 0.3, r = big ? 2.6 + rt() * 2.6 : 1 + rt() * 1.6; if (T) { const x = trailXc(T, s) + sd * (T.hw + 4.5 + rt() * 8); if (Math.abs(x - pc(s)) > PISTE + 2.5) out.push({ x, s, r }); } }
   if (PEAK) for (let i = 0; i < 3; i++) { const side = rt() < 0.5 ? -1 : 1, s = s0 + rt() * CH, big = rt() < 0.4; out.push({ x: pc(s) + side * (PISTE + 16 + rt() * 24), s, r: big ? 2.4 + rt() * 3.2 : 1 + rt() * 1.6 }); }
   return out;
 }
+const ROCK_COLS = [0x8b8d92, 0x6f6a66, 0x5a5f69, 0x7d6a58, 0x9a9488, 0x4f5258, 0x85796d];
+let rockGeos = null;
+function rockGeoSet() {
+  if (rockGeos) return rockGeos;
+  const mk = (base, seed, sy) => { const g = base; const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i), n = 1 + 0.28 * Math.sin(x * 4.1 + seed) * Math.cos(z * 3.7 + seed * 2) + 0.18 * Math.sin(y * 5.3 + seed * 3); p.setXYZ(i, x * n, y * n * sy, z * n); } g.computeVertexNormals(); return g; };
+  rockGeos = [mk(new THREE.IcosahedronGeometry(1, 1), 1.3, 0.8), mk(new THREE.IcosahedronGeometry(1, 1), 4.1, 0.45), mk(new THREE.OctahedronGeometry(1, 1), 2.2, 1.25)];
+  return rockGeos;
+}
 function rockGroup(list) {
   const grp = new THREE.Group(), N = list.length; if (!N) return grp;
-  const body = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, flatShading: true }), N);
-  const cap = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshStandardMaterial({ color: 0xf1ecf3, roughness: 0.9, flatShading: true }), N);
+  const geos = rockGeoSet(), groups = [[], [], []];
+  list.forEach(r => groups[Math.floor(hash(r.x * 1.7 + r.s * 0.9) * 3) % 3].push(r));
   const d = new THREE.Object3D(), col = new THREE.Color();
-  list.forEach((r, i) => {
-    const h = hash(r.x * 1.7 + r.s * 0.9), sx = r.r * (0.9 + h * 0.5), sy = r.r * (0.7 + hash(h * 9) * 0.45), sz = r.r * (0.9 + hash(h * 5) * 0.5), gy = H_(r.x, r.s);
-    d.position.set(r.x, gy + sy * 0.35, -r.s); d.rotation.set(h * 3, h * 7, h * 2); d.scale.set(sx, sy, sz); d.updateMatrix(); body.setMatrixAt(i, d.matrix);
-    col.setHSL(0.62 + h * 0.06, 0.08 + h * 0.06, 0.34 + hash(h * 3) * 0.16); body.setColorAt(i, col);
-    d.position.set(r.x, gy + sy * 0.35 + sy * 0.62, -r.s); d.rotation.set(0, h * 7, 0); d.scale.set(sx * 0.72, sy * 0.38, sz * 0.72); d.updateMatrix(); cap.setMatrixAt(i, d.matrix);
+  groups.forEach((arr, gi) => {
+    if (!arr.length) return;
+    const body = new THREE.InstancedMesh(geos[gi], new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, flatShading: true }), arr.length);
+    const cap = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 0), new THREE.MeshStandardMaterial({ color: 0xf1f4f8, roughness: 0.9, flatShading: true }), arr.length);
+    arr.forEach((r, i) => {
+      const h = hash(r.x * 1.7 + r.s * 0.9), sx = r.r * (0.8 + h * 0.6), sy = r.r * (0.7 + hash(h * 9) * 0.5), sz = r.r * (0.8 + hash(h * 5) * 0.6), gy = H_(r.x, r.s);
+      d.position.set(r.x, gy + sy * (gi === 1 ? 0.15 : 0.3), -r.s); d.rotation.set((hash(h * 2) - 0.5) * 0.5, h * 7, (hash(h * 4) - 0.5) * 0.5); d.scale.set(sx, sy, sz); d.updateMatrix(); body.setMatrixAt(i, d.matrix);
+      col.setHex(ROCK_COLS[Math.floor(hash(h * 11) * ROCK_COLS.length) % ROCK_COLS.length]); col.offsetHSL(0, 0, (hash(h * 13) - 0.5) * 0.08); body.setColorAt(i, col);
+      const snowy = hash(h * 17) < 0.65; d.position.set(r.x, gy + sy * (gi === 1 ? 0.15 : 0.3) + sy * (gi === 1 ? 0.3 : 0.7), -r.s); d.rotation.set(0, h * 7, 0); d.scale.set(snowy ? sx * 0.6 : 0.001, snowy ? sy * 0.22 : 0.001, snowy ? sz * 0.6 : 0.001); d.updateMatrix(); cap.setMatrixAt(i, d.matrix);
+    });
+    body.castShadow = cap.castShadow = true; body.receiveShadow = cap.receiveShadow = true; grp.add(body, cap);
   });
-  body.castShadow = cap.castShadow = true; body.receiveShadow = cap.receiveShadow = true; grp.add(body, cap);
   return grp;
 }
 /* ---------- woods trails: side routes that leave the piste, run through the forest and rejoin it ---------- */
@@ -849,8 +863,8 @@ function step(dt) {
     const flipIn = (K.down ? 1 : 0) - (K.up ? 1 : 0);   // +1 = back flip (nose up), -1 = front flip
     const spinIn = (K.spinR ? 1 : 0) - (K.spinL ? 1 : 0);
     const before = sk.rot;
-    if (flipIn) sk.rotV += clamp(flipIn * 8.4 - sk.rotV, -50 * dt, 50 * dt);
-    else sk.rotV *= Math.exp(-9 * dt);
+    if (flipIn) sk.rotV += clamp(flipIn * 6.0 - sk.rotV, -22 * dt, 22 * dt);
+    else sk.rotV *= Math.exp(-5.5 * dt);
     sk.rot += sk.rotV * dt;
     if (!flipIn && sk.vy > -3) { // gentle auto-level on the way down
       const vh = Math.hypot(sk.vx, sk.vs), want = sk.rot + wrap(Math.atan2(sk.vy, vh) - sk.rot);
@@ -1171,7 +1185,7 @@ function applyOutfit(R) {
     R.shape.calves.forEach(m => { m.visible = !sm; }); R.cuffs.forEach(m => Sc(m, 1.55, 1.2, 1.55));
     m.boot.color.setHex(sm ? 0xe8ebef : 0x1a1f29); }
   for (const k in R.acc) R.acc[k].visible = k === outfit.accessory;
-  R.skiM.map = R.skiTexes[outfit.skis === "current" ? "current" : outfit.skis]; R.skiM.needsUpdate = true; R.skiMeshes.forEach(m => m.scale.x = outfit.skis === "black" ? 1.55 : 1);
+  R.skiM.map = R.skiTexes[outfit.skis === "current" ? "current" : outfit.skis]; R.skiM.needsUpdate = true; R.skiMeshes.forEach(m => m.scale.x = outfit.skis === "black" ? 1.4 : 1);
 }
 function buildSkier() {
   const root = new THREE.Group(), pivot = new THREE.Group(), rig = new THREE.Group();
@@ -1189,16 +1203,16 @@ function buildSkier() {
   const add = (geo, m, x, y, z, parent) => { const mm = new THREE.Mesh(geo, m); mm.position.set(x, y, z); (parent || rig).add(mm); return mm; };
   const limb = (r0, r1, len, m) => { const g = new THREE.CylinderGeometry(r0, r1, len, 16); g.translate(0, -len / 2, 0); return new THREE.Mesh(g, m); };
   // skis, bindings, boots
-  const skiG = [], tailM = [], noseM = [], midM = [];
+  const skiG = [], tailM = [], noseM = [], midM = [], bend = [];
   [-0.13, 0.13].forEach(x => {
     const sg = new THREE.Group(); sg.position.set(x, 0.2, 0.06); sg.rotation.order = "YXZ"; rig.add(sg); const ig = new THREE.Group(); ig.position.set(-x, -0.2, -0.06); sg.add(ig);
     const tm = new THREE.Object3D(); tm.position.set(x, 0.05, 0.78); ig.add(tm); skiG.push(sg); tailM.push(tm);
     const nm = new THREE.Object3D(); nm.position.set(x, 0.05, -0.84); ig.add(nm); noseM.push(nm); const mm2 = new THREE.Object3D(); mm2.position.set(x, 0.06, -0.05); ig.add(mm2); midM.push(mm2);
     const addS = (g, m, px, py, pz) => add(g, m, px, py, pz, ig);
-    addS(new THREE.BoxGeometry(0.095, 0.02, 1.4), skiM, x, 0.03, 0.05);
-    const t1 = addS(new THREE.BoxGeometry(0.095, 0.02, 0.24), skiM, x, 0.052, -0.78); t1.rotation.x = 0.26;
-    const t2 = addS(new THREE.BoxGeometry(0.095, 0.02, 0.16), skiM, x, 0.1, -0.93); t2.rotation.x = 0.62;
-    const tl = addS(new THREE.BoxGeometry(0.095, 0.02, 0.2), skiM, x, 0.05, 0.8); tl.rotation.x = -0.28;
+    addS(new THREE.BoxGeometry(0.135, 0.036, 1.4), skiM, x, 0.052, 0.05);
+    const t1 = addS(new THREE.BoxGeometry(0.135, 0.036, 0.24), skiM, x, 0.074, -0.78); t1.rotation.x = 0.26;
+    const t2 = addS(new THREE.BoxGeometry(0.135, 0.036, 0.16), skiM, x, 0.122, -0.93); t2.rotation.x = 0.62;
+    const tl = addS(new THREE.BoxGeometry(0.135, 0.036, 0.2), skiM, x, 0.072, 0.8); tl.rotation.x = -0.28; bend.push({ t1, t2, tl });
     addS(new THREE.BoxGeometry(0.1, 0.05, 0.1), black, x, 0.07, -0.08); addS(new THREE.BoxGeometry(0.1, 0.06, 0.11), black, x, 0.075, 0.2);
     addS(new THREE.BoxGeometry(0.118, 0.12, 0.32), boot, x, 0.135, 0.06);
     addS(new THREE.CylinderGeometry(0.083, 0.079, 0.3, 16), boot, x, 0.31, 0.05);
@@ -1325,7 +1339,7 @@ function buildSkier() {
   const inKeep = o => { for (let q = o.parent; q; q = q.parent) if (keep.has(q)) return true; return false; };
   root.traverse(o => { if (o.isMesh && detMats.includes(o.material) && !inKeep(o)) detail.push(o); });
   helmetG.children.forEach(m => { if (m.geometry.type !== "SphereGeometry") detail.push(m); });
-  return { simpleOnly, shape, torsoM, hoodM, detail, skiBack, noseM, midM, skiM, skiTexes, skiMeshes, acc, ninjaTails, capeGeo, capeBase, cuffs, skiG, tailM, mats: { boot, jacket, jacket2, jacketArm, cuffM, pants, pantsLow, helmet, stripeM, skin, scarfMat }, helmetG, hats, ex, root, pivot, rig, legs, hipG, torso, head, arms, scarf, pose: { c: 0.3, lean: 0.2, carve: 0, L: new THREE.Vector3(-0.36, 0.92, -0.3), Rh: new THREE.Vector3(0.36, 0.92, -0.3), headY: 0 }, a, b };
+  return { bend, simpleOnly, shape, torsoM, hoodM, detail, skiBack, noseM, midM, skiM, skiTexes, skiMeshes, acc, ninjaTails, capeGeo, capeBase, cuffs, skiG, tailM, mats: { boot, jacket, jacket2, jacketArm, cuffM, pants, pantsLow, helmet, stripeM, skin, scarfMat }, helmetG, hats, ex, root, pivot, rig, legs, hipG, torso, head, arms, scarf, pose: { c: 0.3, lean: 0.2, carve: 0, L: new THREE.Vector3(-0.36, 0.92, -0.3), Rh: new THREE.Vector3(0.36, 0.92, -0.3), headY: 0 }, a, b };
 }
 
 const _tv = typeof THREE !== "undefined" ? new THREE.Vector3() : null;
@@ -1398,6 +1412,7 @@ function poseSkier(dt, time) {
   const swp = sk.bikeJump ? clamp(sk.airT / 0.45, 0, 1) : 1, ease = 1 + 2.7 * Math.pow(swp - 1, 3) + 1.7 * Math.pow(swp - 1, 2);
   if (sk.bikeJump && !sk.swapDone && swp > 0.05) { sk.swapDone = true; spray(sk.x, sk.y + 0.2, sk.s, 16, 6); }
   if (sk.bikeJump && swp >= 1) sk.bikeJump = false;
+  R.bend.forEach(b => { b.t1.rotation.x = 0.26 + 0.55 * bt; b.t2.rotation.x = 0.62 + 0.9 * bt; b.tl.rotation.x = -0.28 - 0.7 * nb - 0.2 * bt * 0; if (nb > 0.02) { b.t1.rotation.x = 0.26 - 0.15 * nb; } });
   R.skiBack.visible = bikeOn || (sk.bikeJump && swp < 0.3); R.skiBack.scale.setScalar(bikeOn ? 1 : Math.max(0.01, 1 - swp / 0.3));
   R.skiG.forEach((sg, i) => { sg.visible = !bikeOn && swp > 0.05; sg.scale.setScalar(bikeOn ? 0.01 : Math.max(0.01, ease)); sg.position.set(sg.position.x, 0.2 + (ankY - foot), 0.06 + ankZ); sg.rotation.x = GP.pitch * tg + 0.5 * bt - 0.5 * nb; sg.rotation.y = (i ? -1 : 1) * GP.cross * tg; sg.rotation.z = (i ? 1 : -1) * (GP.roll || 0) * tg; });
   R.hipG.position.set(-inside, hipY + 0.02, 0.04 + 0.04 * p.c); R.hipG.updateMatrix();
@@ -1975,7 +1990,7 @@ function render(dt, time) {
   manageWorld(); updateHeli(dt); updateBike(dt);
   poseSkier(dt, time);
   const R = skierRig;
-  R.root.position.set(sk.x, sk.y, -sk.s);
+  R.root.position.set(sk.x, sk.y + 0.025, -sk.s);
   const grindYaw = sk.grind || sk.boxT > 0.15 ? 1.45 : 0;
   R.grindYaw = lerp(R.grindYaw || 0, grindYaw, Math.min(1, 12 * dt));
   R.root.rotation.y = -(sk.psi + R.grindYaw); R.rig.rotation.y = -(sk.spin + (sk.sw ? Math.PI : 0));
