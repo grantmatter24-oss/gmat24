@@ -226,12 +226,12 @@ const hash = n => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s
 const RES = location.hash === "#peak" ? "peak" : location.hash === "#park" ? "park" : location.hash === "#drop" ? "drop" : "alpine", PEAK = RES === "peak", PARK = RES === "park", DROP = RES === "drop", KS = PEAK ? 1.45 : 1;
 const RESORT_NAMES = { alpine: "Evergreen Run", peak: "Couloir Peak", park: "Kicker Park", drop: "X Big Air" };
 const G = 18, BASE = PEAK ? 0.4 : DROP ? 0.58 : 0.28, RAIL_H = 0.55, PISTE = 15, MAXV = 400;
-const COURSE_END = location.hash === "#peak" ? 7500 : location.hash === "#park" ? 5200 : location.hash === "#drop" ? 1000 : 6000;
+const COURSE_END = location.hash === "#peak" ? 7500 : location.hash === "#park" ? 5200 : location.hash === "#drop" ? 520 : 6000;
 const rng = mulberry(2024);
 const feats = [];
 const railsOf = f => f.rail ? (f.rail2 ? [f.rail, ...f.rail2] : [f.rail]) : (f.rail2 || []);
-const DLIP = 406;
-let genS = DROP ? 380 : 140, generating = false, finalized = false;
+const DLIP = 56;
+let genS = DROP ? 42 : 140, generating = false, finalized = false;
 
 /* steepness profile: piecewise-linear slope between knots, integrated into a height */
 const knots = [{ s: -200, v: BASE, cum: -200 * BASE }];
@@ -422,9 +422,9 @@ function addSection() {
   const i = secCount++, diff = Math.min(1, i / 16), pick = rng();
   const f = { s0: genS, parts: [], label: "", boost: null, rail: null, coins: [], mainCx: 0, idx: i };
   if (DROP) { // X Games style big air: steep scaffold in-run, curved kicker, gap, 38 degree landing with a knuckle, flat out-run
-    const L = DLIP - genS, Hh = 12.5, v0 = 36, D = 24, gap = 16, Ll = 125, Tr = 70;
-    const k = { type: "kicker", label: "X GAMES BIG AIR", s0: genS, L, H: Hh, gap, Ll, Hl: 0, sl: 0.22, Tr, cx: 0, hw: 11, lhw: 20, v0, pit: 0 }; k.end = DLIP + gap + Ll + Tr;
-    f.parts.push(k); const cs = DLIP, w = 8, last = cliffs[cliffs.length - 1];
+    const L = DLIP - genS, Hh = 7, v0 = 24, D = 5, gap = 14, Ll = 75, Tr = 45;
+    const k = { type: "kicker", label: "X GAMES BIG AIR", s0: genS, L, H: Hh, gap, Ll, Hl: 0, sl: 0.22, Tr, cx: 0, hw: 9, lhw: 17, v0, pit: 0 }; k.end = DLIP + gap + Ll + Tr;
+    f.parts.push(k); const cs = DLIP, w = 5, last = cliffs[cliffs.length - 1];
     cliffs.push({ s: cs, D, w, pre: last ? last.pre + last.D : 0 });
     f.cliff = { s: cs, D, w }; f.label = "X GAMES BIG AIR · scaffold in-run, " + D + " m step-down"; f.cliffEnd = k.end + 30; f.mainCx = 0; f.xg = true;
   } else if (PARK && i % 5 === 0) { // rail garden
@@ -485,7 +485,7 @@ function addSection() {
   feats.push(f); regRocks(f);
   const a = f.s0 - 34, prevEnd = knots[knots.length - 1].s, gapLen = a - prevEnd;
   if (i > 0 && gapLen > 20) { const v = (PARK && i % 5 === 3) ? 0.5 : (i % 6 === 3 || i % 6 === 5) ? 0.44 : [0.14, 0.2, 0.2, 0.36, 0.44, 0.5][Math.floor(rng() * 6)]; addKnot(prevEnd + gapLen * 0.3, v); addKnot(prevEnd + gapLen * 0.7, v); }
-  addKnot(a, BASE); addKnot(f.end + 10, BASE);
+  if (DROP) { addKnot(a, BASE); addKnot(f.end - 30, BASE); addKnot(f.end + 40, 0.04); } else { addKnot(a, BASE); addKnot(f.end + 10, BASE); }
   pcs.push({ a, b: f.end + 10, x: px, jump: !f.cliff });
   if (DROP) { genS = 1e9; return f; }
   if (i > 1 && rng() < (PEAK ? 0.9 : 0.45)) { const fast = secCount % 6 === 3 || secCount % 6 === 5, order = PEAK ? ["chute", "carve", "chute"] : ["carve", "chute", "cruiser"]; let k = order[interCount++ % 3]; if (fast && k === "cruiser") k = "chute"; pendingInterlude = k; genS = f.end + 44 + rng() * 10; }
@@ -506,7 +506,7 @@ function H_(x, s) {
   if (PEAK) { const fade = 0.2 + 0.8 * smooth((ax - 6) / 26); y += fade * (4.6 * Math.sin(x * 0.09 + 1.7 * Math.sin(s * 0.006 + x * 0.01)) + 2.6 * Math.sin(x * 0.21 + s * 0.012 + 0.7) + 1.0 * Math.sin(x * 0.47 - s * 0.02)); }
   else y += 3.5 * smooth((ax - PISTE + 1) / 5) + 0.12 * Math.max(0, ax - PISTE - 5);
   y += clamp(-xr * pcc(s) * 4, -3.5, 3.5) * (1 - smooth((ax - PISTE - 2) / 6)); // banked turns
-  if (DROP) y -= 16 * smooth((ax - 12.5) / 4) * smooth((s - 90) / 70) * (1 - smooth((s - DLIP - 4) / 22));
+  if (DROP) y -= 16 * smooth((ax - 12.5) / 4) * smooth((s - 4) / 26) * (1 - smooth((s - DLIP - 2) / 14));
   const j = featIndex(s);
   if (j >= 0) y += featOff(feats[j], x, s);
   const T = trailFor(s);
@@ -1729,9 +1729,9 @@ function buildFeature(f) {
   }
   if (f.xg) {
     const pm = new THREE.MeshLambertMaterial({ color: 0xe9edf3 }), bm = new THREE.MeshLambertMaterial({ color: 0xd9dee6 }), pg = new THREE.BoxGeometry(0.28, 1, 0.28), hg = new THREE.BoxGeometry(0.16, 0.16, 1);
-    [-1, 1].forEach(sd => { const ex = sd * 13.2; for (let ss = 100; ss <= DLIP - 2; ss += 7) { const top = H(0, ss) - 0.3, bot = H(ex + sd * 5, ss) - 0.5, m = new THREE.Mesh(pg, pm); m.scale.y = top - bot; m.position.set(ex, (top + bot) / 2, -ss); grp.add(m);
-      if (ss > 100) [0.25, 0.6].forEach(fr => { const b = new THREE.Mesh(hg, pm); b.scale.z = 7; b.position.set(ex, bot + (top - bot) * fr, -(ss - 3.5)); grp.add(b); }); }
-      for (let ss = 100; ss <= DLIP - 2; ss += 2) { const b = new THREE.Mesh(hg, bm); b.scale.z = 2.05; b.position.set(sd * 11.6, H(sd * 11.6, ss + 1) + 0.6, -(ss + 1)); grp.add(b); } });
+    [-1, 1].forEach(sd => { const ex = sd * 13.2; for (let ss = 14; ss <= DLIP - 2; ss += 5) { const top = H(0, ss) - 0.3, bot = H(ex + sd * 5, ss) - 0.5, m = new THREE.Mesh(pg, pm); m.scale.y = top - bot; m.position.set(ex, (top + bot) / 2, -ss); grp.add(m);
+      if (ss > 14) [0.25, 0.6].forEach(fr => { const b = new THREE.Mesh(hg, pm); b.scale.z = 5; b.position.set(ex, bot + (top - bot) * fr, -(ss - 2.5)); grp.add(b); }); }
+      for (let ss = 10; ss <= DLIP - 2; ss += 2) { const b = new THREE.Mesh(hg, bm); b.scale.z = 2.05; b.position.set(sd * 11.6, H(sd * 11.6, ss + 1) + 0.6, -(ss + 1)); grp.add(b); } });
   }
   f.parts.forEach(p => {
     if (p.type === "kicker") {
