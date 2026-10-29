@@ -1097,7 +1097,7 @@ function initRender() {
   const buildMtn = () => {
     while (mtn.children.length) { const o = mtn.children.pop(); o.geometry.dispose(); o.material.dispose(); }
     sunV.set(SUN.x, SUN.y, SUN.z).normalize();
-    if (PEAK) mtn.add(range(1180, 620, 2.1, 0.4, 40), range(800, 400, 5.3, 0.2, 38), range(560, 210, 8.7, 0.08, 40)); else if (DROP) mtn.add(range(1180, 150, 2.1, 0.5, 30), range(930, 90, 5.3, 0.3, 28), range(720, 45, 8.7, 0.12, 25)); else mtn.add(range(1180, 340, 2.1, 0.5, 40), range(930, 200, 5.3, 0.2, 38), range(720, 85, 8.7, 0.06, 40));
+    if (PEAK) mtn.add(range(1180, 620, 2.1, 0.4, 40), range(800, 400, 5.3, 0.2, 38), range(560, 210, 8.7, 0.08, 40)); else if (DROP) mtn.add(range(3300, 380, 2.1, 0.62, 80), range(2700, 230, 5.3, 0.55, 70), range(2150, 110, 8.7, 0.48, 60)); else mtn.add(range(1180, 340, 2.1, 0.5, 40), range(930, 200, 5.3, 0.2, 38), range(720, 85, 8.7, 0.06, 40));
   };
   scene.add(mtn); scene.userData.mtn = mtn;
   const valley = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000), new THREE.MeshBasicMaterial({ color: 0xe3ada0 })); valley.rotation.x = -Math.PI / 2; scene.add(valley); scene.userData.valley = valley;
@@ -1869,7 +1869,42 @@ function buildFinish() {
   g.add(new THREE.Mesh(gg, new THREE.MeshBasicMaterial({ map: ct, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 })));
   return g;
 }
+let valleyDrop = null;
+function buildValleyDrop() { // big-air map: the run ends in a real valley with fields, a lake, a village and forest, joined to the slope by a far strip
+  const g = new THREE.Group(), r = mulberry(77), S0 = COURSE_END + 120, WW = 3200, LL = 2600, yF = H(0, COURSE_END + 300) - 2.5;
+  const px = x => (x / WW + 0.5) * 1024, py = sv => (1 - (sv - S0) / LL) * 832;
+  const tex = canvasTex(1024, 832, (c, w, h) => {
+    const gr = c.createLinearGradient(0, h, 0, 0); gr.addColorStop(0, "#c9d3d0"); gr.addColorStop(0.12, "#7ea36f"); gr.addColorStop(1, "#5d8a5e"); c.fillStyle = gr; c.fillRect(0, 0, w, h);
+    const fcol = ["#8fb06a", "#a8b872", "#7c9e62", "#b9bd80", "#6f9868", "#c8c48c"];
+    for (let i = 0; i < 260; i++) { const x = r() * w, y = r() * h * 0.92, ww = 18 + r() * 46, hh = 10 + r() * 26; c.fillStyle = fcol[Math.floor(r() * fcol.length)]; c.fillRect(x, y, ww, hh); c.fillStyle = "rgba(60,80,50,0.18)"; c.fillRect(x, y, ww, 1.5); }
+    for (let i = 0; i < 70; i++) { c.fillStyle = "rgba(38,78,52,0.8)"; c.beginPath(); c.ellipse(r() * w, r() * h * 0.9, 10 + r() * 26, 7 + r() * 16, r() * 3, 0, TAU); c.fill(); }
+    c.fillStyle = "#eef2f6"; c.beginPath(); c.ellipse(px(0), py(S0 + 60), 70, 110, 0, 0, TAU); c.fill();
+    c.fillStyle = "#6f9fc2"; c.beginPath(); c.ellipse(px(430), py(S0 + 360), 120, 52, 0.2, 0, TAU); c.fill(); c.strokeStyle = "rgba(230,240,250,0.7)"; c.lineWidth = 2; c.stroke();
+    c.strokeStyle = "#7fa8c6"; c.lineWidth = 5; c.beginPath(); c.moveTo(px(520), py(S0 + 360)); c.bezierCurveTo(px(800), py(S0 + 800), px(1000), py(S0 + 1100), px(1500), py(S0 + 1900)); c.stroke();
+    c.strokeStyle = "#cdc7bd"; c.lineWidth = 4; c.beginPath(); c.moveTo(px(0), py(S0 + 120)); c.bezierCurveTo(px(-120), py(S0 + 300), px(-260), py(S0 + 380), px(-250), py(S0 + 300)); c.stroke();
+    c.beginPath(); c.moveTo(px(-250), py(S0 + 300)); c.bezierCurveTo(px(-100), py(S0 + 900), px(200), py(S0 + 1100), px(500), py(S0 + 1700)); c.stroke();
+  });
+  const fl = new THREE.Mesh(new THREE.PlaneGeometry(WW, LL), new THREE.MeshBasicMaterial({ map: tex })); g.userData.floorMat = fl.material; fl.rotation.x = -Math.PI / 2; fl.position.set(0, yF, -(S0 + LL / 2)); g.add(fl);
+  const hm = [0xe9e4dc, 0xd9c9b0, 0xcdb89c, 0xe2d6c6], rm = [0xa6483a, 0x8a4a3a, 0x5d4a52], hg = new THREE.BoxGeometry(1, 1, 1), rg = new THREE.ConeGeometry(0.78, 0.5, 4); rg.rotateY(Math.PI / 4);
+  for (let i = 0; i < 90; i++) {
+    const ang = r() * TAU, rad = Math.sqrt(r()) * 150, x = -250 + Math.cos(ang) * rad * 1.3, sv = S0 + 300 + Math.sin(ang) * rad, w = 12 + r() * 12, d = 10 + r() * 8, hh = 7 + r() * 6;
+    const b = new THREE.Mesh(hg, new THREE.MeshLambertMaterial({ color: hm[i % 4] })); b.scale.set(w, hh, d); b.position.set(x, yF + hh / 2, -sv); g.add(b);
+    const rf = new THREE.Mesh(rg, new THREE.MeshLambertMaterial({ color: rm[i % 3] })); rf.scale.set(w * 1.15, hh * 0.9, d * 1.15 / 1); rf.position.set(x, yF + hh + hh * 0.22, -sv); g.add(rf);
+  }
+  const tm = new THREE.InstancedMesh(new THREE.ConeGeometry(4, 16, 6), new THREE.MeshLambertMaterial({ color: 0x2e6244 }), 900), mt = new THREE.Matrix4(); let ti = 0;
+  while (ti < 900) { const x = (r() - 0.5) * 2600, sv = S0 + 80 + r() * 2200, dv = Math.hypot(x + 250, sv - S0 - 560); if (dv < 190 || Math.hypot(x - 430, sv - S0 - 520) < 150 || (Math.abs(x) < 70 && sv < S0 + 200)) continue; const sc = 0.8 + r() * 1.3; mt.makeScale(sc, sc, sc); mt.setPosition(x, yF + 8 * sc, -sv); tm.setMatrixAt(ti++, mt); }
+  g.add(tm);
+  const f0 = 300, f1 = S0 + 140, nS = 70, xs = [-1400, -900, -520, -300, -160, -80, -45, 45, 80, 160, 300, 520, 900, 1400], pos = [], col = [], idx = [];
+  for (let i = 0; i <= nS; i++) { const sv = f0 + (f1 - f0) * i / nS, yb = baseY(sv) + cliffOff(sv) - 3, t = smooth((sv - (COURSE_END - 80)) / 220);
+    xs.forEach(x => { const ax = Math.abs(x), k = smooth((ax - 70) / 520), y = lerp(yb, Math.min(yb, yF), Math.max(k * 0.9, t)) - (ax > 90 ? 6 * k : 0), sn = 1 - smooth((ax - 50) / 40); pos.push(x, y, -sv); col.push(lerp(0.34, 0.93, sn), lerp(0.5, 0.94, sn), lerp(0.4, 0.97, sn)); }); }
+  for (let i = 0; i < nS; i++) for (let j = 0; j < xs.length - 1; j++) { const a = i * xs.length + j, b = a + xs.length; idx.push(a, a + 1, b, a + 1, b + 1, b); }
+  const sg = new THREE.BufferGeometry(); sg.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); sg.setAttribute("color", new THREE.Float32BufferAttribute(col, 3)); sg.setIndex(idx); sg.computeVertexNormals();
+  g.add(new THREE.Mesh(sg, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide })));
+  scene.fog.near = 250; scene.fog.far = 4200; camera.far = 5500; camera.updateProjectionMatrix(); scene.userData.valley.visible = false;
+  g.userData.yF = yF; return g;
+}
 function manageWorld() {
+  if (DROP && finalized && !valleyDrop) { valleyDrop = buildValleyDrop(); scene.add(valleyDrop); }
   if (PEAK && !startHut) { startHut = buildStartHut(); scene.add(startHut); }
   if (sk.s > COURSE_END - 450 && !finishMesh) { finishMesh = PEAK ? buildFinishPeak() : buildFinish(); scene.add(finishMesh); }
   const cmin = Math.floor((sk.s - 90) / CH), cmax = Math.floor((sk.s + 360) / CH);
@@ -2068,7 +2103,8 @@ function render(dt, time) {
       const len = 0.5 + speed * 0.07; S.sp[i * 6] = m.x; S.sp[i * 6 + 1] = m.y; S.sp[i * 6 + 2] = m.z; S.sp[i * 6 + 3] = m.x; S.sp[i * 6 + 4] = m.y; S.sp[i * 6 + 5] = m.z - len; }
     S.lines.geometry.attributes.position.needsUpdate = true; }
   scene.userData.sky.position.copy(camera.position);
-  scene.userData.mtn.position.set(camera.position.x, sk.y - 130, camera.position.z); scene.userData.valley.position.set(camera.position.x, sk.y - 126, camera.position.z);
+  if (valleyDrop) valleyDrop.userData.floorMat.color.copy(scene.fog.color).lerp(new THREE.Color(1, 1, 1), 0.55);
+  scene.userData.mtn.position.set(camera.position.x, valleyDrop ? valleyDrop.userData.yF + 135 : sk.y - 130, camera.position.z); scene.userData.valley.position.set(camera.position.x, sk.y - 126, camera.position.z);
   renderer.render(scene, camera);
 }
 
@@ -2216,7 +2252,7 @@ sk = newSkier(0, PEAK ? 3 : 10, 0);
 const glOK = typeof THREE !== "undefined" && initRender();
 if (glOK) { applyGfx(); scene.userData.applyTOD(todName); }
 if (!glOK) { $("nogl").hidden = false; $("go").disabled = true; }
-window.__game = { get rig() { return skierRig; }, pc, pcs, cliffs, knots, baseY, get runT() { return runT; }, get sw() { return sk.sw; }, get spin() { return sk.spin; }, get endShown() { return endShown; }, COURSE_END, trails, trailFor, trailXc, sectionsAt, step, get sk() { return sk; }, feats, H, K, restart, begin, get score() { return score; }, get mult() { return mult; }, setMode(m) { mode = m; }, pop() { popReq = true; } };
+window.__game = { get scene() { return scene; }, get rig() { return skierRig; }, pc, pcs, cliffs, knots, baseY, get runT() { return runT; }, get sw() { return sk.sw; }, get spin() { return sk.spin; }, get endShown() { return endShown; }, COURSE_END, trails, trailFor, trailXc, sectionsAt, step, get sk() { return sk; }, feats, H, K, restart, begin, get score() { return score; }, get mult() { return mult; }, setMode(m) { mode = m; }, pop() { popReq = true; } };
 requestAnimationFrame(frame);
 $("dtot").textContent = COURSE_END;
 /* ---------- homepage: animated sunset, mountains and a skier doing a backflip ---------- */
