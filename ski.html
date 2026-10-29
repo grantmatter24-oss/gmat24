@@ -313,7 +313,7 @@ function partOff(p, x, s) {
     return w >= 0 && w <= 1 ? p.Hl * bump(w) * lwL : 0;
   }
   if (p.type === "flank") { // low rollers beside the big-air ramp, 4 m under the lip, running on down the sides of the landing
-    const k = p.k, lip = k.s0 + k.L, u = Math.abs(x - k.cx), wx = smooth((u - 8.8) / 1.2) * (1 - smooth((u - 51) / 7)); if (wx <= 0) return 0;
+    const k = p.k, lip = k.s0 + k.L, u = Math.abs(x - k.cx), wx = smooth((u - 7.8) / 1.2) * (1 - smooth((u - 51) / 7)); if (wx <= 0) return 0;
     const roll = p.amp * Math.pow(Math.sin(Math.PI * (s - p.s0) / p.sp), 2) * (0.75 + 0.25 * Math.sin(u * 0.28));
     if (s <= lip) { const t = (s - k.s0) / k.L; return (p.Hs * (t - 0.07 * (1 - Math.exp(-t / 0.07))) / 0.93 + roll * smooth(t * 3)) * wx; }
     return (landOff(k, s - lip - k.gap) * (1 - landW(k, x)) + p.Hs * (1 - smooth((s - lip) / 60)) + roll) * wx;
@@ -432,7 +432,7 @@ function addSection() {
   if (DROP) { // X Games style big air: steep scaffold in-run, curved kicker, gap, 38 degree landing with a knuckle, flat out-run
     const L = DLIP - genS, Hh = 14.5, v0 = 24, D = 5, gap = 50, Ll = 130, Tr = 55;
     const k = { type: "kicker", label: "X GAMES BIG AIR", s0: genS, L, H: Hh, gap, Ll, Hl: 0, sl: 0.3, Tr, lin: true, cx: 0, hw: 9, lhw: 27, v0, pit: 0 }; k.end = DLIP + gap + Ll + Tr;
-    f.parts.push(k); f.parts.push({ type: "flank", k, s0: genS, end: k.end, Hs: Hh - 4, amp: 1.0, sp: 12, cx: 0, hw: 60 });
+    f.parts.push(k); f.parts.push({ type: "flank", k, s0: genS, end: k.end, Hs: Hh - 4, amp: 0.45, sp: 12, cx: 0, hw: 60 });
     const cs = DLIP, w = 5, last = cliffs[cliffs.length - 1];
     cliffs.push({ s: cs, D, w, pre: last ? last.pre + last.D : 0 });
     f.cliff = { s: cs, D, w }; f.label = "X GAMES BIG AIR · wide steep ramp, " + D + " m step-down"; f.cliffEnd = k.end + 30; f.mainCx = 0; f.xg = false;
@@ -488,7 +488,7 @@ function addSection() {
   // plateau for the centre line and slope knots: curve and steepness change in the gap before this section
   const last = pcs[pcs.length - 1], px = i < 1 ? 0 : clamp(last.x + (rng() - 0.5) * 2 * Math.min(14, 0.35 * Math.max(8, f.s0 - 34 - last.b)), -30, 30);
   shiftSection(f, px);
-  if (f.cliff && PEAK) f.rocks = [];
+  if (f.cliff && (PEAK || DROP)) f.rocks = [];
   else if (f.cliff) { f.rocks = []; for (const sd of [-1, 1]) for (let q = 0; q < 5; q++) f.rocks.push({ x: px + sd * (PISTE + (PEAK ? 15 : 1.2) + q * 2.6 + rng()), s: f.cliff.s - 2.5 + rng() * 5, r: 1.6 + rng() * 1.8 }); [-1, 1].forEach(sd => f.rocks.push({ x: px + sd * (PISTE + (PEAK ? 14 : -0.5)), s: f.cliff.s - 1.5, r: 2.4 })); }
   else flankRocks(f);
   feats.push(f); regRocks(f);
@@ -1540,7 +1540,7 @@ function mkLodge(kind, rt) {
   return grp;
 }
 function lodgesForChunk(ci) {
-  if (PEAK) return [];
+  if (PEAK || DROP) return [];
   const rt = mulberry(ci * 733 + 91), s0 = ci * CH, out = [];
   const place = (kind, sd, off, s, big) => {
     const x = pc(s) + sd * off;
@@ -1731,7 +1731,7 @@ function buildFeature(f) {
   const dyeM = new THREE.MeshBasicMaterial({ color: 0x2f86ee, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
   const ribbon = pts => { const pos = [], idx = []; pts.forEach((v, i) => { pos.push(v.x - 0.2, v.y + 0.03, v.z, v.x + 0.2, v.y + 0.03, v.z); if (i) { const a = (i - 1) * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); } }); const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); grp.add(new THREE.Mesh(g, dyeM)); };
   const cone = new THREE.ConeGeometry(0.24, 0.8, 8), cm = new THREE.MeshLambertMaterial({ color: 0xff8a3d }), polem = new THREE.MeshLambertMaterial({ color: 0x13222f }), flagm = new THREE.MeshLambertMaterial({ color: 0xff4a38 });
-  if (f.cliff) {
+  if (f.cliff && !DROP) {
     const cs = f.cliff.s, px = f.mainCx, edge = H(px, cs - 1.5);
     for (let xx = -PISTE; xx <= PISTE; xx += 3.6) { const c = new THREE.Mesh(cone, cm); const x = px + xx; c.position.set(x, H(x, cs - 1.4) + 0.4, -(cs - 1.4)); grp.add(c); }
     [-1, 1].forEach(sd => { const x = px + sd * (PISTE - 1.5), y = H(x, cs - 2), pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 4.4, 6), polem); pole.position.set(x, y + 2.2, -(cs - 2)); grp.add(pole); const flag = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.8, 1.3), flagm); flag.position.set(x, y + 3.9, -(cs - 2) + 0.7); grp.add(flag); });
