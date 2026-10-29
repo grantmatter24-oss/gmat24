@@ -226,7 +226,7 @@ const hash = n => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s
 const RES = location.hash === "#peak" ? "peak" : location.hash === "#park" ? "park" : location.hash === "#drop" ? "drop" : "alpine", PEAK = RES === "peak", PARK = RES === "park", DROP = RES === "drop", KS = PEAK ? 1.45 : 1;
 const RESORT_NAMES = { alpine: "Evergreen Run", peak: "Couloir Peak", park: "Kicker Park", drop: "Big Drop" };
 const G = 18, BASE = PEAK ? 0.4 : DROP ? 0.58 : 0.28, RAIL_H = 0.55, PISTE = 15, MAXV = 400;
-const COURSE_END = location.hash === "#peak" ? 7500 : location.hash === "#park" ? 5200 : location.hash === "#drop" ? 1000 : 6000;
+const COURSE_END = location.hash === "#peak" ? 7500 : location.hash === "#park" ? 5200 : location.hash === "#drop" ? 1300 : 6000;
 const rng = mulberry(2024);
 const feats = [];
 const railsOf = f => f.rail ? (f.rail2 ? [f.rail, ...f.rail2] : [f.rail]) : (f.rail2 || []);
@@ -420,8 +420,8 @@ function addSection() {
   const i = secCount++, diff = Math.min(1, i / 16), pick = rng();
   const f = { s0: genS, parts: [], label: "", boost: null, rail: null, coins: [], mainCx: 0, idx: i };
   if (DROP) {
-    const L = 30, Hh = 9, v0 = 38, D = 48, fd = flightD(L, Hh + D, v0), gap = clamp(0.5 * fd.d, 24, 90), Ll = clamp(1.1 * fd.d, 55, 120), Hl = clamp((fd.tanA - BASE) * 0.5 * Ll / 1.5, 1.5, 10);
-    const k = { type: "kicker", label: "THE DROP", s0: genS, L, H: Hh, gap, Ll, Hl, cx: 0, hw: 11, lhw: PISTE + 3, v0, pit: 0 }; k.end = genS + L + gap + Ll;
+    const L = 30, Hh = 9, v0 = 38, D = 48, fd = flightD(L, Hh + D, v0), gap = clamp(0.3 * fd.d, 24, 40), Ll = 150, Hl = clamp((fd.tanA - BASE) * 0.5 * 90 / 1.5, 1.5, 10);
+    const k = { type: "kicker", label: "THE DROP", s0: genS, L, H: Hh, gap, Ll, Hl, cx: 0, hw: 11, lhw: PISTE + 12, v0, pit: 0 }; k.end = genS + L + gap + Ll;
     f.parts.push(k); const cs = genS + L, w = 6, last = cliffs[cliffs.length - 1];
     cliffs.push({ s: cs, D, w, pre: last ? last.pre + last.D : 0 });
     f.cliff = { s: cs, D, w }; f.label = "THE BIG DROP · " + D + " m step-down"; f.cliffEnd = k.end + 40; f.mainCx = 0;
