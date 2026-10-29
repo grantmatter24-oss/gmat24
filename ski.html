@@ -135,6 +135,7 @@
         <button type="button" data-r="alpine" title="Evergreen Run" aria-label="Evergreen Run, forest run"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l5 7h-3l4 6H6l4-6H7z"/><path d="M12 16v5"/></svg></button>
         <button type="button" data-r="peak" title="Couloir Peak" aria-label="Couloir Peak, steep open faces"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 20l7-12 4 6 3-4 6 10z"/></svg></button>
         <button type="button" data-r="park" title="Kicker Park" aria-label="Kicker Park, rails and boxes"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3 8h18M6 8v11M18 8v11M3 19h18"/></svg></button>
+        <button type="button" data-r="drop" title="Big Drop" aria-label="Big Drop, one giant step-down jump"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h7l1 1v12h10"/></svg></button>
       </div>
       <div id="tods" role="group" aria-label="Time of day">
         <button type="button" data-t="day" title="Midday" aria-label="Midday"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg></button>
@@ -174,6 +175,7 @@
         <button type="button" class="pick" data-r="alpine"><b>Evergreen Run</b><span>Groomed forest runs, kickers, lodges and woods trails</span><i id="pb-alpine"></i></button>
         <button type="button" class="pick" data-r="peak"><b>Couloir Peak</b><span>Steep open faces, couloirs and big cliffs. No trees</span><i id="pb-peak"></i></button>
         <button type="button" class="pick" data-r="park"><b>Kicker Park</b><span>Rail gardens, box lines and one big line</span><i id="pb-park"></i></button>
+        <button type="button" class="pick" data-r="drop"><b>Big Drop</b><span>Steep run-in and one giant step-down jump</span><i id="pb-drop"></i></button>
       </div>
       <p class="homehint">Enter starts Evergreen Run</p>
     </div>
@@ -221,14 +223,14 @@ const hash = n => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s
 /* =====================================================================
    COURSE: coordinates are (x across, y up, s down the mountain). Render z = -s.
    ===================================================================== */
-const RES = location.hash === "#peak" ? "peak" : location.hash === "#park" ? "park" : "alpine", PEAK = RES === "peak", PARK = RES === "park", KS = PEAK ? 1.45 : 1;
-const RESORT_NAMES = { alpine: "Evergreen Run", peak: "Couloir Peak", park: "Kicker Park" };
-const G = 18, BASE = PEAK ? 0.4 : 0.28, RAIL_H = 0.55, PISTE = 15, MAXV = 400;
-const COURSE_END = location.hash === "#peak" ? 7500 : location.hash === "#park" ? 5200 : 6000;
+const RES = location.hash === "#peak" ? "peak" : location.hash === "#park" ? "park" : location.hash === "#drop" ? "drop" : "alpine", PEAK = RES === "peak", PARK = RES === "park", DROP = RES === "drop", KS = PEAK ? 1.45 : 1;
+const RESORT_NAMES = { alpine: "Evergreen Run", peak: "Couloir Peak", park: "Kicker Park", drop: "Big Drop" };
+const G = 18, BASE = PEAK ? 0.4 : DROP ? 0.58 : 0.28, RAIL_H = 0.55, PISTE = 15, MAXV = 400;
+const COURSE_END = location.hash === "#peak" ? 7500 : location.hash === "#park" ? 5200 : location.hash === "#drop" ? 1000 : 6000;
 const rng = mulberry(2024);
 const feats = [];
 const railsOf = f => f.rail ? (f.rail2 ? [f.rail, ...f.rail2] : [f.rail]) : (f.rail2 || []);
-let genS = 140, generating = false, finalized = false;
+let genS = DROP ? 380 : 140, generating = false, finalized = false;
 
 /* steepness profile: piecewise-linear slope between knots, integrated into a height */
 const knots = [{ s: -200, v: BASE, cum: -200 * BASE }];
@@ -287,14 +289,14 @@ function mkKicker(s0, kind, cx, hw, diff, sc, tall) {
   const gap = kind === 3 ? clamp(T[4] * fd.d * sc, T[5] * sc, T[6] * sc * 1.3) : clamp(0.35 * fd.d * sc, 6, 40), Ll = kind === 3 ? clamp(gap * 0.8 + 10, 18, 60) : clamp(0.9 * fd.d * sc, 24, 70);
   const Hl = clamp((fd.tanA - BASE) * 0.5 * Ll / 1.5, 0.8, 7), pit = kind === 3 ? 3.6 : 0;
   const hwK = kind < 4 ? hw * (PEAK ? 1.7 : 1.3) : hw;
-  const p = { type: "kicker", label: T[7], s0, L, H: Hh, gap, Ll, Hl, cx, hw: hwK, lhw: Math.min(hwK * 2, 22), v0, pit };
+  const p = { type: "kicker", label: T[7], s0, L, H: Hh, gap, Ll, Hl, cx, hw: hwK, lhw: Math.min(hwK * 2.7, PISTE + 5), v0, pit };
   if (tall) p.label = "Sky ramp";
   p.end = s0 + L + gap + Ll; return p;
 }
 function mkHip(sBase, sd, diff) {
   const L = 10 + rng() * 1.5, Hh = L * (0.3 + rng() * 0.02) * (1 + 0.1 * diff), fd = flightD(L, Hh, 24), gap = clamp(0.35 * fd.d, 8, 20), Ll = clamp(0.9 * fd.d, 22, 50), hw = PEAK ? 5.2 : 3.6, ang = -sd * (0.36 + rng() * 0.1);
   const s0 = sBase + hw * Math.abs(Math.sin(ang)) + 2 + rng() * 4, Hl = clamp((fd.tanA - BASE) * 0.5 * Ll / 1.5, 0.8, 6);
-  return { type: "hip", label: "Hip jump", s0, L, H: Hh, gap, Ll, Hl, cx: sd * (PEAK ? 16 : 10.5) + sd * rng() * 0.8, hw, lhw: hw * 2, ang, v0: 24, pit: 0,
+  return { type: "hip", label: "Hip jump", s0, L, H: Hh, gap, Ll, Hl, cx: sd * (PEAK ? 16 : 10.5) + sd * rng() * 0.8, hw, lhw: hw * 2.6, ang, v0: 24, pit: 0,
     sMin: s0 - hw * Math.abs(Math.sin(ang)) - 1, end: s0 + (L + gap + Ll) * Math.cos(ang) + hw * Math.abs(Math.sin(ang)) + 1 };
 }
 const hipUV = (p, x, s) => { const dx = x - p.cx, ds = s - p.s0, sa = Math.sin(p.ang), ca = Math.cos(p.ang); return [ds * ca + dx * sa, dx * ca - ds * sa]; };
@@ -417,7 +419,13 @@ function addSection() {
   if (pendingFiller) { pendingFiller = false; return addMicro(); }
   const i = secCount++, diff = Math.min(1, i / 16), pick = rng();
   const f = { s0: genS, parts: [], label: "", boost: null, rail: null, coins: [], mainCx: 0, idx: i };
-  if (PARK && i % 5 === 0) { // rail garden
+  if (DROP) {
+    const L = 30, Hh = 9, v0 = 38, D = 48, fd = flightD(L, Hh + D, v0), gap = clamp(0.5 * fd.d, 24, 90), Ll = clamp(1.1 * fd.d, 55, 120), Hl = clamp((fd.tanA - BASE) * 0.5 * Ll / 1.5, 1.5, 10);
+    const k = { type: "kicker", label: "THE DROP", s0: genS, L, H: Hh, gap, Ll, Hl, cx: 0, hw: 11, lhw: PISTE + 3, v0, pit: 0 }; k.end = genS + L + gap + Ll;
+    f.parts.push(k); const cs = genS + L, w = 6, last = cliffs[cliffs.length - 1];
+    cliffs.push({ s: cs, D, w, pre: last ? last.pre + last.D : 0 });
+    f.cliff = { s: cs, D, w }; f.label = "THE BIG DROP · " + D + " m step-down"; f.cliffEnd = k.end + 40; f.mainCx = 0;
+  } else if (PARK && i % 5 === 0) { // rail garden
     [[-8, 0], [0, 22], [8, 44]].forEach(([x, o], q) => { const r = { s0: genS + o, s1: genS + o + 24, x }; if (q) f.rail2.push(r); else { f.rail = r; f.rail2 = []; } });
     f.label = "Rail garden"; f.endExtra = genS + 70;
   } else if (PARK && i % 5 === 1) { // box line
@@ -477,6 +485,7 @@ function addSection() {
   if (i > 0 && gapLen > 20) { const v = (PARK && i % 5 === 3) ? 0.5 : (i % 6 === 3 || i % 6 === 5) ? 0.44 : [0.14, 0.2, 0.2, 0.36, 0.44, 0.5][Math.floor(rng() * 6)]; addKnot(prevEnd + gapLen * 0.3, v); addKnot(prevEnd + gapLen * 0.7, v); }
   addKnot(a, BASE); addKnot(f.end + 10, BASE);
   pcs.push({ a, b: f.end + 10, x: px, jump: !f.cliff });
+  if (DROP) { genS = 1e9; return f; }
   if (i > 1 && rng() < (PEAK ? 0.9 : 0.45)) { const fast = secCount % 6 === 3 || secCount % 6 === 5, order = PEAK ? ["chute", "carve", "chute"] : ["carve", "chute", "cruiser"]; let k = order[interCount++ % 3]; if (fast && k === "cruiser") k = "chute"; pendingInterlude = k; genS = f.end + 44 + rng() * 10; }
   else { pendingFiller = true; genS = f.end + 46 + rng() * 8; }
   return f;
@@ -758,7 +767,7 @@ function respawn() {
   const rs = f ? Math.max(12, f.s0 - 40) : inT ? T.s0 + 60 : 12;
   sk = newSkier(inT ? trailXc(T, rs) : f ? f.mainCx : 0, rs, 13); snapCam = true;
 }
-function startIntro() { if (PEAK) return; if (PARK) startBike(); else startHeli(); }
+function startIntro() { if (PEAK || DROP) return; if (PARK) startBike(); else startHeli(); }
 function restart() { endNewBest = false; score = 0; mult = 1; rings = 0; focus = 1; runT = 0; endShown = false; stats = { tricks: 0, biggest: 0, wipes: 0, jumps: 0 }; $("end").hidden = true; for (const f of feats) f.coins.forEach(c => c.got = false); for (const t of trails) for (const f of t.sec) f.coins.forEach(c => c.got = false); sk = newSkier(0, PEAK ? 3 : 10, PEAK ? 4 : 9); startIntro(); snapCam = true; $("pop").className = ""; }
 
 const DT = 1 / 120;
@@ -1153,7 +1162,7 @@ const UNLOCK = {
   "skis.pink": ["Land 40 tricks", p => p.tricks >= 40],
   "skis.black": ["Finish all 3 resorts", p => p.fin.length >= 3]
 };
-try { for (const r of ["alpine", "peak", "park"]) localStorage.removeItem("kb-ghost-" + r); } catch (e) { }
+try { for (const r of ["alpine", "peak", "park", "drop"]) localStorage.removeItem("kb-ghost-" + r); } catch (e) { }
 let prog = store.get("kickerProg", null);
 if (!prog) { prog = { fin: [], tricks: 0, rails: 0, maxScore: 0, unlocked: [] }; for (const k in DEFAULT_OUTFIT) if (OUTFIT_OPTS[k][outfit[k]]) prog.unlocked.push(k + "." + outfit[k]); store.set("kickerProg", prog); }
 const isUnlocked = (cat, key) => { const u = UNLOCK[cat + "." + key]; return !u || prog.unlocked.includes(cat + "." + key) || u[1](prog); };
@@ -2238,7 +2247,7 @@ document.querySelectorAll(".pick").forEach(b => {
   $("pb-" + r).textContent = tm ? "Best " + fmtTime(tm) + " · " + Math.round(sc).toLocaleString() + " pts" : (sc ? "Best " + Math.round(sc).toLocaleString() + " pts" : "");
   b.onclick = () => { if (r === RES && location.hash === "") begin(); else { location.hash = "#" + r; location.reload(); } };
 });
-if (location.hash === "#peak" || location.hash === "#alpine" || location.hash === "#park" || !glOK) { $("home").hidden = true; } else startHome();
+if (location.hash === "#peak" || location.hash === "#alpine" || location.hash === "#park" || location.hash === "#drop" || !glOK) { $("home").hidden = true; } else startHome();
 if (!glOK) $("intro").hidden = false;
-if (location.hash === "#peak" || location.hash === "#alpine" || location.hash === "#park") { begin(); if (PEAK) setTimeout(() => popup("Couloir Peak", "Open faces · chutes · cliffs"), 500); if (PARK) setTimeout(() => popup("Kicker Park", "Rails · boxes · one big line"), 500); }
+if (location.hash === "#peak" || location.hash === "#alpine" || location.hash === "#park" || location.hash === "#drop") { begin(); if (DROP) setTimeout(() => popup("Big Drop", "Steep run-in · one giant step-down"), 500); if (PEAK) setTimeout(() => popup("Couloir Peak", "Open faces · chutes · cliffs"), 500); if (PARK) setTimeout(() => popup("Kicker Park", "Rails · boxes · one big line"), 500); }
 </script>
