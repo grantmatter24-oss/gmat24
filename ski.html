@@ -1066,12 +1066,12 @@ function initRender() {
   const mtn = new THREE.Group(); let pal = TODS.sunset.pal; const sunV = new THREE.Vector3();
   const range = (R, hMax, seed, haze, treeLine) => {
     const N = 720, rows = 16, pos = [], idx = [], P = (i, r) => (i * rows + r) * 3;
-    const ridge = th => { let a = 0, nrm = 0; for (let k = 1; k <= 11; k++) { a += Math.pow(1 - Math.abs(Math.sin(th * k * 2.7 + seed * k * 1.3)), 1.4 + k * 0.08) / Math.pow(k, 0.9); nrm += 1 / Math.pow(k, 0.9); } return a / nrm; };
+    const ridge = th => { let a = 0, nrm = 0; if (DROP) { for (let k = 1; k <= 7; k++) { a += Math.pow(0.5 + 0.5 * Math.sin(th * k * 2.3 + seed * k * 1.7), 1.6) / Math.pow(k, 0.8); nrm += 1 / Math.pow(k, 0.8); } return a / nrm; } for (let k = 1; k <= 11; k++) { a += Math.pow(1 - Math.abs(Math.sin(th * k * 2.7 + seed * k * 1.3)), 1.4 + k * 0.08) / Math.pow(k, 0.9); nrm += 1 / Math.pow(k, 0.9); } return a / nrm; };
     const gully = (th, f) => { let g = 0; for (let k = 1; k <= 5; k++) g += Math.sin(th * (PEAK ? 18 + k * 22 : 40 + k * 53) + seed * k + f * 6 * k) / k; return g; };
     for (let i = 0; i <= N; i++) {
       const th = (i / N) * TAU, h = hMax * (0.16 + 0.84 * ridge(th));
       for (let r = 0; r < rows; r++) {
-        const f = r / (rows - 1), rad = R * (1 - 0.05 * f) + gully(th, f) * f * R * 0.012, y = -140 + f * (h + 140) * (0.55 + 0.45 * f) + gully(th * 1.7, f) * f * h * 0.012;
+        const f = r / (rows - 1), rad = R * (1 - 0.05 * f) + gully(th, f) * f * R * (DROP ? 0.003 : 0.012), y = -140 + f * (h + 140) * (0.55 + 0.45 * f) + gully(th * 1.7, f) * f * h * (DROP ? 0.004 : 0.012);
         pos.push(Math.sin(th) * rad, y, Math.cos(th) * rad);
       }
     }
@@ -1097,7 +1097,7 @@ function initRender() {
   const buildMtn = () => {
     while (mtn.children.length) { const o = mtn.children.pop(); o.geometry.dispose(); o.material.dispose(); }
     sunV.set(SUN.x, SUN.y, SUN.z).normalize();
-    if (PEAK) mtn.add(range(1180, 620, 2.1, 0.4, 40), range(800, 400, 5.3, 0.2, 38), range(560, 210, 8.7, 0.08, 40)); else mtn.add(range(1180, 340, 2.1, 0.5, 40), range(930, 200, 5.3, 0.2, 38), range(720, 85, 8.7, 0.06, 40));
+    if (PEAK) mtn.add(range(1180, 620, 2.1, 0.4, 40), range(800, 400, 5.3, 0.2, 38), range(560, 210, 8.7, 0.08, 40)); else if (DROP) mtn.add(range(1180, 150, 2.1, 0.5, 30), range(930, 90, 5.3, 0.3, 28), range(720, 45, 8.7, 0.12, 25)); else mtn.add(range(1180, 340, 2.1, 0.5, 40), range(930, 200, 5.3, 0.2, 38), range(720, 85, 8.7, 0.06, 40));
   };
   scene.add(mtn); scene.userData.mtn = mtn;
   const valley = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000), new THREE.MeshBasicMaterial({ color: 0xe3ada0 })); valley.rotation.x = -Math.PI / 2; scene.add(valley); scene.userData.valley = valley;
