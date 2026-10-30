@@ -314,10 +314,10 @@ function partOff(p, x, s) {
     return w >= 0 && w <= 1 ? p.Hl * bump(w) * lwL : 0;
   }
   if (p.type === "flank") { // low rollers beside the big-air ramp, 4 m under the lip, running on down the sides of the landing
-    const k = p.k, lip = k.s0 + k.L, u = Math.abs(x - k.cx), wx = smooth((u - (k.hw - 1.2)) / 1.2) * (1 - smooth((u - (k.hw + 63)) / 10)); if (wx <= 0) return 0;
+    const k = p.k, lip = k.s0 + k.L, u = Math.abs(x - k.cx), wx = smooth((u - (k.hw - 1.2)) / 1.2) * (1 - smooth((u - (k.hw + 63)) / 10)), lat = 1 - smooth((u - 30) / 160); if (wx <= 0 && !(s > lip && lat > 0)) return 0;
     const roll = p.amp * Math.pow(Math.sin(Math.PI * (s - p.s0) / p.sp), 2) * (0.75 + 0.25 * Math.sin(u * 0.28));
     if (s <= lip) { const t = (s - k.s0) / k.L; return (p.Hs * rampProf(t) + roll * smooth(t * 3)) * wx; }
-    return (landOff(k, s - lip - k.gap) * (1 - landW(k, x)) + p.Hs * (1 - smooth((s - lip) / 60)) + roll) * wx;
+    const lw = landW(k, x); return landOff(k, s - lip - k.gap) * (1 - lw) * lat + (p.Hs * (1 - smooth((s - lip) / 44)) + roll * (1 - lw)) * wx;
   }
   if (p.type === "couloir") return p.H * smooth((Math.abs(x - p.cx) - p.hw) / 4.5) * smooth((s - p.s0) / 14) * smooth((p.end - s) / 14);
   if (p.type === "moguls") { const e = smooth((s - p.s0) / 10) * smooth((p.end - s) / 10), xr = x - p.cx; return p.amp * e * (1 - smooth((Math.abs(xr) - (PISTE - 2)) / 4)) * Math.sin(xr * 0.9 + 0.7) * Math.sin(s * 0.65); }
@@ -1935,7 +1935,7 @@ function buildValleyDrop() { // big-air map: steep forested valley walls close i
     const u = Math.max(0, (ax - W) / 260), ridge = 1 + 0.35 * Math.sin(s * 0.021 + ax * 0.012) + 0.22 * Math.sin(s * 0.057 - ax * 0.031 + 2) + 0.12 * Math.sin(s * 0.13 + ax * 0.07);
     const wall = wsc * (300 * Math.pow(smooth(u), 1.15) * ridge + 70 * smooth(u * 0.7) * Math.sin(s * 0.045 + ax * 0.05));
     const far = 360 * smooth((s - (COURSE_END + 1900)) / 650);
-    const kk = DROP && feats[0] && feats[0].parts[0], lo = kk && kk.sl ? landOff(kk, s - (kk.s0 + kk.L) - kk.gap) * (1 - smooth((ax - 70) / 30)) : 0;
+    const kk = DROP && feats[0] && feats[0].parts[0], lo = kk && kk.sl ? landOff(kk, s - (kk.s0 + kk.L) - kk.gap) * (1 - smooth((ax - 30) / 160)) : 0;
     let y = yRun(s) + berm + roll + Math.max(0, wall) + far - 3.2 * lakeM(x, s) + lo;
     if (ax < 110 && s < COURSE_END + 90 && (DROP || s > COURSE_END - 1000)) { const hr = Math.min(H(xw, s), H(xw + 7, s), H(xw - 7, s), H(xw, s + 6), H(xw, s - 6)) - 2.5, f = 1 - smooth((ax - 95) / 15); y = lerp(y, Math.min(y, hr), f); }
     return y;
