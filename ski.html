@@ -1883,7 +1883,10 @@ function buildValleyDrop() { // big-air map: steep forested valley walls close i
     const u = Math.max(0, (ax - W) / 260), ridge = 1 + 0.35 * Math.sin(s * 0.021 + ax * 0.012) + 0.22 * Math.sin(s * 0.057 - ax * 0.031 + 2) + 0.12 * Math.sin(s * 0.13 + ax * 0.07);
     const wall = 300 * Math.pow(smooth(u), 1.15) * ridge + 70 * smooth(u * 0.7) * Math.sin(s * 0.045 + ax * 0.05);
     const far = 360 * smooth((s - (COURSE_END + 1900)) / 650);
-    return yRun(s) + berm + roll + Math.max(0, wall) + far - 3.2 * lakeM(x, s);
+    const kk = feats[0] && feats[0].parts[0], lo = kk && kk.sl ? landOff(kk, s - (kk.s0 + kk.L) - kk.gap) * (1 - smooth((ax - 70) / 30)) : 0;
+    let y = yRun(s) + berm + roll + Math.max(0, wall) + far - 3.2 * lakeM(x, s) + lo;
+    if (ax < 110 && s < COURSE_END + 90) { const hr = Math.min(H(x, s), H(x + 7, s), H(x - 7, s), H(x, s + 6), H(x, s - 6)) - 2.5, f = 1 - smooth((ax - 95) / 15); y = lerp(y, Math.min(y, hr), f); }
+    return y;
   };
   const cols = [], pushX = (a, b, st) => { for (let x = a; x < b - 1e-6; x += st) cols.push(x); };
   pushX(-XM, -700, 90); pushX(-700, -250, 35); pushX(-250, -110, 22); pushX(-110, 110, 14); pushX(110, 250, 22); pushX(250, 700, 35); pushX(700, XM + 1, 90);
