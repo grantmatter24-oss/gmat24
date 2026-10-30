@@ -226,12 +226,12 @@ const hash = n => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s
 const RES = location.hash === "#peak" ? "peak" : location.hash === "#park" ? "park" : location.hash === "#drop" ? "drop" : "alpine", PEAK = RES === "peak", PARK = RES === "park", DROP = RES === "drop", KS = PEAK ? 1.45 : 1;
 const RESORT_NAMES = { alpine: "Evergreen Run", peak: "Couloir Peak", park: "Kicker Park", drop: "X Big Air" };
 const G = 18, BASE = PEAK ? 0.4 : DROP ? 0.58 : 0.28, RAIL_H = 0.55, PISTE = DROP ? 24 : 15, MAXV = 400;
-const COURSE_END = location.hash === "#peak" ? 7500 : location.hash === "#park" ? 5200 : location.hash === "#drop" ? 520 : 6000;
+const COURSE_END = location.hash === "#peak" ? 7500 : location.hash === "#park" ? 5200 : location.hash === "#drop" ? 590 : 6000;
 const rng = mulberry(2024);
 const feats = [];
 const railsOf = f => f.rail ? (f.rail2 ? [f.rail, ...f.rail2] : [f.rail]) : (f.rail2 || []);
-const DLIP = 86;
-let genS = DROP ? 68 : 140, generating = false, finalized = false;
+const DLIP = 156;
+let genS = DROP ? 138 : 140, generating = false, finalized = false;
 
 /* steepness profile: piecewise-linear slope between knots, integrated into a height */
 const knots = [{ s: -200, v: BASE, cum: -200 * BASE }];
@@ -322,7 +322,7 @@ function partOff(p, x, s) {
   if (p.type === "moguls") { const e = smooth((s - p.s0) / 10) * smooth((p.end - s) / 10), xr = x - p.cx; return p.amp * e * (1 - smooth((Math.abs(xr) - (PISTE - 2)) / 4)) * Math.sin(xr * 0.9 + 0.7) * Math.sin(s * 0.65); }
   if (p.type === "rollers") { const u = (s - p.s0) / p.sp; return p.amp * Math.pow(Math.sin(Math.PI * u), 2) * latW(p, x, 1.5); }
   if (p.type === "box") return boxShape(p, x, s) * (p.B + (p.pitch ? p.pitch * (1 - Math.abs(x - p.cx) / p.hw) + 0.25 : 0) - (p.flat ? bermAt(x - pc(s)) : 0));
-  const lw = latW(p, x, 1.5), lwL = landW(p, x), lip = p.s0 + p.L;
+  const lw = latW(p, x, p.lin ? 0.45 : 1.5), lwL = landW(p, x), lip = p.s0 + p.L;
   if (p.lin && s >= p.s0 && s <= lip) { const t = (s - p.s0) / p.L, ax = Math.abs(x - p.cx), bank = 0, w = lw; return p.H * (t - 0.07 * (1 - Math.exp(-t / 0.07))) / 0.93 * w; }
   if (lw <= 0 && lwL <= 0) return 0;
   if (s <= lip) { if (lw <= 0) return 0; const t = (s - p.s0) / p.L; return p.H * t * t * lw; }
@@ -1747,8 +1747,13 @@ function buildFeature(f) {
       const lip = p.s0 + p.L, big = p.hw > 8, ph = big ? 3.6 : 2.6;
       [-1, 1].forEach(sd => {
         const ex = p.cx + sd * (p.hw - 0.75), a1 = [], b1 = [];
+        if (p.lin) {
+          for (let q = 0; q <= 48; q++) { const ss = p.s0 - 26 + (p.L + 26) * q / 48; a1.push(new THREE.Vector3(ex, H(ex, ss) + 0.04, -ss)); } ribbon(a1);
+          const eL = p.cx + sd * (p.lhw - 0.9); for (let q = 0; q <= 70; q++) { const ss = lip + p.gap + (p.Ll + p.Tr * 0.6) * q / 70; b1.push(new THREE.Vector3(eL, H(eL, ss) + 0.04, -ss)); } ribbon(b1);
+        } else {
         for (let q = 0; q <= 22; q++) { const ss = p.s0 + p.L * q / 22; a1.push(new THREE.Vector3(ex, H(ex, ss) + 0.04, -ss)); } ribbon(a1);
         for (let q = 0; q <= 26; q++) { const ss = lip + p.gap + p.Ll * q / 26; b1.push(new THREE.Vector3(ex, H(ex, ss) + 0.04, -ss)); } ribbon(b1);
+        }
         if (p.pit) for (let q = 0; q <= 6; q++) { const s2 = lip + 1 + (p.gap - 2) * q / 6, x2 = p.cx + sd * (p.hw - 0.3); const c = new THREE.Mesh(cone, cm); c.position.set(x2, H(x2, s2) + 0.4, -s2); grp.add(c); }
       });
       const lipPts = []; for (let q = 0; q <= 12; q++) { const x = p.cx - (p.hw - 0.75) + (2 * p.hw - 1.5) * q / 12; lipPts.push(new THREE.Vector3(x, H(x, lip - 0.02) + 0.04, -lip + 0.02)); } ribbon(lipPts);
