@@ -1871,28 +1871,28 @@ function buildFinish() {
 }
 let valleyDrop = null;
 function buildValleyDrop() { // big-air map: steep forested valley walls close in along the run, then open into a valley with fields, a lake and a village
-  const g = new THREE.Group(), r = mulberry(77), S0 = COURSE_END + 120, SMIN = -80, SMAX = COURSE_END + 2700, XM = 1700;
+  const g = new THREE.Group(), r = mulberry(77), S0 = COURSE_END + 120, SMIN = DROP ? -80 : COURSE_END - 900, SMAX = COURSE_END + 2700, XM = 1700, cx0 = DROP ? 0 : pc(COURSE_END); g.position.x = cx0;
   const yEnd = baseY(COURSE_END + 300) + cliffOff(COURSE_END + 300) - 3, yF = yEnd;
   const yRun = s => baseY(Math.min(s, COURSE_END + 300)) + cliffOff(Math.min(s, COURSE_END + 300)) - 3;
   const VC = { x: -250, s: S0 + 300 }, LK = { x: 430, s: S0 + 360 };
   const lakeM = (x, s) => 1 - smooth((Math.hypot((x - LK.x) / 150, (s - LK.s) / 70) - 0.9) / 0.5), townM = (x, s) => 1 - smooth((Math.hypot(x - VC.x, s - VC.s) - 170) / 80);
   const wv = s => lerp(100, 720, smooth((s - (COURSE_END - 60)) / 800));
   const VH = (x, s) => {
-    const ax = Math.abs(x), W = wv(s), berm = 3.5 * smooth((ax - PISTE + 1) / 6) + 0.1 * Math.max(0, Math.min(ax, W) - PISTE - 5);
+    const xw = x + cx0, ax = Math.abs(xw - pc(s)), wsc = DROP ? 1 : smooth((s - (COURSE_END - 900)) / 500), W = wv(s), berm = 3.5 * smooth((ax - PISTE + 1) / 6) + 0.1 * Math.max(0, Math.min(ax, W) - PISTE - 5);
     const open = smooth((s - COURSE_END) / 200), roll = (5 * Math.sin(x * 0.011 + s * 0.006) + 3 * Math.sin(x * 0.027 - s * 0.013 + 1) + 1.5 * Math.sin(s * 0.03 + x * 0.02)) * smooth((ax - 130) / 220) * open * (1 - 0.85 * townM(x, s));
     const u = Math.max(0, (ax - W) / 260), ridge = 1 + 0.35 * Math.sin(s * 0.021 + ax * 0.012) + 0.22 * Math.sin(s * 0.057 - ax * 0.031 + 2) + 0.12 * Math.sin(s * 0.13 + ax * 0.07);
-    const wall = 300 * Math.pow(smooth(u), 1.15) * ridge + 70 * smooth(u * 0.7) * Math.sin(s * 0.045 + ax * 0.05);
+    const wall = wsc * (300 * Math.pow(smooth(u), 1.15) * ridge + 70 * smooth(u * 0.7) * Math.sin(s * 0.045 + ax * 0.05));
     const far = 360 * smooth((s - (COURSE_END + 1900)) / 650);
-    const kk = feats[0] && feats[0].parts[0], lo = kk && kk.sl ? landOff(kk, s - (kk.s0 + kk.L) - kk.gap) * (1 - smooth((ax - 70) / 30)) : 0;
+    const kk = DROP && feats[0] && feats[0].parts[0], lo = kk && kk.sl ? landOff(kk, s - (kk.s0 + kk.L) - kk.gap) * (1 - smooth((ax - 70) / 30)) : 0;
     let y = yRun(s) + berm + roll + Math.max(0, wall) + far - 3.2 * lakeM(x, s) + lo;
-    if (ax < 110 && s < COURSE_END + 90) { const hr = Math.min(H(x, s), H(x + 7, s), H(x - 7, s), H(x, s + 6), H(x, s - 6)) - 2.5, f = 1 - smooth((ax - 95) / 15); y = lerp(y, Math.min(y, hr), f); }
+    if (ax < 110 && s < COURSE_END + 90 && (DROP || s > COURSE_END - 1000)) { const hr = Math.min(H(xw, s), H(xw + 7, s), H(xw - 7, s), H(xw, s + 6), H(xw, s - 6)) - 2.5, f = 1 - smooth((ax - 95) / 15); y = lerp(y, Math.min(y, hr), f); }
     return y;
   };
   const cols = [], pushX = (a, b, st) => { for (let x = a; x < b - 1e-6; x += st) cols.push(x); };
   pushX(-XM, -700, 90); pushX(-700, -250, 35); pushX(-250, -110, 22); pushX(-110, 110, 14); pushX(110, 250, 22); pushX(250, 700, 35); pushX(700, XM + 1, 90);
   const nS = 230, sunD = new THREE.Vector3(-0.45, 0.65, 0.6).normalize(), pos = [], col = [], idx = [], NX = cols.length, ss = [];
   for (let i = 0; i <= nS; i++) ss.push(SMIN + (SMAX - SMIN) * Math.pow(i / nS, 1.25));
-  const hs = []; ss.forEach(s => cols.forEach(x => hs.push(VH(x, s))));
+  const hs = []; ss.forEach(s => cols.forEach(x => hs.push(VH(x + (DROP ? 0 : pc(s) - cx0), s))));
   ss.forEach((s, i) => cols.forEach((x, j) => {
     const y = hs[i * NX + j], ax = Math.abs(x), hx = (hs[i * NX + Math.min(NX - 1, j + 1)] - hs[i * NX + Math.max(0, j - 1)]) / (cols[Math.min(NX - 1, j + 1)] - cols[Math.max(0, j - 1)]);
     const hz = (hs[Math.min(nS, i + 1) * NX + j] - hs[Math.max(0, i - 1) * NX + j]) / (ss[Math.min(nS, i + 1)] - ss[Math.max(0, i - 1)]), n = new THREE.Vector3(-hx, 1, hz * 1).normalize(), slope = Math.hypot(hx, hz);
@@ -1903,7 +1903,7 @@ function buildValleyDrop() { // big-air map: steep forested valley walls close i
     const snow = Math.max(1 - smooth((ax - 28) / 45) * 1, 0) * (1 - smooth((s - COURSE_END - 40) / 260)), cap = smooth((rise - 190) / 90);
     const sn = Math.max(snow, cap * (slope < 1.6 ? 1 : 0.5)); cr = lerp(cr, 0.95, sn); cg = lerp(cg, 0.96, sn); cb = lerp(cb, 0.98, sn);
     const fl = smooth((s - COURSE_END) / 200) * (1 - smooth((ax - 600) / 150)) * (rise < 25 ? 1 : 0); if (fl > 0) { cr = lerp(cr, 1, fl * 0.6); cg = lerp(cg, 1, fl * 0.6); cb = lerp(cb, 1, fl * 0.6); }
-    pos.push(x, y, -s); col.push(cr * shade, cg * shade, cb * shade);
+    pos.push(x + (DROP ? 0 : pc(s) - cx0), y, -s); col.push(cr * shade, cg * shade, cb * shade);
   }));
   for (let i = 0; i < nS; i++) for (let j = 0; j < NX - 1; j++) { const a = i * NX + j, b = a + NX; idx.push(a, a + 1, b, a + 1, b + 1, b); }
   const sg = new THREE.BufferGeometry(); sg.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); sg.setAttribute("color", new THREE.Float32BufferAttribute(col, 3)); sg.setIndex(idx);
@@ -1923,7 +1923,7 @@ function buildValleyDrop() { // big-air map: steep forested valley walls close i
   // trees on the walls and meadows
   const tm = new THREE.InstancedMesh(new THREE.ConeGeometry(4, 16, 6), new THREE.MeshBasicMaterial({ color: 0xffffff }), 3800), mt = new THREE.Matrix4(), cc = new THREE.Color(); let ti = 0, guard = 0;
   while (ti < 3800 && guard++ < 40000) {
-    const x = (r() - 0.5) * 2 * 1500, sv = SMIN + 120 + r() * (LL - 300), ax = Math.abs(x); if (ax < 105 && sv < COURSE_END + 150) continue;
+    const x = (r() - 0.5) * 2 * 1500, sv = SMIN + 120 + r() * (LL - 300); if (Math.abs(x + cx0 - pc(sv)) < 105 && sv < COURSE_END + 150) continue;
     const y = VH(x, sv), rise = y - yRun(sv); if (rise > 175 || (rise > 30 && Math.hypot((VH(x + 6, sv) - y) / 6, (VH(x, sv + 6) - y) / 6) > 1.1)) continue;
     if (lakeM(x, sv) > 0.05 || townM(x, sv) > 0.5 && r() < 0.8) continue; if (Math.abs(x) < 90 && sv > COURSE_END && sv < S0 + 220) continue;
     const sc = 0.9 + r() * 1.6; mt.makeScale(sc, sc, sc); mt.setPosition(x, y + 7 * sc, -sv); tm.setMatrixAt(ti, mt); cc.setHSL(0.36 + r() * 0.04, 0.35 + r() * 0.12, 0.2 + r() * 0.1); tm.setColorAt(ti++, cc);
@@ -1941,7 +1941,7 @@ function buildValleyDrop() { // big-air map: steep forested valley walls close i
   }
   lights.visible = false; g.add(lights); g.userData.lights = lights;
   // chairlift up the left wall, with moving chairs
-  const lp = []; for (let s = 20; s <= COURSE_END + 240; s += 40) lp.push(new THREE.Vector3(-210, VH(-210, s) + 11, -s));
+  const lp = []; for (let s = DROP ? 20 : COURSE_END - 800; s <= COURSE_END + 240; s += 40) lp.push(new THREE.Vector3(-210, VH(-210, s) + 11, -s));
   const cab = new THREE.Line(new THREE.BufferGeometry().setFromPoints(lp), new THREE.LineBasicMaterial({ color: 0x20242c })); g.add(cab);
   const pyl = new THREE.CylinderGeometry(0.4, 0.5, 1, 6), pm = new THREE.MeshBasicMaterial({ color: 0x3a404c }); for (let i = 0; i < lp.length; i += 2) { const p = lp[i], q = new THREE.Mesh(pyl, pm); const hgt = p.y - (VH(-210, -p.z) - 3); q.scale.y = hgt; q.position.set(p.x, p.y - hgt / 2, p.z); g.add(q); }
   const chg = new THREE.Group(), chM = [new THREE.MeshBasicMaterial({ color: 0xd9412e }), new THREE.MeshBasicMaterial({ color: 0x2e6fd9 })], chB = new THREE.BoxGeometry(2.4, 1.2, 1.6), chairs = [];
@@ -1956,6 +1956,7 @@ function buildValleyDrop() { // big-air map: steep forested valley walls close i
   // smoke
   const smG = new THREE.IcosahedronGeometry(1, 0), smoke = []; chim.forEach(ch => { for (let q = 0; q < 4; q++) { const sm = new THREE.Mesh(smG, new THREE.MeshBasicMaterial({ color: 0xf2eeee, transparent: true, opacity: 0.5, depthWrite: false })); g.add(sm); smoke.push({ m: sm, ch, t: q / 4 }); } });
   // spectators, banners and flags along the landing
+  if (DROP) {
   const lip = DLIP, L0 = lip + 60, L1 = lip + 50 + 130 + 30, nSp = 520, spG = new THREE.CylinderGeometry(0.28, 0.36, 1.3, 6), hdG = new THREE.SphereGeometry(0.26, 6, 5);
   const sp = new THREE.InstancedMesh(spG, new THREE.MeshBasicMaterial({ color: 0xffffff }), nSp), hd = new THREE.InstancedMesh(hdG, new THREE.MeshBasicMaterial({ color: 0xe8b99a }), nSp), jc = [0xd33a2c, 0x2e5fd0, 0xf1f1f1, 0x2a2e36, 0xe0b52c, 0x2f9e5a, 0x8a4fd0];
   for (let i = 0; i < nSp; i++) { const sd = i % 2 ? 1 : -1, row = (i >> 1) % 3, s = L0 + r() * (L1 - L0), x = sd * (40 + row * 1.6 + r() * 0.8), y = H(x, s); mt.makeTranslation(x, y + 0.65, -s); sp.setMatrixAt(i, mt); cc.setHex(jc[Math.floor(r() * 7)]); sp.setColorAt(i, cc); mt.makeTranslation(x, y + 1.5, -s); hd.setMatrixAt(i, mt); }
@@ -1964,6 +1965,7 @@ function buildValleyDrop() { // big-air map: steep forested valley walls close i
   const bnG = new THREE.PlaneGeometry(10, 1.2), bnM = new THREE.MeshBasicMaterial({ map: bnT, side: THREE.DoubleSide }), flM = [0xd33a2c, 0x2e5fd0, 0xe0b52c, 0x2f9e5a].map(c => new THREE.MeshBasicMaterial({ color: c, side: THREE.DoubleSide })), flG = new THREE.PlaneGeometry(0.1, 1), pole = new THREE.CylinderGeometry(0.06, 0.06, 5, 5), pmat = new THREE.MeshBasicMaterial({ color: 0xd8dde6 });
   for (let sd = -1; sd <= 1; sd += 2) { for (let s = L0; s < L1; s += 10.4) { const x = sd * 38.6, b = new THREE.Mesh(bnG, bnM); b.position.set(x, H(x, s) + 0.9, -(s + 5)); b.rotation.y = Math.PI / 2; g.add(b); }
     for (let s = L0 + 4; s < L1; s += 24) { const x = sd * 39.5, y = H(x, s), p = new THREE.Mesh(pole, pmat); p.position.set(x, y + 2.5, -s); g.add(p); const f = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 1.1), flM[Math.floor(r() * 4)]); f.position.set(x, y + 4.4, -s - 0.9); f.rotation.y = Math.PI / 2; g.add(f); } }
+  }
   // clouds with ground shadows, mist layers, birds
   const cT = canvasTex(256, 128, (c, w, h) => { for (let i = 0; i < 26; i++) { const gr = c.createRadialGradient(0, 0, 0, 0, 0, 1), x = 40 + r() * 176, y = 40 + r() * 48, rr = 18 + r() * 26; c.save(); c.translate(x, y); c.scale(rr * 1.5, rr); const g2 = c.createRadialGradient(0, 0, 0, 0, 0, 1); g2.addColorStop(0, "rgba(255,255,255,0.55)"); g2.addColorStop(1, "rgba(255,255,255,0)"); c.fillStyle = g2; c.beginPath(); c.arc(0, 0, 1, 0, TAU); c.fill(); c.restore(); } });
   const clouds = [], shT = canvasTex(128, 64, (c, w, h) => { c.save(); c.translate(64, 32); c.scale(60, 28); const g2 = c.createRadialGradient(0, 0, 0, 0, 0, 1); g2.addColorStop(0, "rgba(0,0,0,0.35)"); g2.addColorStop(1, "rgba(0,0,0,0)"); c.fillStyle = g2; c.beginPath(); c.arc(0, 0, 1, 0, TAU); c.fill(); c.restore(); });
@@ -1973,7 +1975,7 @@ function buildValleyDrop() { // big-air map: steep forested valley walls close i
   const mists = []; /* mist layers removed */ [].concat([]).map((y, k) => { const mm = new THREE.Mesh(new THREE.PlaneGeometry(2600, 2800), new THREE.MeshBasicMaterial({ map: mT, transparent: true, opacity: 0.55 - k * 0.12, depthWrite: false, fog: false })); mm.rotation.x = -Math.PI / 2; mm.position.set(0, y, -(S0 + 1300)); g.add(mm); return mm; });
   const bW = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(1.3, 0, 0.25), new THREE.Vector3(0, 0, 0.5)]), bM = new THREE.MeshBasicMaterial({ color: 0x23262e, side: THREE.DoubleSide }), birds = [];
   for (let i = 0; i < 16; i++) { const b = new THREE.Group(), a = new THREE.Mesh(bW, bM), c2 = new THREE.Mesh(bW, bM); c2.scale.x = -1; b.add(a, c2); g.add(b); birds.push({ b, a, c2, cx: VC.x + 150 + r() * 300, cs: S0 + 250 + r() * 500, rad: 80 + r() * 260, ph: r() * TAU, sp: 0.1 + r() * 0.12, hy: yF + 50 + r() * 90 }); }
-  scene.fog.near = 20000; scene.fog.far = 40000; camera.far = 8000; camera.updateProjectionMatrix(); scene.userData.valley.visible = false; scene.userData.mtn.visible = false;
+  if (DROP) { scene.fog.near = 20000; scene.fog.far = 40000; scene.userData.mtn.visible = false; } camera.far = 8000; camera.updateProjectionMatrix(); scene.userData.valley.visible = false; scene.userData.mtn.visible = false;
   g.userData.yF = yF;
   g.userData.tick = (t, dt) => {
     chairs.forEach(c => { const up = c.t < 0.5, p = chairPos((up ? c.t * 2 : (c.t - 0.5) * 2) , up), tt = (t * 0.02 + c.t) % 1; const q = chairPos((tt < 0.5 ? tt * 2 : (tt - 0.5) * 2), tt < 0.5); c.m.position.set(q[0], q[1], q[2]); });
@@ -1989,7 +1991,7 @@ function buildValleyDrop() { // big-air map: steep forested valley walls close i
   return g;
 }
 function manageWorld() {
-  if (DROP && finalized && !valleyDrop) { valleyDrop = buildValleyDrop(); scene.add(valleyDrop); }
+  if (!valleyDrop && finalized && (DROP || sk.s > COURSE_END - 1000)) { const t0 = performance.now(); valleyDrop = buildValleyDrop(); scene.add(valleyDrop); window.__vbuild = performance.now() - t0; }
   if (PEAK && !startHut) { startHut = buildStartHut(); scene.add(startHut); }
   if (sk.s > COURSE_END - 450 && !finishMesh) { finishMesh = PEAK ? buildFinishPeak() : buildFinish(); scene.add(finishMesh); }
   const cmin = DROP ? 0 : Math.floor((sk.s - 90) / CH), cmax = DROP ? Math.floor((COURSE_END + 60) / CH) : Math.floor((sk.s + 360) / CH);
@@ -2189,7 +2191,8 @@ function render(dt, time) {
     S.lines.geometry.attributes.position.needsUpdate = true; }
   scene.userData.sky.position.copy(camera.position);
   if (valleyDrop) valleyDrop.userData.tick(performance.now() / 1000, 1 / 60);
-  scene.userData.mtn.position.set(camera.position.x, valleyDrop ? valleyDrop.userData.yF + 135 : sk.y - 130, camera.position.z); scene.userData.valley.position.set(camera.position.x, sk.y - 126, camera.position.z);
+  scene.userData.mtn.position.set(camera.position.x, valleyDrop ? (DROP ? valleyDrop.userData.yF + 135 : lerp(sk.y - 130, valleyDrop.userData.yF + 135, smooth((sk.s - (COURSE_END - 900)) / 700))) : sk.y - 130, camera.position.z); scene.userData.valley.position.set(camera.position.x, sk.y - 126, camera.position.z);
+  if (valleyDrop && !DROP) { scene.fog.near += (250 - scene.fog.near) * 0.03; scene.fog.far += (3500 - scene.fog.far) * 0.03; }
   renderer.render(scene, camera);
 }
 
