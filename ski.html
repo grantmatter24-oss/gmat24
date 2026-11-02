@@ -2058,7 +2058,7 @@ function buildValleyDrop() { // big-air map: steep forested valley walls close i
       c.fillStyle = "#16295a"; c.fillRect(0, 0, w, 26); c.fillStyle = "#f4f6f9"; c.fillRect(0, 12, w, 1.5);
       c.font = "bold 14px Arial Narrow, Arial, sans-serif"; c.textBaseline = "middle"; c.fillStyle = "#f4f6f9"; c.fillText("BIG AIR", 12, 7); c.fillText("BIG AIR", 140, 7); c.fillText("BIG AIR", 12, 19.5); c.fillText("BIG AIR", 140, 19.5);
     }); nT.wrapS = THREE.RepeatWrapping; nT.anisotropy = 4;
-    const nM = new THREE.MeshBasicMaterial({ map: nT, transparent: true, side: THREE.DoubleSide, depthWrite: false, alphaTest: 0.05 }), pM = new THREE.MeshBasicMaterial({ color: 0x3b4660 }), pG = new THREE.CylinderGeometry(0.09, 0.11, 1, 6), lipN = DLIP, edgeX = s => lerp(27, 44, smooth((s - (lipN - 30)) / 80));
+    const nM = new THREE.MeshBasicMaterial({ map: nT, transparent: true, side: THREE.DoubleSide, depthWrite: false, alphaTest: 0.05 }), pM = new THREE.MeshBasicMaterial({ color: 0x3b4660 }), pG = new THREE.CylinderGeometry(0.09, 0.11, 1, 6), lipN = DLIP, edgeX = s => 23.5;
     for (let sd = -1; sd <= 1; sd += 2) {
       const pos = [], uv = [], idx = [], S1 = 14, S2 = feats[0].end - 25, N = Math.round((S2 - S1) / 3);
       for (let i = 0; i <= N; i++) { const s = S1 + (S2 - S1) * i / N, x = sd * edgeX(s), y = H(x, s); pos.push(x, y - 0.3, -s, x, y + 2.6, -s); uv.push((s - S1) / 16, 0, (s - S1) / 16, 1); if (i) { const a = (i - 1) * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); } }
@@ -2069,12 +2069,12 @@ function buildValleyDrop() { // big-air map: steep forested valley walls close i
   if (DROP) {
   const lip = DLIP, L0 = lip + 60, L1 = lip + 50 + 260 + 30, nSp = 520, spG = new THREE.CylinderGeometry(0.28, 0.36, 1.3, 6), hdG = new THREE.SphereGeometry(0.26, 6, 5);
   const sp = new THREE.InstancedMesh(spG, new THREE.MeshBasicMaterial({ color: 0xffffff }), nSp), hd = new THREE.InstancedMesh(hdG, new THREE.MeshBasicMaterial({ color: 0xe8b99a }), nSp), jc = [0xd33a2c, 0x2e5fd0, 0xf1f1f1, 0x2a2e36, 0xe0b52c, 0x2f9e5a, 0x8a4fd0];
-  for (let i = 0; i < nSp; i++) { const sd = i % 2 ? 1 : -1, row = (i >> 1) % 3, s = L0 + r() * (L1 - L0), x = sd * (40 + row * 1.6 + r() * 0.8), y = H(x, s); mt.makeTranslation(x, y + 0.65, -s); sp.setMatrixAt(i, mt); cc.setHex(jc[Math.floor(r() * 7)]); sp.setColorAt(i, cc); mt.makeTranslation(x, y + 1.5, -s); hd.setMatrixAt(i, mt); }
+  for (let i = 0; i < nSp; i++) { const sd = i % 2 ? 1 : -1, row = (i >> 1) % 3, s = L0 + r() * (L1 - L0), x = sd * (25.6 + row * 1.5 + r() * 0.6), y = H(x, s); mt.makeTranslation(x, y + 0.65, -s); sp.setMatrixAt(i, mt); cc.setHex(jc[Math.floor(r() * 7)]); sp.setColorAt(i, cc); mt.makeTranslation(x, y + 1.5, -s); hd.setMatrixAt(i, mt); }
   g.add(sp, hd);
   const bnT = canvasTex(256, 64, (c, w, h) => { c.fillStyle = "#14181f"; c.fillRect(0, 0, w, h); c.fillStyle = "#e0502f"; c.fillRect(0, 0, 8, h); c.fillStyle = "#f4f6f9"; c.font = "bold 40px Arial Narrow, Arial, sans-serif"; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText("BIG AIR", w / 2, h / 2 + 2); });
   const bnG = new THREE.PlaneGeometry(10, 1.2), bnM = new THREE.MeshBasicMaterial({ map: bnT, side: THREE.DoubleSide }), flM = [0xd33a2c, 0x2e5fd0, 0xe0b52c, 0x2f9e5a].map(c => new THREE.MeshBasicMaterial({ color: c, side: THREE.DoubleSide })), flG = new THREE.PlaneGeometry(0.1, 1), pole = new THREE.CylinderGeometry(0.06, 0.06, 5, 5), pmat = new THREE.MeshBasicMaterial({ color: 0xd8dde6 });
-  for (let sd = -1; sd <= 1; sd += 2) { for (let s = L0; s < L1; s += 10.4) { const x = sd * 38.6, b = new THREE.Mesh(bnG, bnM); b.position.set(x, H(x, s) + 0.9, -(s + 5)); b.rotation.y = Math.PI / 2; g.add(b); }
-    for (let s = L0 + 4; s < L1; s += 24) { const x = sd * 39.5, y = H(x, s), p = new THREE.Mesh(pole, pmat); p.position.set(x, y + 2.5, -s); g.add(p); const f = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 1.1), flM[Math.floor(r() * 4)]); f.position.set(x, y + 4.4, -s - 0.9); f.rotation.y = Math.PI / 2; g.add(f); } }
+  for (let sd = -1; sd <= 1; sd += 2) { for (let s = L0; s < L1; s += 10.4) { }
+    for (let s = L0 + 4; s < L1; s += 24) { const x = sd * 25, y = H(x, s), p = new THREE.Mesh(pole, pmat); p.position.set(x, y + 2.5, -s); g.add(p); const f = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 1.1), flM[Math.floor(r() * 4)]); f.position.set(x, y + 4.4, -s - 0.9); f.rotation.y = Math.PI / 2; g.add(f); } }
   }
   // clouds with ground shadows, mist layers, birds
   const cT = canvasTex(256, 128, (c, w, h) => { for (let i = 0; i < 26; i++) { const gr = c.createRadialGradient(0, 0, 0, 0, 0, 1), x = 40 + r() * 176, y = 40 + r() * 48, rr = 18 + r() * 26; c.save(); c.translate(x, y); c.scale(rr * 1.5, rr); const g2 = c.createRadialGradient(0, 0, 0, 0, 0, 1); g2.addColorStop(0, "rgba(255,255,255,0.55)"); g2.addColorStop(1, "rgba(255,255,255,0)"); c.fillStyle = g2; c.beginPath(); c.arc(0, 0, 1, 0, TAU); c.fill(); c.restore(); } });
