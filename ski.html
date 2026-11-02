@@ -226,7 +226,7 @@ const hash = n => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s
 const RES = location.hash === "#peak" ? "peak" : location.hash === "#park" ? "park" : location.hash === "#drop" ? "drop" : "alpine", PEAK = RES === "peak", PARK = RES === "park", DROP = RES === "drop", KS = PEAK ? 1.45 : 1;
 const RESORT_NAMES = { alpine: "Evergreen Run", peak: "Couloir Peak", park: "Kicker Park", drop: "X Big Air" };
 const G = 18, BASE = PEAK ? 0.4 : DROP ? 0.58 : 0.28, RAIL_H = 0.55, PISTE = DROP ? 24 : 15, MAXV = 400;
-const COURSE_END = location.hash === "#peak" ? 7500 : location.hash === "#park" ? 5200 : location.hash === "#drop" ? 590 : 6000;
+const COURSE_END = location.hash === "#peak" ? 7500 : location.hash === "#park" ? 5200 : location.hash === "#drop" ? 840 : 6000;
 const rng = mulberry(2024);
 const feats = [];
 const railsOf = f => f.rail ? (f.rail2 ? [f.rail, ...f.rail2] : [f.rail]) : (f.rail2 || []);
@@ -265,7 +265,7 @@ function bump(u) { return smooth(u / 0.4) * (1 - smooth((u - 0.4) / 0.6)); }
 function ensure(s) {
   if (generating) return;
   while (genS < s + (DROP ? 460 : 1500) && genS < COURSE_END - 420) { generating = true; const f = addSection(); generating = false; handleTrail(f); }
-  if (!finalized && genS >= COURSE_END - 420) { finalized = true; const k = knots[knots.length - 1]; addKnot(Math.max(k.s + 10, COURSE_END - 190), BASE); addKnot(COURSE_END - 60, 0.05); addKnot(COURSE_END + 300, 0.02); }
+  if (!finalized && genS >= COURSE_END - 420) { finalized = true; const k = knots[knots.length - 1]; if (!DROP) { addKnot(Math.max(k.s + 10, COURSE_END - 190), BASE); addKnot(COURSE_END - 60, 0.05); } addKnot(COURSE_END + 300, 0.02); }
 }
 function featIndex(s) {
   let lo = 0, hi = feats.length - 1, r = -1;
@@ -317,7 +317,7 @@ function partOff(p, x, s) {
     const k = p.k, lip = k.s0 + k.L, u = Math.abs(x - k.cx), wx = smooth((u - (k.hw - 1.2)) / 1.2) * (1 - smooth((u - (k.hw + 63)) / 10)), lat = 1 - smooth((u - 30) / 160); if (wx <= 0 && !(s > lip && lat > 0)) return 0;
     const roll = p.amp * Math.pow(Math.sin(Math.PI * (s - p.s0) / p.sp), 2) * (0.75 + 0.25 * Math.sin(u * 0.28));
     if (s <= lip) { const t = (s - k.s0) / k.L; return (p.Hs * rampProf(t) + roll * smooth(t * 3)) * wx; }
-    const lw = landW(k, x); return landOff(k, s - lip - k.gap) * (1 - lw) * lat + (p.Hs * (1 - smooth((s - lip) / 44)) + roll * (1 - lw)) * wx;
+    const lw = landW(k, x); return (p.Hs * (1 - smooth((s - lip) / 44)) + roll * (1 - lw)) * wx;
   }
   if (p.type === "couloir") return p.H * smooth((Math.abs(x - p.cx) - p.hw) / 4.5) * smooth((s - p.s0) / 14) * smooth((p.end - s) / 14);
   if (p.type === "moguls") { const e = smooth((s - p.s0) / 10) * smooth((p.end - s) / 10), xr = x - p.cx; return p.amp * e * (1 - smooth((Math.abs(xr) - (PISTE - 2)) / 4)) * Math.sin(xr * 0.9 + 0.7) * Math.sin(s * 0.65); }
@@ -328,7 +328,7 @@ function partOff(p, x, s) {
   if (lw <= 0 && lwL <= 0) return 0;
   if (s <= lip) { if (lw <= 0) return 0; const t = (s - p.s0) / p.L; return p.H * t * t * lw; }
   let off = 0;
-  if (p.sl) { return landOff(p, s - lip - p.gap) * lwL; const d = s - lip - p.gap; if (d <= 0 || d > p.Ll + p.Tr) return 0; const dd = d + 6 * (Math.exp(-d / 6) - 1), Hs = p.sl * p.Ll; return lwL * (d < p.Ll ? -p.sl * dd : -(Hs - p.sl * 6 * (1 - Math.exp(-p.Ll / 6))) * (1 - smooth((d - p.Ll) / p.Tr)) - 0); }
+  if (p.sl) { return 0; const d0 = 0 * landOff(p, 0); const d = s - lip - p.gap; if (d <= 0 || d > p.Ll + p.Tr) return 0; const dd = d + 6 * (Math.exp(-d / 6) - 1), Hs = p.sl * p.Ll; return lwL * (d < p.Ll ? -p.sl * dd : -(Hs - p.sl * 6 * (1 - Math.exp(-p.Ll / 6))) * (1 - smooth((d - p.Ll) / p.Tr)) - 0); }
   const u = (s - lip - p.gap) / p.Ll;
   if (u >= 0 && u <= 1) off += p.Hl * bump(u) * lwL;
   if (p.pit && s > lip + 0.4 && s < lip + p.gap) off -= p.pit * smooth((s - lip - 0.4) / 1.2) * smooth((lip + p.gap - s) / 1.2) * lwL;
@@ -431,7 +431,7 @@ function addSection() {
   const i = secCount++, diff = Math.min(1, i / 16), pick = rng();
   const f = { s0: genS, parts: [], label: "", boost: null, rail: null, coins: [], mainCx: 0, idx: i };
   if (DROP) { // X Games style big air: steep scaffold in-run, curved kicker, gap, 38 degree landing with a knuckle, flat out-run
-    const L = DLIP - genS, Hh = 14.5, v0 = 24, D = 5, gap = 50, Ll = 130, Tr = 55;
+    const L = DLIP - genS, Hh = 14.5, v0 = 24, D = 5, gap = 50, Ll = 260, Tr = 110;
     const k = { type: "kicker", label: "X GAMES BIG AIR", s0: genS, L, H: Hh, gap, Ll, Hl: 0, sl: 0.3, Tr, lin: true, cx: 0, hw: 14, lhw: 40, v0, pit: 0 }; k.end = DLIP + gap + Ll + Tr;
     f.parts.push(k); f.parts.push({ type: "flank", k, s0: genS, end: k.end, Hs: Hh - 4, amp: 0.45, sp: 12, cx: 0, hw: 60 });
     const cs = DLIP, w = 5, last = cliffs[cliffs.length - 1];
@@ -495,8 +495,8 @@ function addSection() {
   feats.push(f); regRocks(f);
   const a = f.s0 - 34, prevEnd = knots[knots.length - 1].s, gapLen = a - prevEnd;
   if (i > 0 && gapLen > 20) { const v = (PARK && i % 5 === 3) ? 0.5 : (i % 6 === 3 || i % 6 === 5) ? 0.44 : [0.14, 0.2, 0.2, 0.36, 0.44, 0.5][Math.floor(rng() * 6)]; addKnot(prevEnd + gapLen * 0.3, v); addKnot(prevEnd + gapLen * 0.7, v); }
-  if (DROP) { addKnot(a, BASE); addKnot(f.end - 30, BASE); addKnot(f.end + 40, 0.04); } else { addKnot(a, BASE); addKnot(f.end + 10, BASE); }
-  pcs.push({ a, b: f.end + 10, x: px, jump: !f.cliff });
+  if (DROP) { const ls = DLIP + 50, kk = f.parts[0]; addKnot(a, BASE); addKnot(ls - 8, BASE); addKnot(ls + 8, BASE + 0.3); addKnot(ls + kk.Ll, BASE + 0.3); addKnot(ls + kk.Ll + kk.Tr, 0.04); } else { addKnot(a, BASE); addKnot(f.end + 10, BASE); }
+  pcs.push({ a, b: f.end + 10, x: px, jump: !f.cliff || DROP });
   if (DROP) { genS = 1e9; return f; }
   if (i > 1 && rng() < (PEAK ? 0.9 : 0.45)) { const fast = secCount % 6 === 3 || secCount % 6 === 5, order = PEAK ? ["chute", "carve", "chute"] : ["carve", "chute", "cruiser"]; let k = order[interCount++ % 3]; if (fast && k === "cruiser") k = "chute"; pendingInterlude = k; genS = f.end + 44 + rng() * 10; }
   else { pendingFiller = true; genS = f.end + 46 + rng() * 8; }
@@ -1935,7 +1935,7 @@ function buildValleyDrop() { // big-air map: steep forested valley walls close i
     const u = Math.max(0, (ax - W) / 260), ridge = 1 + 0.35 * Math.sin(s * 0.021 + ax * 0.012) + 0.22 * Math.sin(s * 0.057 - ax * 0.031 + 2) + 0.12 * Math.sin(s * 0.13 + ax * 0.07);
     const wall = wsc * (300 * Math.pow(smooth(u), 1.15) * ridge + 70 * smooth(u * 0.7) * Math.sin(s * 0.045 + ax * 0.05));
     const far = 360 * smooth((s - (COURSE_END + 1900)) / 650);
-    const kk = DROP && feats[0] && feats[0].parts[0], lo = kk && kk.sl ? landOff(kk, s - (kk.s0 + kk.L) - kk.gap) * (1 - smooth((ax - 30) / 160)) : 0;
+    const kk = DROP && feats[0] && feats[0].parts[0], lo = kk && kk.sl ? landOff(kk, s - (kk.s0 + kk.L) - kk.gap)  * 0 : 0;
     let y = yRun(s) + berm + roll + Math.max(0, wall) + far - 3.2 * lakeM(x, s) + lo;
     if (ax < 110 && s < COURSE_END + 90 && (DROP || s > COURSE_END - 1000)) { const hr = Math.min(H(xw, s), H(xw + 7, s), H(xw - 7, s), H(xw, s + 6), H(xw, s - 6)) - 2.5, f = 1 - smooth((ax - 95) / 15); y = lerp(y, Math.min(y, hr), f); }
     return y;
@@ -2009,7 +2009,7 @@ function buildValleyDrop() { // big-air map: steep forested valley walls close i
   const smG = new THREE.IcosahedronGeometry(1, 0), smoke = []; chim.forEach(ch => { for (let q = 0; q < 4; q++) { const sm = new THREE.Mesh(smG, new THREE.MeshBasicMaterial({ color: 0xf2eeee, transparent: true, opacity: 0.5, depthWrite: false })); g.add(sm); smoke.push({ m: sm, ch, t: q / 4 }); } });
   // spectators, banners and flags along the landing
   if (DROP) {
-  const lip = DLIP, L0 = lip + 60, L1 = lip + 50 + 130 + 30, nSp = 520, spG = new THREE.CylinderGeometry(0.28, 0.36, 1.3, 6), hdG = new THREE.SphereGeometry(0.26, 6, 5);
+  const lip = DLIP, L0 = lip + 60, L1 = lip + 50 + 260 + 30, nSp = 520, spG = new THREE.CylinderGeometry(0.28, 0.36, 1.3, 6), hdG = new THREE.SphereGeometry(0.26, 6, 5);
   const sp = new THREE.InstancedMesh(spG, new THREE.MeshBasicMaterial({ color: 0xffffff }), nSp), hd = new THREE.InstancedMesh(hdG, new THREE.MeshBasicMaterial({ color: 0xe8b99a }), nSp), jc = [0xd33a2c, 0x2e5fd0, 0xf1f1f1, 0x2a2e36, 0xe0b52c, 0x2f9e5a, 0x8a4fd0];
   for (let i = 0; i < nSp; i++) { const sd = i % 2 ? 1 : -1, row = (i >> 1) % 3, s = L0 + r() * (L1 - L0), x = sd * (40 + row * 1.6 + r() * 0.8), y = H(x, s); mt.makeTranslation(x, y + 0.65, -s); sp.setMatrixAt(i, mt); cc.setHex(jc[Math.floor(r() * 7)]); sp.setColorAt(i, cc); mt.makeTranslation(x, y + 1.5, -s); hd.setMatrixAt(i, mt); }
   g.add(sp, hd);
