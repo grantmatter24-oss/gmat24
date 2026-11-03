@@ -995,7 +995,7 @@ const cv = $("cv");
 const chunks = new Map(), featMeshes = new Map(), trailMeshes = new Map();
 const CH = 40;
 let sprayPts, snowPts;
-const SN = 500, SP = 600;
+const SN = 3200, SP = 600; let stormMix = 0, fogBase = null;
 const sprayD = { x: new Float32Array(SP), y: new Float32Array(SP), z: new Float32Array(SP), vx: new Float32Array(SP), vy: new Float32Array(SP), vz: new Float32Array(SP), life: new Float32Array(SP) };
 let sprayIdx = 0;
 function spray(x, y, s, n, up, side) {
@@ -1139,7 +1139,7 @@ function initRender() {
   const ng = new THREE.BufferGeometry(), np = new Float32Array(SN * 3);
   for (let i = 0; i < SN; i++) { np[i * 3] = (Math.random() - 0.5) * 70; np[i * 3 + 1] = Math.random() * 30; np[i * 3 + 2] = (Math.random() - 0.5) * 70; }
   ng.setAttribute("position", new THREE.BufferAttribute(np, 3));
-  snowPts = new THREE.Points(ng, new THREE.PointsMaterial({ color: 0xffffff, map: dotTex, size: 0.14, transparent: true, opacity: 0.85, depthWrite: false })); snowPts.frustumCulled = false; scene.add(snowPts);
+  snowPts = new THREE.Points(ng, new THREE.PointsMaterial({ color: 0xffffff, map: dotTex, size: 0.3, transparent: true, opacity: 0.92, depthWrite: false })); snowPts.frustumCulled = false; scene.add(snowPts);
 
   resize();
   return true;
@@ -1231,10 +1231,19 @@ function buildSkier() {
     const tm = new THREE.Object3D(); tm.position.set(x, 0.05, 0.78); ig.add(tm); skiG.push(sg); tailM.push(tm);
     const nm = new THREE.Object3D(); nm.position.set(x, 0.05, -0.84); ig.add(nm); noseM.push(nm); const mm2 = new THREE.Object3D(); mm2.position.set(x, 0.06, -0.05); ig.add(mm2); midM.push(mm2);
     const addS = (g, m, px, py, pz) => add(g, m, px, py, pz, ig);
-    addS(new THREE.BoxGeometry(0.135, 0.036, 1.4), skiM, x, 0.052, 0.05);
-    const t1 = addS(new THREE.BoxGeometry(0.135, 0.036, 0.24), skiM, x, 0.074, -0.78); t1.rotation.x = 0.26;
-    const t2 = addS(new THREE.BoxGeometry(0.135, 0.036, 0.16), skiM, x, 0.122, -0.93); t2.rotation.x = 0.62;
-    const tl = addS(new THREE.BoxGeometry(0.135, 0.036, 0.2), skiM, x, 0.072, 0.8); tl.rotation.x = -0.28; bend.push({ t1, t2, tl });
+    { // one smooth, curved ski: rounded tips, slight waist, rocker at nose and tail, bends when buttering
+      const n = 40, ring = 10, zN = -0.96, zT = 0.88, pos = new Float32Array((n + 1) * ring * 3), idx = [], zs = [], baseY = [];
+      const noseC = z => 0.17 * Math.pow(Math.max(0, (-z - 0.42) / 0.54), 1.8), tailC = z => 0.075 * Math.pow(Math.max(0, (z - 0.55) / 0.33), 1.8);
+      for (let a = 0; a <= n; a++) {
+        const u = a / n, z = zN + (zT - zN) * u, e = Math.sqrt(Math.max(0, 1 - Math.pow(Math.abs(2 * u - 1), 9))), wd = (0.145 - 0.026 * Math.sin(Math.PI * u) + (u > 0.6 ? 0.004 : 0)) * 0.5 * e, th = 0.019 * (0.35 + 0.65 * e), yc = 0.052 + noseC(z) + tailC(z);
+        zs.push(z); for (let k = 0; k < ring; k++) { const ang = k / ring * Math.PI * 2, c = Math.cos(ang), sn = Math.sin(ang), o = (a * ring + k) * 3; pos[o] = wd * Math.sign(c) * Math.pow(Math.abs(c), 0.45); pos[o + 1] = yc + th * Math.sign(sn) * Math.pow(Math.abs(sn), 0.45); pos[o + 2] = z; baseY.push(pos[o + 1]); }
+      }
+      for (let a = 0; a < n; a++) for (let k = 0; k < ring; k++) { const p0 = a * ring + k, p1 = a * ring + (k + 1) % ring, q0 = p0 + ring, q1 = p1 + ring; idx.push(p0, q0, p1, p1, q0, q1); }
+      const sgeo = new THREE.BufferGeometry(); sgeo.setAttribute("position", new THREE.BufferAttribute(pos, 3)); sgeo.setIndex(idx); sgeo.computeVertexNormals();
+      const uvs = new Float32Array((n + 1) * ring * 2); for (let a = 0; a <= n; a++) for (let k = 0; k < ring; k++) { uvs[(a * ring + k) * 2] = k / ring; uvs[(a * ring + k) * 2 + 1] = a / n; } sgeo.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
+      const sm = addS(sgeo, skiM, x, 0, 0.0); let lb = -1, ln = -1;
+      bend.push({ upd: (bt, nb) => { if (Math.abs(bt - lb) < 0.01 && Math.abs(nb - ln) < 0.01) return; lb = bt; ln = nb; for (let a = 0; a <= n; a++) { const z = zs[a], dy = bt * noseC(z) * 1.5 - nb * noseC(z) * 0.3 + nb * tailC(z) * 3.5; for (let k = 0; k < ring; k++) { const o = a * ring + k; pos[o * 3 + 1] = baseY[o] + dy; } } sgeo.attributes.position.needsUpdate = true; sgeo.computeVertexNormals(); } });
+    }
     addS(new THREE.BoxGeometry(0.1, 0.05, 0.1), black, x, 0.07, -0.08); addS(new THREE.BoxGeometry(0.1, 0.06, 0.11), black, x, 0.075, 0.2);
     addS(new THREE.BoxGeometry(0.118, 0.12, 0.32), boot, x, 0.135, 0.06);
     addS(new THREE.CylinderGeometry(0.083, 0.079, 0.3, 16), boot, x, 0.31, 0.05);
@@ -1434,7 +1443,7 @@ function poseSkier(dt, time) {
   const swp = sk.bikeJump ? clamp(sk.airT / 0.45, 0, 1) : 1, ease = 1 + 2.7 * Math.pow(swp - 1, 3) + 1.7 * Math.pow(swp - 1, 2);
   if (sk.bikeJump && !sk.swapDone && swp > 0.05) { sk.swapDone = true; spray(sk.x, sk.y + 0.2, sk.s, 16, 6); }
   if (sk.bikeJump && swp >= 1) sk.bikeJump = false;
-  R.bend.forEach(b => { b.t1.rotation.x = 0.26 + 0.55 * bt; b.t2.rotation.x = 0.62 + 0.9 * bt; b.tl.rotation.x = -0.28 - 0.7 * nb - 0.2 * bt * 0; if (nb > 0.02) { b.t1.rotation.x = 0.26 - 0.15 * nb; } });
+  R.bend.forEach(b => b.upd(bt, nb));
   R.skiBack.visible = bikeOn || (sk.bikeJump && swp < 0.3); R.skiBack.scale.setScalar(bikeOn ? 1 : Math.max(0.01, 1 - swp / 0.3));
   R.skiG.forEach((sg, i) => { sg.visible = !bikeOn && swp > 0.05; sg.scale.setScalar(bikeOn ? 0.01 : Math.max(0.01, ease)); sg.position.set(sg.position.x, 0.2 + (ankY - foot), 0.06 + ankZ); sg.rotation.x = GP.pitch * tg + 0.5 * bt - 0.5 * nb; sg.rotation.y = (i ? -1 : 1) * GP.cross * tg; sg.rotation.z = (i ? 1 : -1) * (GP.roll || 0) * tg; });
   R.hipG.position.set(-inside, hipY + 0.02, 0.04 + 0.04 * p.c); R.hipG.updateMatrix();
@@ -2313,10 +2322,13 @@ function render(dt, time) {
   const np = snowPts.geometry.attributes.position.array, cx = camera.position.x, cy = camera.position.y, cz = camera.position.z;
   if (snowOn) for (let i = 0; i < SN; i++) {
     let x = np[i * 3], y = np[i * 3 + 1], z = np[i * 3 + 2];
-    y -= (2.2 + (i % 5) * 0.4) * dt; x += Math.sin(time * 0.6 + i) * 0.3 * dt;
+    y -= (6.5 + (i % 5) * 1.3) * dt; x += (13 + Math.sin(time * 0.7) * 6 + Math.sin(time * 0.6 + i) * 2.5) * dt; z += (Math.sin(time * 0.35 + i * 0.1) * 3 - 1.5) * dt;
     np[i * 3] = cx + (((x - cx + 35) % 70) + 70) % 70 - 35; np[i * 3 + 1] = cy - 14 + (((y - cy + 14) % 30) + 30) % 30; np[i * 3 + 2] = cz + (((z - cz + 35) % 70) + 70) % 70 - 35;
   }
   snowPts.geometry.attributes.position.needsUpdate = true;
+  { stormMix += ((snowOn ? 1 : 0) - stormMix) * Math.min(1, dt * 1.2); const f = scene.fog;
+    if (stormMix < 0.002) { stormMix = 0; fogBase = { near: f.near, far: f.far, color: f.color.clone() }; }
+    else if (fogBase) { f.near = 1 / lerp(1 / Math.max(1, fogBase.near), 1 / 18, stormMix * 0.95); f.far = 1 / lerp(1 / fogBase.far, 1 / 190, stormMix * 0.95); f.color.copy(fogBase.color).lerp(new THREE.Color(0xe4eaf2), 0.55 * stormMix); } }
   updateCamera(dt);
   { const S = scene.userData.streaks, speed = sk.crashed ? 0 : (sk.air ? Math.hypot(sk.vx, sk.vs) : sk.sp), amt = clamp((speed - 18) / 22, 0, 1);
     S.lines.material.opacity = amt * 0.7;
@@ -2474,7 +2486,7 @@ sk = newSkier(0, PEAK ? 3 : 10, 0);
 const glOK = typeof THREE !== "undefined" && initRender();
 if (glOK) { applyGfx(); scene.userData.applyTOD(todName); }
 if (!glOK) { $("nogl").hidden = false; $("go").disabled = true; }
-window.__game = { get scene() { return scene; }, get rig() { return skierRig; }, pc, pcs, cliffs, knots, baseY, get runT() { return runT; }, get sw() { return sk.sw; }, get spin() { return sk.spin; }, get endShown() { return endShown; }, COURSE_END, trails, trailFor, trailXc, sectionsAt, step, get sk() { return sk; }, feats, H, K, restart, begin, get score() { return score; }, get mult() { return mult; }, setMode(m) { mode = m; }, pop() { popReq = true; } };
+window.__game = { get scene() { return scene; }, get storm() { return [stormMix, snowOn, scene.fog.near, scene.fog.far]; }, get rig() { return skierRig; }, pc, pcs, cliffs, knots, baseY, get runT() { return runT; }, get sw() { return sk.sw; }, get spin() { return sk.spin; }, get endShown() { return endShown; }, COURSE_END, trails, trailFor, trailXc, sectionsAt, step, get sk() { return sk; }, feats, H, K, restart, begin, get score() { return score; }, get mult() { return mult; }, setMode(m) { mode = m; }, pop() { popReq = true; } };
 requestAnimationFrame(frame);
 $("dtot").textContent = COURSE_END;
 /* ---------- homepage: animated sunset, mountains and a skier doing a backflip ---------- */
