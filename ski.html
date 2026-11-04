@@ -315,7 +315,7 @@ function partOff(p, x, s) {
     const w = (u - p.L - p.gap) / p.Ll;
     return w >= 0 && w <= 1 ? p.Hl * bump(w) * lwL : 0;
   }
-  if (p.type === "railramp") { const t = (s - p.s0) / p.L; if (t < 0 || t > 1) return 0; return p.H * t * t * latW(p, x, 0.5); }
+  if (p.type === "railramp") { const t = (s - p.s0) / p.L; if (t < 0 || t > 1) return 0; return p.H * t * (1.6 - 0.6 * t) * latW(p, x, 0.5); }
   if (p.type === "flank") { // low rollers beside the big-air ramp, 4 m under the lip, running on down the sides of the landing
     const k = p.k, lip = k.s0 + k.L, u = Math.abs(x - k.cx), wx = smooth((u - (k.hw - 1.2)) / 1.2) * (1 - smooth((u - (k.hw + 63)) / 10)), lat = 1 - smooth((u - 30) / 160); if (wx <= 0 && !(s > lip && lat > 0)) return 0;
     const roll = p.amp * Math.pow(Math.sin(Math.PI * (s - p.s0) / p.sp), 2) * (0.75 + 0.25 * Math.sin(u * 0.28));
@@ -699,14 +699,15 @@ function startTrail(f) {
 
 function railX(r, s) { return r.amp ? r.x + r.amp * Math.sin(Math.PI * (r.k || 1) * clamp((s - r.s0) / (r.s1 - r.s0), 0, 1)) * smooth((s - r.s0) / 20) : r.x; }
 function railY(r, s) { if (r.y0 === undefined) { const h = r.h || RAIL_H; r.y0 = H(railX(r, r.s0), r.s0) + h; r.y1 = H(railX(r, r.s1), r.s1) + h; } return r.y0 + (r.y1 - r.y0) * clamp((s - r.s0) / (r.s1 - r.s0), 0, 1); }
+function onRailRamp(x, s) { for (const f of sectionsAt(s, 6)) for (const p of f.parts) if (p.type === "railramp" && s >= p.s0 && s <= p.s0 + p.L + 3 && latW(p, x, 0.5) > 0.1) return true; return false; }
 function railAhead(x, s) { for (const f of sectionsAt(s, 22)) for (const rl of railsOf(f)) if (rl.s0 - s > -1 && rl.s0 - s < 20 && Math.abs(x - rl.x) < 1.9) return true; return false; }
 function upgradeRails(f) { // longer rails, lifted on posts, each with a small ramp to hop up onto them
   for (const r of railsOf(f)) {
     if (f.parts.some(p => p.type === "box" && p.house && r.s0 >= p.s0 - 1 && r.s1 <= p.end + 1)) continue;
     if (!r.fixedLen) r.s1 = r.s0 + (r.s1 - r.s0) * 2.98;
     if (r.noRamp) continue;
-    if (r.s0 - 13 < f.s0) { const d = f.s0 + 13 - r.s0; r.s0 += d; r.s1 += d; }
-    f.parts.push({ type: "railramp", s0: r.s0 - 13, L: 9, H: RAIL_H - 0.45, cx: r.x, hw: 2.1, end: r.s0 + 0.5 });
+    if (r.s0 - 18 < f.s0) { const d = f.s0 + 18 - r.s0; r.s0 += d; r.s1 += d; }
+    f.parts.push({ type: "railramp", s0: r.s0 - 18, L: 14, H: RAIL_H - 0.25, cx: r.x, hw: 2.1, end: r.s0 + 0.5 });
   }
 }
 function nearLip(x, s) {
@@ -911,7 +912,7 @@ function step(dt) {
       const popNow = popReq;
       if (popNow) { sk.sp += 0.9 * Math.max(0, 1 - sk.sp / 45); spray(sk.x - hx * 0.5, sk.y, sk.s - hs * 0.5, 4, 3); sfx("pump"); }
       if (popNow || yp > hn + (HP ? 0.04 : 0.12)) {
-        sk.air = true; sk.vx = sk.sp * c * hx; sk.vs = sk.sp * c * hs; sk.vy = sk.sp * sn + (popNow ? (nearLip(sk.x, sk.s) ? 6.5 : railAhead(sk.x, sk.s) ? 8.6 : 5.2) : 0) + 3.0;
+        sk.air = true; sk.vx = sk.sp * c * hx; sk.vs = sk.sp * c * hs; sk.vy = sk.sp * sn + (popNow ? (nearLip(sk.x, sk.s) ? 6.5 : railAhead(sk.x, sk.s) ? 8.6 : 5.2) : 0) + (!popNow && onRailRamp(sk.x, sk.s) ? 0.6 : 3.0);
         sk.x = nx; sk.s = ns; sk.y = popNow ? Math.max(yp, hn) + 0.02 : yp;
         sk.airT = 0; sk.flipAcc = 0; sk.spin = 0; sk.spinV = 0; sk.grabT = 0; sk.rotV = 0; sk.spinTarget = 0; if (popNow) sk.popT = 0.2;
       } else {
