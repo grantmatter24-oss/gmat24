@@ -516,10 +516,10 @@ function jumpMask(s) {
 // rolling hills, benches and break-overs; nearly flattened inside the straight jump sections
 function und(xr, s) { return (1 - 0.88 * jumpMask(s)) * (2.4 * Math.sin(s * 0.02 + xr * 0.015 + 1.3) + 1.4 * Math.sin(s * 0.055 - xr * 0.03) + 0.8 * Math.sin(s * 0.1 + xr * 0.05 + 2)); }
 function pipeOff(ax, s) { // a massive half pipe: flat floor, quarter-circle walls, a flat deck on top
-  const env = smooth((s - 70) / 120) * (1 - smooth((s - (COURSE_END - 260)) / 160)); if (env <= 0) return 0;
-  const a = 8, W = 28, Hh = 15, u = ax - a; let y;
+  const env = smooth((s - 50) / 90) * (1 - smooth((s - (COURSE_END - 260)) / 160)), drop = 24 * (1 - smooth((s - 14) / 30)); if (env <= 0) return drop;
+  const a = 8, W = 22, Hh = 23, u = ax - a; let y;
   if (u <= 0) y = 0; else if (u < W) y = Hh * Math.pow(u / W, 2.4); else y = Hh + 0.8 * Math.max(0, u - W - 12);
-  return y * env;
+  return y * env + drop;
 }
 function H_(x, s) {
   if (HP) return baseY(s) + pipeOff(Math.abs(x - pc(s)), s);
@@ -871,7 +871,7 @@ function step(dt) {
         const e = 0.3, gx = (H(sk.x + e, sk.s) - H(sk.x - e, sk.s)) / (2 * e), gs = (H(sk.x, sk.s + e) - H(sk.x, sk.s - e)) / (2 * e), den = 1 + gx * gx + gs * gs;
         let vx = sk.sp * c * hx, vs = sk.sp * c * hs; const sp0 = Math.hypot(vx, vs);
         vx += -G * gx / den * dt; vs += -G * gs / den * dt;
-        const fr = 0.03 + Math.abs(steer) * 0.12 + 0.0048 * sp0 + (K.boost ? -0.02 : 0) + (K.brake ? 0.9 : 0); vx -= vx * fr * dt; vs -= vs * fr * dt;
+        const fr = 0.03 + Math.abs(steer) * 0.12 + 0.0036 * sp0 + (K.boost ? -0.02 : 0) + (K.brake ? 0.9 : 0); vx -= vx * fr * dt; vs -= vs * fr * dt;
         if (K.boost && !sk.finished) { vx += hx * 5 * dt; vs += hs * 5 * dt; }
         const hsp = Math.hypot(vx, vs);
         if (hsp > 0.5) { sk.psi = Math.atan2(vx, vs); hx = Math.sin(sk.psi); hs = Math.cos(sk.psi); sA = sA_(sk.x, sk.s, sk.psi); c = Math.cos(sA); sn = Math.sin(sA); }
