@@ -374,10 +374,11 @@ function addInterlude(kind) {
     pcs.push({ a: genS, b: genS + len, x: x0, jump: true });
     f.parts.push({ type: "rollers", s0: genS + 18, n: 4, sp: 8.5, amp: 0.5, cx: x0, hw: 80, end: genS + 52 }, { type: "box", s0: genS + 80, len: 14, end: genS + 94, B: 0.7, cx: x0, hw: 1.9 });
   }
+  if (PARK) f.structure = { kind: structN++ % 2 ? "tunnel" : "bridge", s: genS + (kind === "carve" ? 150 : 90) };
   f.end = genS + len; feats.push(f); genS = f.end + 58 + rng() * 14;
   return f;
 }
-let pendingFiller = false, microCount = 0;
+let pendingFiller = false, microCount = 0, structN = 0;
 function addMicro() {
   const i = microCount++, diff = Math.min(1, secCount / 16), f = { s0: genS, parts: [], label: "", boost: null, rail: null, coins: [], mainCx: 0, idx: -1, micro: true }, t = PEAK ? [0, 1, 1, 3][i % 4] : i % 4;
   if (PARK) { const sd = i % 2 ? 1 : -1; f.rail = { s0: genS + 16, s1: genS + 46, x: sd * 2 }; f.rail2 = [{ s0: genS + 30, s1: genS + 76, x: -sd * 6, h: 1.1, fixedLen: true, noRamp: true }]; f.label = "Rail pair"; }
@@ -951,7 +952,9 @@ function step(dt) {
     // air steering rotates the velocity a little
     const ang = steer * (steer && railBeside(sk.x, sk.s, sk.y) ? 2.2 : 0.7) * dt, ca = Math.cos(ang), sa = Math.sin(ang), nvx = sk.vx * ca + sk.vs * sa, nvs = -sk.vx * sa + sk.vs * ca;
     sk.vx = nvx; sk.vs = nvs; sk.psi += ang;
-    if (HP) { const axp = Math.abs(sk.x - pc(sk.s)); if (axp > 10) sk.vx -= Math.sign(sk.x - pc(sk.s)) * clamp((axp - 10) / 10, 0, 1) * 28 * dt; } // aerials curve back into the pipe
+    if (HP) { // aerials: go straight up from the lip and come back down on the inside of the same wall
+      if (sk.airT < 0.03 || sk.hpx === undefined) sk.hpx = Math.abs(sk.x) > 14 ? sk.x - Math.sign(sk.x) * 3.2 : sk.x;
+      sk.vx += ((sk.hpx - sk.x) * 6 - sk.vx * 2.6) * dt; }
     sk.vy -= G * dt; sk.x += sk.vx * dt; sk.s += sk.vs * dt; sk.y += sk.vy * dt;
     // coins
     const nearSecs = sectionsAt(sk.s, 40);
@@ -1686,7 +1689,7 @@ function buildChunk(ci) {
     const s = s0 + rt() * CH, T = trailFor(s), sd = rt() < 0.5 ? -1 : 1, off = T ? T.hw + 5.2 + rt() * 15 : 0, sc = 0.8 + rt() * 1.0;
     if (T) tryAdd(trailXc(T, s) + sd * off, s, sc);
   }
-  if (PARK) grp.add(cityBuildings(ci, s0));
+  if (PARK) { grp.add(cityBuildings(ci, s0)); grp.add(parkStructure(ci, s0)); }
   const lodges = lodgesForChunk(ci);
   if (!lodgeChunks.has(ci)) { lodgeChunks.add(ci); lodges.forEach(L => addRock(L.x, L.s, [6, 6, 10, 4, 4][L.kind])); }
   grp.add(lodgeGroup(lodges));
@@ -1946,6 +1949,39 @@ function buildFinish() {
   return g;
 }
 let valleyDrop = null;
+/* Kicker Park: a footbridge and a building tunnel over the run, placed only where no jump or rail is */
+function parkStructure(ci, s0) {
+  const g = new THREE.Group(); let kind = null, sm = 0;
+  for (const f of feats) if (f.structure && f.structure.s >= s0 && f.structure.s < s0 + CH) { kind = f.structure.kind; sm = f.structure.s; }
+  if (!kind) return g;
+  const len = kind === "tunnel" ? 34 : 9;
+  const xc = pc(sm), sA = sm - len / 2, sB = sm + len / 2, yA = H(xc, sA), yB = H(xc, sB); (window.__structs = window.__structs || []).push([kind, Math.round(sm)]);
+  if (!cityTex) cityBuildings(-999, -9999);
+  const snow = new THREE.MeshLambertMaterial({ color: 0xf4f8ff }), conc = new THREE.MeshLambertMaterial({ color: 0x8c93a0 }), dark = new THREE.MeshLambertMaterial({ color: 0x2a2f3a }), glow = new THREE.MeshBasicMaterial({ color: 0xfff0c2 }), steel = new THREE.MeshLambertMaterial({ color: 0x59616f });
+  const box = (w, h, d, m, x, y, z) => { const q = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); q.position.set(x, y, z); g.add(q); return q; };
+  if (kind === "bridge") {
+    const yD = Math.max(yA, yB) + 14.5;
+    box(84, 1.5, len, conc, xc, yD, -sm); box(84, 0.5, len, snow, xc, yD + 1.0, -sm);
+    [-1, 1].forEach(sd => { box(1.6, yD - Math.min(yA, yB) + 2, len - 1, conc, xc + sd * 40, (yD + Math.min(yA, yB) - 2) / 2, -sm); box(0.15, 1.1, len, steel, xc + sd * 41.8, yD + 1.9, -sm); box(0.15, 1.1, len, steel, xc + sd * -41.8 * -1, yD + 1.9, -sm); box(0.15, 1.1, len, steel, xc + sd * 41.8 * 1, yD + 2.6, -sm); });
+    for (let x = -36; x <= 36; x += 6) { box(0.3, 3.2, 0.3, steel, xc + x, yD - 2.2, -sm - len / 2 + 0.6); box(0.3, 3.2, 0.3, steel, xc + x, yD - 2.2, -sm + len / 2 - 0.6); }
+    for (let x = -30; x <= 30; x += 10) box(0.6, 0.35, 0.6, glow, xc + x, yD - 0.9, -sm);
+    for (let q = -3; q <= 3; q++) { const m = box(0.3, 0.3, 0.3, steel, xc + q * 12, yD + 3.6, -sm); m.visible = false; }
+    // arch ribs with hanging cables
+    for (const z of [-sm - len / 2 + 0.3, -sm + len / 2 - 0.3]) { const pts = []; for (let q = 0; q <= 24; q++) { const t = q / 24; pts.push(new THREE.Vector3(xc - 40 + 80 * t, yD + 2 + 7.5 * Math.sin(Math.PI * t), z)); } g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0x59616f }))); for (let q = 1; q < 24; q += 2) { const t = q / 24, y1 = yD + 2 + 7.5 * Math.sin(Math.PI * t); g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(xc - 40 + 80 * t, y1, z), new THREE.Vector3(xc - 40 + 80 * t, yD + 0.9, z)]), new THREE.LineBasicMaterial({ color: 0x59616f }))); } }
+  } else {
+    const yTop = Math.max(yA, yB) + 12, hB = 52, ycz = (yTop + yTop + hB) / 2;
+    const wmat = (rep) => { const t = cityTex[0].clone(); t.needsUpdate = true; t.repeat.set(rep[0], rep[1]); t.wrapS = t.wrapT = THREE.RepeatWrapping; return new THREE.MeshLambertMaterial({ map: t }); };
+    box(80, hB, len, wmat([7, 5]), xc, ycz, -sm); box(81.2, 1.8, len + 1.2, snow, xc, yTop + hB + 0.9, -sm);
+    [-1, 1].forEach(sd => { box(30, Math.max(yTop - Math.min(yA, yB) + 3, 14), len, wmat([3, 1.4]), xc + sd * 26, (yTop + Math.min(yA, yB) - 3) / 2 - 0.1, -sm); });
+    // dark ceiling and lights inside the tunnel
+    const ce = box(26, 0.4, len, dark, xc, yTop - 0.2, -sm);
+    for (let z = -len / 2 + 3; z < len / 2; z += 6) for (const x of [-9, 0, 9]) box(2.4, 0.3, 0.8, glow, xc + x, yTop - 0.5, -sm + z);
+    [-1, 1].forEach(sd => { box(0.4, 4, len - 2, new THREE.MeshBasicMaterial({ color: 0xffd36a }), xc + sd * 12.9, Math.min(yA, yB) + 4.2, -sm); });
+    // portal lettering strip
+    box(26, 1.6, 0.5, new THREE.MeshBasicMaterial({ color: 0xe0502f }), xc, yTop + 1.4, -sA + 0.3);
+  }
+  return g;
+}
 /* Kicker Park: snowy skyscrapers either side of the run */
 let cityTex = null;
 function cityBuildings(ci, s0) {
