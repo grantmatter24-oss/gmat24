@@ -380,7 +380,7 @@ function addInterlude(kind) {
 let pendingFiller = false, microCount = 0;
 function addMicro() {
   const i = microCount++, diff = Math.min(1, secCount / 16), f = { s0: genS, parts: [], label: "", boost: null, rail: null, coins: [], mainCx: 0, idx: -1, micro: true }, t = PEAK ? [0, 1, 1, 3][i % 4] : i % 4;
-  if (PARK) { const sd = i % 2 ? 1 : -1; f.rail = { s0: genS + 16, s1: genS + 46, x: sd * 2 }; f.rail2 = [{ s0: genS + 30, s1: genS + 52, x: -sd * 6, h: 2.0, fixedLen: true, noRamp: true }]; f.label = "Rail pair"; }
+  if (PARK) { const sd = i % 2 ? 1 : -1; f.rail = { s0: genS + 16, s1: genS + 46, x: sd * 2 }; f.rail2 = [{ s0: genS + 30, s1: genS + 76, x: -sd * 6, h: 1.1, fixedLen: true, noRamp: true }]; f.label = "Rail pair"; }
   else { const k = mkKicker(genS, i % 3 === 0 ? 1 : 2, 0, 4.2, diff, 1, i % 4 === 3); f.parts.push(k); f.label = k.label;
     if (i % 2 === 1) { const rs0 = k.s0 + k.L + k.gap + k.Ll * 0.1; f.rail = { s0: rs0, s1: rs0 + Math.min(k.Ll * 0.72, 36), x: (rng() - 0.5) * 1.2 }; f.label += " + rail"; } }
   if (PEAK) f.rail = null;
@@ -435,8 +435,8 @@ function parkSection(f, i, diff) { // Kicker Park: mostly rails, a couple of jum
   if (t === 99) { const k = mkKicker(g, 4, 0, 8.5, diff); f.parts.push(k); const rs0 = k.s0 + k.L + k.gap + k.Ll * 0.1; f.rail = { s0: rs0, s1: rs0 + k.Ll * 0.7, x: 0 }; const k2 = mkKicker(k.end + 26, 2, 0, 5.5, diff); f.parts.push(k2); f.label = "THE BIG LINE · mega air, rail, big air"; }
   else if (t === 0) { set([mk(g + 14, 24, -9), mk(g + 40, 24, 0), mk(g + 66, 24, 9)]); f.label = "Rail garden"; }
   else if (t === 1) { [[-4, 0, 16], [4, 26, 18], [-3, 54, 14], [3, 78, 20]].forEach(([x, o, len]) => f.parts.push({ type: "box", s0: g + o, len, end: g + o + len, B: 0.75, cx: x, hw: 1.9 })); f.label = "Box line"; }
-  else if (t === 2) { const hs = [RAIL_H, 2.6, 1.8, 1.0]; set(hs.map((h, q) => mk(g + 16 + q * 30, 26, 0, { h, fixedLen: true, noRamp: q > 0 }))); f.label = "Step-down rail"; }
-  else if (t === 3 || t === 6) { const L0 = g + 16; set([mk(L0, 50, 0), mk(L0 + 28, 30, sd * 6.5, { h: 1.9, fixedLen: true, noRamp: true }), mk(L0 + 78, 30, -sd * 6.5, { h: 1.9, fixedLen: true, noRamp: true })]); f.label = "Long rail · hop down to the side rails"; f.endExtra = L0 + 170; }
+  else if (t === 2) { const hs = [RAIL_H, 2.6, 1.8, 1.0]; set(hs.map((h, q) => mk(g + 16 + q * 26, 26, 0, { h, fixedLen: true, noRamp: q > 0 }))); [f.rail, ...f.rail2].forEach((r, q, a) => { if (a[q + 1]) r.next = a[q + 1]; }); f.label = "Step-down rail"; }
+  else if (t === 3 || t === 6) { const L0 = g + 16; set([mk(L0, 50, 0), mk(L0 + 24, 52, sd * 5, { h: 1.1, fixedLen: true, noRamp: true }), mk(L0 + 92, 52, -sd * 5, { h: 1.1, fixedLen: true, noRamp: true })]); f.label = "Long rail · hop down to the side rails"; f.endExtra = L0 + 175; }
   else if (t === 4) { set([mk(g + 14, 72, -7, { amp: 3.2 * sd, k: 2, fixedLen: true }), mk(g + 30, 72, 7, { amp: -3.8, k: 1, fixedLen: true })]); f.label = "Curved rails"; }
   else { const k = mkKicker(g, 2, 0, 4.4, diff); f.parts.push(k); const rs0 = k.s0 + k.L + k.gap + k.Ll * 0.1; f.rail = { s0: rs0, s1: rs0 + 24, x: 0 }; f.label = "Big air + rail"; }
 }
@@ -700,6 +700,7 @@ function startTrail(f) {
 function railX(r, s) { return r.amp ? r.x + r.amp * Math.sin(Math.PI * (r.k || 1) * clamp((s - r.s0) / (r.s1 - r.s0), 0, 1)) * smooth((s - r.s0) / 20) : r.x; }
 function railY(r, s) { if (r.y0 === undefined) { const h = r.h || RAIL_H; r.y0 = H(railX(r, r.s0), r.s0) + h; r.y1 = H(railX(r, r.s1), r.s1) + h; } return r.y0 + (r.y1 - r.y0) * clamp((s - r.s0) / (r.s1 - r.s0), 0, 1); }
 function onRailRamp(x, s) { for (const f of sectionsAt(s, 6)) for (const p of f.parts) if (p.type === "railramp" && s >= p.s0 && s <= p.s0 + p.L + 3 && latW(p, x, 0.5) > 0.1) return true; return false; }
+function railBeside(x, s, y) { for (const f of sectionsAt(s, 12)) for (const rl of railsOf(f)) if (s >= rl.s0 - 2 && s <= rl.s1 && Math.abs(x - railX(rl, s)) < 9 && y > railY(rl, s) - 3) return true; return false; }
 function railAhead(x, s) { for (const f of sectionsAt(s, 22)) for (const rl of railsOf(f)) if (rl.s0 - s > -1 && rl.s0 - s < 20 && Math.abs(x - rl.x) < 1.9) return true; return false; }
 function upgradeRails(f) { // longer rails, lifted on posts, each with a small ramp to hop up onto them
   for (const r of railsOf(f)) {
@@ -804,7 +805,7 @@ function landing(surfaceType, rail) {
   } else { sk.rot = sA; if (sk.airT > 0.15) { sfx("thud", 0.35); spray(sk.x, sk.y, sk.s, 6, 3); } }
   sk.spin -= kHalf * Math.PI; sk.spinTarget = 0; if (odd) sk.sw = !sk.sw;
   sk.rotV = 0; sk.flipAcc = 0; sk.spinV = 0; sk.grabT = 0; sk.airT = 0; sk.jumpNo++;
-  if (surfaceType === "rail") { sk.grind = rail; sk.grindT = 0; sk.psi = 0; sk.spinTarget = 0; sk.railNet = 0; sk.railOn = false; sk.spinHeld = !!(K.spinL || K.spinR); }
+  if (surfaceType === "rail") { sk.yOff = 0; sk.grind = rail; sk.grindT = 0; sk.psi = 0; sk.spinTarget = 0; sk.railNet = 0; sk.railOn = false; sk.spinHeld = !!(K.spinL || K.spinR); }
 }
 function crash(why) {
   sk.crashed = true; sk.crashT = 0; sk.air = false; sk.why = why; sk.grind = null;
@@ -856,10 +857,11 @@ function step(dt) {
         sk.spin += sk.spinV * dt; }
       const sA = Math.atan2(railY(r, sk.s) - railY(r, sk.s - 0.4), 0.4);
       sk.sp = clamp(sk.sp + (-G * Math.sin(sA) - 0.1 * sk.sp - 0.0025 * sk.sp * sk.sp) * dt, 6, MAXV);
-      sk.s += sk.sp * Math.cos(sA) * dt; sk.y = railY(r, sk.s); if (r.amp) sk.x = railX(r, sk.s);
+      sk.s += sk.sp * Math.cos(sA) * dt; sk.y = railY(r, sk.s) + (sk.yOff || 0); if (sk.yOff) { sk.yOff *= Math.exp(-13 * dt); if (sk.yOff < 0.01) sk.yOff = 0; } if (r.amp) sk.x = railX(r, sk.s);
       sk.rot += (sA - sk.rot) * Math.min(1, 14 * dt);
       if (sk.grindT > 0.2 && Math.random() < 0.6) spray(sk.x, sk.y, sk.s, 1, 3);
-      if (popReq || sk.s >= r.s1) {
+      if (!popReq && r.next && sk.s >= r.s1) { sk.yOff = sk.y - railY(r.next, sk.s); sk.grind = r.next; sk.grindT += 0; sk.noRail = 0; }
+      else if (popReq || sk.s >= r.s1) {
         const pop = popReq ? 10.5 : 1; sk.noRail = 0.5; sk.railNet = Math.round(sk.spin / Math.PI);
         sk.air = true; sk.vx = 0; sk.vs = sk.sp * Math.cos(sA); sk.vy = sk.sp * Math.sin(sA) + pop;
         sk.airT = 0; sk.flipAcc = 0; sk.spin = 0; sk.spinV = 0; sk.grabT = 0; sk.rotV = 0; sk.jumpNo++;
@@ -912,7 +914,7 @@ function step(dt) {
       const popNow = popReq;
       if (popNow) { sk.sp += 0.9 * Math.max(0, 1 - sk.sp / 45); spray(sk.x - hx * 0.5, sk.y, sk.s - hs * 0.5, 4, 3); sfx("pump"); }
       if (popNow || yp > hn + (HP ? 0.04 : 0.12)) {
-        sk.air = true; sk.vx = sk.sp * c * hx; sk.vs = sk.sp * c * hs; sk.vy = sk.sp * sn + (popNow ? (nearLip(sk.x, sk.s) ? 6.5 : railAhead(sk.x, sk.s) ? 8.6 : 5.2) : 0) + (!popNow && onRailRamp(sk.x, sk.s) ? 0.6 : 3.0);
+        sk.air = true; sk.vx = sk.sp * c * hx; sk.vs = sk.sp * c * hs; sk.vy = sk.sp * sn + (popNow ? (nearLip(sk.x, sk.s) ? 6.5 : railAhead(sk.x, sk.s) ? 8.6 : 5.2) : 0) + (!popNow && onRailRamp(sk.x, sk.s) ? 1.3 : 3.0);
         sk.x = nx; sk.s = ns; sk.y = popNow ? Math.max(yp, hn) + 0.02 : yp;
         sk.airT = 0; sk.flipAcc = 0; sk.spin = 0; sk.spinV = 0; sk.grabT = 0; sk.rotV = 0; sk.spinTarget = 0; if (popNow) sk.popT = 0.2;
       } else {
@@ -947,7 +949,7 @@ function step(dt) {
     sk.spin += sk.spinV * dt;
     if (K.grab || K.grabN || K.grabI || K.grabQ) { sk.grabT += dt; sk.grabKind = K.grab ? "Tail" : K.grabN ? "Nose" : K.grabI ? "Indy" : "Japan"; }
     // air steering rotates the velocity a little
-    const ang = steer * 0.7 * dt, ca = Math.cos(ang), sa = Math.sin(ang), nvx = sk.vx * ca + sk.vs * sa, nvs = -sk.vx * sa + sk.vs * ca;
+    const ang = steer * (steer && railBeside(sk.x, sk.s, sk.y) ? 2.2 : 0.7) * dt, ca = Math.cos(ang), sa = Math.sin(ang), nvx = sk.vx * ca + sk.vs * sa, nvs = -sk.vx * sa + sk.vs * ca;
     sk.vx = nvx; sk.vs = nvs; sk.psi += ang;
     if (HP) { const axp = Math.abs(sk.x - pc(sk.s)); if (axp > 10) sk.vx -= Math.sign(sk.x - pc(sk.s)) * clamp((axp - 10) / 10, 0, 1) * 28 * dt; } // aerials curve back into the pipe
     sk.vy -= G * dt; sk.x += sk.vx * dt; sk.s += sk.vs * dt; sk.y += sk.vy * dt;
@@ -962,7 +964,7 @@ function step(dt) {
     }
     // rails
     let railHit = null;
-    for (const f of nearSecs) for (const rl of railsOf(f)) if (!(sk.noRail > 0) && sk.vy <= 2.4 && sk.s >= rl.s0 && sk.s <= rl.s1 && Math.abs(sk.x - railX(rl, sk.s)) < (rl.amp ? 1.7 : 1.15)) { const ry = railY(rl, sk.s); if (sk.y <= ry + 0.1 && sk.y >= ry - 0.8) railHit = rl; }
+    for (const f of nearSecs) for (const rl of railsOf(f)) if (!(sk.noRail > 0) && sk.vy <= 2.4 && sk.s >= rl.s0 && sk.s <= rl.s1 && Math.abs(sk.x - railX(rl, sk.s)) < (rl.amp ? 1.7 : 1.15)) { const ry = railY(rl, sk.s); if (sk.y <= ry + 0.1 && sk.y >= ry - 1.5) railHit = rl; }
     if (railHit) {
       sk.y = railY(railHit, sk.s); landing("rail", railHit);
     } else if (sk.y <= H(sk.x, sk.s)) { sk.y = H(sk.x, sk.s); landing("ground"); }
@@ -1869,6 +1871,7 @@ function buildFeature(f) {
       const sa = r.s0 + i * 1.5, sb = Math.min(r.s1, sa + 1.5), pa = new THREE.Vector3(railX(r, sa), railY(r, sa), -sa), pb = new THREE.Vector3(railX(r, sb), railY(r, sb), -sb);
       const len = pa.distanceTo(pb), m = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.2, len + 0.03), rm);
       m.position.copy(pa).add(pb).multiplyScalar(0.5); m.lookAt(pb); m.castShadow = true; grp.add(m);
+      if (i === segs - 1 && r.next) { const y1 = railY(r, r.s1), y2 = railY(r.next, r.next.s0), cm = new THREE.Mesh(new THREE.BoxGeometry(0.34, Math.max(0.1, y1 - y2), 0.34), rm); cm.position.set(railX(r, r.s1), (y1 + y2) / 2, -r.s1); grp.add(cm); }
       if (i % 4 === 0) { const rx = railX(r, sa), gy = H(rx, sa), ph = railY(r, sa) - gy; const post = new THREE.Mesh(new THREE.BoxGeometry(0.26, Math.max(0.2, ph), 0.26), pm); post.position.set(rx, gy + ph / 2 - 0.02, -sa); grp.add(post); }
     }
   }
