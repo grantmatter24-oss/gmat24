@@ -690,7 +690,7 @@ function railAhead(x, s) { for (const f of sectionsAt(s, 22)) for (const rl of r
 function upgradeRails(f) { // longer rails, lifted on posts, each with a small ramp to hop up onto them
   for (const r of railsOf(f)) {
     if (f.parts.some(p => p.type === "box" && p.house && r.s0 >= p.s0 - 1 && r.s1 <= p.end + 1)) continue;
-    r.s1 = r.s0 + (r.s1 - r.s0) * 1.75;
+    r.s1 = r.s0 + (r.s1 - r.s0) * 2.98;
     if (r.s0 - 13 < f.s0) { const d = f.s0 + 13 - r.s0; r.s0 += d; r.s1 += d; }
     f.parts.push({ type: "railramp", s0: r.s0 - 13, L: 9, H: RAIL_H - 0.45, cx: r.x, hw: 2.1, end: r.s0 + 0.5 });
   }
@@ -934,6 +934,7 @@ function step(dt) {
     // air steering rotates the velocity a little
     const ang = steer * 0.7 * dt, ca = Math.cos(ang), sa = Math.sin(ang), nvx = sk.vx * ca + sk.vs * sa, nvs = -sk.vx * sa + sk.vs * ca;
     sk.vx = nvx; sk.vs = nvs; sk.psi += ang;
+    if (HP) { const axp = Math.abs(sk.x - pc(sk.s)); if (axp > 10) sk.vx -= Math.sign(sk.x - pc(sk.s)) * clamp((axp - 10) / 10, 0, 1) * 28 * dt; } // aerials curve back into the pipe
     sk.vy -= G * dt; sk.x += sk.vx * dt; sk.s += sk.vs * dt; sk.y += sk.vy * dt;
     // coins
     const nearSecs = sectionsAt(sk.s, 40);
