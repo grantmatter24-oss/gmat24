@@ -225,7 +225,7 @@ const hash = n => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s
    ===================================================================== */
 const RES = location.hash === "#peak" ? "peak" : location.hash === "#park" ? "park" : location.hash === "#drop" ? "drop" : "alpine", PEAK = RES === "peak", PARK = RES === "park", DROP = RES === "drop", KS = PEAK ? 1.45 : 1;
 const RESORT_NAMES = { alpine: "Evergreen Run", peak: "Couloir Peak", park: "Kicker Park", drop: "X Big Air" };
-const G = 18, BASE = PEAK ? 0.4 : DROP ? 0.58 : 0.28, RAIL_H = 0.55, PISTE = DROP ? 24 : 15, MAXV = 400;
+const G = 18, BASE = PEAK ? 0.4 : DROP ? 0.58 : 0.28, RAIL_H = 1.15, PISTE = DROP ? 24 : 15, MAXV = 400;
 const COURSE_END = location.hash === "#peak" ? 7500 : location.hash === "#park" ? 5200 : location.hash === "#drop" ? 840 : 6000;
 const rng = mulberry(2024);
 const feats = [];
@@ -313,6 +313,7 @@ function partOff(p, x, s) {
     const w = (u - p.L - p.gap) / p.Ll;
     return w >= 0 && w <= 1 ? p.Hl * bump(w) * lwL : 0;
   }
+  if (p.type === "railramp") { const t = (s - p.s0) / p.L; if (t < 0 || t > 1) return 0; return p.H * t * t * latW(p, x, 0.5); }
   if (p.type === "flank") { // low rollers beside the big-air ramp, 4 m under the lip, running on down the sides of the landing
     const k = p.k, lip = k.s0 + k.L, u = Math.abs(x - k.cx), wx = smooth((u - (k.hw - 1.2)) / 1.2) * (1 - smooth((u - (k.hw + 63)) / 10)), lat = 1 - smooth((u - 30) / 160); if (wx <= 0 && !(s > lip && lat > 0)) return 0;
     const roll = p.amp * Math.pow(Math.sin(Math.PI * (s - p.s0) / p.sp), 2) * (0.75 + 0.25 * Math.sin(u * 0.28));
@@ -380,6 +381,7 @@ function addMicro() {
   { const k = mkKicker(genS, i % 3 === 0 ? 1 : 2, 0, 4.2, diff, 1, i % 4 === 3); f.parts.push(k); f.label = k.label;
     if (i % 2 === 1) { const rs0 = k.s0 + k.L + k.gap + k.Ll * 0.1; f.rail = { s0: rs0, s1: rs0 + Math.min(k.Ll * 0.72, 36), x: (rng() - 0.5) * 1.2 }; f.label += " + rail"; } }
   if (PEAK) f.rail = null;
+  upgradeRails(f);
   if (!PEAK && t !== 2 && rng() < 0.75) sideHouse(f, rng() < 0.5 ? -1 : 1, genS + 4 + rng() * 6, 0);
   fixLandings(f);
   f.end = Math.max(...f.parts.map(p => p.end), f.rail ? f.rail.s1 : 0);
@@ -485,6 +487,7 @@ function addSection() {
   f.boost = null; // no boost pads
   fixLandings(f);
   if (PEAK) f.rail = null;
+  upgradeRails(f);
   f.end = f.cliff ? f.cliffEnd : Math.max(...f.parts.map(p => p.end), ...railsOf(f).map(r => r.s1), f.endExtra || 0);
   // plateau for the centre line and slope knots: curve and steepness change in the gap before this section
   const last = pcs[pcs.length - 1], px = i < 1 ? 0 : clamp(last.x + (rng() - 0.5) * 2 * Math.min(14, 0.35 * Math.max(8, f.s0 - 34 - last.b)), -30, 30);
@@ -638,6 +641,7 @@ function mkTrailSection(t, g, x) {
   else if (pick < 0.78) { f.parts.push({ type: "box", s0: g + 4, len: 12, end: g + 16, B: 0.75, cx: x, hw: 1.7 }); f.label = "Log slide"; }
   else if (pick < 0.9) { const k = mkKicker(g, 1, x, 3.2, diff, 1); f.parts.push(k); const rs0 = k.s0 + k.L + k.gap + k.Ll * 0.1; f.rail = { s0: rs0, s1: rs0 + Math.min(k.Ll * 0.72, 36), x: x + (rng() - 0.5) * 0.8 }; f.label = "Pine rail jump"; boost(); }
   else { f.parts.push(mkKicker(g, 2, x, 3.6, diff, 1)); f.label = "Treeline big air"; boost(); }
+  upgradeRails(f);
   f.end = Math.max(...f.parts.map(p => p.end), f.rail ? f.rail.s1 : 0);
   flankRocks(f);
   return f;
@@ -671,6 +675,15 @@ function startTrail(f) {
   t.ready = true;
 }
 
+function railAhead(x, s) { for (const f of sectionsAt(s, 22)) for (const rl of railsOf(f)) if (rl.s0 - s > -1 && rl.s0 - s < 16 && Math.abs(x - rl.x) < 1.9) return true; return false; }
+function upgradeRails(f) { // longer rails, lifted on posts, each with a small ramp to hop up onto them
+  for (const r of railsOf(f)) {
+    if (f.parts.some(p => p.type === "box" && p.house && r.s0 >= p.s0 - 1 && r.s1 <= p.end + 1)) continue;
+    r.s1 = r.s0 + (r.s1 - r.s0) * 1.75;
+    if (r.s0 - 10 < f.s0) { const d = f.s0 + 10 - r.s0; r.s0 += d; r.s1 += d; }
+    f.parts.push({ type: "railramp", s0: r.s0 - 10, L: 10, H: RAIL_H - 0.12, cx: r.x, hw: 1.7, end: r.s0 + 0.5 });
+  }
+}
 function nearLip(x, s) {
   for (const f of sectionsAt(s, 10)) for (const p of f.parts) {
     if (p.type === "hip") { const [u, v] = hipUV(p, x, s); if ((p.L - u > -0.5 && p.L - u < 7) && Math.abs(v) < p.hw) return true; continue; }
@@ -863,7 +876,7 @@ function step(dt) {
       const popNow = popReq;
       if (popNow) { sk.sp += 0.9 * Math.max(0, 1 - sk.sp / 45); spray(sk.x - hx * 0.5, sk.y, sk.s - hs * 0.5, 4, 3); sfx("pump"); }
       if (popNow || yp > hn + 0.12) {
-        sk.air = true; sk.vx = sk.sp * c * hx; sk.vs = sk.sp * c * hs; sk.vy = sk.sp * sn + (popNow ? (nearLip(sk.x, sk.s) ? 6.5 : 5.2) : 0) + 3.0;
+        sk.air = true; sk.vx = sk.sp * c * hx; sk.vs = sk.sp * c * hs; sk.vy = sk.sp * sn + (popNow ? (nearLip(sk.x, sk.s) ? 6.5 : railAhead(sk.x, sk.s) ? 8.6 : 5.2) : 0) + 3.0;
         sk.x = nx; sk.s = ns; sk.y = popNow ? Math.max(yp, hn) + 0.02 : yp;
         sk.airT = 0; sk.flipAcc = 0; sk.spin = 0; sk.spinV = 0; sk.grabT = 0; sk.rotV = 0; sk.spinTarget = 0; if (popNow) sk.popT = 0.2;
       } else {
@@ -912,7 +925,7 @@ function step(dt) {
     }
     // rails
     let railHit = null;
-    for (const f of nearSecs) for (const rl of railsOf(f)) if (sk.vy <= 1 && sk.s >= rl.s0 && sk.s <= rl.s1 && Math.abs(sk.x - rl.x) < 0.95 && sk.y <= H(sk.x, sk.s) + RAIL_H + 0.08) railHit = rl;
+    for (const f of nearSecs) for (const rl of railsOf(f)) if (sk.vy <= 2.4 && sk.s >= rl.s0 && sk.s <= rl.s1 && Math.abs(sk.x - rl.x) < 1.15 && sk.y <= H(sk.x, sk.s) + RAIL_H + 0.1 && sk.y >= H(sk.x, sk.s) + RAIL_H - 0.7) railHit = rl;
     if (railHit) {
       sk.y = H(sk.x, sk.s) + RAIL_H; landing("rail", railHit);
     } else if (sk.y <= H(sk.x, sk.s)) { sk.y = H(sk.x, sk.s); landing("ground"); }
@@ -1817,9 +1830,9 @@ function buildFeature(f) {
     const segs = Math.ceil((r.s1 - r.s0) / 1.2);
     for (let i = 0; i < segs; i++) {
       const sa = r.s0 + i * 1.2, sb = Math.min(r.s1, sa + 1.2), pa = new THREE.Vector3(r.x, H(r.x, sa) + RAIL_H, -sa), pb = new THREE.Vector3(r.x, H(r.x, sb) + RAIL_H, -sb);
-      const len = pa.distanceTo(pb), m = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.1, len + 0.03), rm);
+      const len = pa.distanceTo(pb), m = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.17, len + 0.03), rm);
       m.position.copy(pa).add(pb).multiplyScalar(0.5); m.lookAt(pb); m.castShadow = true; grp.add(m);
-      if (i % 2 === 0) { const gy = H(r.x, sa); const post = new THREE.Mesh(new THREE.BoxGeometry(0.12, RAIL_H, 0.12), pm); post.position.set(r.x, gy + RAIL_H / 2 - 0.02, -sa); grp.add(post); }
+      if (i % 2 === 0) { const gy = H(r.x, sa); const post = new THREE.Mesh(new THREE.BoxGeometry(0.2, RAIL_H, 0.2), pm); post.position.set(r.x, gy + RAIL_H / 2 - 0.02, -sa); grp.add(post); }
     }
   }
   if (f.rocks && f.rocks.length) grp.add(rockGroup(f.rocks));
