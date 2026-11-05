@@ -280,12 +280,14 @@ function cliffOff(s) {
 
 /* Race Gates: a very hard giant-slalom course. Gates alternate side to side and tighten toward the bottom */
 const GATES = []; let gIdx = 0, gMiss = 0, gPass = 0, gateGroup = null;
-if (GT) { const r2 = mulberry(31337); let s = 75, k = 0; while (s < COURSE_END - 140) { const pr = Math.min(1, (s - 75) / 1500), dir = k % 2 ? 1 : -1, cx = dir * (1.6 + r2() * (2.0 + 2.6 * pr)); GATES.push({ s, cx, hw: 2.1 - 0.3 * pr, st: 0 }); k++; s += 38 - 12 * pr + (k % 7 === 0 ? 7 : 0); } }
-[[200, 0.5], [520, 0.64], [900, 0.52], [1280, 0.72], [1700, 0.56], [2000, 0.68]].forEach(([s, v]) => { if (GT) addKnot(s, v); });
-function gateReset() { gIdx = 0; gMiss = 0; gPass = 0; GATES.forEach(g => { g.st = 0; if (g.panel) g.panel.material.color.setHex(g.col); }); }
+if (GT) { [[330, 36], [700, -34], [1060, 40], [1420, -36], [1780, 34], [2080, 0]].forEach(([c, x]) => pcs.push({ a: c - 70, b: c + 70, x })); }
+if (GT) { const r2 = mulberry(31337); let s = 75, k = 0; while (s < COURSE_END - 140) { const pr = Math.min(1, (s - 75) / 1500), dir = k % 2 ? 1 : -1, off = dir * (1.6 + r2() * (2.0 + 2.6 * pr)), cx = pc(s) + off; GATES.push({ s, cx, off, inner: -dir, hw: 2.1 - 0.3 * pr, st: 0 }); k++; s += 38 - 12 * pr + (k % 7 === 0 ? 7 : 0); } }
+if (GT) [[150, 0.5], [340, 0.58], [470, 0.98], [610, 0.98], [720, 0.56], [1000, 0.6], [1160, 1.04], [1310, 1.04], [1420, 0.6], [1730, 0.95], [1860, 0.95], [1960, 0.56], [2100, 0.5]].forEach(([s, v]) => addKnot(s, v));
+function gateReset() { gIdx = 0; gMiss = 0; gPass = 0; GATES.forEach(g => { g.st = 0; g.knocked = false; if (g.panel) g.panel.material.color.setHex(g.col); if (g.pIn) { g.pIn.rotation.set(0, 0, 0); g.pIn.position.y = g.pInY; } }); }
 function gateCheck() {
+  for (let q = Math.max(0, gIdx - 1); q < Math.min(GATES.length, gIdx + 2); q++) { const g = GATES[q]; if (!g.knocked && Math.abs(sk.s - g.s) < 0.7 && Math.abs(sk.x - (g.cx + g.inner * g.hw)) < 0.55 && sk.y - H(sk.x, sk.s) < 1.6) { g.knocked = true; sk.sp *= 0.97; if (g.pIn) { g.pIn.rotation.z = -g.inner * 1.35; g.pIn.position.y = g.pInY - 0.8; } spray(sk.x, sk.y + 0.5, sk.s, 6, 3); } }
   while (gIdx < GATES.length && sk.s >= GATES[gIdx].s) {
-    const g = GATES[gIdx++], ok = Math.abs(sk.x - g.cx) < g.hw + 0.3;
+    const g = GATES[gIdx++], dx = (sk.x - g.cx) * g.inner, ok = dx > -(g.hw + 0.3) && dx < g.hw * 2.2;
     if (ok) { g.st = 1; gPass++; score += 100; if (g.panel) g.panel.material.color.setHex(0x2fd26a); }
     else { g.st = 2; gMiss++; if (g.panel) g.panel.material.color.setHex(0x20242c); popup("Missed gate", "+3 s · " + gMiss + " of 6 allowed"); if (gMiss >= 6) { crash("Disqualified: 6 missed gates"); return; } }
   }
@@ -293,7 +295,7 @@ function gateCheck() {
 function buildGates() {
   const grp = new THREE.Group(), pg = new THREE.CylinderGeometry(0.055, 0.065, 2.6, 8), pg2 = new THREE.PlaneGeometry(1, 0.8);
   GATES.forEach((g, i) => { const col = i % 2 ? 0x2e6fd9 : 0xd9322c, pm = new THREE.MeshLambertMaterial({ color: col }); g.col = col;
-    [-1, 1].forEach(sd => { const x = g.cx + sd * g.hw, y = H(x, g.s), p = new THREE.Mesh(pg, pm); p.position.set(x, y + 1.0, -g.s); grp.add(p); });
+    [-1, 1].forEach(sd => { const x = g.cx + sd * g.hw, y = H(x, g.s), p = new THREE.Mesh(pg, sd === g.inner ? new THREE.MeshLambertMaterial({ color: 0xffd447 }) : pm); p.position.set(x, y + 1.0, -g.s); grp.add(p); if (sd === g.inner) { g.pIn = p; g.pInY = y + 1.0; p.geometry = pg; } });
     const yc = H(g.cx, g.s), pan = new THREE.Mesh(pg2, new THREE.MeshBasicMaterial({ color: col, side: THREE.DoubleSide })); pan.scale.set(g.hw * 2, 1, 1); pan.position.set(g.cx, yc + 2.0, -g.s); grp.add(pan); g.panel = pan;
     const nm = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.5), new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide })); nm.position.set(g.cx, yc + 2.0, -g.s + 0.01); nm.scale.set(0.9, 0.45, 1); grp.add(nm); });
   return grp;
@@ -466,6 +468,14 @@ function houseSection(f, diff) {
   f.rail = { s0: box.s0 + 4 + (ramp ? 14 : 0), s1: box.s0 + box.len - 3, x: cx };
   f.mainCx = cx; f.house = box;
 }
+function gladeRails(f, i, diff) { // big fallen-log rail features for Powder Glades
+  const mk = (s0, len, x, o) => Object.assign({ s0, s1: s0 + len, x, fixedLen: true, wood: true }, o || {}), g = genS, t = Math.floor(i / 5) % 4, sd = i % 2 ? 1 : -1;
+  const set = arr => { f.rail = arr[0]; f.rail2 = arr.slice(1); };
+  if (t === 0) { set([mk(g + 22, 120, 0, { h: 4.6 })]); f.label = "GIANT LOG · 120 m rail"; f.endExtra = g + 160; }
+  else if (t === 1) { const hs = [5.4, 4.2, 3.2, 2.2]; set(hs.map((h, q) => mk(g + 22 + q * 38, 38, 0, { h, noRamp: q > 0 }))); [f.rail, ...f.rail2].forEach((r, q, a) => { if (a[q + 1]) r.next = a[q + 1]; }); f.label = "LOG STAIRCASE · step-down rails"; f.endExtra = g + 190; }
+  else if (t === 2) { const k = mkKicker(g, 2, 0, 4.4, diff); f.parts.push(k); const rs0 = k.s0 + k.L + k.gap + k.Ll * 0.45; set([mk(rs0, 60, -4.5, { h: 4.0, noRamp: true }), mk(rs0 + 6, 60, 4.5, { h: 4.0, noRamp: true })]); f.label = "Kicker into twin logs"; f.endExtra = rs0 + 80; }
+  else { set([mk(g + 22, 100, -7, { amp: 4.2 * sd, k: 2, h: 3.8 }), mk(g + 34, 100, 7, { amp: -4.5, k: 1, h: 3.8 })]); f.label = "SNAKE LOGS · curved rails"; f.endExtra = g + 150; }
+}
 function parkSection(f, i, diff) { // Kicker Park: mostly rails, a couple of jumps
   const mk = (s0, len, x, o) => Object.assign({ s0, s1: s0 + len, x }, o || {}), set = (arr) => { f.rail = arr[0]; f.rail2 = arr.slice(1); }, g = genS, t = i === 7 ? 99 : i % 7, sd = i % 2 ? 1 : -1;
   if (t === 99) { const k = mkKicker(g, 4, 0, 8.5, diff); f.parts.push(k); const rs0 = k.s0 + k.L + k.gap + k.Ll * 0.1; f.rail = { s0: rs0, s1: rs0 + k.Ll * 0.7, x: 0 }; const k2 = mkKicker(k.end + 26, 2, 0, 5.5, diff); f.parts.push(k2); f.label = "THE BIG LINE · mega air, rail, big air"; }
@@ -489,6 +499,7 @@ function addSection() {
     cliffs.push({ s: cs, D, w, pre: last ? last.pre + last.D : 0 });
     f.cliff = { s: cs, D, w }; f.label = "X GAMES BIG AIR · wide steep ramp, " + D + " m step-down"; f.cliffEnd = k.end + 30; f.mainCx = 0; f.xg = false;
   } else if (PARK) { parkSection(f, i, diff);
+  } else if (GL && i % 5 === 3) { gladeRails(f, i, diff);
   } else if (PARK && i % 5 === 0) { // rail garden
     [[-8, 0], [0, 22], [8, 44]].forEach(([x, o], q) => { const r = { s0: genS + o, s1: genS + o + 24, x }; if (q) f.rail2.push(r); else { f.rail = r; f.rail2 = []; } });
     f.label = "Rail garden"; f.endExtra = genS + 70;
@@ -536,7 +547,7 @@ function addSection() {
   }
   f.boost = null; // no boost pads
   fixLandings(f);
-  if (PK) f.rail = null;
+  if (PEAK) f.rail = null;
   upgradeRails(f);
   f.end = f.cliff ? f.cliffEnd : Math.max(...f.parts.map(p => p.end), ...railsOf(f).map(r => r.s1), f.endExtra || 0);
   // plateau for the centre line and slope knots: curve and steepness change in the gap before this section
@@ -571,7 +582,7 @@ function pipeOff(ax, s) { // a massive half pipe: flat floor, quarter-circle wal
 }
 function H_(x, s) {
   if (HP) return baseY(s) + pipeOff(Math.abs(x - pc(s)), s);
-  if (GT) { const xr = x - pc(s), ax = Math.abs(xr); return baseY(s) + 0.3 * (und(xr, s) + 0.35 * Math.sin(s * 0.09 + xr * 0.12)) * 0.6 + 3.5 * smooth((ax - PISTE + 1) / 5) + 0.12 * Math.max(0, ax - PISTE - 5); }
+  if (GT) { const xr = x - pc(s), ax = Math.abs(xr); return baseY(s) + 0.3 * (und(xr, s) + 0.35 * Math.sin(s * 0.09 + xr * 0.12)) * 0.6 + 3.5 * smooth((ax - PISTE + 1) / 5) + 0.12 * Math.max(0, ax - PISTE - 5) + clamp(-xr * pcc(s) * 4, -3.5, 3.5) * (1 - smooth((ax - PISTE - 2) / 6)); }
   const xr = x - pc(s), ax = Math.abs(xr), lv = baseY(s) + cliffOff(s);
   let y = lv + und(xr, s) + 0.35 * Math.sin(s * 0.09 + xr * 0.12) + 0.25 * Math.sin(xr * 0.21 - s * 0.045);
   if (PEAK) { const fade = 0.2 + 0.8 * smooth((ax - 6) / 26); y += fade * (4.6 * Math.sin(x * 0.09 + 1.7 * Math.sin(s * 0.006 + x * 0.01)) + 2.6 * Math.sin(x * 0.21 + s * 0.012 + 0.7) + 1.0 * Math.sin(x * 0.47 - s * 0.02)); }
@@ -746,7 +757,7 @@ function upgradeRails(f) { // longer rails, lifted on posts, each with a small r
     if (r.noRamp) continue;
     if (r.s0 - 18 < f.s0) { const d = f.s0 + 18 - r.s0; r.s0 += d; r.s1 += d; }
     for (const p of f.parts) if (p.type === "kicker" && !p.side) { const le = p.s0 + p.L + p.gap + p.Ll * 0.85; if (r.s0 - 18 < le) { const d = le + 18 - r.s0; r.s0 += d; r.s1 += d; } }
-    f.parts.push({ type: "railramp", s0: r.s0 - 18, L: 14, H: RAIL_H - 0.25, cx: r.x, hw: 2.1, end: r.s0 + 0.5 });
+    f.parts.push({ type: "railramp", s0: r.s0 - 4 - 14 - Math.max(0, ((r.h || RAIL_H) - RAIL_H) * 3), L: 14 + Math.max(0, ((r.h || RAIL_H) - RAIL_H) * 3), H: (r.h || RAIL_H) - 0.25, cx: r.x, hw: 2.1, end: r.s0 + 0.5 });
   }
 }
 function nearLip(x, s) {
@@ -821,7 +832,7 @@ function landing(surfaceType, rail) {
   const sA = sA_(sk.x, sk.s, sk.psi), diff = wrap(sk.rot - sA);
   const spinOff = Math.abs(sk.spin - Math.round(sk.spin / Math.PI) * Math.PI);
   const real = sk.airT > 0.3, heli = sk.heli; sk.heli = false;
-  if (real && !heli && Math.abs(diff) > (GL ? 2.7 : 1.95)) return crash("Bad landing"); // a sideways spin never crashes: the skis swing round to the nearest forward or backward
+  if (real && !heli && Math.abs(diff) > (GL ? 2.3 : 1.6)) return crash("Bad landing"); // a sideways spin never crashes: the skis swing round to the nearest forward or backward
   sk.rot = sA + diff; // normalise so a flip never unwinds on the ground
   const vh = Math.hypot(sk.vx, sk.vs);
   sk.psi = Math.atan2(sk.vx, sk.vs);
@@ -832,7 +843,7 @@ function landing(surfaceType, rail) {
     if (Math.hypot(tx, ts) > 0.5) sk.psi = Math.atan2(tx, ts); vt = Math.hypot(tx, ty, ts) * 0.97;
   }
   if (GL && real) vt *= 0.93;
-  if (real && !heli && !GL && Math.abs(diff) > 0.75) { vt *= 1 - 0.4 * clamp((Math.abs(diff) - 0.75) / 1.2, 0, 1); spray(sk.x, sk.y, sk.s, 10, 4); } // sloppy pitch only scrubs speed
+  if (real && !heli && !GL && Math.abs(diff) > 0.65) { vt *= 1 - 0.45 * clamp((Math.abs(diff) - 0.65) / 0.95, 0, 1); spray(sk.x, sk.y, sk.s, 10, 4); } // sloppy pitch only scrubs speed
   sk.sp = clamp(Math.max(vt, 4), 4, MAXV);
   sk.air = false; if (sk.airT > 0.15) sk.landT = 0.35;
   const kHalf = Math.round(sk.spin / Math.PI), odd = Math.abs(kHalf) % 2 === 1;
@@ -1962,11 +1973,11 @@ function buildFeature(f) {
     grp.add(new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: chevronTex(), transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 })));
   }
   for (const r of railsOf(f)) {
-    const rm = new THREE.MeshLambertMaterial({ color: 0xffb300, flatShading: true }), pm = new THREE.MeshLambertMaterial({ color: 0x13222f });
-    const segs = Math.ceil((r.s1 - r.s0) / 1.5);
+    const rm = new THREE.MeshLambertMaterial({ color: r.wood ? 0x7a5230 : 0xffb300, flatShading: true }), pm = new THREE.MeshLambertMaterial({ color: r.wood ? 0x3f2d1c : 0x13222f });
+    const segs = Math.ceil((r.s1 - r.s0) / 1.5), rw = r.wood ? 1.9 : 1;
     for (let i = 0; i < segs; i++) {
       const sa = r.s0 + i * 1.5, sb = Math.min(r.s1, sa + 1.5), pa = new THREE.Vector3(railX(r, sa), railY(r, sa), -sa), pb = new THREE.Vector3(railX(r, sb), railY(r, sb), -sb);
-      const len = pa.distanceTo(pb), m = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.2, len + 0.03), rm);
+      const len = pa.distanceTo(pb), m = new THREE.Mesh(new THREE.BoxGeometry(0.46 * rw, 0.2 * rw, len + 0.03), rm);
       m.position.copy(pa).add(pb).multiplyScalar(0.5); m.lookAt(pb); m.castShadow = true; grp.add(m);
       if (i === segs - 1 && r.next) { const y1 = railY(r, r.s1), y2 = railY(r.next, r.next.s0), cm = new THREE.Mesh(new THREE.BoxGeometry(0.34, Math.max(0.1, y1 - y2), 0.34), rm); cm.position.set(railX(r, r.s1), (y1 + y2) / 2, -r.s1); grp.add(cm); }
       if (i % 4 === 0) { const rx = railX(r, sa), gy = H(rx, sa), ph = railY(r, sa) - gy; const post = new THREE.Mesh(new THREE.BoxGeometry(0.26, Math.max(0.2, ph), 0.26), pm); post.position.set(rx, gy + ph / 2 - 0.02, -sa); grp.add(post); }
