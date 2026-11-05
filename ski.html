@@ -287,15 +287,15 @@ const hash = n => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s
 /* =====================================================================
    COURSE: coordinates are (x across, y up, s down the mountain). Render z = -s.
    ===================================================================== */
-const RES = location.hash === "#peak" ? "peak" : location.hash === "#park" ? "park" : location.hash === "#drop" ? "drop" : location.hash === "#pipe" ? "pipe" : location.hash === "#glade" ? "glade" : location.hash === "#gates" ? "gates" : location.hash === "#heli" ? "heli" : location.hash === "#build" ? "build" : "alpine", HELI = RES === "heli", BLD = RES === "build", PEAK = RES === "peak" || HELI, PARK = RES === "park", DROP = RES === "drop", HP = RES === "pipe", GL = RES === "glade", GT = RES === "gates", PK = PEAK || GL, KS = HELI ? 1.75 : PEAK ? 1.45 : 1;
+const RES = location.hash === "#peak" ? "peak" : location.hash === "#park" ? "park" : location.hash === "#drop" ? "drop" : location.hash === "#pipe" ? "pipe" : location.hash === "#glade" ? "glade" : location.hash === "#gates" ? "gates" : location.hash === "#heli" ? "heli" : location.hash === "#build" ? "build" : "alpine", HELI = RES === "heli", BLD = RES === "build", PEAK = RES === "peak" || HELI, PARK = RES === "park", DROP = RES === "drop", HP = RES === "pipe", GL = RES === "glade", GT = RES === "gates", PK = PEAK || GL, KS = HELI ? 1.2 : PEAK ? 1.45 : 1;
 const RESORT_NAMES = { alpine: "Evergreen Run", peak: "Couloir Peak", park: "Kicker Park", drop: "X Big Air", pipe: "Mega Pipe", glade: "Powder Glades", gates: "Race Gates", heli: "Heli-Drop", build: "Snowpark Builder" };
-const G = 18, BASE = HELI ? 0.62 : PEAK ? 0.4 : BLD ? 0.22 : DROP ? 0.58 : HP ? 0.36 : GT ? 0.5 : GL ? 0.33 : 0.28, RAIL_H = 3.45, PISTE = DROP ? 24 : HP ? 36 : BLD ? 30 : GT ? 17 : GL ? 22 : 15, MAXV = 400;
+const G = 18, BASE = HELI ? 0.9 : PEAK ? 0.4 : BLD ? 0.22 : DROP ? 0.58 : HP ? 0.36 : GT ? 0.5 : GL ? 0.33 : 0.28, RAIL_H = 3.45, PISTE = DROP ? 24 : HP ? 36 : BLD ? 30 : GT ? 17 : GL ? 22 : 15, MAXV = 400;
 const COURSE_END = location.hash === "#heli" ? 6500 : location.hash === "#build" ? 700 : location.hash === "#peak" ? 7500 : location.hash === "#park" ? 5200 : location.hash === "#drop" ? 840 : location.hash === "#pipe" ? 2600 : location.hash === "#gates" ? 2300 : location.hash === "#glade" ? 5000 : 6000;
 let rngF = mulberry(2024); const rng = () => rngF();
 const feats = [];
 const railsOf = f => f.rail ? (f.rail2 ? [f.rail, ...f.rail2] : [f.rail]) : (f.rail2 || []);
 const DLIP = 156;
-let genS = DROP ? 130 : HP || GT || BLD ? 1e9 : 140, generating = false, finalized = false;
+let genS = HELI ? 330 : DROP ? 130 : HP || GT || BLD ? 1e9 : 140, generating = false, finalized = false;
 
 /* steepness profile: piecewise-linear slope between knots, integrated into a height */
 const knots = [{ s: -200, v: BASE, cum: -200 * BASE }];
@@ -306,8 +306,9 @@ function baseY(s) {
   const k = knots[r], d = s - k.s, n = knots[r + 1];
   return n ? -(k.cum + k.v * d + 0.5 * (n.v - k.v) * d * d / (n.s - k.s)) : -(k.cum + k.v * d);
 }
+if (HELI) { addKnot(70, BASE); addKnot(100, 0); addKnot(245, 0); addKnot(285, BASE); }
 /* the piste centre line: straight through each jump section, curving between them */
-const pcs = [{ a: -300, b: 60, x: 0 }];
+const pcs = [{ a: -300, b: HELI ? 300 : 60, x: 0 }];
 function pc(s) {
   let lo = 0, hi = pcs.length - 1, r = 0;
   while (lo <= hi) { const m = (lo + hi) >> 1; if (pcs[m].a <= s) { r = m; lo = m + 1; } else hi = m - 1; }
@@ -450,7 +451,7 @@ function addInterlude(kind) {
     addKnot(genS + 30, 0.22); addKnot(genS + 90, 0.34); addKnot(genS + 150, 0.2); addKnot(genS + len, BASE);
     pcs.push({ a: genS + 50, b: genS + 58, x: x1 }, { a: genS + 125, b: genS + 133, x: x2 }, { a: genS + len - 6, b: genS + len, x: x2 });
   } else if (kind === "chute") {
-    len = 150; f.label = "Steep chute · whoops and a kick"; addKnot(genS + 15, HELI ? 0.62 : 0.5); addKnot(genS + len - 15, HELI ? 0.64 : 0.52); addKnot(genS + len, HELI ? 0.5 : 0.4);
+    len = 150; f.label = "Steep chute · whoops and a kick"; addKnot(genS + 15, HELI ? 0.85 : 0.5); addKnot(genS + len - 15, HELI ? 0.9 : 0.52); addKnot(genS + len, HELI ? 0.75 : 0.4);
     pcs.push({ a: genS, b: genS + len, x: x0, jump: true });
     f.parts.push({ type: "rollers", s0: genS + 22, n: 5, sp: 8, amp: 0.55, cx: x0, hw: 80, end: genS + 62 });
     if (PEAK) { f.parts.push({ type: "couloir", s0: genS + 6, end: genS + 150, cx: x0, hw: HELI ? 3.6 : 9.5, H: HELI ? 6.5 : 8 }); f.label = HELI ? "Rock chute · tight and steep" : "Couloir · steep and narrow"; } const k = mkKicker(genS + 80, 2, x0, 4.0, 0.3, 1); f.parts.push(k); len = Math.max(len, k.end - genS + 8);
@@ -606,7 +607,7 @@ function addSection() {
   else flankRocks(f);
   feats.push(f); regRocks(f);
   const a = f.s0 - 34, prevEnd = knots[knots.length - 1].s, gapLen = a - prevEnd;
-  if (i > 0 && gapLen > 20) { const v = (PARK && (i % 7 === 3 || i % 7 === 6)) ? 0.5 : (i % 6 === 3 || i % 6 === 5) ? 0.44 : [0.14, 0.2, 0.2, 0.36, 0.44, 0.5][Math.floor(rng() * 6)]; addKnot(prevEnd + gapLen * 0.3, v); addKnot(prevEnd + gapLen * 0.7, v); }
+  if (i > 0 && gapLen > 20) { const v = HELI ? [0.7, 0.8, 0.95, 0.75, 0.85][Math.floor(rng() * 5)] : (PARK && (i % 7 === 3 || i % 7 === 6)) ? 0.5 : (i % 6 === 3 || i % 6 === 5) ? 0.44 : [0.14, 0.2, 0.2, 0.36, 0.44, 0.5][Math.floor(rng() * 6)]; addKnot(prevEnd + gapLen * 0.3, v); addKnot(prevEnd + gapLen * 0.7, v); }
   if (DROP) { const ls = DLIP + 50, kk = f.parts[0]; addKnot(a, BASE); addKnot(ls - 8, BASE); addKnot(ls + 8, BASE + 0.3); addKnot(ls + kk.Ll, BASE + 0.3); addKnot(ls + kk.Ll + kk.Tr, 0.04); } else { addKnot(a, BASE); addKnot(f.end + 10, BASE); }
   pcs.push({ a, b: f.end + 10, x: px, jump: !f.cliff || DROP });
   if (DROP) { genS = 1e9; return f; }
@@ -646,9 +647,15 @@ function H_(x, s) {
     const k = idxIn(T.sec, s);
     if (k >= 0 && s <= T.sec[k].end) y += featOff(T.sec[k], x, s);
   }
-  if (HELI && s < 280) y -= smooth((ax - 3.5) / 5) * 30 * (1 - smooth((s - 100) / 170));
-  if (HELI && s < 44) { const w = smooth((s + 16) / 6) * (1 - smooth((s - 26) / 18)) * (1 - smooth((Math.abs(x) - 3.5) / 3)); if (w > 0) y = lerp(y, baseY(6) + 0.5, w); }
-  if (HELI && s > COURSE_END - 40) { const dl = Math.hypot(x - pc(COURSE_END), (s - COURSE_END - 110) * 0.7), w = (1 - smooth((dl - 70) / 110)) * smooth((s - COURSE_END + 40) / 60); if (w > 0) y = lerp(y, baseY(COURSE_END + 110) - 0.6, w); }
+  if (HELI) { // big-mountain face: gullies running down the fall line, rock ribs, wind lips
+    const gl = 3.4 * Math.sin(x * 0.2 + 2.2 * Math.sin(s * 0.011 + x * 0.015)) + 2.2 * Math.sin(x * 0.47 - s * 0.006 + 1.3 * Math.sin(s * 0.03)) + 1.2 * Math.sin(x * 1.1 + s * 0.017);
+    const rib = Math.pow(Math.max(0, Math.sin(x * 0.13 + 1.8 * Math.sin(s * 0.008) + 0.5)), 3) * 5.5, lip = Math.max(0, Math.sin(s * 0.045 + x * 0.09)) * 1.6;
+    y += (0.35 + 0.65 * smooth((ax - 5) / 20)) * (gl + rib + lip) * smooth((s - 300) / 120);
+  }
+  if (HELI && s < 120) y -= smooth((ax - 3.5) / 5) * 26 * (1 - smooth((s - 40) / 80));
+  if (HELI) { const lk = 1 - smooth((Math.hypot(xr / 52, (s - 172) / 90) - 0.92) / 0.18); if (lk > 0) y = lerp(y, baseY(172) - 0.45, lk); }
+  if (HELI && s < 44 && false) { const w = smooth((s + 16) / 6) * (1 - smooth((s - 26) / 18)) * (1 - smooth((Math.abs(x) - 3.5) / 3)); if (w > 0) y = lerp(y, baseY(6) + 0.5, w); }
+  if (false && HELI && s > COURSE_END - 40) { const dl = Math.hypot(x - pc(COURSE_END), (s - COURSE_END - 110) * 0.7), w = (1 - smooth((dl - 70) / 110)) * smooth((s - COURSE_END + 40) / 60); if (w > 0) y = lerp(y, baseY(COURSE_END + 110) - 0.6, w); }
   if (PEAK && !HELI && s < 200) y -= smooth((ax - 10) / 10) * 12 * (1 - smooth((s - 40) / 160));
   if (PEAK && !HELI && s < 24) { const w = smooth((s + 16) / 6) * (1 - smooth((s - 10) / 12)) * (1 - smooth((Math.abs(x) - 10) / 6)); if (w > 0) y = lerp(y, baseY(4) + 0.44, w); }
   return y;
@@ -802,6 +809,7 @@ function railX(r, s) { return r.amp ? r.x + r.amp * Math.sin(Math.PI * (r.k || 1
 function railY(r, s) { if (r.y0 === undefined) { const h = r.h || RAIL_H; r.y0 = H(railX(r, r.s0), r.s0) + h; r.y1 = H(railX(r, r.s1), r.s1) + (r.h1 !== undefined ? r.h1 : h); } return r.y0 + (r.y1 - r.y0) * clamp((s - r.s0) / (r.s1 - r.s0), 0, 1); }
 function onRailRamp(x, s) { for (const f of sectionsAt(s, 6)) for (const p of f.parts) if (p.type === "railramp" && s >= p.s0 && s <= p.s0 + p.L + 3 && latW(p, x, 0.5) > 0.1) return true; return false; }
 function railBeside(x, s, y) { for (const f of sectionsAt(s, 12)) for (const rl of railsOf(f)) if (s >= rl.s0 - 2 && s <= rl.s1 && Math.abs(x - railX(rl, s)) < 9 && y > railY(rl, s) - 3) return true; return false; }
+function onLake(x, s) { return Math.hypot((x - pc(s)) / 50, (s - 172) / 88) < 1; }
 function railAhead(x, s) { for (const f of sectionsAt(s, 22)) for (const rl of railsOf(f)) if (rl.s0 - s > -1 && rl.s0 - s < 20 && Math.abs(x - rl.x) < 1.9) return true; return false; }
 function upgradeRails(f) { // longer rails, lifted on posts, each with a small ramp to hop up onto them
   for (const r of railsOf(f)) {
@@ -999,6 +1007,7 @@ function step(dt) {
     } else {
       // carving: the longer you hold a turn the more the edges bite, which turns tighter and scrubs less speed
       sk.carve = steer ? Math.min(1, sk.carve + dt / 0.55) : Math.max(0, sk.carve - dt * 2.5);
+      const wat = HELI && !sk.air && onLake(sk.x, sk.s); sk.water = wat; if (wat) { if (!K.brake && !K.down && sk.sp < 18) sk.sp += (18 - sk.sp) * 0.9 * dt; if (sk.sp < 4.5) { crash("Sank in the lake"); return; } spray(sk.x - Math.sin(sk.psi) * 0.4 - 0.5, sk.y + 0.1, sk.s - Math.cos(sk.psi) * 0.4, 3, 2.4, -3); spray(sk.x - Math.sin(sk.psi) * 0.4 + 0.5, sk.y + 0.1, sk.s - Math.cos(sk.psi) * 0.4, 3, 2.4, 3); }
       sk.psi += steer * (1.15 + 0.95 * sk.carve) * dt * PHYS.turn * (HP ? 1.25 : clamp(1.25 / (1 + Math.pow(sk.sp / 32, 2)), 0.55, 1)); // faster means wider arcs
       if (!steer && !HP) sk.psi -= sk.psi * 0.35 * dt;
       const Tt = trailFor(sk.s); let onTrail = false;
@@ -2501,7 +2510,7 @@ function buildValleyDrop() { // big-air map: steep forested valley walls close i
 }
 let heliLake = null;
 function manageWorld() {
-  if (HELI && finalized && !heliLake) { const e = COURSE_END, cx = pc(e), yy = baseY(e + 110) - 0.3; heliLake = new THREE.Mesh(new THREE.CircleGeometry(1, 56), new THREE.MeshBasicMaterial({ color: 0x4f9fd8 })); heliLake.rotation.x = -Math.PI / 2; heliLake.scale.set(120, 84, 1); heliLake.position.set(cx, yy, -(e + 110)); heliLake.scale.set(120, 1, 1); heliLake.scale.y = 84; scene.add(heliLake); const rim = new THREE.Mesh(new THREE.RingGeometry(0.97, 1.07, 56), new THREE.MeshBasicMaterial({ color: 0xcfe8f7 })); rim.rotation.x = -Math.PI / 2; rim.position.copy(heliLake.position); rim.position.y += 0.02; rim.scale.copy(heliLake.scale); scene.add(rim); }
+  if (HELI && !heliLake && scene) { const cx = 0, yy = baseY(172) - 0.4; heliLake = new THREE.Mesh(new THREE.CircleGeometry(1, 64), new THREE.MeshStandardMaterial({ color: 0x2f7fb5, roughness: 0.12, metalness: 0.25 })); heliLake.rotation.x = -Math.PI / 2; heliLake.scale.set(50, 88, 1); heliLake.position.set(cx, yy + 0.03, -172); scene.add(heliLake); const rim = new THREE.Mesh(new THREE.RingGeometry(0.985, 1.04, 64), new THREE.MeshBasicMaterial({ color: 0xdfeefa })); rim.rotation.x = -Math.PI / 2; rim.position.set(cx, yy + 0.05, -172); rim.scale.set(50, 88, 1); scene.add(rim); }
   manageWalls(); manageFences(); if (GT && !gateGroup) { gateGroup = buildGates(); scene.add(gateGroup); }
   if (!valleyDrop && finalized && !PARK) { const t0 = performance.now(); valleyDrop = buildValleyDrop(); scene.add(valleyDrop); window.__vbuild = performance.now() - t0; }
   if (PEAK && !HELI && !startHut) { startHut = buildStartHut(); scene.add(startHut); }
@@ -2651,7 +2660,7 @@ function render(dt, time) {
   manageWorld(); updateHeli(dt); updateBike(dt);
   poseSkier(dt, time);
   const R = skierRig;
-  R.sink = (R.sink || 0) + (((GL && !sk.air && !sk.grind && !sk.crashed) ? 0.2 : 0) - (R.sink || 0)) * Math.min(1, 6 * dt);
+  R.sink = (R.sink || 0) + (((GL && !sk.air && !sk.grind && !sk.crashed) ? 0.2 : (sk.water && !sk.crashed) ? -0.1 : 0) - (R.sink || 0)) * Math.min(1, 6 * dt);
   R.root.position.set(sk.x, sk.y + 0.025 - R.sink, -sk.s);
   const grindYaw = sk.grind || sk.boxT > 0.15 ? 1.45 : 0;
   R.grindYaw = lerp(R.grindYaw || 0, grindYaw, Math.min(1, 12 * dt));
