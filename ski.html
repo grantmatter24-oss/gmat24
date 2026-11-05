@@ -287,9 +287,9 @@ const hash = n => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s
 /* =====================================================================
    COURSE: coordinates are (x across, y up, s down the mountain). Render z = -s.
    ===================================================================== */
-const RES = location.hash === "#peak" ? "peak" : location.hash === "#park" ? "park" : location.hash === "#drop" ? "drop" : location.hash === "#pipe" ? "pipe" : location.hash === "#glade" ? "glade" : location.hash === "#gates" ? "gates" : location.hash === "#heli" ? "heli" : location.hash === "#build" ? "build" : "alpine", HELI = RES === "heli", BLD = RES === "build", PEAK = RES === "peak" || HELI, PARK = RES === "park", DROP = RES === "drop", HP = RES === "pipe", GL = RES === "glade", GT = RES === "gates", PK = PEAK || GL, KS = PEAK ? 1.45 : 1;
+const RES = location.hash === "#peak" ? "peak" : location.hash === "#park" ? "park" : location.hash === "#drop" ? "drop" : location.hash === "#pipe" ? "pipe" : location.hash === "#glade" ? "glade" : location.hash === "#gates" ? "gates" : location.hash === "#heli" ? "heli" : location.hash === "#build" ? "build" : "alpine", HELI = RES === "heli", BLD = RES === "build", PEAK = RES === "peak" || HELI, PARK = RES === "park", DROP = RES === "drop", HP = RES === "pipe", GL = RES === "glade", GT = RES === "gates", PK = PEAK || GL, KS = HELI ? 1.75 : PEAK ? 1.45 : 1;
 const RESORT_NAMES = { alpine: "Evergreen Run", peak: "Couloir Peak", park: "Kicker Park", drop: "X Big Air", pipe: "Mega Pipe", glade: "Powder Glades", gates: "Race Gates", heli: "Heli-Drop", build: "Snowpark Builder" };
-const G = 18, BASE = HELI ? 0.46 : PEAK ? 0.4 : BLD ? 0.22 : DROP ? 0.58 : HP ? 0.36 : GT ? 0.5 : GL ? 0.33 : 0.28, RAIL_H = 3.45, PISTE = DROP ? 24 : HP ? 36 : BLD ? 30 : GT ? 17 : GL ? 22 : 15, MAXV = 400;
+const G = 18, BASE = HELI ? 0.62 : PEAK ? 0.4 : BLD ? 0.22 : DROP ? 0.58 : HP ? 0.36 : GT ? 0.5 : GL ? 0.33 : 0.28, RAIL_H = 3.45, PISTE = DROP ? 24 : HP ? 36 : BLD ? 30 : GT ? 17 : GL ? 22 : 15, MAXV = 400;
 const COURSE_END = location.hash === "#heli" ? 6500 : location.hash === "#build" ? 700 : location.hash === "#peak" ? 7500 : location.hash === "#park" ? 5200 : location.hash === "#drop" ? 840 : location.hash === "#pipe" ? 2600 : location.hash === "#gates" ? 2300 : location.hash === "#glade" ? 5000 : 6000;
 let rngF = mulberry(2024); const rng = () => rngF();
 const feats = [];
@@ -450,10 +450,10 @@ function addInterlude(kind) {
     addKnot(genS + 30, 0.22); addKnot(genS + 90, 0.34); addKnot(genS + 150, 0.2); addKnot(genS + len, BASE);
     pcs.push({ a: genS + 50, b: genS + 58, x: x1 }, { a: genS + 125, b: genS + 133, x: x2 }, { a: genS + len - 6, b: genS + len, x: x2 });
   } else if (kind === "chute") {
-    len = 150; f.label = "Steep chute · whoops and a kick"; addKnot(genS + 15, 0.5); addKnot(genS + len - 15, 0.52); addKnot(genS + len, 0.4);
+    len = 150; f.label = "Steep chute · whoops and a kick"; addKnot(genS + 15, HELI ? 0.62 : 0.5); addKnot(genS + len - 15, HELI ? 0.64 : 0.52); addKnot(genS + len, HELI ? 0.5 : 0.4);
     pcs.push({ a: genS, b: genS + len, x: x0, jump: true });
     f.parts.push({ type: "rollers", s0: genS + 22, n: 5, sp: 8, amp: 0.55, cx: x0, hw: 80, end: genS + 62 });
-    if (PEAK) { f.parts.push({ type: "couloir", s0: genS + 6, end: genS + 150, cx: x0, hw: 9.5, H: 8 }); f.label = "Couloir · steep and narrow"; } const k = mkKicker(genS + 80, 2, x0, 4.0, 0.3, 1); f.parts.push(k); len = Math.max(len, k.end - genS + 8);
+    if (PEAK) { f.parts.push({ type: "couloir", s0: genS + 6, end: genS + 150, cx: x0, hw: HELI ? 3.6 : 9.5, H: HELI ? 6.5 : 8 }); f.label = HELI ? "Rock chute · tight and steep" : "Couloir · steep and narrow"; } const k = mkKicker(genS + 80, 2, x0, 4.0, 0.3, 1); f.parts.push(k); len = Math.max(len, k.end - genS + 8);
   } else {
     len = 150; f.label = "Flat cruiser · pop the rollers"; addKnot(genS + 20, 0.1); addKnot(genS + len - 20, 0.1); addKnot(genS + len, BASE * 0.8);
     pcs.push({ a: genS, b: genS + len, x: x0, jump: true });
@@ -563,9 +563,9 @@ function addSection() {
     const sd = rng() < 0.5 ? -1 : 1, a = mkHip(genS, sd, diff), b = mkHip(genS + 40, -sd, diff);
     f.parts.push(a, b); f.label = "Hip jumps · pick a side"; f.boost = { s0: genS - 22, s1: genS - 16, cx: 0, hw: 1.4 };
   } else if (!PARK && (HELI ? i % 3 === 2 : PK ? i % 4 === 2 : (i % 6 === 5 && Math.floor(i / 6) % 2 === 0 && !openTrail))) {
-    const D = HELI ? 16 + rng() * 16 : PK ? 11 + rng() * 9 : 9 + rng() * 7, cs = genS + 10, w = D * 0.3 + 1.2, last = cliffs[cliffs.length - 1];
+    const D = HELI ? 30 + rng() * 26 : PK ? 11 + rng() * 9 : 9 + rng() * 7, cs = genS + 10, w = D * 0.3 + 1.2, last = cliffs[cliffs.length - 1];
     cliffs.push({ s: cs, D, w, pre: last ? last.pre + last.D : 0 });
-    f.cliff = { s: cs, D, w }; f.label = "GIANT CLIFF · " + Math.round(D) + " m drop"; f.boost = { s0: genS - 24, s1: genS - 18, cx: 0, hw: 1.5, amt: 9 }; f.cliffEnd = cs + w + 44;
+    f.cliff = { s: cs, D, w }; f.label = (HELI ? ["TITAN DROP", "WIDOWMAKER", "THE ANVIL", "RAVEN FACE", "BLACK TOOTH", "THE GUILLOTINE"][cliffs.length % 6] : "GIANT CLIFF") + " · " + Math.round(D); f.boost = { s0: genS - 24, s1: genS - 18, cx: 0, hw: 1.5, amt: 9 }; f.cliffEnd = cs + w + 44;
   } else if (!PK && !PARK && i % 6 === 5) {
     f.parts.push(mkKicker(genS, 4, 0, 8.5, diff)); f.label = "MEGA AIR · commit to it";
     f.boost = { s0: genS - 30, s1: genS - 23, cx: 0, hw: 1.7, amt: 18 };
@@ -646,8 +646,11 @@ function H_(x, s) {
     const k = idxIn(T.sec, s);
     if (k >= 0 && s <= T.sec[k].end) y += featOff(T.sec[k], x, s);
   }
-  if (PEAK && s < 200) y -= smooth((ax - 10) / 10) * 12 * (1 - smooth((s - 40) / 160));
-  if (PEAK && s < 24) { const w = smooth((s + 16) / 6) * (1 - smooth((s - 10) / 12)) * (1 - smooth((Math.abs(x) - 10) / 6)); if (w > 0) y = lerp(y, baseY(4) + 0.44, w); }
+  if (HELI && s < 280) y -= smooth((ax - 3.5) / 5) * 30 * (1 - smooth((s - 100) / 170));
+  if (HELI && s < 44) { const w = smooth((s + 16) / 6) * (1 - smooth((s - 26) / 18)) * (1 - smooth((Math.abs(x) - 3.5) / 3)); if (w > 0) y = lerp(y, baseY(6) + 0.5, w); }
+  if (HELI && s > COURSE_END - 40) { const dl = Math.hypot(x - pc(COURSE_END), (s - COURSE_END - 110) * 0.7), w = (1 - smooth((dl - 70) / 110)) * smooth((s - COURSE_END + 40) / 60); if (w > 0) y = lerp(y, baseY(COURSE_END + 110) - 0.6, w); }
+  if (PEAK && !HELI && s < 200) y -= smooth((ax - 10) / 10) * 12 * (1 - smooth((s - 40) / 160));
+  if (PEAK && !HELI && s < 24) { const w = smooth((s + 16) / 6) * (1 - smooth((s - 10) / 12)) * (1 - smooth((Math.abs(x) - 10) / 6)); if (w > 0) y = lerp(y, baseY(4) + 0.44, w); }
   return y;
 }
 function H(x, s) { ensure(s); return H_(x, s); }
@@ -678,6 +681,8 @@ function rocksForChunk(ci) {
   const ok = (x, s) => { const T = trailFor(s); return !(T && Math.abs(x - trailXc(T, s)) < T.hw + 4); };
   for (let i = 0; i < (PEAK ? 1 : 4); i++) { const side = rt() < 0.5 ? -1 : 1, s = s0 + rt() * CH, x = pc(s) + side * (PISTE + (PEAK ? 16 : 1.8) + rt() * 9), r = 0.9 + rt() * 1.7; if (ok(x, s)) out.push({ x, s, r }); }
   for (let i = 0; i < 12; i++) { const s = s0 + rt() * CH, T = trailFor(s), sd = rt() < 0.5 ? -1 : 1, big = rt() < 0.3, r = big ? 2.6 + rt() * 2.6 : 1 + rt() * 1.6; if (T) { const x = trailXc(T, s) + sd * (T.hw + 4.5 + rt() * 8); if (Math.abs(x - pc(s)) > PISTE + 2.5) out.push({ x, s, r }); } }
+  if (HELI) for (let i = 0; i < 9; i++) { const s = s0 + rt() * CH, x = pc(s) + (rt() < 0.5 ? -1 : 1) * (6 + rt() * 42), r = 1.1 + rt() * 2.8; if (s > 90 && s < COURSE_END - 160 && ok(x, s) && !sectionsAt(s, 14).some(f => f.parts.length || f.cliff)) out.push({ x, s, r }); }
+  if (HELI) return out.filter(r => Math.hypot((r.x - pc(COURSE_END)) / 135, (r.s - COURSE_END - 110) / 100) > 1);
   if (PEAK) for (let i = 0; i < 3; i++) { const side = rt() < 0.5 ? -1 : 1, s = s0 + rt() * CH, big = rt() < 0.4; out.push({ x: pc(s) + side * (PISTE + 16 + rt() * 24), s, r: big ? 2.4 + rt() * 3.2 : 1 + rt() * 1.6 }); }
   return out;
 }
@@ -1769,6 +1774,7 @@ function mkLodge(kind, rt) {
   return grp;
 }
 function lodgesForChunk(ci) {
+  if (HELI) { const e = COURSE_END, c0 = Math.floor((e + 40) / CH); return ci === c0 ? [{ kind: 2, x: pc(e) + 150, s: e + 60, yaw: -Math.PI / 2, seed: 7 }, { kind: 0, x: pc(e) - 150, s: e + 90, yaw: Math.PI / 2, seed: 9 }, { kind: 0, x: pc(e) + 150, s: e + 150, yaw: -Math.PI / 2, seed: 11 }] : []; }
   if (PEAK || DROP || HP || GT || BLD) return [];
   const rt = mulberry(ci * 733 + 91), s0 = ci * CH, out = [];
   const place = (kind, sd, off, s, big) => {
@@ -1841,7 +1847,8 @@ function buildChunk(ci) {
   [-1, 1].forEach(sd => { const ps = s0 + CH * 0.5, px = pc(ps) + sd * (PISTE + 3), g = new THREE.Sprite(glowMat()); g.scale.set(9, 9, 1); g.position.set(px, inCorr(px, ps) ? -9999 : H(px, ps) + 8.8, -ps); grp.add(g); });
   // trees
   const rt = mulberry(ci * 977 + 5), tr = [];
-  const tryAdd = (x, s, sc) => { if (PEAK || PARK || HP) return; if (GL) { const lx = x - pc(s), clr = Math.min(Math.abs(lx - 6 * Math.sin(s * 0.017)), Math.abs(lx + 8 * Math.sin(s * 0.011 + 2)), Math.abs(lx - 14 * Math.sin(s * 0.009 + 4))); if (Math.abs(lx) < PISTE + 3 && (clr < 4.2 || sectionsAt(s, 16).some(f => f.parts.length || f.rail || f.cliff))) return; } else if (Math.abs(x - pc(s)) < PISTE + 3) return; const T = trailFor(s); if (T && Math.abs(x - trailXc(T, s)) < T.hw + 5.2) return; tr.push({ x, s, y: H(x, s) - 0.1, sc }); };
+  const tryAdd = (x, s, sc) => { if ((PEAK && !HELI) || PARK || HP) return; if (HELI) { const f = clamp((s - (COURSE_END - 1400)) / 600, 0, 1); if (hash(x * 0.31 + s * 0.73) > f * 0.92 || Math.abs(x - pc(s)) < 9 || Math.hypot(x - pc(COURSE_END), s - COURSE_END - 110) < 165) return; } else if (GL) { const lx = x - pc(s), clr = Math.min(Math.abs(lx - 6 * Math.sin(s * 0.017)), Math.abs(lx + 8 * Math.sin(s * 0.011 + 2)), Math.abs(lx - 14 * Math.sin(s * 0.009 + 4))); if (Math.abs(lx) < PISTE + 3 && (clr < 4.2 || sectionsAt(s, 16).some(f => f.parts.length || f.rail || f.cliff))) return; } else if (Math.abs(x - pc(s)) < PISTE + 3) return; const T = trailFor(s); if (T && Math.abs(x - trailXc(T, s)) < T.hw + 5.2) return; tr.push({ x, s, y: H(x, s) - 0.1, sc }); };
+  if (HELI && s0 > COURSE_END - 1500) for (let i = 0; i < 90; i++) { const ts = s0 + rt() * CH; tryAdd(pc(ts) + (rt() - 0.5) * 150, ts, 0.8 + rt() * 1.1); }
   for (let i = 0; i < 46; i++) { const side = rt() < 0.5 ? -1 : 1, ts = s0 + rt() * CH; tryAdd(pc(ts) + side * (PISTE + 6 + rt() * 34), ts, 0.8 + rt() * 0.9); }
   if (GL) for (let i = 0; i < 110; i++) { const ts = s0 + rt() * CH; tryAdd(pc(ts) + (rt() - 0.5) * 2 * (PISTE + 2), ts, 0.8 + rt() * 1.0); }
   for (let i = 0; i < 70; i++) { // dense forest lining a trail
@@ -2492,11 +2499,13 @@ function buildValleyDrop() { // big-air map: steep forested valley walls close i
   };
   return g;
 }
+let heliLake = null;
 function manageWorld() {
+  if (HELI && finalized && !heliLake) { const e = COURSE_END, cx = pc(e), yy = baseY(e + 110) - 0.3; heliLake = new THREE.Mesh(new THREE.CircleGeometry(1, 56), new THREE.MeshBasicMaterial({ color: 0x4f9fd8 })); heliLake.rotation.x = -Math.PI / 2; heliLake.scale.set(120, 84, 1); heliLake.position.set(cx, yy, -(e + 110)); heliLake.scale.set(120, 1, 1); heliLake.scale.y = 84; scene.add(heliLake); const rim = new THREE.Mesh(new THREE.RingGeometry(0.97, 1.07, 56), new THREE.MeshBasicMaterial({ color: 0xcfe8f7 })); rim.rotation.x = -Math.PI / 2; rim.position.copy(heliLake.position); rim.position.y += 0.02; rim.scale.copy(heliLake.scale); scene.add(rim); }
   manageWalls(); manageFences(); if (GT && !gateGroup) { gateGroup = buildGates(); scene.add(gateGroup); }
   if (!valleyDrop && finalized && !PARK) { const t0 = performance.now(); valleyDrop = buildValleyDrop(); scene.add(valleyDrop); window.__vbuild = performance.now() - t0; }
   if (PEAK && !HELI && !startHut) { startHut = buildStartHut(); scene.add(startHut); }
-  if (sk.s > COURSE_END - 450 && !finishMesh) { finishMesh = PEAK ? buildFinishPeak() : buildFinish(); scene.add(finishMesh); }
+  if (sk.s > COURSE_END - 450 && !finishMesh) { finishMesh = PEAK && !HELI ? buildFinishPeak() : buildFinish(); scene.add(finishMesh); }
   const cmin = DROP ? 0 : Math.floor((sk.s - 90) / CH), cmax = DROP ? Math.floor((COURSE_END + 60) / CH) : Math.floor((sk.s + 360) / CH);
   for (let ci = cmin; ci <= cmax; ci++) if (ci >= (PARK ? -2 : 0) && !chunks.has(ci)) { const g = buildChunk(ci); chunks.set(ci, g); scene.add(g); }
   for (const [ci, g] of chunks) if (ci < cmin - 1 || ci > cmax + 1) { scene.remove(g); g.traverse(o => { if (o.geometry) o.geometry.dispose(); }); chunks.delete(ci); }
@@ -2876,7 +2885,7 @@ sk = newSkier(0, PEAK ? 3 : 10, 0);
 const glOK = typeof THREE !== "undefined" && initRender();
 if (glOK) { applyGfx(); scene.userData.applyTOD(todName); }
 if (!glOK) { $("nogl").hidden = false; $("go").disabled = true; }
-window.__game = { get gates() { return GATES; }, get gstat() { return [gIdx, gMiss, gPass]; }, get scene() { return scene; }, get storm() { return [stormMix, snowOn, scene.fog.near, scene.fog.far]; }, get rig() { return skierRig; }, pc, pcs, cliffs, knots, baseY, get runT() { return runT; }, get sw() { return sk.sw; }, get spin() { return sk.spin; }, get endShown() { return endShown; }, COURSE_END, trails, trailFor, trailXc, sectionsAt, step, get sk() { return sk; }, feats, H, K, restart, begin, get score() { return score; }, get mult() { return mult; }, setMode(m) { mode = m; }, pop() { popReq = true; popPow = 1; }, gDown, gUp };
+window.__game = { get lake() { return heliLake ? [heliLake.position.x, heliLake.position.y, heliLake.position.z, heliLake.scale.x, heliLake.scale.y, heliLake.scale.z] : null; }, get gates() { return GATES; }, get gstat() { return [gIdx, gMiss, gPass]; }, get scene() { return scene; }, get storm() { return [stormMix, snowOn, scene.fog.near, scene.fog.far]; }, get rig() { return skierRig; }, pc, pcs, cliffs, knots, baseY, get runT() { return runT; }, get sw() { return sk.sw; }, get spin() { return sk.spin; }, get endShown() { return endShown; }, COURSE_END, trails, trailFor, trailXc, sectionsAt, step, get sk() { return sk; }, feats, H, K, restart, begin, get score() { return score; }, get mult() { return mult; }, setMode(m) { mode = m; }, pop() { popReq = true; popPow = 1; }, gDown, gUp };
 requestAnimationFrame(frame);
 $("dtot").textContent = COURSE_END;
 /* ---------- homepage: animated sunset, mountains and a skier doing a backflip ---------- */
