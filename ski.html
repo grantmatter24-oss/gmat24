@@ -104,7 +104,8 @@
   #bld .bt { display: flex; gap: 4px; } #bld button { font: 700 13px var(--body); letter-spacing: .06em; text-transform: uppercase; color: var(--text); background: rgba(244,248,253,.08); border: 1px solid rgba(244,248,253,.25); border-radius: 7px; padding: 8px 12px; cursor: pointer; }
   #bld button.on { background: var(--jacket); border-color: var(--jacket); color: var(--ink); } #bld #bldride { background: var(--gold); color: var(--ink); border-color: var(--gold); } #bld input { vertical-align: middle; width: 110px; accent-color: var(--jacket); }
   #bldhint { flex-basis: 100%; margin: 0; text-align: center; font: 500 12px var(--body); letter-spacing: .04em; text-transform: none; color: var(--dim); }
-  #bld.ride .bt, #bld.ride .bs, #bld.ride #bldclear, #bld.ride #bldhint { display: none; }
+  #bldedit { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; padding: 8px; border-radius: 9px; background: rgba(244,248,253,.07); } #bldedit[hidden] { display: none; } #bldedit b { color: var(--gold); letter-spacing: .1em; } #bldedit label[hidden], #bldrt[hidden] { display: none; }
+  #bld.ride #bldedit, #bld.ride .bt, #bld.ride .bs, #bld.ride #bldclear, #bld.ride #bldhint { display: none; }
   #chg { position: absolute; left: 50%; bottom: 76px; width: 150px; height: 9px; margin-left: -75px; border-radius: 6px; background: rgba(20,24,31,.6); border: 1px solid rgba(255,255,255,.4); pointer-events: none; }
   #chg i { display: block; height: 100%; width: 0; border-radius: 5px; background: linear-gradient(90deg, #5ec8ff, #ffd447 70%, #ff7a2f); }
   #hint { position: absolute; left: 0; right: 0; bottom: max(10px, env(safe-area-inset-bottom, 0px)); text-align: center; font-size: 14px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); pointer-events: none; padding: 0 16px; text-shadow: 0 1px 0 rgba(11,26,41,.6); }
@@ -204,10 +205,11 @@
   <div id="pop"><div class="t"></div><div class="s"></div></div>
   <div id="toast"></div>
   <div id="bld" hidden>
-    <div class="bt" id="bldtools"><button type="button" data-tool="rail" class="on">Rail</button><button type="button" data-tool="box">Box</button><button type="button" data-tool="kicker">Kicker</button><button type="button" data-tool="erase">Erase</button></div>
-    <label class="bs">Size <input id="bldsize" type="range" min="0.6" max="1.6" step="0.1" value="1"></label>
+    <div class="bt" id="bldtools"><button type="button" data-tool="select" class="on">Select</button><button type="button" data-tool="rail">Rail</button><button type="button" data-tool="box">Box</button><button type="button" data-tool="kicker">Kicker</button><button type="button" data-tool="erase">Erase</button></div>
+    <div id="bldedit" hidden><b id="bldname">Rail</b><div class="bt" id="bldrt"><button type="button" data-rt="flat" class="on">Flat</button><button type="button" data-rt="down">Down</button><button type="button" data-rt="step">Steps</button><button type="button" data-rt="curve">Curve</button></div><label>Size <input id="bldz" type="range" min="0.6" max="1.8" step="0.1" value="1"></label><label id="bldhrow">Height <input id="bldh" type="range" min="1.5" max="6.5" step="0.25" value="3.45"></label><button type="button" id="blddel">Delete</button></div>
+    <label class="bs">New size <input id="bldsize" type="range" min="0.6" max="1.6" step="0.1" value="1"></label>
     <button type="button" id="bldclear">Clear</button><button type="button" id="bldride">Ride ▶</button>
-    <p id="bldhint">Click the snow to place. W/S or arrow keys scroll the park, mouse wheel zooms.</p>
+    <p id="bldhint">Pick a tool and click the snow to place, or use Select and click a piece to resize or change it. W/S or arrows scroll, wheel zooms.</p>
   </div>
   <div id="chg" hidden><i></i></div>
   <div id="hint">A D or ← → steer, spin in the air (flip + spin = cork) &nbsp;·&nbsp; ↑ ↓ flip, W/S butter on the ground &nbsp;·&nbsp; Hold Space to charge a jump, release to pop · tail grab in the air &nbsp;·&nbsp; Q = japan &nbsp;·&nbsp; E = nose &nbsp;·&nbsp; C = indy &nbsp;·&nbsp; Shift = speed up &nbsp;·&nbsp; J = slow down &nbsp;·&nbsp; F = slow-mo &nbsp;·&nbsp; P = pause</div>
@@ -792,7 +794,7 @@ function startTrail(f) {
 }
 
 function railX(r, s) { return r.amp ? r.x + r.amp * Math.sin(Math.PI * (r.k || 1) * clamp((s - r.s0) / (r.s1 - r.s0), 0, 1)) * smooth((s - r.s0) / 20) : r.x; }
-function railY(r, s) { if (r.y0 === undefined) { const h = r.h || RAIL_H; r.y0 = H(railX(r, r.s0), r.s0) + h; r.y1 = H(railX(r, r.s1), r.s1) + h; } return r.y0 + (r.y1 - r.y0) * clamp((s - r.s0) / (r.s1 - r.s0), 0, 1); }
+function railY(r, s) { if (r.y0 === undefined) { const h = r.h || RAIL_H; r.y0 = H(railX(r, r.s0), r.s0) + h; r.y1 = H(railX(r, r.s1), r.s1) + (r.h1 !== undefined ? r.h1 : h); } return r.y0 + (r.y1 - r.y0) * clamp((s - r.s0) / (r.s1 - r.s0), 0, 1); }
 function onRailRamp(x, s) { for (const f of sectionsAt(s, 6)) for (const p of f.parts) if (p.type === "railramp" && s >= p.s0 && s <= p.s0 + p.L + 3 && latW(p, x, 0.5) > 0.1) return true; return false; }
 function railBeside(x, s, y) { for (const f of sectionsAt(s, 12)) for (const rl of railsOf(f)) if (s >= rl.s0 - 2 && s <= rl.s1 && Math.abs(x - railX(rl, s)) < 9 && y > railY(rl, s) - 3) return true; return false; }
 function railAhead(x, s) { for (const f of sectionsAt(s, 22)) for (const rl of railsOf(f)) if (rl.s0 - s > -1 && rl.s0 - s < 20 && Math.abs(x - rl.x) < 1.9) return true; return false; }
@@ -956,9 +958,9 @@ function step(dt) {
     if (sk.crashT > 1.8) respawn();
     return;
   }
-  const onGr = !sk.air && !sk.grind, butterNow = onGr && !sk.bike && !sk.crashed && sk.sp > 2 && sk.boxT <= 0.15 && (K.down || K.up), steer = sk.finished || butterNow ? 0 : ((K.right || (onGr && K.spinR)) ? 1 : 0) - ((K.left || (onGr && K.spinL)) ? 1 : 0);
+  const onGr = !sk.air && !sk.grind, butterNow = onGr && !sk.bike && !sk.crashed && sk.sp > 2 && (K.down || K.up), boxSpin = onGr && !sk.bike && !sk.crashed && sk.boxT > 0.15 && (K.spinL || K.spinR), steer = sk.finished || butterNow || boxSpin ? 0 : ((K.right || (onGr && K.spinR)) ? 1 : 0) - ((K.left || (onGr && K.spinL)) ? 1 : 0);
   if (sk.air) sk.butSpun = false;
-  if (butterNow) { const spI = (K.spinR ? 1 : 0) - (K.spinL ? 1 : 0); if (spI) sk.spinV += clamp(spI * 6 - sk.spinV, -30 * dt, 30 * dt); else sk.spinV *= Math.exp(-6 * dt); sk.spin += sk.spinV * dt; sk.butSpun = true; }
+  if (butterNow || boxSpin) { const spI = (K.spinR ? 1 : 0) - (K.spinL ? 1 : 0); if (spI) sk.spinV += clamp(spI * 6 - sk.spinV, -30 * dt, 30 * dt); else sk.spinV *= Math.exp(-6 * dt); sk.spin += sk.spinV * dt; sk.butSpun = true; }
   else if (sk.butSpun && onGr) { sk.spin += sk.spinV * dt; sk.spinV *= Math.exp(-5 * dt); if (Math.abs(sk.spinV) < 0.5) { const kk = Math.round(sk.spin / Math.PI); sk.spin -= kk * Math.PI; if (kk % 2) sk.sw = !sk.sw; sk.butSpun = false; sk.spinV = 0; } }
   if (sk.finished) popReq = false;
   sk.turn = lerp(sk.turn, steer, Math.min(1, 10 * dt));
@@ -1037,7 +1039,7 @@ function step(dt) {
       } else {
         sk.x = nx; sk.s = ns; sk.y = hn;
         sk.rot += wrap(sA - sk.rot) * Math.min(1, 10 * dt);
-        if (!butterNow && !sk.butSpun) { sk.spin += (sk.spinTarget - sk.spin) * Math.min(1, 9 * dt);
+        if (!butterNow && !boxSpin && !sk.butSpun) { sk.spin += (sk.spinTarget - sk.spin) * Math.min(1, 9 * dt);
         if (Math.abs(sk.spin - sk.spinTarget) < 0.02) { sk.spin = 0; sk.spinTarget = 0; } }
         if (sk.sp > 4) { const nS = GL ? 7 : sk.sp > 18 ? 3 : 2, up = GL ? 3.4 : 1.6; spray(sk.x - hx * 0.5 + hs * 0.14, sk.y, sk.s - hs * 0.5 - hx * 0.14, nS, up); spray(sk.x - hx * 0.5 - hs * 0.14, sk.y, sk.s - hs * 0.5 + hx * 0.14, nS, up); }
         if (steer && sk.sp > 6 && sk.carve > 0.2) spray(sk.x - steer * 0.35 - hx * 0.2, sk.y, sk.s - hs * 0.2, 2 + Math.floor(sk.sp / 10), 3 + sk.sp * 0.05, -steer * (3 + sk.carve * 4 + sk.sp * 0.12));
@@ -1599,7 +1601,7 @@ const GRAB_P = { method: { ay: 0.72, az: 0.2, hy: 0.88, pitch: -0.5, cross: 0.1,
 function poseSkier(dt, time) {
   const R = skierRig, p = R.pose, air = sk.air;
   const flipping = air && Math.abs(sk.rotV) > 2.5, gk = air && !sk.crashed ? (K.grab ? "tail" : K.grabN ? "nose" : K.grabI ? "indy" : K.grabQ ? "japan" : null) : null, grab = !!gk, bikeOn = !!sk.bike, tuck = !air && K.boost && !sk.grind && !sk.crashed;
-  const sliding = sk.grind || sk.boxT > 0.15, nbutter = !air && K.up && !K.down && !(sk.boxT > 0.15) && !sk.crashed && !sk.bike && sk.sp > 2, butter = !air && K.down && !K.up && !(sk.boxT > 0.15) && !sk.crashed && !sk.bike && sk.sp > 2;
+  const sliding = (sk.grind || sk.boxT > 0.15) && !(K.up || K.down), nbutter = !air && K.up && !K.down && !sk.crashed && !sk.bike && sk.sp > 2, butter = !air && K.down && !K.up && !sk.crashed && !sk.bike && sk.sp > 2;
   const tailT = [0.3, 1.1, 0.55];
   if (gk) p.kind = gk;
   if (grab) { R.rig.updateMatrixWorld(true); (p.kind === "nose" ? R.noseM[1] : (p.kind === "indy" || p.kind === "japan") ? R.midM[0] : R.tailM[0]).getWorldPosition(_tv); R.rig.worldToLocal(_tv); tailT[0] = _tv.x; tailT[1] = _tv.y + 0.02; tailT[2] = _tv.z; }
@@ -2109,14 +2111,22 @@ function buildFinish() {
 }
 let valleyDrop = null;
 /* Snowpark Builder: place rails, boxes and kickers on a wide groomed slope, then ride them */
-let editing = BLD, bldTool = "rail", bldSize = 1, bldItems = [], bldCamS = 40, bldZoom = 1;
+let bldRt = "flat", editing = BLD, bldTool = "select", bldSel = -1, bldRing = null, bldSize = 1, bldItems = [], bldCamS = 40, bldZoom = 1;
 const bldSave = () => store.set("kb-park", bldItems);
 function bldLoad() { const it = store.get("kb-park", null); bldItems = Array.isArray(it) ? it : [{ t: "kicker", x: -8, s: 90, z: 1, sd: 11 }, { t: "rail", x: 8, s: 130, z: 1, sd: 12 }, { t: "box", x: 0, s: 230, z: 1, sd: 13 }, { t: "rail", x: -9, s: 300, z: 1.3, sd: 14 }, { t: "kicker", x: 9, s: 390, z: 1.4, sd: 15 }]; }
+const RAIL_TYPES = { flat: "Flat", down: "Down", step: "Steps", curve: "Curve" };
 function bldFeature(it) {
-  const f = { s0: it.s, parts: [], label: "Your park", boost: null, rail: null, coins: [], mainCx: it.x, idx: 0 };
+  const f = { s0: it.s, parts: [], label: "Your park", boost: null, rail: null, coins: [], mainCx: it.x, idx: 0 }, h = it.h || RAIL_H;
   if (it.t === "kicker") { const keep = rngF; rngF = mulberry(it.sd || 1); const kind = it.z < 0.85 ? 0 : it.z < 1.25 ? 1 : 2, k = mkKicker(it.s, kind, it.x, 3.2 + it.z * 1.2, 0, 1); rngF = keep; f.parts.push(k); f.s0 = k.s0; f.end = k.end; }
   else if (it.t === "box") { const len = 12 + 8 * it.z; f.s0 = it.s; f.parts.push({ type: "box", s0: it.s, len, end: it.s + len, B: 0.75, cx: it.x, hw: 1.9 }); f.end = it.s + len; }
-  else { const len = 22 + 26 * it.z; f.rail = { s0: it.s, s1: it.s + len, x: it.x, fixedLen: true }; f.s0 = it.s - 26; upgradeRails(f); f.end = it.s + len + 3; }
+  else {
+    const len = 22 + 26 * it.z, rt = it.rt || "flat"; f.s0 = it.s - 26;
+    if (rt === "step") { const n = 3, l = len / n, rs = []; for (let q = 0; q < n; q++) rs.push({ s0: it.s + q * l, s1: it.s + (q + 1) * l, x: it.x, fixedLen: true, noRamp: q > 0, h: Math.max(0.9, h - q * 1.2) }); rs.forEach((r, q) => { if (rs[q + 1]) r.next = rs[q + 1]; }); f.rail = rs[0]; f.rail2 = rs.slice(1); }
+    else if (rt === "down") f.rail = { s0: it.s, s1: it.s + len * 1.25, x: it.x, fixedLen: true, h, h1: Math.max(0.9, h - 3) };
+    else if (rt === "curve") f.rail = { s0: it.s, s1: it.s + len * 1.2, x: it.x - 2, fixedLen: true, h, amp: 4 + it.z * 1.5, k: 1.5 };
+    else f.rail = { s0: it.s, s1: it.s + len, x: it.x, fixedLen: true, h };
+    upgradeRails(f); f.end = Math.max(...railsOf(f).map(r => r.s1)) + 3;
+  }
   return f;
 }
 function bldRebuild() {
@@ -2127,17 +2137,24 @@ function bldRebuild() {
   for (const [, m] of featMeshes) scene.remove(m); featMeshes.clear();
 }
 function bldSetEditing(v) { editing = v; $("bld").classList.toggle("ride", !v); $("bldride").textContent = v ? "Ride ▶" : "Edit park"; if (v) { bldCamS = Math.max(40, sk.s); for (const k in K) K[k] = 0; } else { window.__cam = null; restart(); snapCam = true; } }
+function bldSyncEdit() {
+  const it = bldItems[bldSel], pan = $("bldedit"); if (!it) { pan.hidden = true; return; }
+  pan.hidden = false; $("bldname").textContent = it.t === "rail" ? "Rail" : it.t === "box" ? "Box" : "Kicker";
+  $("bldz").value = it.z; const rl = it.t === "rail"; $("bldrt").hidden = !rl; $("bldhrow").hidden = !rl; if (rl) { $("bldh").value = it.h || RAIL_H; document.querySelectorAll("#bldrt button").forEach(b => b.classList.toggle("on", b.dataset.rt === (it.rt || "flat"))); }
+}
 function bldClick(e) {
   if (!BLD || !editing || paused) return;
   const r = cv.getBoundingClientRect(), rc = new THREE.Raycaster(); rc.setFromCamera(new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), camera);
   const o = rc.ray.origin, d = rc.ray.direction; let hit = null;
   for (let t = 1; t < 900; t += 1.5) { const x = o.x + d.x * t, y = o.y + d.y * t, z = o.z + d.z * t; if (y <= H(x, -z)) { hit = [x, -z]; break; } }
   if (!hit) return; const x = clamp(hit[0], -(PISTE - 5), PISTE - 5), s = clamp(hit[1], 45, COURSE_END - 150);
-  if (bldTool === "erase") { let bi = -1, bd = 14; bldItems.forEach((it, i) => { const dd = Math.hypot(it.x - hit[0], it.s - hit[1]); if (dd < bd) { bd = dd; bi = i; } }); if (bi >= 0) bldItems.splice(bi, 1); }
-  else bldItems.push({ t: bldTool, x: +x.toFixed(1), s: +s.toFixed(0), z: bldSize, sd: 1 + Math.floor(Math.random() * 9999) });
-  if (bldItems.length > 60) bldItems.shift();
+  const nearest = (lim) => { let bi = -1, bd = lim; bldItems.forEach((it, i) => { const ex = it.t === "kicker" ? 20 : it.t === "rail" ? 12 : 6, dd = Math.hypot(it.x - hit[0], it.s + ex - hit[1]); if (dd < bd) { bd = dd; bi = i; } }); return bi; };
+  if (bldTool === "select") { bldSel = nearest(18); bldSyncEdit(); return; }
+  if (bldTool === "erase") { const bi = nearest(16); if (bi >= 0) { bldItems.splice(bi, 1); bldSel = -1; bldSyncEdit(); } }
+  else { bldItems.push({ t: bldTool, x: +x.toFixed(1), s: +s.toFixed(0), z: bldSize, h: RAIL_H, rt: bldRt, sd: 1 + Math.floor(Math.random() * 9999) }); bldSel = bldItems.length - 1; if (bldItems.length > 60) { bldItems.shift(); bldSel--; } bldSyncEdit(); }
   bldSave(); bldRebuild();
 }
+function bldEditSet(k, v) { const it = bldItems[bldSel]; if (!it) return; it[k] = v; bldSave(); bldRebuild(); }
 function bldUpdate(dt) {
   if (!BLD) return;
   if (editing) {
@@ -2145,6 +2162,8 @@ function bldUpdate(dt) {
     const cs = bldCamS - 26 * bldZoom, cy = H(0, bldCamS) + 30 * bldZoom;
     window.__cam = { pos: [0, cy, -cs], look: [0, H(0, bldCamS + 22) - 2, -(bldCamS + 22)] };
   }
+  if (!bldRing && typeof scene !== "undefined" && scene) { bldRing = new THREE.Mesh(new THREE.TorusGeometry(1, 0.08, 6, 40), new THREE.MeshBasicMaterial({ color: 0xffd447, depthTest: false })); bldRing.rotation.x = Math.PI / 2; bldRing.renderOrder = 20; scene.add(bldRing); }
+  if (bldRing) { const it = bldItems[bldSel]; bldRing.visible = !!it && editing; if (it) { const ex = it.t === "kicker" ? 24 : it.t === "rail" ? 16 : 8; bldRing.position.set(it.x, H(it.x, it.s + ex) + 0.4, -(it.s + ex)); const rad = it.t === "kicker" ? 14 : it.t === "rail" ? 10 : 6; bldRing.scale.set(rad, rad, rad); } }
 }
 
 /* mountain life: other skiers on the run, ski patrol with a rescue sled, and a chairlift with moving chairs */
@@ -2172,7 +2191,7 @@ function patrolProp(x, y, s, yaw) {
 }
 function updateLife(dt, time) {
   if (!LIFE || mode !== "play") return;
-  if (!npcs) { npcs = []; window.__npcs = npcs; const n = PEAK ? 6 : 12; for (let i = 0; i < n; i++) { const g = mkNpc(i); g.visible = false; scene.add(g); npcs.push({ g, s: -1e9, off: 0, v: 10, ph: Math.random() * 6 }); } }
+  if (!npcs) { npcs = []; window.__npcs = npcs; const n = 0; for (let i = 0; i < n; i++) { const g = mkNpc(i); g.visible = false; scene.add(g); npcs.push({ g, s: -1e9, off: 0, v: 10, ph: Math.random() * 6 }); } }
   for (const n of npcs) {
     if (n.s < sk.s - 70 || n.s > sk.s + 520) { n.s = sk.s + 40 + Math.random() * 420; n.off = (Math.random() < 0.5 ? -1 : 1) * (PEAK ? 6 + Math.random() * 14 : 5 + Math.random() * 6.5); n.v = 7 + Math.random() * 9; n.ph = Math.random() * 6; n.w = 1.5 + Math.random() * 3; n.g.visible = true; }
     n.s += n.v * dt;
@@ -2629,7 +2648,7 @@ function render(dt, time) {
   R.grindYaw = lerp(R.grindYaw || 0, grindYaw, Math.min(1, 12 * dt));
   R.root.rotation.y = -(sk.psi + R.grindYaw); R.rig.rotation.y = -(sk.spin + (sk.sw ? Math.PI : 0));
   { // on a rail the body slides along the skis so the tips (W) or tails (S) sit on the rail
-    const P = R.pose, tgt = sk.grind && !sk.crashed ? (K.up && !K.down ? 1 : K.down && !K.up ? -1 : 0) : 0; P.slide = (P.slide || 0) + (tgt - (P.slide || 0)) * Math.min(1, 10 * dt);
+    const P = R.pose, tgt = (sk.grind || sk.boxT > 0.15) && !sk.crashed ? (K.up && !K.down ? 1 : K.down && !K.up ? -1 : 0) : 0; P.slide = (P.slide || 0) + (tgt - (P.slide || 0)) * Math.min(1, 10 * dt);
     const th = R.rig.rotation.y, o = 0.78 * P.slide; R.rig.position.x = o * Math.sin(th); R.rig.position.z = o * Math.cos(th); }
   R.pivot.rotation.x = sk.rot;
   R.pivot.rotation.z = sk.crashed ? sk.tumZ : -sk.turn * (0.3 + 0.32 * sk.carve) * (sk.air ? 0.3 : 1);
@@ -2910,7 +2929,10 @@ if (BLD) {
   bldLoad(); bldRebuild(); $("bld").hidden = false; $("bld").classList.remove("ride");
   document.querySelectorAll("#bldtools button").forEach(b => b.onclick = () => { bldTool = b.dataset.tool; document.querySelectorAll("#bldtools button").forEach(x => x.classList.toggle("on", x === b)); b.blur(); });
   $("bldsize").oninput = e => { bldSize = +e.target.value; };
-  $("bldclear").onclick = () => { bldItems = []; bldSave(); bldRebuild(); $("bldclear").blur(); };
+  $("bldz").oninput = e => bldEditSet("z", +e.target.value); $("bldh").oninput = e => bldEditSet("h", +e.target.value);
+  document.querySelectorAll("#bldrt button").forEach(b => b.onclick = () => { bldRt = b.dataset.rt; bldEditSet("rt", b.dataset.rt); bldSyncEdit(); b.blur(); });
+  $("blddel").onclick = () => { if (bldItems[bldSel]) { bldItems.splice(bldSel, 1); bldSel = -1; bldSave(); bldRebuild(); bldSyncEdit(); } $("blddel").blur(); };
+  $("bldclear").onclick = () => { bldItems = []; bldSel = -1; bldSyncEdit(); bldSave(); bldRebuild(); $("bldclear").blur(); };
   $("bldride").onclick = () => { bldSetEditing(!editing); $("bldride").blur(); };
   cv.addEventListener("pointerdown", bldClick);
   cv.addEventListener("wheel", e => { if (editing) { e.preventDefault(); bldZoom = clamp(bldZoom + Math.sign(e.deltaY) * 0.1, 0.5, 2.2); } }, { passive: false });
