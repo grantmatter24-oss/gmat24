@@ -280,8 +280,8 @@ function cliffOff(s) {
 
 /* Race Gates: a very hard giant-slalom course. Gates alternate side to side and tighten toward the bottom */
 const GATES = []; let gIdx = 0, gMiss = 0, gPass = 0, gateGroup = null;
-if (GT) { [[330, 36], [700, -34], [1060, 40], [1420, -36], [1780, 34], [2080, 0]].forEach(([c, x]) => pcs.push({ a: c - 70, b: c + 70, x })); }
-if (GT) { const r2 = mulberry(31337); let s = 75, k = 0; while (s < COURSE_END - 140) { const pr = Math.min(1, (s - 75) / 1500), dir = k % 2 ? 1 : -1, off = dir * (1.6 + r2() * (2.0 + 2.6 * pr)), cx = pc(s) + off; GATES.push({ s, cx, off, inner: -dir, hw: 2.1 - 0.3 * pr, st: 0 }); k++; s += 38 - 12 * pr + (k % 7 === 0 ? 7 : 0); } }
+if (GT) { [[330, 36, 70], [700, -40, 55], [1060, 50, 38], [1420, -50, 34], [1780, 46, 30], [2080, 0, 70]].forEach(([c, x, w]) => pcs.push({ a: c - w, b: c + w, x })); }
+if (GT) { const r2 = mulberry(31337); let s = 75, k = 0; while (s < COURSE_END - 140) { const pr = Math.min(1, (s - 75) / 1500), dir = k % 2 ? 1 : -1, off = dir * (1.6 + r2() * (2.0 + 2.6 * pr) + (k % 9 === 8 ? 2.2 : 0)), cx = pc(s) + off; GATES.push({ s, cx, off, inner: -dir, hw: 2.1 - 0.3 * pr, st: 0 }); k++; s += 38 - 12 * pr + (k % 7 === 0 ? 7 : 0); } }
 if (GT) [[150, 0.5], [340, 0.58], [470, 0.98], [610, 0.98], [720, 0.56], [1000, 0.6], [1160, 1.04], [1310, 1.04], [1420, 0.6], [1730, 0.95], [1860, 0.95], [1960, 0.56], [2100, 0.5]].forEach(([s, v]) => addKnot(s, v));
 function gateReset() { gIdx = 0; gMiss = 0; gPass = 0; GATES.forEach(g => { g.st = 0; g.knocked = false; if (g.panel) g.panel.material.color.setHex(g.col); if (g.pIn) { g.pIn.rotation.set(0, 0, 0); g.pIn.position.y = g.pInY; } }); }
 function gateCheck() {
@@ -905,6 +905,7 @@ function step(dt) {
     sk.sp *= Math.exp(-1.5 * dt);
     sk.x += sk.sp * hx * dt; sk.s += sk.sp * hs * dt; sk.y = H(sk.x, sk.s);
     sk.rot += sk.rotV * dt; sk.rotV *= Math.exp(-1.1 * dt); sk.tumX = sk.rot; sk.tumZ *= Math.exp(-0.8 * dt);
+    if (GT && sk.crashT > 1.2) { restart(); popup("Run reset", "You fell, back to the start", true); return; }
     if (sk.crashT > 1.8) respawn();
     return;
   }
