@@ -782,7 +782,7 @@ function landing(surfaceType, rail) {
   const sA = sA_(sk.x, sk.s, sk.psi), diff = wrap(sk.rot - sA);
   const spinOff = Math.abs(sk.spin - Math.round(sk.spin / Math.PI) * Math.PI);
   const real = sk.airT > 0.3, heli = sk.heli; sk.heli = false;
-  if (real && !heli && Math.abs(diff) > 1.2) return crash("Bad landing"); // a sideways spin never crashes: the skis swing round to the nearest forward or backward
+  if (real && !heli && Math.abs(diff) > 1.95) return crash("Bad landing"); // a sideways spin never crashes: the skis swing round to the nearest forward or backward
   sk.rot = sA + diff; // normalise so a flip never unwinds on the ground
   const vh = Math.hypot(sk.vx, sk.vs);
   sk.psi = Math.atan2(sk.vx, sk.vs);
@@ -792,6 +792,7 @@ function landing(surfaceType, rail) {
     const vn = sk.vx * nx + sk.vy * ny + sk.vs * ns, tx = sk.vx - vn * nx, ty = sk.vy - vn * ny, ts = sk.vs - vn * ns;
     if (Math.hypot(tx, ts) > 0.5) sk.psi = Math.atan2(tx, ts); vt = Math.hypot(tx, ty, ts) * 0.97;
   }
+  if (real && !heli && Math.abs(diff) > 0.75) { vt *= 1 - 0.4 * clamp((Math.abs(diff) - 0.75) / 1.2, 0, 1); spray(sk.x, sk.y, sk.s, 10, 4); } // sloppy pitch only scrubs speed
   sk.sp = clamp(Math.max(vt, 4), 4, MAXV);
   sk.air = false; if (sk.airT > 0.15) sk.landT = 0.35;
   const kHalf = Math.round(sk.spin / Math.PI), odd = Math.abs(kHalf) % 2 === 1;
