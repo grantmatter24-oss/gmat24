@@ -97,6 +97,7 @@
   #focus { display: block; height: 100%; width: 100%; background: var(--ice); border-radius: 4px; }
   #stage::before { content: ""; position: absolute; inset: 0; z-index: 1; background: radial-gradient(ellipse at 50% 45%, rgba(20,10,40,0) 55%, rgba(30,12,50,.38) 100%); pointer-events: none; }
   #stage.slow::after { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse at center, rgba(111,180,255,0) 45%, rgba(40,90,170,.35) 100%); pointer-events: none; }
+  #wxfog { position: absolute; inset: 0; pointer-events: none; opacity: 0; background: radial-gradient(ellipse at 50% 55%, rgba(236,241,248,.55), rgba(236,241,248,.92) 85%); }
   #chg { position: absolute; left: 50%; bottom: 76px; width: 150px; height: 9px; margin-left: -75px; border-radius: 6px; background: rgba(20,24,31,.6); border: 1px solid rgba(255,255,255,.4); pointer-events: none; }
   #chg i { display: block; height: 100%; width: 0; border-radius: 5px; background: linear-gradient(90deg, #5ec8ff, #ffd447 70%, #ff7a2f); }
   #hint { position: absolute; left: 0; right: 0; bottom: max(10px, env(safe-area-inset-bottom, 0px)); text-align: center; font-size: 14px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); pointer-events: none; padding: 0 16px; text-shadow: 0 1px 0 rgba(11,26,41,.6); }
@@ -122,6 +123,7 @@
 
 <div id="stage">
   <canvas id="cv"></canvas>
+  <div id="wxfog"></div>
   <div id="veil"></div>
   <div class="hud">
     <div class="score"><span id="score">0</span><b id="mult">×1</b></div>
@@ -145,6 +147,7 @@
         <button type="button" data-t="sunset" title="Sunset" aria-label="Sunset"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6.5 16a5.5 5.5 0 0 1 11 0M3 16h18M5 20h14M12 6v2.5M4.6 9.6l1.8 1.6M19.4 9.6l-1.8 1.6"/></svg></button>
         <button type="button" data-t="night" title="Night" aria-label="Night"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg></button>
         <button type="button" id="wxbtn" title="Snowfall on or off" aria-label="Snowfall" aria-pressed="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 2.5v19M3.8 7.2l16.4 9.6M3.8 16.8l16.4-9.6M9.5 4.5L12 7l2.5-2.5M9.5 19.5L12 17l2.5 2.5"/></svg></button>
+        <button type="button" id="blzbtn" title="Blizzard: heavy snow and almost no visibility" aria-label="Blizzard" aria-pressed="false"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3 8h11a3 3 0 1 0-3-3M3 13h16a3 3 0 1 1-3 3M3 18h8"/></svg></button>
       </div>
     </div>
   </div>
@@ -1065,7 +1068,7 @@ const cv = $("cv");
 const chunks = new Map(), featMeshes = new Map(), trailMeshes = new Map();
 const CH = 40;
 let sprayPts, snowPts;
-const SN = 3200, SP = 600; let stormMix = 0, fogBase = null;
+const SN = 7000, SN1 = 3200, SP = 600; let stormMix = 0, fogBase = null;
 const sprayD = { x: new Float32Array(SP), y: new Float32Array(SP), z: new Float32Array(SP), vx: new Float32Array(SP), vy: new Float32Array(SP), vz: new Float32Array(SP), life: new Float32Array(SP) };
 let sprayIdx = 0;
 function spray(x, y, s, n, up, side) {
@@ -1092,7 +1095,7 @@ const TODS = {
     sky: { cH: [.1, .13, .3], cM: [.05, .07, .2], cT: [.015, .025, .09], haze: [.04, .06, .16], g1: [.35, .45, .9], g2: [.7, .8, 1], gStr: .5, stars: 1 }, cloud: { op: 0.12, color: 0x7f8fd8 }, sunSpr: { op: 0.6, color: 0xcfe0ff, scale: 260 }, face: { op: 0.6, color: 0x7f8fe0, rays: 0x8fa6ff, rop: 0.25 },
     pal: { sn: [.55, .65, .95], fogc: [.04, .06, .16], tree: [.12, .14, .22], snowLine: .12, snowUp: .15, lit: [.5, .6, 1], sh: [.14, .17, .35], gain: 1.5 } }
 };
-let snowOn = store.get("kb-snow", true) !== false;
+let snowOn = store.get("kb-snow", true) !== false, blizzOn = store.get("kb-blizz", false) === true;
 let todName = store.get("kb-tod", PEAK ? "day" : "sunset"); if (!TODS[todName]) todName = "sunset";
 function initRender() {
   try {
@@ -2497,15 +2500,17 @@ function render(dt, time) {
   sprayPts.geometry.attributes.position.needsUpdate = true;
   // snowfall box around the camera
   const np = snowPts.geometry.attributes.position.array, cx = camera.position.x, cy = camera.position.y, cz = camera.position.z;
-  if (snowOn) for (let i = 0; i < SN; i++) {
+  const bz = blizzOn ? 1 : 0, SNn = bz ? SN : SN1; snowPts.geometry.setDrawRange(0, SNn); snowPts.material.size = bz ? 0.42 : 0.3;
+  if (snowOn) for (let i = 0; i < SNn; i++) {
     let x = np[i * 3], y = np[i * 3 + 1], z = np[i * 3 + 2];
-    y -= (6.5 + (i % 5) * 1.3) * dt; x += (13 + Math.sin(time * 0.7) * 6 + Math.sin(time * 0.6 + i) * 2.5) * dt; z += (Math.sin(time * 0.35 + i * 0.1) * 3 - 1.5) * dt;
+    y -= (6.5 + (i % 5) * 1.3 + bz * 7) * dt; x += (13 + bz * 20 + Math.sin(time * 0.7) * (6 + bz * 6) + Math.sin(time * 0.6 + i) * 2.5) * dt; z += (Math.sin(time * 0.35 + i * 0.1) * 3 - 1.5) * dt;
     np[i * 3] = cx + (((x - cx + 35) % 70) + 70) % 70 - 35; np[i * 3 + 1] = cy - 14 + (((y - cy + 14) % 30) + 30) % 30; np[i * 3 + 2] = cz + (((z - cz + 35) % 70) + 70) % 70 - 35;
   }
   snowPts.geometry.attributes.position.needsUpdate = true;
-  { stormMix += ((snowOn ? 1 : 0) - stormMix) * Math.min(1, dt * 1.2); const f = scene.fog;
+  { stormMix += ((snowOn ? (blizzOn ? 2 : 1) : 0) - stormMix) * Math.min(1, dt * 1.2); const f = scene.fog;
+    if (!fogBase) fogBase = { near: f.near, far: f.far, color: f.color.clone() };
     if (stormMix < 0.002) { stormMix = 0; fogBase = { near: f.near, far: f.far, color: f.color.clone() }; }
-    else if (fogBase) { f.near = 1 / lerp(1 / Math.max(1, fogBase.near), 1 / 18, stormMix * 0.95); f.far = 1 / lerp(1 / fogBase.far, 1 / 190, stormMix * 0.95); f.color.copy(fogBase.color).lerp(new THREE.Color(0xe4eaf2), 0.55 * stormMix); } }
+    else if (fogBase) { const m1 = Math.min(1, stormMix), mb = Math.max(0, stormMix - 1); f.near = 1 / lerp(1 / Math.max(1, fogBase.near), 1 / 18, m1 * 0.95); f.far = 1 / lerp(1 / fogBase.far, 1 / 190, m1 * 0.95); f.near = lerp(f.near, 3, mb); f.far = lerp(f.far, 60, mb); f.color.copy(fogBase.color).lerp(new THREE.Color(0xe4eaf2), 0.55 * m1).lerp(new THREE.Color(0xeef1f6), 0.7 * mb); $("wxfog").style.opacity = (mb * 0.8).toFixed(2); } }
   updateLife(dt, time);
   { const ce = $("chg"); if (ce) { const on = sk.chg > 0.02; if (ce.hidden === on) ce.hidden = !on; if (on) ce.firstElementChild.style.width = Math.round(sk.chg * 100) + "%"; } }
   updateCamera(dt);
@@ -2624,8 +2629,9 @@ $("resume").onclick = () => setPaused(false);
 $("homebtn").onclick = () => { location.hash = "#home"; location.reload(); };
 $("resortname").textContent = RESORT_NAMES[RES];
 document.querySelectorAll("#tods button[data-t]").forEach(b => { if (b.dataset.t === todName) b.classList.add("on"); b.onclick = () => { todName = b.dataset.t; store.set("kb-tod", todName); document.querySelectorAll("#tods button[data-t]").forEach(x => x.classList.toggle("on", x === b)); b.blur(); if (scene && scene.userData.applyTOD) scene.userData.applyTOD(todName); }; });
-function applySnow() { if (snowPts) snowPts.visible = snowOn; $("wxbtn").classList.toggle("on", snowOn); $("wxbtn").setAttribute("aria-pressed", String(snowOn)); }
-$("wxbtn").onclick = () => { snowOn = !snowOn; store.set("kb-snow", snowOn); $("wxbtn").blur(); applySnow(); };
+function applySnow() { if (snowPts) snowPts.visible = snowOn; $("wxbtn").classList.toggle("on", snowOn); $("wxbtn").setAttribute("aria-pressed", String(snowOn)); $("blzbtn").classList.toggle("on", blizzOn); $("blzbtn").setAttribute("aria-pressed", String(blizzOn)); }
+$("wxbtn").onclick = () => { snowOn = !snowOn; if (!snowOn) blizzOn = false; store.set("kb-snow", snowOn); store.set("kb-blizz", blizzOn); $("wxbtn").blur(); applySnow(); };
+$("blzbtn").onclick = () => { blizzOn = !blizzOn; if (blizzOn) snowOn = true; store.set("kb-snow", snowOn); store.set("kb-blizz", blizzOn); $("blzbtn").blur(); applySnow(); };
 applySnow();
 document.querySelectorAll("#resorts button").forEach(b => { if (b.dataset.r === RES) b.classList.add("on"); b.onclick = () => { if (b.dataset.r === RES) return; b.blur(); location.hash = "#" + b.dataset.r; location.reload(); }; });
 function begin() { audioInit(); $("intro").hidden = true; $("home").hidden = true; stopHome(); if (mode !== "play") { mode = "play"; restart(); } }
