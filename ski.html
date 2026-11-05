@@ -1471,7 +1471,7 @@ const GRAB_P = { method: { ay: 0.72, az: 0.2, hy: 0.88, pitch: -0.5, cross: 0.1,
 function poseSkier(dt, time) {
   const R = skierRig, p = R.pose, air = sk.air;
   const flipping = air && Math.abs(sk.rotV) > 2.5, gk = air && !sk.crashed ? (K.grab ? "tail" : K.grabN ? "nose" : K.grabI ? "indy" : K.grabQ ? "japan" : null) : null, grab = !!gk, bikeOn = !!sk.bike, tuck = !air && K.boost && !sk.grind && !sk.crashed;
-  const sliding = sk.grind || sk.boxT > 0.15, nbutter = !air && K.up && !K.down && !(sk.grind || sk.boxT > 0.15) && !sk.crashed && !sk.bike && sk.sp > 2, butter = !air && K.down && !K.up && !sliding && !sk.crashed && !sk.bike && sk.sp > 2;
+  const sliding = sk.grind || sk.boxT > 0.15, nbutter = !air && K.up && !K.down && !(sk.boxT > 0.15) && !sk.crashed && !sk.bike && sk.sp > 2, butter = !air && K.down && !K.up && !(sk.boxT > 0.15) && !sk.crashed && !sk.bike && sk.sp > 2;
   const tailT = [0.3, 1.1, 0.55];
   if (gk) p.kind = gk;
   if (grab) { R.rig.updateMatrixWorld(true); (p.kind === "nose" ? R.noseM[1] : (p.kind === "indy" || p.kind === "japan") ? R.midM[0] : R.tailM[0]).getWorldPosition(_tv); R.rig.worldToLocal(_tv); tailT[0] = _tv.x; tailT[1] = _tv.y + 0.02; tailT[2] = _tv.z; }
@@ -2454,6 +2454,9 @@ function render(dt, time) {
   const grindYaw = sk.grind || sk.boxT > 0.15 ? 1.45 : 0;
   R.grindYaw = lerp(R.grindYaw || 0, grindYaw, Math.min(1, 12 * dt));
   R.root.rotation.y = -(sk.psi + R.grindYaw); R.rig.rotation.y = -(sk.spin + (sk.sw ? Math.PI : 0));
+  { // on a rail the body slides along the skis so the tips (W) or tails (S) sit on the rail
+    const P = R.pose, tgt = sk.grind && !sk.crashed ? (K.up && !K.down ? 1 : K.down && !K.up ? -1 : 0) : 0; P.slide = (P.slide || 0) + (tgt - (P.slide || 0)) * Math.min(1, 10 * dt);
+    const th = R.rig.rotation.y, o = 0.78 * P.slide; R.rig.position.x = o * Math.sin(th); R.rig.position.z = o * Math.cos(th); }
   R.pivot.rotation.x = sk.rot;
   R.pivot.rotation.z = sk.crashed ? sk.tumZ : -sk.turn * (0.3 + 0.32 * sk.carve) * (sk.air ? 0.3 : 1);
   const sunL = scene.userData.sun; sunL.position.set(sk.x + SUN.x * 120, sk.y + SUN.y * 120, -sk.s + SUN.z * 120); sunL.target.position.set(sk.x, sk.y, -sk.s); sunL.target.updateMatrixWorld();
