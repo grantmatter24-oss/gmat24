@@ -97,6 +97,8 @@
   #focus { display: block; height: 100%; width: 100%; background: var(--ice); border-radius: 4px; }
   #stage::before { content: ""; position: absolute; inset: 0; z-index: 1; background: radial-gradient(ellipse at 50% 45%, rgba(20,10,40,0) 55%, rgba(30,12,50,.38) 100%); pointer-events: none; }
   #stage.slow::after { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse at center, rgba(111,180,255,0) 45%, rgba(40,90,170,.35) 100%); pointer-events: none; }
+  #chg { position: absolute; left: 50%; bottom: 76px; width: 150px; height: 9px; margin-left: -75px; border-radius: 6px; background: rgba(20,24,31,.6); border: 1px solid rgba(255,255,255,.4); pointer-events: none; }
+  #chg i { display: block; height: 100%; width: 0; border-radius: 5px; background: linear-gradient(90deg, #5ec8ff, #ffd447 70%, #ff7a2f); }
   #hint { position: absolute; left: 0; right: 0; bottom: max(10px, env(safe-area-inset-bottom, 0px)); text-align: center; font-size: 14px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); pointer-events: none; padding: 0 16px; text-shadow: 0 1px 0 rgba(11,26,41,.6); }
   #touch { display: none; position: absolute; left: max(12px, env(safe-area-inset-left, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); bottom: max(12px, env(safe-area-inset-bottom, 0px)); justify-content: space-between; gap: 8px; }
   #touch .grp { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -152,7 +154,8 @@
   <div id="focuswrap"><span>Slow-mo</span><div class="bar"><i id="focus"></i></div><span>F</span></div>
   <div id="pop"><div class="t"></div><div class="s"></div></div>
   <div id="toast"></div>
-  <div id="hint">A D or ← → steer, spin in the air (flip + spin = cork) &nbsp;·&nbsp; ↑ ↓ flip, W/S butter on the ground &nbsp;·&nbsp; Space = jump / tail grab &nbsp;·&nbsp; Q = japan &nbsp;·&nbsp; E = nose &nbsp;·&nbsp; C = indy &nbsp;·&nbsp; Shift = speed up &nbsp;·&nbsp; J = slow down &nbsp;·&nbsp; F = slow-mo &nbsp;·&nbsp; P = pause</div>
+  <div id="chg" hidden><i></i></div>
+  <div id="hint">A D or ← → steer, spin in the air (flip + spin = cork) &nbsp;·&nbsp; ↑ ↓ flip, W/S butter on the ground &nbsp;·&nbsp; Hold Space to charge a jump, release to pop · tail grab in the air &nbsp;·&nbsp; Q = japan &nbsp;·&nbsp; E = nose &nbsp;·&nbsp; C = indy &nbsp;·&nbsp; Shift = speed up &nbsp;·&nbsp; J = slow down &nbsp;·&nbsp; F = slow-mo &nbsp;·&nbsp; P = pause</div>
   <div id="touch">
     <div class="grp"><button data-k="left">Left</button><button data-k="right">Right</button></div>
     <div class="grp"><button data-k="up">Front flip</button><button data-k="down">Back / butter</button><button data-k="spin">Spin</button><button data-k="grab">Pop / tail</button><button data-k="grabN">Nose</button><button data-k="grabQ">Japan</button><button data-k="grabI">Indy</button><button data-k="boost">Speed</button><button data-k="brake">Slow</button><button data-k="focus">Focus</button></div>
@@ -731,7 +734,10 @@ function boxAt(x, s) {
    PHYSICS
    ===================================================================== */
 const K = { left: 0, right: 0, up: 0, down: 0, spinL: 0, spinR: 0, grab: 0, grabN: 0, grabI: 0, grabQ: 0, grabE: 0, focus: 0, boost: 0, brake: 0 };
-let popReq = false;
+let popReq = false, popPow = 1, charging = false, chargeT = 0;
+const chgEl = () => $("chg");
+function gDown() { if (!charging && sk && mode === "play" && !paused && !sk.air && !sk.crashed && !sk.finished && !sk.bike) { charging = true; chargeT = 0; } }
+function gUp() { if (charging) { charging = false; popPow = Math.max(0.3, Math.min(1, chargeT / 0.5)); popReq = true; chargeT = 0; } }
 const GRABS = ["Mute", "Indy", "Tail", "Melon", "Nose", "Stalefish"];
 let comboT = 0, focus = 1, timeScale = 1, mode = "title", score = 0, mult = 1, best = 0, rings = 0, boostPulse = 0, shake = 0, lastCheck = null;
 best = store.get("kb-score-" + RES, 0);
@@ -834,6 +840,8 @@ const DT = 1 / 120;
 function step(dt) {
   if (mode !== "play") return;
   if (!sk.finished) runT += dt;
+  if (charging) { if (sk.air || sk.crashed || sk.finished) { charging = false; chargeT = 0; } else chargeT += dt; }
+  sk.chg = charging ? Math.min(1, chargeT / 0.5) : 0;
   if (!sk.air && !sk.grind && !sk.bike && !sk.crashed && (K.down || K.up) && sk.sp > 3) { sk.butterT = (sk.butterT || 0) + dt; sk.butterKind = K.up && !K.down ? "Nose butter" : "Tail butter"; if (Math.random() < 0.4) spray(sk.x, sk.y, sk.s - 0.7, 1, 2); }
   else { if (sk.butterT > 0.8 && !sk.crashed) payout(sk.butterT * 110, sk.butterKind || "Tail butter", false, true); sk.butterT = 0; }
   if (mult > 1 && !sk.air && !sk.grind) { comboT -= dt; if (comboT <= 0) { mult = 1; comboT = 0; } }
@@ -869,7 +877,7 @@ function step(dt) {
       if (sk.grindT > 0.2 && Math.random() < 0.6) spray(sk.x, sk.y, sk.s, 1, 3);
       if (!popReq && r.next && sk.s >= r.s1) { sk.yOff = sk.y - railY(r.next, sk.s); sk.grind = r.next; sk.grindT += 0; sk.noRail = 0; }
       else if (popReq || sk.s >= r.s1) {
-        const pop = popReq ? 10.5 : 1; sk.noRail = 0.5; sk.railNet = Math.round(sk.spin / Math.PI);
+        const pop = popReq ? 10.5 * (0.35 + 0.65 * popPow) : 1; sk.noRail = 0.5; sk.railNet = Math.round(sk.spin / Math.PI);
         sk.air = true; sk.vx = 0; sk.vs = sk.sp * Math.cos(sA); sk.vy = sk.sp * Math.sin(sA) + pop;
         sk.airT = 0; sk.flipAcc = 0; sk.spin = 0; sk.spinV = 0; sk.grabT = 0; sk.rotV = 0; sk.jumpNo++;
         const railSpins = Math.abs(sk.railNet || 0), pts = sk.grindT * 140 + 150 + railSpins * 150, wasGood = sk.grindT > 0.5 || railSpins > 0;
@@ -919,9 +927,10 @@ function step(dt) {
       // coins on the ground are not reachable; ground contact
       // Space: pop when a ramp lip is close, otherwise pump for speed
       const popNow = popReq;
-      if (popNow) { sk.sp += 0.9 * Math.max(0, 1 - sk.sp / 45); spray(sk.x - hx * 0.5, sk.y, sk.s - hs * 0.5, 4, 3); sfx("pump"); }
+      const pw = 0.35 + 0.65 * popPow;
+      if (popNow) { sk.sp += 0.9 * pw * Math.max(0, 1 - sk.sp / 45); spray(sk.x - hx * 0.5, sk.y, sk.s - hs * 0.5, 4, 3); sfx("pump"); }
       if (popNow || yp > hn + (HP ? 0.04 : 0.12)) {
-        sk.air = true; sk.vx = sk.sp * c * hx; sk.vs = sk.sp * c * hs; sk.vy = sk.sp * sn + (popNow ? (nearLip(sk.x, sk.s) ? 6.5 : railAhead(sk.x, sk.s) ? 8.6 : 5.2) : 0) + (!popNow && onRailRamp(sk.x, sk.s) ? 1.3 : 3.0);
+        sk.air = true; sk.vx = sk.sp * c * hx; sk.vs = sk.sp * c * hs; sk.vy = sk.sp * sn + (popNow ? (nearLip(sk.x, sk.s) ? 6.5 : railAhead(sk.x, sk.s) ? 8.6 : 5.2) * pw : 0) + (!popNow && onRailRamp(sk.x, sk.s) ? 1.3 : 3.0);
         sk.x = nx; sk.s = ns; sk.y = popNow ? Math.max(yp, hn) + 0.02 : yp;
         sk.airT = 0; sk.flipAcc = 0; sk.spin = 0; sk.spinV = 0; sk.grabT = 0; sk.rotV = 0; sk.spinTarget = 0; if (popNow) sk.popT = 0.2;
       } else {
@@ -1206,17 +1215,18 @@ function initRender() {
 function canvasTex(w, h, draw) { const c = document.createElement("canvas"); c.width = w; c.height = h; draw(c.getContext("2d"), w, h); return new THREE.CanvasTexture(c); }
 const OUTFIT_OPTS = {
   helmet: { frog: "Frog hat", beanie: "Beanie with ball", redbull: "Red Bull helmet", santa: "Santa hat" },
-  jacket: { trench: "Black trench coat", vest: "Grey vest, white long sleeve", santa: "Red Santa coat" },
+  jacket: { trench: "Black trench coat", vest: "Grey vest, white long sleeve", santa: "Red Santa coat", black: "Black jacket" },
   skis: { black: "Black wider skis", purple: "Purple skis", current: "Current skis", red: "Red skis", pink: "Pink skis" },
   song: { off: "No music", hypa: "Hypa · Silva Bumpa", yosemite: "Yosemite · KETTAMA", think: "Think of You · KETTAMA & Prospa", fly: "Fly Away XTC · KETTAMA", nite: "On 2nite · Silva Bumpa", doin: "Doin' it ft. MC DT · Silva Bumpa", youtube: "My YouTube link" },
   style: { simple: "Simple mannequin", detailed: "Detailed" },
   gfx: { auto: "Auto", low: "Low", med: "Medium", high: "High" },
   accessory: { scarf: "Scarf", ninja: "Ninja headband", cape: "Cape", phones: "Headphones" },
-  pants: { santa: "Red Santa pants", suit: "Black suit pants", shorts: "Grey shorts", blue: "Blue pants", khaki: "Khakis" }
+  pants: { santa: "Red Santa pants", suit: "Black suit pants", shorts: "Grey shorts", blue: "Blue pants", khaki: "Khakis", brown: "Brown pants" },
+  poles: { metal: "Metal poles", bamboo: "Bamboo poles" }
 };
-const JACKETS = { trench: { j: 0x15171b, t: 0x0c0d10, arm: 0x15171b, cuff: 0x0c0d10, sc: [0x7a1f26, 0x2a2a2e] }, vest: { j: 0x80868e, t: 0x5d636b, arm: 0xf2f3f5, cuff: 0xe4e6ea, sc: [0xf2f3f5, 0x80868e] }, santa: { j: 0xc4161c, t: 0xf6f6f2, arm: 0xc4161c, cuff: 0xf6f6f2, sc: [0xf6f6f2, 0xc4161c] } };
-const PANTS = { santa: [0xc4161c, 0xc4161c], suit: [0x17191e, 0x17191e], shorts: [0x7d838b, -1], blue: [0x2f5fa8, 0x2f5fa8], khaki: [0xb59f72, 0xb59f72] };
-let outfit = { helmet: "redbull", jacket: "vest", pants: "blue", accessory: "scarf", skis: "current", song: "off", yt: "", gfx: "auto", style: "simple" };
+const JACKETS = { trench: { j: 0x15171b, t: 0x0c0d10, arm: 0x15171b, cuff: 0x0c0d10, sc: [0x7a1f26, 0x2a2a2e] }, vest: { j: 0x80868e, t: 0x5d636b, arm: 0xf2f3f5, cuff: 0xe4e6ea, sc: [0xf2f3f5, 0x80868e] }, santa: { j: 0xc4161c, t: 0xf6f6f2, arm: 0xc4161c, cuff: 0xf6f6f2, sc: [0xf6f6f2, 0xc4161c] }, black: { j: 0x16181c, t: 0x2a2d33, arm: 0x16181c, cuff: 0x0b0c0e, sc: [0x2a2d33, 0x16181c] } };
+const PANTS = { santa: [0xc4161c, 0xc4161c], suit: [0x17191e, 0x17191e], shorts: [0x7d838b, -1], blue: [0x2f5fa8, 0x2f5fa8], khaki: [0xb59f72, 0xb59f72], brown: [0x6b4a2f, 0x6b4a2f] };
+let outfit = { helmet: "redbull", jacket: "vest", pants: "blue", accessory: "scarf", skis: "current", poles: "metal", song: "off", yt: "", gfx: "auto", style: "simple" };
 try { const o = JSON.parse(localStorage.getItem("kickerOutfit") || "null"); if (o) { for (const k in outfit) if (OUTFIT_OPTS[k] && OUTFIT_OPTS[k][o[k]]) outfit[k] = o[k]; if (typeof o.yt === "string") outfit.yt = o.yt; } } catch (e) { }
 /* progress: unlockable outfit pieces */
 const DEFAULT_OUTFIT = { helmet: "redbull", jacket: "vest", pants: "blue", accessory: "scarf", skis: "current" };
@@ -1257,6 +1267,7 @@ function applyOutfit(R) {
   m.pants.color.setHex(P[0]); m.pantsLow.color.setHex(P[1] < 0 ? m.skin.color.getHex() : P[1]);
   R.helmetG.visible = h === "redbull"; m.helmet.color.setHex(0x0d2a5e); m.stripeM.color.setHex(0xd9232d);
   for (const k in R.hats) R.hats[k].visible = k === h;
+  if (outfit.poles === "bamboo") { R.poleMat.map = R.bambooTex; R.poleMat.color.setHex(0xffffff); R.poleMat.metalness = 0.02; R.poleMat.roughness = 0.8; } else { R.poleMat.map = null; R.poleMat.color.setHex(0xa7b8c9); R.poleMat.metalness = 0.6; R.poleMat.roughness = 0.35; } R.poleMat.needsUpdate = true;
   R.cuffs.forEach(c => c.visible = outfit.pants !== "shorts");
   { const sm = outfit.style === "simple", k = sm ? 1 : 0, Sc = (m, x, y, z) => m.scale.set(sm ? x : 1, sm ? y : 1, sm ? z : 1);
     R.detail.forEach(m => { m.visible = !sm; }); R.simpleOnly.forEach(m => { m.visible = sm && (!m.userData.helmetOnly || h === "redbull"); });
@@ -1304,8 +1315,8 @@ function buildSkier() {
     }
     addS(new THREE.BoxGeometry(0.1, 0.05, 0.1), black, x, 0.07, -0.08); addS(new THREE.BoxGeometry(0.1, 0.06, 0.11), black, x, 0.075, 0.2);
     addS(new THREE.BoxGeometry(0.118, 0.12, 0.32), boot, x, 0.135, 0.06);
-    addS(new THREE.CylinderGeometry(0.083, 0.079, 0.3, 16), boot, x, 0.31, 0.05);
-    addS(new THREE.TorusGeometry(0.083, 0.022, 8, 16), M(0x2a2f3a, { roughness: 0.6 }), x, 0.46, 0.05).rotation.x = Math.PI / 2;
+    addS(new THREE.CylinderGeometry(0.07, 0.068, 0.3, 16), boot, x, 0.31, 0.05);
+    addS(new THREE.TorusGeometry(0.07, 0.016, 8, 16), M(0x2a2f3a, { roughness: 0.6 }), x, 0.45, 0.05).rotation.x = Math.PI / 2;
     addS(new THREE.BoxGeometry(0.1, 0.03, 0.05), orange, x, 0.33, -0.03);
     [0.08, 0.17].forEach((zo, i) => addS(new THREE.BoxGeometry(0.02, 0.025, 0.05), orange, x + Math.sign(x) * 0.06, 0.22 + i * 0.07, 0.0 + zo * 0.2));
   });
@@ -1396,6 +1407,7 @@ function buildSkier() {
   [-1, 1].forEach(sd => { const cup = add(new THREE.CylinderGeometry(0.058, 0.058, 0.05, 16), phM, sd * 0.158, -0.01, 0.012, phonesG); cup.rotation.z = Math.PI / 2; const pad = add(new THREE.CylinderGeometry(0.048, 0.048, 0.056, 16), M(0xc4161c, { roughness: 0.6 }), sd * 0.158, -0.01, 0.012, phonesG); pad.rotation.z = Math.PI / 2; });
   const acc = { scarf: scarfG, ninja: ninjaG, cape: capeG, phones: phonesG };
   // arms with elbows, gloves, poles
+  const poleMat = M(0xa7b8c9, { metalness: 0.6, roughness: 0.35 }), bambooTex = canvasTex(16, 256, (x, w, h) => { x.fillStyle = "#d2bd72"; x.fillRect(0, 0, w, h); for (let i = 0; i < 6; i++) { const y = 20 + i * 42; x.fillStyle = "#8a7335"; x.fillRect(0, y, w, 5); x.fillStyle = "rgba(255,255,255,0.18)"; x.fillRect(0, y + 6, w, 2); } x.fillStyle = "rgba(90,120,50,0.25)"; x.fillRect(0, 0, 4, h); });
   const arms = [];
   [-1, 1].forEach(sd => {
     const sh = new THREE.Group(); sh.position.set(sd * 0.265, 0.56, 0); torso.add(sh);
@@ -1407,7 +1419,7 @@ function buildSkier() {
     const hand = new THREE.Mesh(new THREE.SphereGeometry(0.062, 12, 10), glove); hand.position.y = -0.335; hand.scale.set(0.95, 1.1, 1.1); el.add(hand);
     const thumb = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 6), glove); thumb.position.set(-sd * 0.045, -0.31, -0.03); el.add(thumb);
     const pg = new THREE.CylinderGeometry(0.011, 0.011, 1.18, 8); pg.translate(0, -0.59, 0);
-    const pole = new THREE.Mesh(pg, M(0xa7b8c9, { metalness: 0.6, roughness: 0.35 })); pole.position.y = -0.335; pole.rotation.x = -0.8; el.add(pole);
+    const pole = new THREE.Mesh(pg, poleMat); pole.position.y = -0.335; pole.rotation.x = -0.8; el.add(pole);
     const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.02, 0.13, 8), orange); grip.position.y = -0.06; pole.add(grip);
     const basket = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.04, 0.012, 12), M(0x14181f)); basket.position.y = -1.05; pole.add(basket);
     arms.push({ sh, el, pole, pole_v: new THREE.Vector3(sd * 0.7, -0.3, 0.8).normalize(), sd });
@@ -1428,7 +1440,7 @@ function buildSkier() {
   const inKeep = o => { for (let q = o.parent; q; q = q.parent) if (keep.has(q)) return true; return false; };
   root.traverse(o => { if (o.isMesh && detMats.includes(o.material) && !inKeep(o)) detail.push(o); });
   helmetG.children.forEach(m => { if (m.geometry.type !== "SphereGeometry") detail.push(m); });
-  return { bend, simpleOnly, shape, torsoM, hoodM, detail, skiBack, noseM, midM, skiM, skiTexes, skiMeshes, acc, ninjaTails, capeGeo, capeBase, cuffs, skiG, tailM, mats: { boot, jacket, jacket2, jacketArm, cuffM, pants, pantsLow, helmet, stripeM, skin, scarfMat }, helmetG, hats, ex, root, pivot, rig, legs, hipG, torso, head, arms, scarf, pose: { c: 0.3, lean: 0.2, carve: 0, L: new THREE.Vector3(-0.36, 0.92, -0.3), Rh: new THREE.Vector3(0.36, 0.92, -0.3), headY: 0 }, a, b };
+  return { poleMat, bambooTex, bend, simpleOnly, shape, torsoM, hoodM, detail, skiBack, noseM, midM, skiM, skiTexes, skiMeshes, acc, ninjaTails, capeGeo, capeBase, cuffs, skiG, tailM, mats: { boot, jacket, jacket2, jacketArm, cuffM, pants, pantsLow, helmet, stripeM, skin, scarfMat }, helmetG, hats, ex, root, pivot, rig, legs, hipG, torso, head, arms, scarf, pose: { c: 0.3, lean: 0.2, carve: 0, L: new THREE.Vector3(-0.36, 0.92, -0.3), Rh: new THREE.Vector3(0.36, 0.92, -0.3), headY: 0 }, a, b };
 }
 
 const _tv = typeof THREE !== "undefined" ? new THREE.Vector3() : null;
@@ -1461,6 +1473,7 @@ function poseSkier(dt, time) {
   const carve = sk.carve * Math.abs(sk.turn), tn = Math.sign(sk.turn);
   if (bikeOn) { c = 0.9; lean = 0.5; L = [-0.3, 0.78, -0.42]; Rt = [0.3, 0.78, -0.42]; }
   else if (sk.crashed) { c = 0.4; lean = 0.2; const w = Math.sin(time * 16); L = [-0.75, 1.45 + w * 0.2, 0.1]; Rt = [0.75, 1.45 - w * 0.2, 0.1]; }
+  else if (sk.chg > 0.02 && !air) { const q = sk.chg; c = 0.3 + 0.62 * q; lean = 0.2 + 0.55 * q; L = [-0.45 - 0.1 * q, 0.9 - 0.4 * q, -0.1 + 0.45 * q]; Rt = [0.45 + 0.1 * q, 0.9 - 0.4 * q, -0.1 + 0.45 * q]; poleThrust = 0; }
   else if (sliding) { c = 0.55; lean = 0.3; L = [-0.7, 1.0, -0.2]; Rt = [0.7, 1.0, -0.2]; }
   else if (grab) {
     c = 0.93; lean = 0.62; L = [-0.82, 1.2, -0.1]; Rt = [0.82, 1.2, -0.1];
@@ -1664,7 +1677,7 @@ function buildChunk(ci) {
           else if (p.pit && landW(p, x) > 0.3 && s > lip + 0.4 && s < lip + p.gap) { R = 0.6; Gc = 0.68; B = 0.8; }
         } else if (p.type === "box" && p.house) {
           if (s >= p.s0 && s <= p.end && Math.abs(x - p.cx) < p.hw + 0.6) { const rr = p.flat ? boxShape(p, x, s) : partOff(p, x, s) / p.B; if (rr > 0.03 && rr < 0.97) { wallV[(r * nx + c)] = 1; R = p.wall[0]; Gc = p.wall[1]; B = p.wall[2]; } else if (rr >= 0.97) { R = 0.96; Gc = 0.97; B = 1.0; } }
-        } else if (p.type === "box" && s >= p.s0 && s <= p.end && Math.abs(x - p.cx) < p.hw) { if (p.drop) { R = 0.9; Gc = 0.93; B = 0.98; } else { R = 0.8; Gc = 0.86; B = 0.95; } }
+        } else if (p.type === "box" && s >= p.s0 && s <= p.end && Math.abs(x - p.cx) < p.hw) { R = 0.56; Gc = 0.78; B = 0.96; }
       }
       const n = (hash(x * 3.1 + s * 1.7) - 0.5) * 0.03; col[i] = R + n; col[i + 1] = Gc + n; col[i + 2] = B + n;
     }
@@ -2479,6 +2492,7 @@ function render(dt, time) {
     if (stormMix < 0.002) { stormMix = 0; fogBase = { near: f.near, far: f.far, color: f.color.clone() }; }
     else if (fogBase) { f.near = 1 / lerp(1 / Math.max(1, fogBase.near), 1 / 18, stormMix * 0.95); f.far = 1 / lerp(1 / fogBase.far, 1 / 190, stormMix * 0.95); f.color.copy(fogBase.color).lerp(new THREE.Color(0xe4eaf2), 0.55 * stormMix); } }
   updateLife(dt, time);
+  { const ce = $("chg"); if (ce) { const on = sk.chg > 0.02; if (ce.hidden === on) ce.hidden = !on; if (on) ce.firstElementChild.style.width = Math.round(sk.chg * 100) + "%"; } }
   updateCamera(dt);
   { const S = scene.userData.streaks, speed = sk.crashed ? 0 : (sk.air ? Math.hypot(sk.vx, sk.vs) : sk.sp), amt = clamp((speed - 18) / 22, 0, 1);
     S.lines.material.opacity = amt * 0.7;
@@ -2554,12 +2568,12 @@ function nextInfo() {
 }
 function setPaused(v) {
   if (v && (mode !== "play" || !$("end").hidden)) return;
-  paused = v; $("pause").hidden = !v; if (v) { for (const k in K) K[k] = 0; syncTouch(); pauseT = 0; } else { last = performance.now(); acc = 0; }
+  paused = v; $("pause").hidden = !v; if (v) { charging = false; for (const k in K) K[k] = 0; syncTouch(); pauseT = 0; } else { last = performance.now(); acc = 0; }
 }
 function buildPauseUI() {
   const box = $("opts"); box.textContent = "";
-  for (const cat of ["style", "gfx", "helmet", "jacket", "pants", "accessory", "skis", "song"]) {
-    const h = document.createElement("h3"); h.textContent = cat === "helmet" ? "Helmet" : cat === "jacket" ? "Jacket" : cat === "pants" ? "Pants" : cat === "accessory" ? "Accessory" : cat === "skis" ? "Skis" : cat === "gfx" ? "Graphics quality" : cat === "style" ? "Character style" : "Song"; box.appendChild(h);
+  for (const cat of ["style", "gfx", "helmet", "jacket", "pants", "accessory", "skis", "poles", "song"]) {
+    const h = document.createElement("h3"); h.textContent = cat === "helmet" ? "Helmet" : cat === "jacket" ? "Jacket" : cat === "pants" ? "Pants" : cat === "accessory" ? "Accessory" : cat === "skis" ? "Skis" : cat === "poles" ? "Poles" : cat === "gfx" ? "Graphics quality" : cat === "style" ? "Character style" : "Song"; box.appendChild(h);
     for (const key in OUTFIT_OPTS[cat]) {
       const b = document.createElement("button"); b.type = "button"; b.className = "opt" + (outfit[cat] === key ? " on" : ""); b.textContent = OUTFIT_OPTS[cat][key];
       if (!isUnlocked(cat, key)) { b.className = "opt locked"; b.disabled = true; b.textContent = OUTFIT_OPTS[cat][key] + " · locked: " + UNLOCK[cat + "." + key][0]; }
@@ -2607,11 +2621,11 @@ addEventListener("keydown", e => {
   if (paused) return;
   if (mode === "title") { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); begin(); } return; }
   const k = MAP[e.key];
-  if (k) { e.preventDefault(); if (k === "grab" && !K.grab) popReq = true; K[k] = 1; syncTouch(); }
+  if (k) { e.preventDefault(); if (k === "grab" && !K.grab) gDown(); K[k] = 1; syncTouch(); }
   else if (e.key === "r" || e.key === "R") restart();
   else if (e.key === "m" || e.key === "M") toggleSound();
 });
-addEventListener("keyup", e => { const k = MAP[e.key]; if (k) { K[k] = 0; syncTouch(); } });
+addEventListener("keyup", e => { const k = MAP[e.key]; if (k) { if (k === "grab") gUp(); K[k] = 0; syncTouch(); } });
 addEventListener("blur", () => { for (const k in K) K[k] = 0; syncTouch(); });
 $("go").onclick = begin;
 $("again").onclick = () => restart();
@@ -2624,10 +2638,10 @@ tBtns.forEach(b => {
   b.addEventListener("pointerdown", e => {
     e.preventDefault(); audioInit();
     if (k === "spin") { spinDir ^= 1; K.spinL = spinDir ? 0 : 1; K.spinR = spinDir ? 1 : 0; }
-    else { if (k === "grab" && !K.grab) popReq = true; K[k] = 1; }
+    else { if (k === "grab" && !K.grab) gDown(); K[k] = 1; }
     syncTouch();
   });
-  const up = () => { if (k === "spin") { K.spinL = 0; K.spinR = 0; } else K[k] = 0; syncTouch(); };
+  const up = () => { if (k === "spin") { K.spinL = 0; K.spinR = 0; } else { if (k === "grab") gUp(); K[k] = 0; } syncTouch(); };
   b.addEventListener("pointerup", up); b.addEventListener("pointercancel", up); b.addEventListener("pointerleave", up);
 });
 new ResizeObserver(resize).observe(cv);
@@ -2636,7 +2650,7 @@ sk = newSkier(0, PEAK ? 3 : 10, 0);
 const glOK = typeof THREE !== "undefined" && initRender();
 if (glOK) { applyGfx(); scene.userData.applyTOD(todName); }
 if (!glOK) { $("nogl").hidden = false; $("go").disabled = true; }
-window.__game = { get scene() { return scene; }, get storm() { return [stormMix, snowOn, scene.fog.near, scene.fog.far]; }, get rig() { return skierRig; }, pc, pcs, cliffs, knots, baseY, get runT() { return runT; }, get sw() { return sk.sw; }, get spin() { return sk.spin; }, get endShown() { return endShown; }, COURSE_END, trails, trailFor, trailXc, sectionsAt, step, get sk() { return sk; }, feats, H, K, restart, begin, get score() { return score; }, get mult() { return mult; }, setMode(m) { mode = m; }, pop() { popReq = true; } };
+window.__game = { get scene() { return scene; }, get storm() { return [stormMix, snowOn, scene.fog.near, scene.fog.far]; }, get rig() { return skierRig; }, pc, pcs, cliffs, knots, baseY, get runT() { return runT; }, get sw() { return sk.sw; }, get spin() { return sk.spin; }, get endShown() { return endShown; }, COURSE_END, trails, trailFor, trailXc, sectionsAt, step, get sk() { return sk; }, feats, H, K, restart, begin, get score() { return score; }, get mult() { return mult; }, setMode(m) { mode = m; }, pop() { popReq = true; popPow = 1; }, gDown, gUp };
 requestAnimationFrame(frame);
 $("dtot").textContent = COURSE_END;
 /* ---------- homepage: animated sunset, mountains and a skier doing a backflip ---------- */
