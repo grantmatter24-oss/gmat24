@@ -779,7 +779,12 @@ function landing(surfaceType, rail) {
   sk.rot = sA + diff; // normalise so a flip never unwinds on the ground
   const vh = Math.hypot(sk.vx, sk.vs);
   sk.psi = Math.atan2(sk.vx, sk.vs);
-  const vt = vh * Math.cos(sA) + sk.vy * Math.sin(sA);
+  let vt = vh * Math.cos(sA) + sk.vy * Math.sin(sA);
+  if (HP && surfaceType !== "rail") { // keep the speed that runs along the wall: only the part pushing into the snow is absorbed
+    const e = 0.3, gx = (H(sk.x + e, sk.s) - H(sk.x - e, sk.s)) / (2 * e), gs = (H(sk.x, sk.s + e) - H(sk.x, sk.s - e)) / (2 * e), nl = Math.hypot(gx, 1, gs), nx = -gx / nl, ny = 1 / nl, ns = -gs / nl;
+    const vn = sk.vx * nx + sk.vy * ny + sk.vs * ns, tx = sk.vx - vn * nx, ty = sk.vy - vn * ny, ts = sk.vs - vn * ns;
+    if (Math.hypot(tx, ts) > 0.5) sk.psi = Math.atan2(tx, ts); vt = Math.hypot(tx, ty, ts) * 0.97;
+  }
   sk.sp = clamp(Math.max(vt, 4), 4, MAXV);
   sk.air = false; if (sk.airT > 0.15) sk.landT = 0.35;
   const kHalf = Math.round(sk.spin / Math.PI), odd = Math.abs(kHalf) % 2 === 1;
