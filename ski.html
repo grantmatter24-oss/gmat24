@@ -647,10 +647,13 @@ function H_(x, s) {
     const k = idxIn(T.sec, s);
     if (k >= 0 && s <= T.sec[k].end) y += featOff(T.sec[k], x, s);
   }
-  if (HELI) { // big-mountain face: gullies running down the fall line, rock ribs, wind lips
-    const gl = 3.4 * Math.sin(x * 0.2 + 2.2 * Math.sin(s * 0.011 + x * 0.015)) + 2.2 * Math.sin(x * 0.47 - s * 0.006 + 1.3 * Math.sin(s * 0.03)) + 1.2 * Math.sin(x * 1.1 + s * 0.017);
-    const rib = Math.pow(Math.max(0, Math.sin(x * 0.13 + 1.8 * Math.sin(s * 0.008) + 0.5)), 3) * 5.5, lip = Math.max(0, Math.sin(s * 0.045 + x * 0.09)) * 1.6;
-    y += (0.35 + 0.65 * smooth((ax - 5) / 20)) * (gl + rib + lip) * smooth((s - 300) / 120);
+  if (HELI) { // big-mountain face: broken terrain with benches, bowls, humps, short gullies and rock bands, not long straight stripes
+    const wx = x + 9 * Math.sin(s * 0.031 + x * 0.05) + 6 * Math.sin(s * 0.013 - x * 0.09), ws = s + 14 * Math.sin(x * 0.07 + s * 0.02);
+    const n1 = Math.sin(wx * 0.11 + 1.3) * Math.sin(ws * 0.045 + 0.4) + 0.6 * Math.sin(wx * 0.23 - ws * 0.07) * Math.sin(ws * 0.09 + wx * 0.05);
+    const n2 = Math.sin(wx * 0.37 + ws * 0.11) * Math.sin(ws * 0.19 - wx * 0.13 + 2.0), hump = Math.pow(Math.max(0, Math.sin(wx * 0.07 + 0.9) * Math.sin(ws * 0.035 + 2.2)), 2) * 7;
+    const bench = 3.2 * Math.sin(ws * 0.06 + 2.5 * Math.sin(wx * 0.045)) * smooth(Math.sin(ws * 0.015 + wx * 0.02) * 2), bowl = -Math.pow(Math.max(0, Math.sin(wx * 0.05 - 1.0) * Math.sin(ws * 0.028 + 0.2)), 2) * 6;
+    const rock = Math.pow(Math.max(0, Math.sin(wx * 0.21 + ws * 0.17) * Math.sin(wx * 0.15 - ws * 0.23 + 1.1)), 3) * 5.2;
+    y += (0.3 + 0.7 * smooth((ax - 5) / 20)) * (3.6 * n1 + 1.6 * n2 + hump + bench + bowl + rock) * smooth((s - 300) / 120);
   }
   if (HELI && s < 120) y -= smooth((ax - 3.5) / 5) * 26 * (1 - smooth((s - 40) / 80));
   if (HELI) { const lk = 1 - smooth((Math.hypot(xr / 52, (s - 172) / 90) - 0.92) / 0.18); if (lk > 0) y = lerp(y, baseY(172) - 0.45, lk); }
