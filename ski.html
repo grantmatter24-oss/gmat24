@@ -386,7 +386,7 @@ function mkKicker(s0, kind, cx, hw, diff, sc, tall) {
   const gap = kind === 3 ? clamp(T[4] * fd.d * sc, T[5] * sc, T[6] * sc * 1.3) : clamp(0.35 * fd.d * sc, 6, 40 * (1 + q)), Ll = kind === 3 ? clamp(gap * 0.8 + 10, 18, 60) : clamp((0.9 + 0.35 * q) * fd.d * sc, 24, 70 * (1 + 1.3 * q));
   const Hl = clamp((fd.tanA - BASE) * 0.5 * Ll / 1.5, 0.8, 7 + 4 * q), pit = kind === 3 ? 3.6 : 0;
   const hwK = (kind < 4 ? hw * (PEAK ? 1.7 : 1.3) : hw) * (1 + 0.8 * q);
-  const p = { type: "kicker", label: T[7], s0, L, H: Hh, gap, Ll, Hl, cx, hw: hwK, lhw: Math.min(hwK * 2.7, PISTE + 5), v0, pit };
+  const p = { type: "kicker", label: T[7], s0, L, H: Hh, gap, Ll, Hl, cx, hw: hwK, lhw: Math.min(hwK * 2.7, WIDE ? 19 : PISTE + 5), v0, pit };
   if (tall) p.label = "Sky ramp";
   p.end = s0 + L + gap + Ll; return p;
 }
@@ -601,7 +601,8 @@ function addSection() {
     let houseDone = false;
     for (let q = 0; q < nSide; q++) {
       const sd = sides[q], scx = sd * (10.8 + rng() * 0.8) * (PEAK ? 1.7 : 1.3);
-      if (!PK && !houseDone && rng() < 0.85) { houseDone = true; sideHouse(f, sd, genS + rng() * 8, 0); }
+      if (!PK && !houseDone && rng() < (WIDE ? 0.3 : 0.85)) { houseDone = true; sideHouse(f, sd, genS + rng() * 8, 0); }
+      else if (WIDE) continue;
       else if (PK || rng() < 0.6) { const sp2 = mkKicker(genS + rng() * 14, 1, scx, 3.0 + rng() * 0.5, diff); sp2.side = true; sp2.rocky = rng() < 0.55; f.parts.push(sp2); f.label += sp2.rocky ? " + rock kicker" : " + side kicker"; }
       else { const s0b = genS + rng() * 12, len = 9 + rng() * 5; f.parts.push({ type: "box", s0: s0b, len, end: s0b + len, B: 0.7, cx: scx, hw: 2.1 }); f.label += " + jib box"; }
     }
@@ -615,10 +616,24 @@ function addSection() {
   const last = pcs[pcs.length - 1], px = i < 1 ? 0 : clamp(last.x + (rng() - 0.5) * 2 * Math.min(WIDE ? 26 : 14, (WIDE ? 0.42 : 0.35) * Math.max(8, f.s0 - 34 - last.b)) + (WIDE && Math.abs(last.x) < 14 ? (rng() < 0.5 ? -1 : 1) * 8 : 0), WIDE ? -52 : -30, WIDE ? 52 : 30);
   shiftSection(f, px); if (WIDE && !f.cliff) {
     const lat = (rng() - 0.5) * 2 * 17; shiftSection(f, lat);
-    if ((f.parts.length || f.rail) && !f.parts.some(p => p.side || p.house) && rng() < 0.95) { // fill the wide sides with a big jump on the open side and sometimes a box on the other
-      const sd = lat > 4 ? -1 : lat < -4 ? 1 : (rng() < 0.5 ? -1 : 1), sp2 = mkKicker(f.s0 + 4 + rng() * 22, rng() < 0.4 ? 4 : 2, px + sd * 29, 4.6, diff);
-      sp2.side = true; sp2.whale = true; sp2.lhw = Math.min(sp2.lhw, 15); sp2.label = "Whale tail"; f.parts.push(sp2); f.end = Math.max(f.end, sp2.end); f.label += " + " + sp2.label;
-      const o2 = rng(); if (o2 < 0.6) { const k2 = mkKicker(f.s0 + 6 + rng() * 26, 1, px - sd * 27, 4.2, diff); k2.side = true; k2.whale = true; k2.lhw = Math.min(k2.lhw, 14); f.parts.push(k2); f.end = Math.max(f.end, k2.end); } else { const bs = f.s0 + 10 + rng() * 40; f.parts.push({ type: "box", s0: bs, len: 16, end: bs + 16, B: 0.75, cx: px - sd * 27, hw: 1.9 }); f.end = Math.max(f.end, bs + 16); }
+    const fp = q => { // footprint of a part: [x0, x1, s0, s1]
+      if (q.type === "hip") { const w = q.hw + (q.L + q.gap + q.Ll) * Math.abs(Math.sin(q.ang)); return [q.cx - w, q.cx + w, q.sMin !== undefined ? q.sMin : q.s0, q.end]; }
+      if (q.type === "kicker") { const w = Math.max(q.hw, q.lhw || 0); return [q.cx - w, q.cx + w, q.s0, q.end]; }
+      if (q.type === "box") return [q.cx - q.hw - 1, q.cx + q.hw + 1, q.s0, q.end];
+      return [q.cx - (q.hw || 3), q.cx + (q.hw || 3), q.s0, q.end];
+    };
+    const free = (cx, hwid, s0, s1) => { const x0 = cx - hwid, x1 = cx + hwid; for (const q of f.parts) { if (q.type === "rollers") continue; const a = fp(q); if (x1 > a[0] - 3 && x0 < a[1] + 3 && s1 > a[2] - 6 && s0 < a[3] + 6) return false; } for (const r of railsOf(f)) if (x1 > r.x - 5 && x0 < r.x + 5 && s1 > r.s0 - 20 && s0 < r.s1 + 6) return false; return true; };
+    const cand = [-1, 1].sort(() => rng() - 0.5);
+    if ((f.parts.length || f.rail) && !f.parts.some(p => p.side || p.house || p.type === "hip") && rng() < 0.95) { // wide, straight whale-tail jumps on the open sides, never crossing another jump
+      for (const sd of cand) {
+        const ss = f.s0 + 4 + rng() * 20, sp2 = mkKicker(ss, rng() < 0.75 ? 4 : 2, px + sd * 27, 7.5, diff);
+        sp2.hw = Math.min(sp2.hw, 12); sp2.lhw = Math.min(Math.max(sp2.lhw, sp2.hw * 1.1), 13.5); sp2.H *= 1.15; sp2.cx = px + sd * 27; sp2.side = true; sp2.whale = true; sp2.label = "Whale tail";
+        if (free(sp2.cx, sp2.lhw, sp2.s0, sp2.end)) { f.parts.push(sp2); f.end = Math.max(f.end, sp2.end); f.label += " + Whale tail";
+          const sd2 = -sd, o2 = rng();
+          if (o2 < 0.6) { const k2 = mkKicker(f.s0 + 6 + rng() * 26, 2, px + sd2 * 27, 6, diff); k2.hw = Math.min(k2.hw, 10); k2.lhw = Math.min(Math.max(k2.lhw, k2.hw * 1.1), 12.5); k2.cx = px + sd2 * 27; k2.side = true; k2.whale = true; if (free(k2.cx, k2.lhw, k2.s0, k2.end)) { f.parts.push(k2); f.end = Math.max(f.end, k2.end); } }
+          else { const bs = f.s0 + 10 + rng() * 40; if (free(px + sd2 * 27, 3, bs, bs + 16)) { f.parts.push({ type: "box", s0: bs, len: 16, end: bs + 16, B: 0.75, cx: px + sd2 * 27, hw: 1.9 }); f.end = Math.max(f.end, bs + 16); } }
+          break; }
+      }
     }
   }
   if (f.cliff && (PEAK || DROP)) f.rocks = [];
