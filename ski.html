@@ -2402,7 +2402,7 @@ function buildWallSeg(a, b) {
     if (PARK) { cr = 0.62; cg = 0.66; cb = 0.72; }
     { const al = smooth((rise - 140 - 25 * nz) / 50); cr = lerp(cr, 0.44 + 0.04 * nz, al); cg = lerp(cg, 0.42 + 0.03 * nz, al); cb = lerp(cb, 0.41, al); } // above the tree line: scree and rock
     if (slope > 0.75) { const t = clamp((slope - 0.75) * 1.4, 0, 1); cr = lerp(cr, 0.38, t); cg = lerp(cg, 0.36, t); cb = lerp(cb, 0.37, t); }
-    const snow = Math.max(1 - smooth((ax - 28) / 45), smooth((rise - (PEAK ? 120 : 215) - 35 * nz) / 70) * clamp(1.7 - slope, 0, 1), smooth((rise - 330) / 60) * 0.85); cr = lerp(cr, 0.95, snow); cg = lerp(cg, 0.96, snow); cb = lerp(cb, 0.99, snow);
+    const snow = Math.max(1 - smooth((ax - 28) / 45), smooth((rise - (PEAK ? 70 : 105) - 30 * nz) / 55) * clamp(2.4 - slope, 0, 1), smooth((rise - 220) / 50) * 0.92, 0.32 + 0.12 * nz * (slope < 0.6 ? 1 : 0)); cr = lerp(cr, 0.95, snow); cg = lerp(cg, 0.96, snow); cb = lerp(cb, 0.99, snow);
     pos.push(pc(s) + o, y, -s); col.push(cr * shade, cg * shade, cb * shade);
   }));
   for (let i = 0; i < nR; i++) for (let j = 0; j < NX - 1; j++) { const p = i * NX + j, q = p + NX; idx.push(p, p + 1, q, p + 1, q + 1, q); }
@@ -2456,7 +2456,7 @@ function buildValleyDrop() { // big-air map: steep forested valley walls close i
     let cr = 0.3, cg = 0.46, cb = 0.3; // forest
     if (slope > 0.85) { const t = clamp((slope - 0.85) * 1.6, 0, 1); cr = lerp(cr, 0.5, t); cg = lerp(cg, 0.47, t); cb = lerp(cb, 0.46, t); }
     if (rise < 30 && ax > 60) { cr = 0.5 + 0.06 * nz; cg = 0.64 + 0.05 * nz; cb = 0.4; } // meadow
-    const snow = Math.max(1 - smooth((ax - 28) / 45) * 1, 0) * (1 - smooth((s - COURSE_END - 40) / 260)), cap = smooth((rise - 190) / 90);
+    const snow = Math.max(1 - smooth((ax - 28) / 45) * 1, 0) * (1 - smooth((s - COURSE_END - 40) / 260)), cap = Math.max(smooth((rise - 100) / 60), 0.3);
     const sn = Math.max(snow, cap * (slope < 1.6 ? 1 : 0.5)); cr = lerp(cr, 0.95, sn); cg = lerp(cg, 0.96, sn); cb = lerp(cb, 0.98, sn);
     const fl = smooth((s - COURSE_END) / 200) * (1 - smooth((ax - 600) / 150)) * (rise < 25 ? 1 : 0); if (fl > 0) { cr = lerp(cr, 1, fl * 0.6); cg = lerp(cg, 1, fl * 0.6); cb = lerp(cb, 1, fl * 0.6); }
     pos.push(x + (DROP ? 0 : pc(s) - cx0), y, -s); col.push(cr * shade, cg * shade, cb * shade);
