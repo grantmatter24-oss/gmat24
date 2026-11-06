@@ -743,7 +743,7 @@ function rockHit(x, y, s) {
 const treeGrid = new Map(), treeChunks = new Set();
 function addTree(t) { const k = rockKey(t.s); let a = treeGrid.get(k); if (!a) treeGrid.set(k, a = []); a.push(t); }
 function treeHit(x, y, s) {
-  for (let k = rockKey(s - 3); k <= rockKey(s + 3); k++) { const a = treeGrid.get(k); if (!a) continue; for (const t of a) { const r = 0.6 * t.sc, dx = x - t.x, ds = s - t.s; if (dx * dx + ds * ds < r * r && y < t.y + 6 * t.sc) return t; } }
+  for (let k = rockKey(s - 3); k <= rockKey(s + 3); k++) { const a = treeGrid.get(k); if (!a) continue; for (const t of a) { const r = 0.3 * t.sc + 0.2, dx = x - t.x, ds = s - t.s; if (dx * dx + ds * ds < r * r && y < t.y + 6 * t.sc) return t; } }
   return null;
 }
 /* clipping a tree knocks you off balance: you wobble, flail and lose speed but stay on your feet */
@@ -751,7 +751,7 @@ function stumble(t) {
   if (sk.stumT > 0 || sk.crashed || sk.grind) return;
   sk.stumT = 1.3; sk.stumD = Math.random() < 0.5 ? -1 : 1;
   sk.sp *= 0.7; sk.vx *= 0.6; sk.vs *= 0.7;
-  const dx = sk.x - t.x, ds = sk.s - t.s, d = Math.hypot(dx, ds) || 1, r = 0.6 * t.sc + 0.05; sk.x = t.x + dx / d * r; sk.s = Math.max(sk.s, t.s + ds / d * r);
+  const dx = sk.x - t.x, ds = sk.s - t.s, d = Math.hypot(dx, ds) || 1, r = 0.3 * t.sc + 0.25; sk.x = t.x + dx / d * r; sk.s = Math.max(sk.s, t.s + ds / d * r);
   if (!sk.air) sk.psi += (dx >= 0 ? 1 : -1) * 0.45;
   mult = 1; comboList = []; showCombo();
   popup("Clipped a tree", "Lost your balance", true); sfx("crash"); shake = 0.45;
@@ -2864,7 +2864,7 @@ function render(dt, time) {
     const th = R.rig.rotation.y, o = 0.78 * P.slide; R.rig.position.x = o * Math.sin(th); R.rig.position.z = o * Math.cos(th); }
   const wob = sk.stumT > 0 && !sk.crashed ? Math.min(1, sk.stumT / 0.9) : 0;
   R.pivot.rotation.x = sk.rot + wob * (0.28 * Math.sin(time * 9) - 0.12);
-  R.pivot.rotation.z = (sk.crashed ? sk.tumZ : -sk.turn * (0.3 + 0.32 * sk.carve) * (sk.air ? 0.3 : 1)) + wob * sk.stumD * 0.45 * Math.sin(time * 12);
+  R.pivot.rotation.z = (sk.crashed ? sk.tumZ : -sk.turn * (0.3 + 0.32 * sk.carve) * (sk.air ? 0.3 : 1)) + (wob ? wob * (sk.stumD || 1) * 0.45 * Math.sin(time * 12) : 0);
   const sunL = scene.userData.sun; sunL.position.set(sk.x + SUN.x * 120, sk.y + SUN.y * 120, -sk.s + SUN.z * 120); sunL.target.position.set(sk.x, sk.y, -sk.s); sunL.target.updateMatrixWorld();
   const gy = H(sk.x, sk.s), gx = H(sk.x + 0.5, sk.s) - H(sk.x - 0.5, sk.s), gs = H(sk.x, sk.s + 0.5) - H(sk.x, sk.s - 0.5);
   _n.set(-gx, 1, gs).normalize(); _q.setFromUnitVectors(_z, _n);
