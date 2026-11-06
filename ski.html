@@ -1243,10 +1243,10 @@ function coinHit(q, co) { const m = coinMeshes.get(co); if (m) m.visible = false
 function mat(color, extra) { return new THREE.MeshLambertMaterial(Object.assign({ color, flatShading: true }, extra || {})); }
 
 const TODS = {
-  sunset: { sun: [-0.5, 0.25, -0.83], hemi: [0xb79bc9, 0xd9a89c, 0.95], sunC: 0xffa458, sunI: 2.1, fill: [0x7f90ff, 0.45], fog: 0xe3ada0, exp: 1.12, glow: 1,
+  sunset: { snowTint: 0xeae6e6, cloudSh: 0.12, rim: 0x4a2a18, grade: "contrast(1.04)", sun: [-0.5, 0.25, -0.83], hemi: [0xb79bc9, 0xd9a89c, 0.95], sunC: 0xffa458, sunI: 2.1, fill: [0x7f90ff, 0.45], fog: 0xe3ada0, exp: 1.12, glow: 1,
     sky: { cH: [1, .56, .34], cM: [.8, .46, .58], cT: [.14, .17, .42], haze: [.89, .68, .63], g1: [1, .5, .22], g2: [1, .78, .45], gStr: 1, stars: 0 }, cloud: { op: 0.9, color: 0xffffff }, sunSpr: { op: 1, color: 0xffffff, scale: 520 }, face: { op: 0.8, color: 0xffd9bf, rays: 0xffc88a, rop: 0.35 },
     pal: { sn: [.98, .9, .9], fogc: [.89, .68, .63], tree: [.11, .18, .2], snowLine: .38, snowUp: .22, lit: [1, .7, .5], sh: [.55, .55, .78], gain: 1.9 } },
-  day: { sun: [-0.42, 0.6, -0.45], hemi: [0x86aee8, 0xb9c4d2, 0.5], sunC: 0xffeed6, sunI: 2.55, fill: [0x7f9ad8, 0.22], fog: 0xb4c8de, exp: 0.78, glow: 0.08,
+  day: { snowTint: 0xd3d9e2, cloudSh: 0.22, rim: 0x3a3426, grade: "contrast(1.08) saturate(1.06)", sun: [-0.42, 0.6, -0.45], hemi: [0x6f9cf0, 0xa9b7cc, 0.55], sunC: 0xffeed6, sunI: 2.55, fill: [0x7f9ad8, 0.22], fog: 0xb4c8de, exp: 0.78, glow: 0.08,
     sky: { cH: [.66, .78, .9], cM: [.36, .56, .86], cT: [.1, .28, .66], haze: [.7, .78, .88], g1: [1, .95, .85], g2: [1, .97, .9], gStr: .35, stars: 0 }, cloud: { op: 0.35, color: 0xcfe3ff }, sunSpr: { op: 0.35, color: 0xfff6dd, scale: 380 }, face: { op: 0.85, color: 0xffffff, rays: 0xffffff, rop: 0.22 },
     pal: { sn: [.93, .95, .99], fogc: [.7, .78, .88], tree: [.42, .45, .5], snowLine: .1, snowUp: .12, lit: [1, .96, .9], sh: [.5, .6, .84], gain: 1.6 } },
   night: { sun: [0.35, 0.55, -0.75], hemi: [0x34428a, 0x141a3a, 0.85], sunC: 0x93aaff, sunI: 1.0, fill: [0x5a6ad0, 0.25], fog: 0x0a0f2a, exp: 1.05, glow: 1.7,
@@ -1257,6 +1257,7 @@ const TODS = {
     pal: { sn: [.5, .72, .86], fogc: [.03, .1, .16], tree: [.1, .16, .2], snowLine: .12, snowUp: .15, lit: [.5, .85, .9], sh: [.12, .2, .36], gain: 1.55 } }
 };
 let snowOn = store.get("kb-snow", true) !== false, blizzOn = store.get("kb-blizz", false) === true;
+const LITE = typeof THREE !== "undefined" ? { snowTint: new THREE.Color(1, 1, 1), time: { value: 0 }, cloudK: { value: 0 }, rim: { value: new THREE.Color(0, 0, 0) } } : {}; let sunElev = +store.get("kb-sunh", 0.6) || 0.6;
 let todName = store.get("kb-tod", PEAK ? "day" : "sunset"); if (!TODS[todName]) todName = "sunset";
 function initRender() {
   try {
@@ -1352,7 +1353,11 @@ function initRender() {
   scene.userData.applyTOD = name => {
     const T = TODS[name] || TODS.sunset; pal = T.pal; SUN.x = T.sun[0]; SUN.y = T.sun[1]; SUN.z = T.sun[2];
     scene.fog.color.setHex(T.fog); valley.material.color.setHex(T.fog); hemi.color.setHex(T.hemi[0]); hemi.groundColor.setHex(T.hemi[1]); hemi.intensity = T.hemi[2];
+    if (name === "day") { const e = clamp(sunElev, 0.12, 1.2), hz = Math.hypot(T.sun[0], T.sun[2]); SUN.x = T.sun[0] / hz * Math.cos(Math.atan(e)); SUN.z = T.sun[2] / hz * Math.cos(Math.atan(e)); SUN.y = Math.sin(Math.atan(e)); }
     sun.color.setHex(T.sunC); sun.intensity = T.sunI; fill.color.setHex(T.fill[0]); fill.intensity = T.fill[1]; renderer.toneMappingExposure = T.exp;
+    if (name === "day") { const low = 1 - smooth((SUN.y - 0.15) / 0.5); sun.color.setRGB(1, 0.93 - 0.18 * low, 0.84 - 0.3 * low); sun.intensity = T.sunI * (0.75 + 0.25 * smooth(SUN.y / 0.6)); }
+    LITE.snowTint.setHex(T.snowTint || 0xffffff); LITE.cloudK.value = T.cloudSh || 0; LITE.rim.value.setHex(T.rim || 0x000000);
+    if (renderer.domElement) renderer.domElement.style.filter = T.grade || "";
     const u = sky.material.uniforms, S = T.sky; u.sunDir.value.set(SUN.x, SUN.y, SUN.z).normalize(); u.cH.value.set(...S.cH); u.cM.value.set(...S.cM); u.cT.value.set(...S.cT); u.cHaze.value.set(...S.haze); u.cG1.value.set(...S.g1); u.cG2.value.set(...S.g2); u.gStr.value = S.gStr; u.stars.value = S.stars;
     cloudMats.forEach(m => { m.opacity = T.cloud.op; m.color.setHex(T.cloud.color); }); sunS.material.opacity = T.sunSpr.op; sunS.material.color.setHex(T.sunSpr.color); sunS.scale.set(T.sunSpr.scale, T.sunSpr.scale, 1); sunS.position.set(SUN.x * 1000, SUN.y * 1000, SUN.z * 1000);
     glowMat().opacity = T.glow; buildMtn(); scene.userData.aurora.g.visible = name === "aurora"; scene.userData.aurora.m.uniforms.k.value = name === "aurora" ? 1 : 0;
@@ -1470,7 +1475,7 @@ function tunePhys() { PHYS.drag = 1; PHYS.turn = 1; PHYS.scrub = 1; PHYS.spin = 
 function buildSkier() {
   const root = new THREE.Group(), pivot = new THREE.Group(), rig = new THREE.Group();
   pivot.position.y = 0.9; rig.position.y = -0.9; root.add(pivot); pivot.add(rig);
-  const M = (color, o) => new THREE.MeshStandardMaterial(Object.assign({ color, roughness: 0.72, metalness: 0.04 }, o || {}));
+  const M = (color, o) => { const m = new THREE.MeshStandardMaterial(Object.assign({ color, roughness: 0.72, metalness: 0.04 }, o || {})); m.onBeforeCompile = sh => { sh.uniforms.rimC = LITE.rim; sh.fragmentShader = "uniform vec3 rimC;\n" + sh.fragmentShader.replace("#include <emissivemap_fragment>", "#include <emissivemap_fragment>\ntotalEmissiveRadiance += rimC * pow(1.0 - clamp(dot(normalize(normal), normalize(vViewPosition)), 0.0, 1.0), 3.0);"); }; return m; };
   const lensTex = canvasTex(64, 32, (x, w, h) => { const g = x.createLinearGradient(0, 0, w, h); g.addColorStop(0, "#ffb347"); g.addColorStop(0.5, "#ff5a8a"); g.addColorStop(1, "#5a6bff"); x.fillStyle = g; x.fillRect(0, 0, w, h); x.fillStyle = "rgba(255,255,255,.35)"; x.fillRect(0, 0, w, 6); });
   const mkSkiTex = (base) => canvasTex(8, 8, (x, w, h) => { x.fillStyle = base; x.fillRect(0, 0, w, h); });
   const skiTex = mkSkiTex("#ee5a2c", "#f6f7f9", "#14181f");
@@ -1894,7 +1899,7 @@ function buildChunk(ci) {
   { const nn = g.attributes.normal.array, cc = g.attributes.color.array;
     for (let v = 0; v < nx * ns; v++) { const ny = nn[v * 3 + 1], st = clamp((0.8 - ny) / 0.28, 0, 1); if (wallV[v]) { if (ny > 0.72) { const ss = -pos[v * 3 + 2], sh = 0.82 + 0.18 * Math.sin(ss * 4.2) + 0.06 * Math.sin(pos[v * 3] * 9 + ss * 0.7); cc[v * 3] = 0.43 * sh; cc[v * 3 + 1] = 0.3 * sh; cc[v * 3 + 2] = 0.2 * sh; iceV[v] = 1; } } else if (st > 0) { const hh = hash(pos[v * 3] * 2.3 + pos[v * 3 + 2] * 1.9) * 0.1, k = Math.min(1, st * 1.15) * (PEAK ? (ny < 0.62 ? 1 : clamp((hash(Math.floor(pos[v * 3] * 0.7) * 7.1 + Math.floor(pos[v * 3 + 2] * 0.7) * 3.3) - 0.45) * 4, 0, 1)) : 1); cc[v * 3] = lerp(cc[v * 3], 0.42 + hh, k); cc[v * 3 + 1] = lerp(cc[v * 3 + 1], 0.4 + hh, k); cc[v * 3 + 2] = lerp(cc[v * 3 + 2], 0.45 + hh, k); } } }
   const grp = new THREE.Group();
-  const tm = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ vertexColors: true, map: PEAK || GL ? null : snowTex(), bumpMap: PEAK || GL ? bumpTexNat() : bumpTex(), bumpScale: PEAK || GL ? 0.3 : 0.38, roughness: 0.9, metalness: 0, envMapIntensity: 0.35 })); tm.material.onBeforeCompile = sh => { sh.vertexShader = "attribute float ice;\n" + sh.vertexShader.replace("#include <uv_vertex>", "#include <uv_vertex>\n#ifdef USE_UV\nvUv = mix(vUv, vec2(0.37, 0.61), ice);\n#endif"); }; tm.receiveShadow = true; grp.add(tm);
+  const tm = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ vertexColors: true, map: PEAK || GL ? null : snowTex(), bumpMap: PEAK || GL ? bumpTexNat() : bumpTex(), bumpScale: PEAK || GL ? 0.3 : 0.38, roughness: 0.9, metalness: 0, envMapIntensity: 0.35, color: LITE.snowTint })); tm.material.onBeforeCompile = sh => { sh.uniforms.cTime = LITE.time; sh.uniforms.cK = LITE.cloudK; sh.vertexShader = "attribute float ice;\nvarying vec2 vCW;\n" + sh.vertexShader.replace("#include <uv_vertex>", "#include <uv_vertex>\n#ifdef USE_UV\nvUv = mix(vUv, vec2(0.37, 0.61), ice);\n#endif").replace("#include <worldpos_vertex>", "#include <worldpos_vertex>\nvCW = (modelMatrix * vec4(transformed, 1.0)).xz;"); sh.fragmentShader = "uniform float cTime; uniform float cK; varying vec2 vCW;\n" + sh.fragmentShader.replace("#include <color_fragment>", "#include <color_fragment>\n{ vec2 q = vCW * 0.006 + vec2(cTime * 0.012, cTime * 0.007); float n = sin(q.x * 3.1 + sin(q.y * 2.3)) * sin(q.y * 2.7 + sin(q.x * 1.7 + 1.3)) + 0.5 * sin(q.x * 7.3 - q.y * 5.1); diffuseColor.rgb *= 1.0 - cK * smoothstep(0.15, 0.75, n); }"); }; tm.receiveShadow = true; grp.add(tm);
   const inCorr = (px, ps) => { if (PEAK) return true; const T = trailFor(ps); return T && Math.abs(px - trailXc(T, ps)) < T.hw + 3; };
   // light poles with orange bases
   const lp = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.13, 0.16, 9, 8), new THREE.MeshLambertMaterial({ color: 0x3a4048 }), 2), lb = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.2, 0.2, 1.4, 8), new THREE.MeshLambertMaterial({ color: 0x3a4048 }), 2), lh = new THREE.InstancedMesh(new THREE.BoxGeometry(1.5, 0.22, 0.4), new THREE.MeshBasicMaterial({ color: 0xffe6a0 }), 2), ld = new THREE.Object3D();
@@ -2808,6 +2813,7 @@ function render(dt, time) {
     const ge = $("glare"); if (ge) { const sd = new THREE.Vector3(SUN.x, SUN.y, SUN.z).normalize(), cd = new THREE.Vector3(); camera.getWorldDirection(cd); const dot = cd.dot(sd), sp = sd.clone().multiplyScalar(500).add(camera.position).project(camera);
       const vis = sp.z < 1 && Math.abs(sp.x) < 1.2 && Math.abs(sp.y) < 1.2 ? smooth((dot - 0.55) / 0.4) * (todName === "night" || todName === "aurora" ? 0.15 : todName === "sunset" ? 0.9 : 0.6) * (1 - 0.8 * Math.min(1, stormMix)) : 0;
       ge.style.opacity = vis.toFixed(3); if (vis > 0) { ge.style.left = ((sp.x + 1) / 2 * 100).toFixed(1) + "%"; ge.style.top = ((1 - sp.y) / 2 * 100).toFixed(1) + "%"; } } }
+  LITE.time.value = performance.now() / 1000;
   renderer.render(scene, camera);
 }
 
@@ -2888,6 +2894,13 @@ function buildPauseUI() {
   const tab = PTABS.find(t => t[0] === pauseTab) || PTABS[0];
   const save = () => { try { localStorage.setItem("kickerOutfit", JSON.stringify(outfit)); } catch (e) { } };
   if (pauseTab === "ctrl") { const dl = $("ctrlsrc").querySelector("dl"); if (dl) box.appendChild(dl.cloneNode(true)); return; }
+  if (pauseTab === "game") {
+    const sec = document.createElement("div"); sec.className = "sec"; const h = document.createElement("h3"); h.textContent = "Midday sun height"; sec.appendChild(h);
+    const row = document.createElement("div"); row.className = "ytrow"; const inp = document.createElement("input"); inp.type = "range"; inp.id = "sunh"; inp.min = "0.12"; inp.max = "1.2"; inp.step = "0.02"; inp.value = String(sunElev); inp.setAttribute("aria-label", "Sun height for midday"); inp.style.accentColor = "var(--jacket)";
+    const lab = document.createElement("span"); lab.style.minWidth = "70px"; lab.style.color = "var(--dim)"; const upd = () => { lab.textContent = Math.round(Math.atan(+inp.value) * 180 / Math.PI) + "° up"; }; upd();
+    inp.oninput = upd; inp.onchange = () => { sunElev = +inp.value; store.set("kb-sunh", sunElev); if (todName === "day" && scene.userData.applyTOD) scene.userData.applyTOD("day"); };
+    row.append(inp, lab); sec.appendChild(row); const sm = document.createElement("small"); sm.style.color = "var(--dim)"; sm.textContent = "Used when the sky is set to Midday."; sec.appendChild(sm); box.appendChild(sec);
+  }
   if (pauseTab === "tune") {
     const st = document.createElement("div"); st.className = "stats";
     [["Top speed", 50 + (1 / PHYS.drag - 1) * 170], ["Turning", 50 + (PHYS.turn - 1) * 150], ["Spin speed", 50 + (PHYS.spin - 1) * 160], ["Stability", 50 + PHYS.land * 90 - (PHYS.turn - 1) * 40]].forEach(([n, v]) => { const r = document.createElement("div"); r.className = "stat"; const l = document.createElement("span"); l.textContent = n; const bar = document.createElement("div"); bar.className = "bar"; const f = document.createElement("i"); f.style.width = clamp(v, 8, 100) + "%"; bar.appendChild(f); r.append(l, bar); st.appendChild(r); });
