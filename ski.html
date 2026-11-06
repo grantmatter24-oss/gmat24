@@ -314,6 +314,8 @@ function baseY(s) {
 }
 if (HELI) { addKnot(70, BASE); addKnot(100, 0); addKnot(245, 0); addKnot(285, BASE); }
 /* the piste centre line: straight through each jump section, curving between them */
+const QPZ = [], QPR = 4.8;
+function qpAt(s) { let m = 0; for (const z of QPZ) { const v = smooth((s - z.a) / 14) * smooth((z.b - s) / 14); if (v > m) m = v; } return m; }
 const pcs = [{ a: -300, b: HELI ? 300 : 60, x: 0 }];
 function pc(s) {
   let lo = 0, hi = pcs.length - 1, r = 0;
@@ -425,7 +427,7 @@ function partOff(p, x, s) {
   let off = 0;
   if (p.sl) { return 0; const d0 = 0 * landOff(p, 0); const d = s - lip - p.gap; if (d <= 0 || d > p.Ll + p.Tr) return 0; const dd = d + 6 * (Math.exp(-d / 6) - 1), Hs = p.sl * p.Ll; return lwL * (d < p.Ll ? -p.sl * dd : -(Hs - p.sl * 6 * (1 - Math.exp(-p.Ll / 6))) * (1 - smooth((d - p.Ll) / p.Tr)) - 0); }
   const u = (s - lip - p.gap) / p.Ll;
-  if (u >= 0 && u <= 1) off += p.Hl * bump(u) * lwL;
+  if (p.up && u >= 0 && u <= 1) off += p.up * smooth(u / 0.03) * (1 - smooth((u - 0.5) / 0.5)) * lwL; else if (u >= 0 && u <= 1) off += p.Hl * bump(u) * lwL;
   if (p.pit && s > lip + 0.4 && s < lip + p.gap) off -= p.pit * smooth((s - lip - 0.4) / 1.2) * smooth((lip + p.gap - s) / 1.2) * lwL;
   return off;
 }
@@ -456,6 +458,9 @@ function addInterlude(kind) {
     len = 190; const x1 = clamp(x0 + sgn * (WIDE ? 24 + rng() * 10 : 14 + rng() * 8), WIDE ? -52 : -30, WIDE ? 52 : 30), x2 = clamp(x1 - sgn * (WIDE ? 30 + rng() * 12 : 20 + rng() * 8), WIDE ? -52 : -30, WIDE ? 52 : 30); f.label = "Carving run · S-turns";
     addKnot(genS + 30, 0.22); addKnot(genS + 90, 0.34); addKnot(genS + 150, 0.2); addKnot(genS + len, BASE);
     pcs.push({ a: genS + 50, b: genS + 58, x: x1 }, { a: genS + 125, b: genS + 133, x: x2 }, { a: genS + len - 6, b: genS + len, x: x2 });
+  } else if (kind === "quarter") {
+    len = 200; f.label = "Quarterpipe walls · ride up the sides"; addKnot(genS + 25, 0.26); addKnot(genS + len - 25, 0.26); addKnot(genS + len, BASE);
+    pcs.push({ a: genS, b: genS + len, x: x0, jump: true }); QPZ.push({ a: genS + 10, b: genS + len - 10 });
   } else if (kind === "chute") {
     len = 150; f.label = "Steep chute · whoops and a kick"; addKnot(genS + 15, HELI ? 1.1 : 0.5); addKnot(genS + len - 15, HELI ? 1.15 : 0.52); addKnot(genS + len, HELI ? 1.0 : 0.4);
     pcs.push({ a: genS, b: genS + len, x: x0, jump: true });
@@ -589,6 +594,7 @@ function addSection() {
     const kp = (pick - 0.2) / 0.8, pS = 0.36 - 0.22 * diff, kind = kp < 0.4 ? 1 : 2;
     const cx = (rng() - 0.5) * 3, hw = 3.8 + rng() * 1.8;
     const k = mkKicker(genS, kind, cx, hw, diff, 1, kind > 0 && secCount > 2 && rng() < 0.2); f.parts.push(k); f.label = k.label; f.mainCx = cx;
+    if (WIDE && kind > 0 && !k.pit && secCount > 3 && rng() < 0.3) { k.up = clamp(2.2 + 4.5 * (genS / COURSE_END), 2.2, 6.5); k.Hl = 0; k.label = f.label = "Step-up"; }
     if (kind > 0 && rng() < 0.28) { const rs0 = k.s0 + k.L + k.gap + k.Ll * 0.1; f.rail = { s0: rs0, s1: rs0 + Math.min(k.Ll * 0.72, 36), x: cx + (rng() - 0.5) * 1.2 }; f.label += " + rail"; }
     if (kind > 0 && rng() < 0.7) f.boost = { s0: genS - 22, s1: genS - 16, cx, hw: 1.4 };
     const nSide = rng() < 0.9 ? (rng() < 0.45 ? 2 : 1) : 0, sides = rng() < 0.5 ? [-1, 1] : [1, -1];
@@ -617,7 +623,7 @@ function addSection() {
   if (DROP) { const ls = DLIP + 50, kk = f.parts[0]; addKnot(a, BASE); addKnot(ls - 8, BASE); addKnot(ls + 8, BASE + 0.3); addKnot(ls + kk.Ll, BASE + 0.3); addKnot(ls + kk.Ll + kk.Tr, 0.04); } else { addKnot(a, BASE); addKnot(f.end + 10, BASE); }
   pcs.push({ a, b: f.end + 10, x: px, jump: !f.cliff || DROP });
   if (DROP) { genS = 1e9; return f; }
-  if (i > 1 && rng() < (PK ? 0.9 : 0.45)) { const fast = secCount % 6 === 3 || secCount % 6 === 5, order = PK ? ["chute", "carve", "chute"] : PARK ? ["carve", "cruiser", "carve"] : ["carve", "chute", "cruiser"]; let k = order[interCount++ % 3]; if (fast && k === "cruiser") k = PARK ? "carve" : "chute"; pendingInterlude = k; genS = f.end + 44 + rng() * 10; }
+  if (i > 1 && rng() < (PK ? 0.9 : 0.45)) { const fast = secCount % 6 === 3 || secCount % 6 === 5, order = WIDE ? ["carve", "quarter", "cruiser"] : PK ? ["chute", "carve", "chute"] : PARK ? ["carve", "cruiser", "carve"] : ["carve", "chute", "cruiser"]; let k = order[interCount++ % 3]; if (fast && k === "cruiser") k = PARK ? "carve" : WIDE ? "carve" : "chute"; pendingInterlude = k; genS = f.end + 44 + rng() * 10; }
   else { pendingFiller = true; genS = f.end + 46 + rng() * 8; }
   return f;
 }
@@ -641,7 +647,7 @@ function H_(x, s) {
   const xr = x - pc(s), ax = Math.abs(xr), lv = baseY(s) + cliffOff(s);
   let y = lv + und(xr, s) + 0.35 * Math.sin(s * 0.09 + xr * 0.12) + 0.25 * Math.sin(xr * 0.21 - s * 0.045);
   if (PEAK) { const fade = 0.2 + 0.8 * smooth((ax - 6) / 26); y += fade * (4.6 * Math.sin(x * 0.09 + 1.7 * Math.sin(s * 0.006 + x * 0.01)) + 2.6 * Math.sin(x * 0.21 + s * 0.012 + 0.7) + 1.0 * Math.sin(x * 0.47 - s * 0.02)); }
-  else if (!DROP) y += 3.5 * smooth((ax - PISTE + 1) / 5) + 0.12 * Math.max(0, ax - PISTE - 5);
+  else if (!DROP) { const qs = WIDE ? qpAt(s) : 0, u = ax - (PISTE - QPR - 1); y += (1 - qs) * (3.5 * smooth((ax - PISTE + 1) / 5)) + 0.12 * Math.max(0, ax - PISTE - 5) + (qs > 0 && u > 0 ? qs * (u < QPR * 0.985 ? QPR - Math.sqrt(QPR * QPR - u * u) : QPR + (u - QPR) * 0.03) : 0); }
   y += clamp(-xr * pcc(s) * 4, -3.5, 3.5) * (1 - smooth((ax - PISTE - 2) / 6)); // banked turns
   if (DROP && false) y -= 16 * smooth((ax - 12.5) / 4) * smooth((s - 4) / 26) * (1 - smooth((s - DLIP - 2) / 14));
   const j = featIndex(s);
@@ -907,7 +913,7 @@ function landing(surfaceType, rail) {
   const vh = Math.hypot(sk.vx, sk.vs);
   sk.psi = Math.atan2(sk.vx, sk.vs);
   let vt = vh * Math.cos(sA) + sk.vy * Math.sin(sA);
-  if (HP && surfaceType !== "rail") { // keep the speed that runs along the wall: only the part pushing into the snow is absorbed
+  if ((HP || sk.qpAir) && surfaceType !== "rail") { // keep the speed that runs along the wall: only the part pushing into the snow is absorbed
     const e = 0.3, gx = (H(sk.x + e, sk.s) - H(sk.x - e, sk.s)) / (2 * e), gs = (H(sk.x, sk.s + e) - H(sk.x, sk.s - e)) / (2 * e), nl = Math.hypot(gx, 1, gs), nx = -gx / nl, ny = 1 / nl, ns = -gs / nl;
     const vn = sk.vx * nx + sk.vy * ny + sk.vs * ns, tx = sk.vx - vn * nx, ty = sk.vy - vn * ny, ts = sk.vs - vn * ns;
     if (Math.hypot(tx, ts) > 0.5) sk.psi = Math.atan2(tx, ts); vt = Math.hypot(tx, ty, ts) * 0.97;
@@ -1017,19 +1023,20 @@ function step(dt) {
       // carving: the longer you hold a turn the more the edges bite, which turns tighter and scrubs less speed
       sk.carve = steer ? Math.min(1, sk.carve + dt / 0.55) : Math.max(0, sk.carve - dt * 2.5);
       const wat = HELI && !sk.air && onLake(sk.x, sk.s); sk.water = wat; if (wat) { if (!K.brake && !K.down && sk.sp < 18) sk.sp += (18 - sk.sp) * 0.9 * dt; if (sk.sp < 4.5) { crash("Sank in the lake"); return; } spray(sk.x - Math.sin(sk.psi) * 0.4 - 0.5, sk.y + 0.1, sk.s - Math.cos(sk.psi) * 0.4, 3, 2.4, -3); spray(sk.x - Math.sin(sk.psi) * 0.4 + 0.5, sk.y + 0.1, sk.s - Math.cos(sk.psi) * 0.4, 3, 2.4, 3); }
-      sk.psi += steer * (1.15 + 0.95 * sk.carve) * dt * PHYS.turn * (HP ? 1.25 : clamp(1.25 / (1 + Math.pow(sk.sp / 32, 2)), 0.55, 1)); // faster means wider arcs
-      if (!steer && !HP) sk.psi -= sk.psi * 0.35 * dt;
+      const hpm = HP || (WIDE && qpAt(sk.s) > 0.05 && Math.abs(sk.x - pc(sk.s)) > PISTE - QPR - 10); sk.qpAir = hpm;
+      sk.psi += steer * (1.15 + 0.95 * sk.carve) * dt * PHYS.turn * (hpm ? 1.25 : clamp(1.25 / (1 + Math.pow(sk.sp / 32, 2)), 0.55, 1)); // faster means wider arcs
+      if (!steer && !hpm) sk.psi -= sk.psi * 0.35 * dt;
       const Tt = trailFor(sk.s); let onTrail = false;
       if (Tt) { const off = sk.x - trailXc(Tt, sk.s); if (Math.abs(off) < Tt.hw + 1.5 && Math.abs(sk.x - pc(sk.s)) > PISTE - 1.5) { onTrail = true; if (Math.abs(off) > Tt.hw - 1.4) sk.psi -= Math.sign(off) * (Math.abs(off) - (Tt.hw - 1.4)) * 0.6 * dt; } }
-      { const xr = sk.x - pc(sk.s); if (!HP && !onTrail && Math.abs(xr) > PISTE) sk.psi -= Math.sign(xr) * (Math.abs(xr) - PISTE) * 0.4 * dt; }
-      if (!HP) sk.psi = clamp(sk.psi, -1.1, 1.1);
+      { const xr = sk.x - pc(sk.s); if (!hpm && !onTrail && Math.abs(xr) > PISTE) sk.psi -= Math.sign(xr) * (Math.abs(xr) - PISTE) * 0.4 * dt; }
+      if (!hpm) sk.psi = clamp(sk.psi, -1.1, 1.1);
       let hx = Math.sin(sk.psi), hs = Math.cos(sk.psi);
       let sA = sA_(sk.x, sk.s, sk.psi), c = Math.cos(sA), sn = Math.sin(sA);
-      if (HP) { // half pipe: real momentum on the surface, so you can ride up a wall, turn at the top and come back down
+      if (hpm) { // half pipe: real momentum on the surface, so you can ride up a wall, turn at the top and come back down
         const e = 0.3, gx = (H(sk.x + e, sk.s) - H(sk.x - e, sk.s)) / (2 * e), gs = (H(sk.x, sk.s + e) - H(sk.x, sk.s - e)) / (2 * e), den = 1 + gx * gx + gs * gs;
         let vx = sk.sp * c * hx, vs = sk.sp * c * hs; const sp0 = Math.hypot(vx, vs);
         vx += -G * gx / den * dt; vs += -G * gs / den * dt;
-        const fr = 0.03 + Math.abs(steer) * 0.12 + 0.0036 * sp0 + (K.boost ? -0.02 : 0) + (K.brake ? 0.9 : 0); vx -= vx * fr * dt; vs -= vs * fr * dt;
+        const fr = (0.03 + Math.abs(steer) * 0.12 + 0.0036 * sp0) * (HP ? 1 : 0.35) + (K.boost ? -0.02 : 0) + (K.brake ? 0.9 : 0); vx -= vx * fr * dt; vs -= vs * fr * dt;
         if (K.boost && !sk.finished) { vx += hx * 5 * dt; vs += hs * 5 * dt; }
         const hsp = Math.hypot(vx, vs);
         if (hsp > 0.5) { sk.psi = Math.atan2(vx, vs); hx = Math.sin(sk.psi); hs = Math.cos(sk.psi); sA = sA_(sk.x, sk.s, sk.psi); c = Math.cos(sA); sn = Math.sin(sA); }
@@ -1037,7 +1044,7 @@ function step(dt) {
       }
       // linear scrub from turning plus air drag that grows with speed, so there is no hard cap
       const lin = ((GL ? 0.1 : 0) + 0.05 + Math.abs(steer) * (0.34 - 0.24 * sk.carve) * (0.85 + sk.sp / 90) * PHYS.scrub + Math.abs(hx) * 0.4) * (0.5 + 0.5 * PHYS.drag), quad = (K.down || K.boost ? 0.0052 : 0.0072) * PHYS.drag, push = K.boost && !sk.finished ? 7 : 0, brk = K.brake && !sk.finished ? 16 : 0;
-      if (!HP) sk.sp = clamp(sk.sp + (-G * sn - lin * sk.sp - quad * sk.sp * sk.sp + push - brk) * dt, sk.finished ? 0 : 3, MAXV);
+      if (!hpm) sk.sp = clamp(sk.sp + (-G * sn - lin * sk.sp - quad * sk.sp * sk.sp + push - brk) * dt, sk.finished ? 0 : 3, MAXV);
       if (brk && sk.sp > 4 && Math.random() < 0.7) spray(sk.x, sk.y, sk.s, 3, 3);
       if (push) { boostPulse = Math.max(boostPulse, 0.55); if (Math.random() < 0.6) spray(sk.x - hx * 0.6, sk.y, sk.s - hs * 0.6, 2, 2); }
       if (sk.finished) sk.sp = Math.max(0, sk.sp - 9 * dt);
@@ -1055,7 +1062,7 @@ function step(dt) {
       const popNow = popReq;
       const pw = 0.35 + 0.65 * popPow;
       if (popNow) { sk.sp += 0.9 * pw * Math.max(0, 1 - sk.sp / 45); spray(sk.x - hx * 0.5, sk.y, sk.s - hs * 0.5, 4, 3); sfx("pump"); }
-      if (popNow || yp > hn + (HP ? 0.04 : 0.12)) {
+      if (popNow || yp > hn + (hpm ? 0.04 : 0.12)) {
         sk.air = true; sk.vx = sk.sp * c * hx; sk.vs = sk.sp * c * hs; sk.vy = sk.sp * sn + (popNow ? (nearLip(sk.x, sk.s) ? 6.5 : railAhead(sk.x, sk.s) ? 8.6 : 5.2) * pw : 0) + (!popNow && onRailRamp(sk.x, sk.s) ? 1.3 : 3.0);
         sk.x = nx; sk.s = ns; sk.y = popNow ? Math.max(yp, hn) + 0.02 : yp;
         sk.airT = 0; sk.flipAcc = 0; sk.spin = 0; sk.spinV = 0; sk.grabT = 0; sk.rotV = 0; sk.spinTarget = 0; if (popNow) sk.popT = 0.2;
@@ -1095,7 +1102,7 @@ function step(dt) {
     // air steering rotates the velocity a little
     const ang = steer * (steer && railBeside(sk.x, sk.s, sk.y) ? 2.2 : 0.7) * dt, ca = Math.cos(ang), sa = Math.sin(ang), nvx = sk.vx * ca + sk.vs * sa, nvs = -sk.vx * sa + sk.vs * ca;
     sk.vx = nvx; sk.vs = nvs; sk.psi += ang;
-    if (HP) { // aerials: go straight up from the lip and come back down on the inside of the same wall
+    if (HP || sk.qpAir) { // aerials: go straight up from the lip and come back down on the inside of the same wall
       if (sk.airT < 0.03 || sk.hpx === undefined) sk.hpx = Math.abs(sk.x) > 14 ? sk.x - Math.sign(sk.x) * 3.2 : sk.x;
       sk.vx += ((sk.hpx - sk.x) * 6 - sk.vx * 2.6) * dt; }
     sk.vy -= G * dt; sk.x += sk.vx * dt; sk.s += sk.vs * dt; sk.y += sk.vy * dt;
@@ -2297,6 +2304,7 @@ function cityBuildings(ci, s0) {
 /* blue safety netting along both edges of the snow run (Evergreen Run, Kicker Park); panels are skipped where a side feature or trail entrance sits */
 let fenceA = 20, fenceGroup = null, fenceMats = null;
 function fenceBlocked(x, s) {
+  if (WIDE && qpAt(s) > 0.02) return true;
   for (let i = Math.max(0, featIndex(s) - 1); i < feats.length && feats[i].s0 < s + 60; i++) for (const p of feats[i].parts) {
     if (p.type === "rollers" || p.type === "moguls" || p.type === "couloir") continue;
     const a = (p.sMin !== undefined ? p.sMin : p.s0) - 4, b = p.end + 4; if (s < a || s > b) continue;
@@ -2904,7 +2912,7 @@ sk = newSkier(0, PEAK ? 3 : 10, 0);
 const glOK = typeof THREE !== "undefined" && initRender();
 if (glOK) { applyGfx(); scene.userData.applyTOD(todName); }
 if (!glOK) { $("nogl").hidden = false; $("go").disabled = true; }
-window.__game = { get lake() { return heliLake ? [heliLake.position.x, heliLake.position.y, heliLake.position.z, heliLake.scale.x, heliLake.scale.y, heliLake.scale.z] : null; }, get gates() { return GATES; }, get gstat() { return [gIdx, gMiss, gPass]; }, get scene() { return scene; }, get storm() { return [stormMix, snowOn, scene.fog.near, scene.fog.far]; }, get rig() { return skierRig; }, pc, pcs, cliffs, knots, baseY, get runT() { return runT; }, get sw() { return sk.sw; }, get spin() { return sk.spin; }, get endShown() { return endShown; }, COURSE_END, trails, trailFor, trailXc, sectionsAt, step, get sk() { return sk; }, feats, H, K, restart, begin, get score() { return score; }, get mult() { return mult; }, setMode(m) { mode = m; }, pop() { popReq = true; popPow = 1; }, gDown, gUp };
+window.__game = { get qpz() { return QPZ; }, get lake() { return heliLake ? [heliLake.position.x, heliLake.position.y, heliLake.position.z, heliLake.scale.x, heliLake.scale.y, heliLake.scale.z] : null; }, get gates() { return GATES; }, get gstat() { return [gIdx, gMiss, gPass]; }, get scene() { return scene; }, get storm() { return [stormMix, snowOn, scene.fog.near, scene.fog.far]; }, get rig() { return skierRig; }, pc, pcs, cliffs, knots, baseY, get runT() { return runT; }, get sw() { return sk.sw; }, get spin() { return sk.spin; }, get endShown() { return endShown; }, COURSE_END, trails, trailFor, trailXc, sectionsAt, step, get sk() { return sk; }, feats, H, K, restart, begin, get score() { return score; }, get mult() { return mult; }, setMode(m) { mode = m; }, pop() { popReq = true; popPow = 1; }, gDown, gUp };
 requestAnimationFrame(frame);
 $("dtot").textContent = COURSE_END;
 /* ---------- homepage: animated sunset, mountains and a skier doing a backflip ---------- */
