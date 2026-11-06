@@ -377,13 +377,13 @@ function flightD(L, Hh, v0, roof) { // where a nominal flight from the lip comes
   return { d, tanA };
 }
 function mkKicker(s0, kind, cx, hw, diff, sc, tall) {
-  sc = sc || 1;
+  sc = sc || 1; const q = WIDE ? clamp(s0 / COURSE_END, 0, 1) : 0; // jumps grow toward the bottom of Evergreen Run
   const T = [[8, 1.5, 0.15, 22, 0.5, 10, 32, "Small kicker"], [11, 2, 0.17, 26, 0.55, 18, 50, "Kicker"], [14, 2, 0.2, 30, 0.6, 28, 80, "Big air"], [14, 2, 0.22, 30, 0.33, 18, 55, "Gap jump"], [18, 2, 0.28, 36, 0.6, 50, 140, "Mega air"]][kind];
-  const L = (T[0] + rng() * T[1]) * (sc < 1 ? 0.8 : 1) * (kind < 4 ? 1.1 : 1.1), ratio = (T[2] + rng() * 0.02) * (kind < 4 ? 1.55 : 1.25) * (tall ? 1.55 : 1), v0 = T[3] + 2 - (tall ? 3 : 0);
+  const L = (T[0] + rng() * T[1]) * (sc < 1 ? 0.8 : 1) * 1.1 * (1 + 0.45 * q), ratio = (T[2] + rng() * 0.02) * (kind < 4 ? 1.55 : 1.25) * (tall ? 1.55 : 1) * (1 + 0.5 * q), v0 = T[3] + 2 - (tall ? 3 : 0) + 5 * q;
   const Hh = L * ratio * (kind < 3 ? 1 + 0.1 * diff : 1), fd = flightD(L, Hh, v0);
-  const gap = kind === 3 ? clamp(T[4] * fd.d * sc, T[5] * sc, T[6] * sc * 1.3) : clamp(0.35 * fd.d * sc, 6, 40), Ll = kind === 3 ? clamp(gap * 0.8 + 10, 18, 60) : clamp(0.9 * fd.d * sc, 24, 70);
-  const Hl = clamp((fd.tanA - BASE) * 0.5 * Ll / 1.5, 0.8, 7), pit = kind === 3 ? 3.6 : 0;
-  const hwK = kind < 4 ? hw * (PEAK ? 1.7 : 1.3) : hw;
+  const gap = kind === 3 ? clamp(T[4] * fd.d * sc, T[5] * sc, T[6] * sc * 1.3) : clamp(0.35 * fd.d * sc, 6, 40 * (1 + q)), Ll = kind === 3 ? clamp(gap * 0.8 + 10, 18, 60) : clamp((0.9 + 0.35 * q) * fd.d * sc, 24, 70 * (1 + 1.3 * q));
+  const Hl = clamp((fd.tanA - BASE) * 0.5 * Ll / 1.5, 0.8, 7 + 4 * q), pit = kind === 3 ? 3.6 : 0;
+  const hwK = (kind < 4 ? hw * (PEAK ? 1.7 : 1.3) : hw) * (1 + 0.8 * q);
   const p = { type: "kicker", label: T[7], s0, L, H: Hh, gap, Ll, Hl, cx, hw: hwK, lhw: Math.min(hwK * 2.7, PISTE + 5), v0, pit };
   if (tall) p.label = "Sky ramp";
   p.end = s0 + L + gap + Ll; return p;
