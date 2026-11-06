@@ -613,7 +613,14 @@ function addSection() {
   f.end = f.cliff ? f.cliffEnd : Math.max(...f.parts.map(p => p.end), ...railsOf(f).map(r => r.s1), f.endExtra || 0);
   // plateau for the centre line and slope knots: curve and steepness change in the gap before this section
   const last = pcs[pcs.length - 1], px = i < 1 ? 0 : clamp(last.x + (rng() - 0.5) * 2 * Math.min(WIDE ? 26 : 14, (WIDE ? 0.42 : 0.35) * Math.max(8, f.s0 - 34 - last.b)) + (WIDE && Math.abs(last.x) < 14 ? (rng() < 0.5 ? -1 : 1) * 8 : 0), WIDE ? -52 : -30, WIDE ? 52 : 30);
-  shiftSection(f, px); if (WIDE && !f.cliff) shiftSection(f, (rng() - 0.5) * 2 * 17);
+  shiftSection(f, px); if (WIDE && !f.cliff) {
+    const lat = (rng() - 0.5) * 2 * 17; shiftSection(f, lat);
+    if ((f.parts.length || f.rail) && !f.parts.some(p => p.side || p.house) && rng() < 0.95) { // fill the wide sides with a big jump on the open side and sometimes a box on the other
+      const sd = lat > 4 ? -1 : lat < -4 ? 1 : (rng() < 0.5 ? -1 : 1), sp2 = mkKicker(f.s0 + 4 + rng() * 22, rng() < 0.4 ? 4 : 2, px + sd * 29, 4.6, diff);
+      sp2.side = true; sp2.lhw = Math.min(sp2.lhw, 15); sp2.label = "Side " + sp2.label.toLowerCase(); f.parts.push(sp2); f.end = Math.max(f.end, sp2.end); f.label += " + " + sp2.label;
+      const o2 = rng(); if (o2 < 0.6) { const k2 = mkKicker(f.s0 + 6 + rng() * 26, 1, px - sd * 27, 4.2, diff); k2.side = true; k2.lhw = Math.min(k2.lhw, 14); f.parts.push(k2); f.end = Math.max(f.end, k2.end); } else { const bs = f.s0 + 10 + rng() * 40; f.parts.push({ type: "box", s0: bs, len: 16, end: bs + 16, B: 0.75, cx: px - sd * 27, hw: 1.9 }); f.end = Math.max(f.end, bs + 16); }
+    }
+  }
   if (f.cliff && (PEAK || DROP)) f.rocks = [];
   else if (f.cliff) { f.rocks = []; for (const sd of [-1, 1]) for (let q = 0; q < 5; q++) f.rocks.push({ x: px + sd * (PISTE + (PEAK ? 15 : 1.2) + q * 2.6 + rng()), s: f.cliff.s - 2.5 + rng() * 5, r: 1.6 + rng() * 1.8 }); [-1, 1].forEach(sd => f.rocks.push({ x: px + sd * (PISTE + (PEAK ? 14 : -0.5)), s: f.cliff.s - 1.5, r: 2.4 })); }
   else flankRocks(f);
