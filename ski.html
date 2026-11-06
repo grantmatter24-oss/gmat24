@@ -1246,9 +1246,9 @@ const TODS = {
   sunset: { snowTint: 0xeae6e6, cloudSh: 0.12, rim: 0x4a2a18, grade: "contrast(1.04)", sun: [-0.5, 0.25, -0.83], hemi: [0xb79bc9, 0xd9a89c, 0.95], sunC: 0xffa458, sunI: 2.1, fill: [0x7f90ff, 0.45], fog: 0xe3ada0, exp: 1.12, glow: 1,
     sky: { cH: [1, .56, .34], cM: [.8, .46, .58], cT: [.14, .17, .42], haze: [.89, .68, .63], g1: [1, .5, .22], g2: [1, .78, .45], gStr: 1, stars: 0 }, cloud: { op: 0.9, color: 0xffffff }, sunSpr: { op: 1, color: 0xffffff, scale: 520 }, face: { op: 0.8, color: 0xffd9bf, rays: 0xffc88a, rop: 0.35 },
     pal: { sn: [.98, .9, .9], fogc: [.89, .68, .63], tree: [.11, .18, .2], snowLine: .38, snowUp: .22, lit: [1, .7, .5], sh: [.55, .55, .78], gain: 1.9 } },
-  day: { snowTint: 0xd3d9e2, cloudSh: 0.22, rim: 0x3a3426, grade: "contrast(1.08) saturate(1.06)", sun: [-0.42, 0.6, -0.45], hemi: [0x6f9cf0, 0xa9b7cc, 0.55], sunC: 0xffeed6, sunI: 2.55, fill: [0x7f9ad8, 0.22], fog: 0xb4c8de, exp: 0.78, glow: 0.08,
-    sky: { cH: [.66, .78, .9], cM: [.36, .56, .86], cT: [.1, .28, .66], haze: [.7, .78, .88], g1: [1, .95, .85], g2: [1, .97, .9], gStr: .35, stars: 0 }, cloud: { op: 0.35, color: 0xcfe3ff }, sunSpr: { op: 0.35, color: 0xfff6dd, scale: 380 }, face: { op: 0.85, color: 0xffffff, rays: 0xffffff, rop: 0.22 },
-    pal: { sn: [.93, .95, .99], fogc: [.7, .78, .88], tree: [.42, .45, .5], snowLine: .1, snowUp: .12, lit: [1, .96, .9], sh: [.5, .6, .84], gain: 1.6 } },
+  day: { snowTint: 0xdfe6f3, cloudSh: 0.16, rim: 0x3a3426, grade: "saturate(1.3) contrast(0.96)", sun: [-0.42, 0.6, -0.45], hemi: [0x7fb0ff, 0x9fbf8f, 0.95], sunC: 0xffe9c8, sunI: 2.3, fill: [0x8fb0e8, 0.4], fog: 0xa9c6e8, exp: 0.86, glow: 0.08,
+    sky: { cH: [.62, .8, .97], cM: [.3, .56, .92], cT: [.08, .3, .78], haze: [.66, .8, .94], g1: [1, .95, .85], g2: [1, .97, .9], gStr: .35, stars: 0 }, cloud: { op: 0.35, color: 0xcfe3ff }, sunSpr: { op: 0.35, color: 0xfff6dd, scale: 380 }, face: { op: 0.85, color: 0xffffff, rays: 0xffffff, rop: 0.22 },
+    pal: { sn: [.93, .95, .99], fogc: [.66, .8, .94], tree: [.2, .42, .26], snowLine: .1, snowUp: .12, lit: [1, .96, .9], sh: [.5, .6, .84], gain: 1.6 } },
   night: { sun: [0.35, 0.55, -0.75], hemi: [0x34428a, 0x141a3a, 0.85], sunC: 0x93aaff, sunI: 1.0, fill: [0x5a6ad0, 0.25], fog: 0x0a0f2a, exp: 1.05, glow: 1.7,
     sky: { cH: [.1, .13, .3], cM: [.05, .07, .2], cT: [.015, .025, .09], haze: [.04, .06, .16], g1: [.35, .45, .9], g2: [.7, .8, 1], gStr: .5, stars: 1 }, cloud: { op: 0.12, color: 0x7f8fd8 }, sunSpr: { op: 0.6, color: 0xcfe0ff, scale: 260 }, face: { op: 0.6, color: 0x7f8fe0, rays: 0x8fa6ff, rop: 0.25 },
     pal: { sn: [.55, .65, .95], fogc: [.04, .06, .16], tree: [.12, .14, .22], snowLine: .12, snowUp: .15, lit: [.5, .6, 1], sh: [.14, .17, .35], gain: 1.5 } },
@@ -1932,7 +1932,7 @@ function buildChunk(ci) {
   if (N) {
     const mk = (geo, color, yOff, vary) => { const m = new THREE.InstancedMesh(geo, new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 }), N), d = new THREE.Object3D(), c0 = new THREE.Color(color), cc = new THREE.Color(); m.castShadow = true; m.receiveShadow = true;
       tr.forEach((t, i) => { const h = hash(t.x * 0.37 + t.s * 0.11); d.position.set(t.x, t.y + yOff * t.sc, -t.s); d.rotation.set((h - 0.5) * 0.08, h * 6, (hash(h * 7) - 0.5) * 0.08); d.scale.set(t.sc * (0.85 + h * 0.3), t.sc * (0.85 + hash(h * 3) * 0.4), t.sc * (0.85 + h * 0.3)); d.updateMatrix(); m.setMatrixAt(i, d.matrix); cc.copy(c0); if (vary) cc.offsetHSL((h - 0.5) * 0.04, (hash(h * 5) - 0.5) * 0.12, (hash(h * 9) - 0.5) * 0.08); m.setColorAt(i, cc); }); return m; };
-    const pm2 = mk(pineGeo(), 0x2f6a4a, 0, true); pm2.material.vertexColors = true; pm2.material.roughness = 0.95;
+    const pm2 = mk(pineGeo(), todName === "day" ? 0x3f8f56 : 0x2f6a4a, 0, true); pm2.material.vertexColors = true; pm2.material.roughness = 0.95;
     const snowC = mk(pineSnowGeo(), 0xf4f7fc, 0, false); snowC.castShadow = false; snowC.material.roughness = 0.85;
     grp.add(mk(new THREE.CylinderGeometry(0.14, 0.3, 2.8, 7), 0x4a3426, 1.4, false), pm2, snowC);
   }
@@ -2443,7 +2443,7 @@ function buildWallSeg(a, b) {
   while (ti < cnt && guard++ < 6000) {
     const o = (r() - 0.5) * 2 * 1300, s = a + r() * (b - a); if (Math.abs(o) < 105) continue;
     const y = wallVH(o, s), rise = y - (baseY(s) + cliffOff(s) - 3); if (rise > 175 || (rise > 30 && Math.hypot((wallVH(o + 6, s) - y) / 6, (wallVH(o, s + 6) - y) / 6) > 1.1)) continue;
-    const sc = 0.9 + r() * 1.6; mt.makeScale(sc, sc, sc); mt.setPosition(pc(s) + o, y + 7 * sc, -s); tm.setMatrixAt(ti, mt); cc.setHSL(0.36 + r() * 0.04, 0.35 + r() * 0.12, 0.2 + r() * 0.1); tm.setColorAt(ti++, cc);
+    const sc = 0.9 + r() * 1.6; mt.makeScale(sc, sc, sc); mt.setPosition(pc(s) + o, y + 7 * sc, -s); tm.setMatrixAt(ti, mt); cc.setHSL(0.34 + r() * 0.05, 0.42 + r() * 0.14, 0.24 + r() * 0.11); tm.setColorAt(ti++, cc);
   }
   tm.count = ti; tm.frustumCulled = false; g.add(tm);
   return g;
@@ -2512,7 +2512,7 @@ function buildValleyDrop() { // big-air map: steep forested valley walls close i
     const x = (r() - 0.5) * 2 * 1500, sv = SMIN + 120 + r() * (LL - 300); if (Math.abs(x + cx0 - pc(sv)) < 105 && sv < COURSE_END + 150) continue;
     const y = VH(x, sv), rise = y - yRun(sv); if (rise > 175 || (rise > 30 && Math.hypot((VH(x + 6, sv) - y) / 6, (VH(x, sv + 6) - y) / 6) > 1.1)) continue;
     if (lakeM(x, sv) > 0.05 || townM(x, sv) > 0.5 && r() < 0.8) continue; if (Math.abs(x) < 90 && sv > COURSE_END && sv < S0 + 220) continue;
-    const sc = 0.9 + r() * 1.6; mt.makeScale(sc, sc, sc); mt.setPosition(x, y + 7 * sc, -sv); tm.setMatrixAt(ti, mt); cc.setHSL(0.36 + r() * 0.04, 0.35 + r() * 0.12, 0.2 + r() * 0.1); tm.setColorAt(ti++, cc);
+    const sc = 0.9 + r() * 1.6; mt.makeScale(sc, sc, sc); mt.setPosition(x, y + 7 * sc, -sv); tm.setMatrixAt(ti, mt); cc.setHSL(0.34 + r() * 0.05, 0.42 + r() * 0.14, 0.24 + r() * 0.11); tm.setColorAt(ti++, cc);
   }
   tm.count = ti; g.add(tm);
   // village
