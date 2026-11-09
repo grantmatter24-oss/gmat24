@@ -85,10 +85,10 @@
   #again { align-self: flex-start; font: 900 28px/1 var(--display); letter-spacing: .06em; text-transform: uppercase; color: var(--ink); background: var(--jacket); border: 0; border-radius: 6px; padding: 14px 26px 12px; cursor: pointer; }
   #next { position: absolute; left: 50%; transform: translateX(-50%); top: 14px; font: 800 18px var(--display); letter-spacing: .12em; text-transform: uppercase; color: var(--ink); background: var(--peach); padding: 5px 12px 3px; border-radius: 4px; pointer-events: none; white-space: nowrap; }
   #next[hidden] { display: none; }
-  #pop { position: absolute; left: 0; right: 0; top: 24%; text-align: center; pointer-events: none; padding: 0 16px; opacity: 0; }
+  #pop { position: absolute; right: calc(max(18px, env(safe-area-inset-right, 0px)) + 128px); bottom: max(92px, calc(env(safe-area-inset-bottom, 0px) + 92px)); max-width: min(46vw, 520px); text-align: right; pointer-events: none; padding: 0; opacity: 0; transform-origin: 100% 100%; }
   #pop.show { animation: pop 1.9s ease-out forwards; }
-  #pop .t { font: 900 clamp(34px, 7vw, 70px)/1 var(--display); text-transform: uppercase; letter-spacing: .02em; text-shadow: 0 3px 0 rgba(11,26,41,.5); text-wrap: balance; }
-  #pop .s { margin-top: 6px; font: 600 clamp(16px, 2.6vw, 24px) var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--peach); text-shadow: 0 2px 0 rgba(11,26,41,.5); }
+  #pop .t { font: 900 clamp(24px, 4.2vw, 46px)/1 var(--display); text-transform: uppercase; letter-spacing: .02em; text-shadow: 0 3px 0 rgba(11,26,41,.5); text-wrap: balance; }
+  #pop .s { margin-top: 4px; font: 600 clamp(13px, 1.8vw, 18px) var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--peach); text-shadow: 0 2px 0 rgba(11,26,41,.5); }
   #pop.bad .t { color: var(--jacket); }
   @keyframes pop { 0% { opacity: 0; transform: translateY(14px) scale(.9); } 10% { opacity: 1; transform: none; } 75% { opacity: 1; } 100% { opacity: 0; transform: translateY(-14px); } }
   #toast { position: absolute; left: 0; right: 0; top: 46%; text-align: center; font: 900 clamp(26px, 5vw, 44px) var(--display); letter-spacing: .1em; text-transform: uppercase; color: var(--gold); text-shadow: 0 2px 0 rgba(11,26,41,.55); opacity: 0; pointer-events: none; }
@@ -195,7 +195,6 @@
         <button type="button" data-r="peak" title="Couloir Peak" aria-label="Couloir Peak, steep open faces"><svg viewBox="0 0 32 32" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 27L12 8l5 9 3-5 10 15z" fill="currentColor" fill-opacity=".25"/><path d="M12 8l-3 5 3-1 2 2"/></svg></button>
         <button type="button" data-r="park" title="Village Park" aria-label="Village Park, a park run down a Swiss village main street"><svg viewBox="0 0 32 32" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 15l7-7 7 7M5 13v12h10V13M17 18l6-6 6 6M19 16v9h8v-9"/><path d="M9 25v-5h2v5" /></svg></button>
         <button type="button" data-r="drop" title="X Big Air" aria-label="X Big Air, one huge kicker"><svg viewBox="0 0 32 32" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h9l3 3v15h14" /><path d="M20 17l5 7 5-7" fill="currentColor" fill-opacity=".25"/></svg></button>
-        <button type="button" data-r="build" title="Snowpark Builder" aria-label="Snowpark Builder, build your own park"><svg viewBox="0 0 32 32" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 27h22M7 27V15h8v12" fill="currentColor" fill-opacity=".25"/><path d="M18 27l6-12 4 12M5 10l4-4 4 4"/></svg></button>
         <button type="button" data-r="glade" title="Powder Glades" aria-label="Powder Glades, deep snow and trees"><svg viewBox="0 0 32 32" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 27V15M9 15l-4 5M9 15l4 5M9 7l-3 5h6zM22 27V12M22 12l-5 7M22 12l5 7M22 4l-4 6h8z" fill="currentColor" fill-opacity=".25"/></svg></button>
       </div>
       <div id="tods" role="group" aria-label="Time of day">
@@ -247,7 +246,6 @@
         <button type="button" class="pick" data-r="peak"><b>Couloir Peak</b><span>Steep open faces, couloirs and big cliffs. No trees</span><i id="pb-peak"></i></button>
         <button type="button" class="pick" data-r="park"><b>Village Park</b><span>Rails, boxes and kickers down the main street of a Swiss mountain village</span><i id="pb-park"></i></button>
         <button type="button" class="pick" data-r="drop"><b>X Big Air</b><span>One wide, steep Big Air ramp</span><i id="pb-drop"></i></button>
-        <button type="button" class="pick" data-r="build"><b>Snowpark Builder</b><span>Place your own rails, boxes and kickers, then ride them</span><i id="pb-build"></i></button>
         <button type="button" class="pick" data-r="glade"><b>Powder Glades</b><span>Deep snow, tight trees and natural drops</span><i id="pb-glade"></i></button>
       </div>
       <p class="homehint">Enter starts Evergreen Run</p>
@@ -296,10 +294,10 @@ const hash = n => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s
 /* =====================================================================
    COURSE: coordinates are (x across, y up, s down the mountain). Render z = -s.
    ===================================================================== */
-const RES = location.hash === "#peak" ? "peak" : location.hash === "#park" ? "park" : location.hash === "#drop" ? "drop" : location.hash === "#pipe" ? "pipe" : location.hash === "#glade" ? "glade" : location.hash === "#gates" ? "gates" : location.hash === "#build" ? "build" : "alpine", HELI = RES === "heli", BLD = RES === "build", PEAK = RES === "peak" || HELI, WIDE = RES === "alpine", PARK = RES === "park", DROP = RES === "drop", HP = RES === "pipe", GL = RES === "glade", GT = RES === "gates", PK = PEAK || GL, KS = HELI ? 1.1 : PEAK ? 1.45 : 1;
+const RES = location.hash === "#peak" ? "peak" : location.hash === "#park" ? "park" : location.hash === "#drop" ? "drop" : location.hash === "#pipe" ? "pipe" : location.hash === "#glade" ? "glade" : location.hash === "#gates" ? "gates" :  "alpine", HELI = RES === "heli", BLD = RES === "build", PEAK = RES === "peak" || HELI, WIDE = RES === "alpine", PARK = RES === "park", DROP = RES === "drop", HP = RES === "pipe", GL = RES === "glade", GT = RES === "gates", PK = PEAK || GL, KS = HELI ? 1.1 : PEAK ? 1.45 : 1;
 const RESORT_NAMES = { alpine: "Evergreen Run", peak: "Couloir Peak", park: "Village Park", drop: "X Big Air", pipe: "Mega Pipe", glade: "Powder Glades", gates: "Race Gates", heli: "Heli-Drop", build: "Snowpark Builder" };
 const G = 18, BASE = HELI ? 1.15 : PEAK ? 0.4 : BLD ? 0.22 : DROP ? 0.58 : HP ? 0.36 : GT ? 0.5 : GL ? 0.33 : 0.28, RAIL_H = 3.45, PISTE = PARK ? 13.5 : WIDE ? 40 : DROP ? 24 : HP ? 36 : BLD ? 30 : GT ? 17 : GL ? 22 : 15, MAXV = 400;
-const COURSE_END = location.hash === "#build" ? 700 : location.hash === "#peak" ? 7500 : location.hash === "#park" ? 5200 : location.hash === "#drop" ? 840 : location.hash === "#pipe" ? 2600 : location.hash === "#gates" ? 2300 : location.hash === "#glade" ? 5000 : 3600;
+const COURSE_END = location.hash === "#peak" ? 7500 : location.hash === "#park" ? 5200 : location.hash === "#drop" ? 840 : location.hash === "#pipe" ? 2600 : location.hash === "#gates" ? 2300 : location.hash === "#glade" ? 5000 : 3600;
 let rngF = mulberry(2024); const rng = () => rngF();
 const feats = [];
 const railsOf = f => f.rail ? (f.rail2 ? [f.rail, ...f.rail2] : [f.rail]) : (f.rail2 || []);
@@ -493,7 +491,7 @@ function partOff(p, x, s) {
     const w = (u - p.L - p.gap) / p.Ll;
     return w >= 0 && w <= 1 ? p.Hl * bump(w) * lwL : 0;
   }
-  if (p.type === "pad") { const u = s - p.s0; if (u < 0 || u > p.len) return 0; return p.B * latW(p, x, 1.6) * smooth(u / 5) * smooth((p.len - u) / 5); }
+  if (p.type === "pad") { const u = s - p.s0; if (u < 0 || u > p.len) return 0; return p.B * latW(p, x, 3.2) * smooth(u / 13) * smooth((p.len - u) / 7); }
   if (p.type === "railramp") { const t = (s - p.s0) / p.L; if (GL) { if (t < 0 || t > 1) return 0; return p.H * t * (1.6 - 0.6 * t) * latW(p, x, 0.5); } if (t < 0 || t > 1.03) return 0; return p.H * (t > 1 ? 1 - smooth((t - 1) / 0.03) : rampProf(t)) * latW(p, x, 0.35); }
   if (p.type === "flank") { // low rollers beside the big-air ramp, 4 m under the lip, running on down the sides of the landing
     const k = p.k, lip = k.s0 + k.L, u = Math.abs(x - k.cx), wx = smooth((u - (k.hw - 6)) / 6) * (1 - smooth((u - (k.hw + 63)) / 10)), lat = 1 - smooth((u - 30) / 160); if (wx <= 0 && !(s > lip && lat > 0)) return 0;
@@ -508,7 +506,7 @@ function partOff(p, x, s) {
   const lw = latW(p, x, p.lin ? 6 : 1.0), lwL = landW(p, x), lip = p.s0 + p.L;
   if (p.lin && s >= p.s0 && s <= lip) { const t = (s - p.s0) / p.L, ax = Math.abs(x - p.cx), bank = 0, w = lw; return p.H * rampProf(t) * w; }
   if (lw <= 0 && lwL <= 0) return 0;
-  if (s <= lip) { if (lw <= 0) return 0; const t = (s - p.s0) / p.L, wf = p.whale ? 0.6 + 0.65 * Math.pow(clamp(Math.abs(x - p.cx) / p.hw, 0, 1), 1.7) * t : 1; return p.H * t * t * lw * wf * (1 + 0.012 * Math.sin(x * 1.9 + s * 0.83) + 0.008 * Math.sin(x * 4.3 - s * 1.7)); }
+  if (s <= lip) { if (lw <= 0) return 0; const t = (s - p.s0) / p.L, wf = p.whale ? 0.6 + 0.65 * Math.pow(clamp(Math.abs(x - p.cx) / p.hw, 0, 1), 1.7) * t : 1; return p.H * t * t * lw * wf * (PARK ? 1 : 1 + 0.012 * Math.sin(x * 1.9 + s * 0.83) + 0.008 * Math.sin(x * 4.3 - s * 1.7)); }
   let off = 0;
   if (p.sl) { return 0; const d0 = 0 * landOff(p, 0); const d = s - lip - p.gap; if (d <= 0 || d > p.Ll + p.Tr) return 0; const dd = d + 6 * (Math.exp(-d / 6) - 1), Hs = p.sl * p.Ll; return lwL * (d < p.Ll ? -p.sl * dd : -(Hs - p.sl * 6 * (1 - Math.exp(-p.Ll / 6))) * (1 - smooth((d - p.Ll) / p.Tr)) - 0); }
   const u = (s - lip - p.gap) / p.Ll;
@@ -760,7 +758,7 @@ function H_(x, s) {
   if (HP) return baseY(s) + pipeOff(Math.abs(x - pc(s)), s);
   if (GT || BLD) { const xr = x - pc(s), ax = Math.abs(xr); const fp = featIndex(s); return baseY(s) + (BLD && fp >= 0 ? featOff(feats[fp], x, s) : 0) + 0.3 * (und(xr, s) + 0.35 * Math.sin(s * 0.09 + xr * 0.12)) * 0.6 + 3.5 * smooth((ax - PISTE + 1) / 5) + 0.12 * Math.max(0, ax - PISTE - 5) + clamp(-xr * pcc(s) * 4, -3.5, 3.5) * (1 - smooth((ax - PISTE - 2) / 6)); }
   const xr = x - pc(s), ax = Math.abs(xr), lv = baseY(s) + cliffOff(s);
-  let y = lv + und(xr, s) + 0.35 * Math.sin(s * 0.09 + xr * 0.12) + 0.25 * Math.sin(xr * 0.21 - s * 0.045);
+  let y = PARK ? lv + 0.5 * und(0, s) : lv + und(xr, s) + 0.35 * Math.sin(s * 0.09 + xr * 0.12) + 0.25 * Math.sin(xr * 0.21 - s * 0.045);
   if (PEAK) { const fade = 0.2 + 0.8 * smooth((ax - 6) / 26); y += fade * (4.6 * Math.sin(x * 0.09 + 1.7 * Math.sin(s * 0.006 + x * 0.01)) + 2.6 * Math.sin(x * 0.21 + s * 0.012 + 0.7) + 1.0 * Math.sin(x * 0.47 - s * 0.02)); }
   else if (!DROP) { const qs = WIDE ? qpAt(s) : 0, u = ax - (PISTE - QPR - 1); y += (1 - qs) * (3.5 * smooth((ax - PISTE + 1) / 5)) + 0.12 * Math.max(0, ax - PISTE - 5) + (qs > 0 && u > 0 ? qs * (u < QPR * 0.985 ? QPR - Math.sqrt(QPR * QPR - u * u) : QPR + (u - QPR) * 0.03) : 0); }
   y += clamp(-xr * pcc(s) * 4, -3.5, 3.5) * (1 - smooth((ax - PISTE - 2) / 6)); // banked turns
@@ -962,6 +960,7 @@ function railBeside(x, s, y) { for (const f of sectionsAt(s, 12)) for (const rl 
 function onLake(x, s) { return Math.hypot((x - pc(s)) / 50, (s - 172) / 88) < 1; }
 /* a low rail just ahead (handrails, ledges, alley rails): the ollie only goes high enough to land on it */
 function lowRailAhead(x, s) { const secs = ALLEY && ALLEY.f && s > ALLEY.A - 10 && s < ALLEY.B ? sectionsAt(s, 12).concat([ALLEY.f]) : sectionsAt(s, 12); for (const f of secs) for (const rl of railsOf(f)) if ((rl.glass || rl.magnet || rl.lane) && (rl.h || RAIL_H) <= 1.8 && s > rl.s0 - 9 && s < rl.s1 - 2 && Math.abs(x - railX(rl, Math.max(s + 3, rl.s0))) < 1.4) return rl; return null; }
+function railAheadR(x, s) { for (const f of sectionsAt(s, 22)) for (const rl of railsOf(f)) if (rl.s0 - s > -1 && rl.s0 - s < 16 && Math.abs(x - railX(rl, Math.max(s, rl.s0))) < 1.9) return rl; return null; }
 function railAhead(x, s) { for (const f of sectionsAt(s, 22)) for (const rl of railsOf(f)) if (rl.s0 - s > -1 && rl.s0 - s < 20 && Math.abs(x - rl.x) < 1.9) return true; return false; }
 function upgradeRails(f) { // longer rails, lifted on posts, each with a small ramp to hop up onto them
   for (const r of railsOf(f)) {
@@ -971,8 +970,8 @@ function upgradeRails(f) { // longer rails, lifted on posts, each with a small r
     if (r.s0 - 18 < f.s0) { const d = f.s0 + 18 - r.s0; r.s0 += d; r.s1 += d; }
     for (const p of f.parts) if (p.type === "kicker" && !p.side && !r.sided && r.s0 < p.end + 6 && r.s1 > p.s0 && Math.abs(r.x - p.cx) < (p.lhw || 8) + 3) { // rails sit beside a jump, never on its landing
       const sd = p.cx > 1 ? -1 : p.cx < -1 ? 1 : (rng() < 0.5 ? -1 : 1); r.x = p.cx + sd * Math.min((p.lhw || 8) + 5, PISTE - 3); r.sided = true; }
-    f.parts.push(GL ? { type: "railramp", s0: r.s0 - 4 - 14 - Math.max(0, ((r.h || RAIL_H) - RAIL_H) * 3), L: 14 + Math.max(0, ((r.h || RAIL_H) - RAIL_H) * 3), H: (r.h || RAIL_H) - 0.25, cx: r.x, hw: 2.1, end: r.s0 + 0.5 } : { type: "railramp", s0: r.s0 - 0.45 - 12 - Math.max(0, ((r.h || RAIL_H) - RAIL_H) * 3), L: 12 + Math.max(0, ((r.h || RAIL_H) - RAIL_H) * 3), H: (r.h || RAIL_H) - 0.3, cx: r.x, hw: 1.9, end: r.s0 + 0.9 });
-    if (r.pad) { f.parts.push({ type: "pad", s0: r.s0 - 21, len: r.s1 - r.s0 + 27, end: r.s1 + 6, B: r.pad, cx: r.x, hw: 3.4 }); delete r.y0; } // the middle rail sits up on a raised block of snow
+    f.parts.push(GL ? { type: "railramp", s0: r.s0 - 4 - 14 - Math.max(0, ((r.h || RAIL_H) - RAIL_H) * 3), L: 14 + Math.max(0, ((r.h || RAIL_H) - RAIL_H) * 3), H: (r.h || RAIL_H) - 0.25, cx: r.x, hw: 2.1, end: r.s0 + 0.5 } : { type: "railramp", s0: r.s0 - 0.45 - 12 - Math.max(0, ((r.h || RAIL_H) - RAIL_H) * 3), L: 12 + Math.max(0, ((r.h || RAIL_H) - RAIL_H) * 3), H: (r.h || RAIL_H) - 0.3, cx: r.x, hw: 2.7, end: r.s0 + 0.9 });
+    if (r.pad) { f.parts.push({ type: "pad", s0: r.s0 - 30, len: r.s1 - r.s0 + 37, end: r.s1 + 7, B: r.pad, cx: r.x, hw: 4.6 }); delete r.y0; } // the middle rail sits up on a raised block of snow
   }
 }
 function nearLip(x, s) {
@@ -1050,6 +1049,7 @@ function landing(surfaceType, rail) {
   const sA = sA_(sk.x, sk.s, sk.psi), diff = wrap(sk.rot - sA);
   const spinOff = Math.abs(sk.spin - Math.round(sk.spin / Math.PI) * Math.PI);
   const real = sk.airT > 0.3, heli = sk.heli; sk.heli = false;
+  { const res = wrap(sk.spin - Math.round(sk.spin / Math.PI) * Math.PI); sk.slideYaw = Math.abs(res) > Math.PI / 4 ? Math.sign(res) * 1.45 : 0; }
   if (real && !heli && Math.abs(diff) > (GL ? 2.3 : 1.6) + PHYS.land) return crash("Bad landing"); // a sideways spin never crashes: the skis swing round to the nearest forward or backward
   sk.rot = sA + diff; // normalise so a flip never unwinds on the ground
   const vh = Math.hypot(sk.vx, sk.vs);
@@ -1219,7 +1219,7 @@ function step(dt) {
       const pw = 0.35 + 0.65 * popPow;
       if (popNow) { sk.sp += 0.9 * pw * Math.max(0, 1 - sk.sp / 45); spray(sk.x - hx * 0.5, sk.y, sk.s - hs * 0.5, 4, 3); sfx("pump"); }
       if (popNow || yp > hn + (hpm ? 0.04 : 0.12)) {
-        sk.air = true; sk.vx = sk.sp * c * hx; sk.vs = sk.sp * c * hs; const lr = popNow ? lowRailAhead(sk.x, sk.s) : null; sk.vy = sk.sp * sn + (lr ? Math.sqrt(2 * G * ((lr.h || RAIL_H) + 0.3)) : (popNow ? (nearLip(sk.x, sk.s) ? 6.5 : railAhead(sk.x, sk.s) ? 8.6 : 5.2) * pw : 0) + (!popNow && onRailRamp(sk.x, sk.s) ? 1.3 : 3.0));
+        sk.air = true; sk.vx = sk.sp * c * hx; sk.vs = sk.sp * c * hs; const lr = popNow ? lowRailAhead(sk.x, sk.s) : null, ra = popNow && !lr ? railAheadR(sk.x, sk.s) : null, need = ra ? railY(ra, Math.max(ra.s0, sk.s + 2)) - Math.max(yp, hn) + 0.3 : 0; sk.vy = sk.sp * sn + (lr ? Math.sqrt(2 * G * ((lr.h || RAIL_H) + 0.3)) : ra ? Math.sqrt(2 * G * clamp(need, 0.25, 3.6)) : (popNow ? (nearLip(sk.x, sk.s) ? 6.5 : 5.2) * pw : 0) + (!popNow && onRailRamp(sk.x, sk.s) ? 1.3 : 3.0));
         sk.x = nx; sk.s = ns; sk.y = popNow ? Math.max(yp, hn) + 0.02 : yp;
         sk.airT = 0; sk.flipAcc = 0; sk.spin = 0; sk.spinV = 0; sk.grabT = 0; sk.rotV = 0; sk.spinTarget = 0; if (popNow) sk.popT = 0.2;
       } else {
@@ -1232,7 +1232,7 @@ function step(dt) {
         if (rockHit(sk.x, sk.y, sk.s)) crash("Hit a rock");
         else { const tt = treeHit(sk.x, sk.y, sk.s); if (tt) stumble(tt); }
         if (boxAt(sk.x, sk.s)) sk.boxT += dt;
-        else { if (sk.boxT > 0.45) { payout(100 + sk.boxT * 110, "Box slide", false, true); sfx("chime", 1); } sk.boxT = 0; }
+        else { if (sk.boxT > 0.45) { payout(100 + sk.boxT * 110, "Box slide", false, true); sfx("chime", 1); } sk.boxT = 0; if (!sk.grind) sk.slideYaw = 0; }
       }
     }
   } else {
@@ -2202,6 +2202,21 @@ function chevronTex() {
   for (let i = 0; i < 3; i++) { const y = 18 + i * 38; x.beginPath(); x.moveTo(12, y); x.lineTo(32, y + 22); x.lineTo(52, y); x.stroke(); }
   return chevronTex.t = new THREE.CanvasTexture(c);
 }
+/* a park box: straight-sided prism, coloured side panels, smooth waxy cream top */
+function boxMats(k) { boxMats.c = boxMats.c || {}; if (boxMats.c[k]) return boxMats.c[k]; const cols = k ? ["#c8302c", "#2f6fd0"] : ["#2f6fd0", "#c8302c"];
+  const side = canvasTex(128, 64, (c, w, h) => { c.fillStyle = cols[0]; c.fillRect(0, 0, w, h); c.fillStyle = cols[1]; c.fillRect(0, h * 0.72, w, h * 0.28); c.fillStyle = "rgba(255,255,255,.18)"; c.fillRect(0, 0, w, 3); c.fillStyle = "rgba(0,0,0,.18)"; c.fillRect(w - 2, 0, 2, h); }); side.wrapS = THREE.RepeatWrapping;
+  return boxMats.c[k] = { top: new THREE.MeshStandardMaterial({ color: 0xf1e8cf, roughness: 0.22, metalness: 0.02 }), side: new THREE.MeshStandardMaterial({ map: side, roughness: 0.5, side: THREE.DoubleSide }) }; }
+function boxPrism(p) {
+  const g = new THREE.Group(), M = boxMats(Math.floor(hash(p.s0 * 0.37)) % 2 || (hash(p.s0) > 0.5 ? 1 : 0)), w = p.hw - 0.12, sa = p.s0 + (p.rise || 1.8) * 0.8, sb = p.end - 0.08, n = Math.max(2, Math.ceil((sb - sa) / 0.5));
+  const top = [], tIdx = [], side = [], sUv = [], sIdx = [], T = [], B = [];
+  for (let i = 0; i <= n; i++) { const s = sa + (sb - sa) * i / n, yt = H(p.cx, Math.min(s, p.end - 0.5)) + 0.03, yb = Math.min(H(p.cx - p.hw - 1, s), H(p.cx + p.hw + 1, s)) - 0.15; T.push(yt); B.push(yb); top.push(p.cx - w, yt, -s, p.cx + w, yt, -s); if (i) { const a = (i - 1) * 2; tIdx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); } }
+  const quad = (v0, v1, v2, v3, u0, u1) => { const b = side.length / 3; side.push(...v0, ...v1, ...v2, ...v3); sUv.push(u0, 0, u1, 0, u1, 1, u0, 1); sIdx.push(b, b + 1, b + 2, b, b + 2, b + 3); };
+  for (let i = 0; i < n; i++) { const s0 = sa + (sb - sa) * i / n, s1 = sa + (sb - sa) * (i + 1) / n; for (const sd of [-1, 1]) { const x = p.cx + sd * w; quad([x, B[i], -s0], [x, B[i + 1], -s1], [x, T[i + 1], -s1], [x, T[i], -s0], s0 / 3, s1 / 3); } }
+  quad([p.cx - w, B[0], -sa], [p.cx + w, B[0], -sa], [p.cx + w, T[0], -sa], [p.cx - w, T[0], -sa], 0, 1); quad([p.cx + w, B[n], -sb], [p.cx - w, B[n], -sb], [p.cx - w, T[n], -sb], [p.cx + w, T[n], -sb], 0, 1);
+  const tg = new THREE.BufferGeometry(); tg.setAttribute("position", new THREE.Float32BufferAttribute(top, 3)); tg.setIndex(tIdx); tg.computeVertexNormals(); const tm = new THREE.Mesh(tg, M.top); tm.receiveShadow = true; tm.castShadow = true; g.add(tm);
+  const sg = new THREE.BufferGeometry(); sg.setAttribute("position", new THREE.Float32BufferAttribute(side, 3)); sg.setAttribute("uv", new THREE.Float32BufferAttribute(sUv, 2)); sg.setIndex(sIdx); sg.computeVertexNormals(); const sm = new THREE.Mesh(sg, M.side); sm.castShadow = true; sm.receiveShadow = true; g.add(sm);
+  return g;
+}
 function wallMatR() { return wallMatR.m || (wallMatR.m = new THREE.MeshStandardMaterial({ roughness: 0.6, map: (() => { const t = canvasTex(128, 64, (c, w, h) => { c.fillStyle = "#2f6fd0"; c.fillRect(0, 0, w, h); c.fillStyle = "#2a5fb3"; c.fillRect(0, 0, w, 6); c.fillStyle = "rgba(255,255,255,.12)"; c.fillRect(0, h - 10, w, 2); c.fillStyle = "#1f4f9a"; c.fillRect(w - 3, 0, 3, h); }); t.wrapS = THREE.RepeatWrapping; return t; })() })); }
 function tubeCapMat() { return tubeCapMat.m || (tubeCapMat.m = new THREE.MeshStandardMaterial({ roughness: 0.6, side: THREE.DoubleSide, map: canvasTex(128, 128, (c, w, h) => { c.fillStyle = "#121316"; c.fillRect(0, 0, w, h); c.strokeStyle = "#e9edf2"; c.lineWidth = 6; c.beginPath(); c.arc(64, 64, 40, 0, 7); c.stroke(); c.fillStyle = "#555a62"; for (let k = 0; k < 8; k++) { const a = k / 8 * 6.283; c.beginPath(); c.arc(64 + Math.cos(a) * 56, 64 + Math.sin(a) * 56, 3, 0, 7); c.fill(); } }) })); }
 function buildFeature(f) {
@@ -2267,7 +2282,8 @@ function buildFeature(f) {
       
       for (let q = 0; q < 12; q++) { const x = p.cx - p.hw + 0.8 + q * (2 * p.hw - 1.6) / 11, l = new THREE.Mesh(new THREE.SphereGeometry(0.11, 6, 5), wm), s = p.rise < 3 ? p.s0 + 0.9 : p.s0 + p.len - 1.2; l.position.set(x, H(x, s) + 0.45, -s); grp.add(l); }
       }
-    } else if (p.type === "box" && !p.mall) {
+    } else if (p.type === "box" && !p.mall) { grp.add(boxPrism(p)); }
+    else if (false) {
       const bm = new THREE.LineBasicMaterial({ color: 0xff8a3d });
       [-1, 1].forEach(sd => { const ex = p.cx + sd * (p.hw - 0.2), pts = []; for (let q = 0; q <= 24; q++) { const ss = p.s0 + p.len * q / 24; pts.push(new THREE.Vector3(ex, H(ex, ss) + 0.05, -ss)); } grp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), bm)); });
       [p.s0 + 0.3, p.end].forEach(ss => { const c = new THREE.Mesh(cone, cm); c.position.set(p.cx, H(p.cx, ss) + 0.4, -ss); grp.add(c); });
@@ -3195,7 +3211,7 @@ function updateCamera(dt) {
   camHead += wrap(sk.psi - camHead) * Math.min(1, 2.6 * dt);
   airBlend += ((sk.air && !sk.crashed ? 1 : 0) - airBlend) * Math.min(1, 2.2 * dt);
   const speed = sk.air ? Math.hypot(sk.vx, sk.vs) : sk.sp;
-  const back = (lerp(5.4, 8.0, airBlend) + clamp(speed, 0, 50) * 0.055) * 0.72, height = 0.7 + (lerp(4.4, 5.1, airBlend) - 0.7) * 0.57;
+  const back = (lerp(5.4, 8.0, airBlend) + clamp(speed, 0, 50) * 0.055) * 0.72, height = 0.6 + (lerp(4.4, 5.1, airBlend) - 0.7) * 0.47;
   // a slow ground reference so the camera rides over small bumps instead of copying them
   if (snapCam || camGY === null) { camGY = sk.y; camLX = sk.x; camLS = sk.s; }
   camGY += (sk.y - camGY) * (1 - Math.exp(-(sk.air ? 3.4 : 3.0) * dt)); camGY = clamp(camGY, sk.y - 0.7, sk.y + 0.7);
@@ -3242,7 +3258,7 @@ function render(dt, time) {
   const R = skierRig;
   R.sink = (R.sink || 0) + (((GL && !sk.air && !sk.grind && !sk.crashed) ? 0.2 : (sk.water && !sk.crashed) ? -0.1 : 0) - (R.sink || 0)) * Math.min(1, 6 * dt);
   R.root.position.set(sk.x, sk.y + 0.025 - R.sink, -sk.s);
-  const grindYaw = sk.grind || sk.boxT > 0.15 ? 1.45 : 0;
+  const grindYaw = sk.grind || sk.boxT > 0.15 ? (sk.slideYaw || 0) : 0;
   R.grindYaw = lerp(R.grindYaw || 0, grindYaw, Math.min(1, 12 * dt));
   R.root.rotation.y = -(sk.psi + R.grindYaw); R.rig.rotation.y = -(sk.spin + (sk.sw ? Math.PI : 0));
   { // on a rail the body slides along the skis so the tips (W) or tails (S) sit on the rail
