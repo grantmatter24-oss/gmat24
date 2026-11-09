@@ -192,7 +192,6 @@
       <button id="pausebtn" type="button">Pause</button>
       <div id="resorts" role="group" aria-label="Ski resorts">
         <button type="button" data-r="alpine" title="Evergreen Run" aria-label="Evergreen Run, forest run"><svg viewBox="0 0 32 32" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 3l7 10h-4l6 9H7l6-9H9z" fill="currentColor" fill-opacity=".25"/><path d="M16 22v7"/></svg></button>
-        <button type="button" data-r="peak" title="Couloir Peak" aria-label="Couloir Peak, steep open faces"><svg viewBox="0 0 32 32" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 27L12 8l5 9 3-5 10 15z" fill="currentColor" fill-opacity=".25"/><path d="M12 8l-3 5 3-1 2 2"/></svg></button>
         <button type="button" data-r="park" title="Village Park" aria-label="Village Park, a park run down a Swiss village main street"><svg viewBox="0 0 32 32" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 15l7-7 7 7M5 13v12h10V13M17 18l6-6 6 6M19 16v9h8v-9"/><path d="M9 25v-5h2v5" /></svg></button>
         <button type="button" data-r="drop" title="X Big Air" aria-label="X Big Air, one huge kicker"><svg viewBox="0 0 32 32" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h9l3 3v15h14" /><path d="M20 17l5 7 5-7" fill="currentColor" fill-opacity=".25"/></svg></button>
         <button type="button" data-r="glade" title="Powder Glades" aria-label="Powder Glades, deep snow and trees"><svg viewBox="0 0 32 32" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 27V15M9 15l-4 5M9 15l4 5M9 7l-3 5h6zM22 27V12M22 12l-5 7M22 12l5 7M22 4l-4 6h8z" fill="currentColor" fill-opacity=".25"/></svg></button>
@@ -221,7 +220,7 @@
     <p id="bldhint">Pick a tool and click the snow to place, or use Select and click a piece to resize or change it. W/S or arrows scroll, wheel zooms.</p>
   </div>
   <div id="chg" hidden><i></i></div>
-  <div id="hint">A D or ← → steer, spin in the air (flip + spin = cork) &nbsp;·&nbsp; ↑ ↓ flip, W/S butter on the ground &nbsp;·&nbsp; Hold Space to charge a jump, release to pop · tail grab in the air &nbsp;·&nbsp; Q = japan &nbsp;·&nbsp; E = nose &nbsp;·&nbsp; C = indy &nbsp;·&nbsp; Shift = speed up &nbsp;·&nbsp; J = slow down &nbsp;·&nbsp; F = slow-mo &nbsp;·&nbsp; P = pause</div>
+  <div id="hint">A D steer, spin in the air (flip + spin = cork) &nbsp;·&nbsp; ← → slide sideways in the air, or hop to the next rail off a rail &nbsp;·&nbsp; ↑ ↓ flip, W/S butter on the ground &nbsp;·&nbsp; Hold Space to charge a jump, release to pop · tail grab in the air &nbsp;·&nbsp; Q = japan &nbsp;·&nbsp; E = nose &nbsp;·&nbsp; C = indy &nbsp;·&nbsp; Shift = speed up &nbsp;·&nbsp; J = slow down &nbsp;·&nbsp; F = slow-mo &nbsp;·&nbsp; P = pause</div>
   <div id="touch">
     <div class="grp"><button data-k="left">Left</button><button data-k="right">Right</button></div>
     <div class="grp"><button data-k="up">Front flip</button><button data-k="down">Back / butter</button><button data-k="spin">Spin</button><button data-k="grab">Pop / tail</button><button data-k="grabN">Nose</button><button data-k="grabQ">Japan</button><button data-k="grabI">Indy</button><button data-k="boost">Speed</button><button data-k="brake">Slow</button><button data-k="focus">Focus</button></div>
@@ -243,7 +242,6 @@
       <p class="tag">Pick a mountain. Send it.</p>
       <div class="picks">
         <button type="button" class="pick" data-r="alpine"><b>Evergreen Run</b><span>Groomed forest runs, kickers, lodges and woods trails</span><i id="pb-alpine"></i></button>
-        <button type="button" class="pick" data-r="peak"><b>Couloir Peak</b><span>Steep open faces, couloirs and big cliffs. No trees</span><i id="pb-peak"></i></button>
         <button type="button" class="pick" data-r="park"><b>Village Park</b><span>Rails, boxes and kickers down the main street of a Swiss mountain village</span><i id="pb-park"></i></button>
         <button type="button" class="pick" data-r="drop"><b>X Big Air</b><span>One wide, steep Big Air ramp</span><i id="pb-drop"></i></button>
         <button type="button" class="pick" data-r="glade"><b>Powder Glades</b><span>Deep snow, tight trees and natural drops</span><i id="pb-glade"></i></button>
@@ -294,10 +292,10 @@ const hash = n => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s
 /* =====================================================================
    COURSE: coordinates are (x across, y up, s down the mountain). Render z = -s.
    ===================================================================== */
-const RES = location.hash === "#peak" ? "peak" : location.hash === "#park" ? "park" : location.hash === "#drop" ? "drop" : location.hash === "#pipe" ? "pipe" : location.hash === "#glade" ? "glade" : location.hash === "#gates" ? "gates" :  "alpine", HELI = RES === "heli", BLD = RES === "build", PEAK = RES === "peak" || HELI, WIDE = RES === "alpine", PARK = RES === "park", DROP = RES === "drop", HP = RES === "pipe", GL = RES === "glade", GT = RES === "gates", PK = PEAK || GL, KS = HELI ? 1.1 : PEAK ? 1.45 : 1;
+const RES = location.hash === "#park" ? "park" : location.hash === "#drop" ? "drop" : location.hash === "#pipe" ? "pipe" : location.hash === "#glade" ? "glade" : location.hash === "#gates" ? "gates" :  "alpine", HELI = RES === "heli", BLD = RES === "build", PEAK = RES === "peak" || HELI, WIDE = RES === "alpine", PARK = RES === "park", DROP = RES === "drop", HP = RES === "pipe", GL = RES === "glade", GT = RES === "gates", PK = PEAK || GL, KS = HELI ? 1.1 : PEAK ? 1.45 : 1;
 const RESORT_NAMES = { alpine: "Evergreen Run", peak: "Couloir Peak", park: "Village Park", drop: "X Big Air", pipe: "Mega Pipe", glade: "Powder Glades", gates: "Race Gates", heli: "Heli-Drop", build: "Snowpark Builder" };
 const G = 18, BASE = HELI ? 1.15 : PEAK ? 0.4 : BLD ? 0.22 : DROP ? 0.58 : HP ? 0.36 : GT ? 0.5 : GL ? 0.33 : 0.28, RAIL_H = 3.45, PISTE = PARK ? 13.5 : WIDE ? 40 : DROP ? 24 : HP ? 36 : BLD ? 30 : GT ? 17 : GL ? 22 : 15, MAXV = 400;
-const COURSE_END = location.hash === "#peak" ? 4600 : location.hash === "#park" ? 3400 : location.hash === "#drop" ? 840 : location.hash === "#pipe" ? 1800 : location.hash === "#gates" ? 1600 : location.hash === "#glade" ? 3200 : 2400;
+const COURSE_END = location.hash === "#park" ? 3400 : location.hash === "#drop" ? 840 : location.hash === "#pipe" ? 1800 : location.hash === "#gates" ? 1600 : location.hash === "#glade" ? 3200 : 2400;
 let rngF = mulberry(2024); const rng = () => rngF();
 const feats = [];
 const railsOf = f => f.rail ? (f.rail2 ? [f.rail, ...f.rail2] : [f.rail]) : (f.rail2 || []);
@@ -468,7 +466,7 @@ function mkKicker(s0, kind, cx, hw, diff, sc, tall) {
   const gap = kind === 3 ? clamp(T[4] * fd.d * sc, T[5] * sc, T[6] * sc * 1.3) : clamp(0.35 * fd.d * sc, 6, 40 * (1 + q)), Ll = kind === 3 ? clamp(gap * 0.8 + 10, 18, 60) : clamp((0.9 + 0.35 * q) * fd.d * sc, 24, 70 * (1 + 1.3 * q));
   const Hl = clamp((fd.tanA - BASE) * 0.5 * Ll / 1.5, 0.8, 7 + 4 * q), pit = kind === 3 ? 3.6 : 0;
   const hwK = (kind < 4 ? hw * (PEAK ? 1.7 : 1.3) : hw) * (1 + 0.8 * q);
-  const p = { type: "kicker", label: T[7], s0, L, H: Hh, gap, Ll, Hl, cx, hw: hwK, lhw: Math.min(hwK * 2.7, WIDE ? 19 : PISTE + 5), v0, pit };
+  const p = { type: "kicker", label: T[7], s0, L, H: Hh, gap, Ll, Hl, cx, hw: hwK, lhw: Math.min(hwK * 2.7, WIDE ? 25 : PISTE + 5), v0, pit };
   if (tall) p.label = "Sky ramp";
   p.end = s0 + L + gap + Ll; return p;
 }
@@ -511,7 +509,7 @@ function partOff(p, x, s) {
   const tabB = !p.up && !p.pit && !p.whale && !GL && !PEAK && !p.lin && p.Ll > 8 ? (() => { const Hd = p.H * 0.88, F = Math.max(6, Hd * 2.0), E = clamp(Hd * 1.4, 2.5, 7), lat = 1 - smooth((Math.abs(x - p.cx) - (p.lhw - E)) / E); if (lat <= 0 || s < lip - F || s > lip + p.gap + p.Ll) return 0; const u3 = (s - lip - p.gap) / p.Ll; return Hd * lat * (s < lip ? smooth((s - lip + F) / F) : u3 < 0 ? 1 : 1 - landProf(u3 / 0.62)); })() : 0;
   const mB = Math.max(upB, tabB);
   if (lw <= 0 && lwL <= 0 && !mB) return 0;
-  if (s <= lip) { if (lw <= 0) return mB; const t = (s - p.s0) / p.L, wf = p.whale ? 0.6 + 0.65 * Math.pow(clamp(Math.abs(x - p.cx) / p.hw, 0, 1), 1.7) * t : 1; return Math.max(mB, p.H * t * t * lw * wf * (PARK ? 1 : 1 + 0.012 * Math.sin(x * 1.9 + s * 0.83) + 0.008 * Math.sin(x * 4.3 - s * 1.7))); }
+  if (s <= lip) { if (lw <= 0) return mB; const t = (s - p.s0) / p.L, wf = p.whale ? 0.6 + 0.65 * Math.pow(clamp(Math.abs(x - p.cx) / p.hw, 0, 1), 1.7) * t : 1; return Math.max(mB, p.H * t * t * lw * wf * (PARK || WIDE ? 1 : 1 + 0.012 * Math.sin(x * 1.9 + s * 0.83) + 0.008 * Math.sin(x * 4.3 - s * 1.7))); }
   let off = 0;
   if (p.sl) { return 0; const d0 = 0 * landOff(p, 0); const d = s - lip - p.gap; if (d <= 0 || d > p.Ll + p.Tr) return 0; const dd = d + 6 * (Math.exp(-d / 6) - 1), Hs = p.sl * p.Ll; return lwL * (d < p.Ll ? -p.sl * dd : -(Hs - p.sl * 6 * (1 - Math.exp(-p.Ll / 6))) * (1 - smooth((d - p.Ll) / p.Tr)) - 0); }
   const u = (s - lip - p.gap) / p.Ll;
@@ -637,7 +635,7 @@ function parkSection(f, i, diff) { // Kicker Park: mostly rails, a couple of jum
   else if (t === 1) { [[-4, 0, 16], [4, 26, 18], [-3, 54, 14], [3, 78, 20]].forEach(([x, o, len]) => f.parts.push({ type: "box", s0: g + o, len, end: g + o + len, B: 0.75, cx: x, hw: 1.9 })); f.label = "Box line"; }
   else if (t === 2) { const hs = [RAIL_H, 2.6, 1.8, 1.0]; set(hs.map((h, q) => mk(g + 16 + q * 26, 26, 0, { h, fixedLen: true, noRamp: q > 0 }))); [f.rail, ...f.rail2].forEach((r, q, a) => { if (a[q + 1]) r.next = a[q + 1]; }); f.label = "Step-down rail"; }
   else if (t === 3 || t === 6) { const L0 = g + 16; set([mk(L0, 50, 0, { pad: 1.5 }), mk(L0 + 24, 52, sd * 5, { h: 1.1, fixedLen: true, noRamp: true }), mk(L0 + 92, 52, -sd * 5, { h: 1.1, fixedLen: true, noRamp: true })]); f.label = "Long rail · hop down to the side rails"; f.endExtra = L0 + 175; }
-  else if (t === 7) { const C = { fixedLen: true, color: 0x3fae4a }, a = mk(g + 18, 9, 0, Object.assign({ h: 1.0, h1: 2.3 }, C)), b = mk(g + 27, 9, 0, Object.assign({ h: 2.3, h1: 1.0, noRamp: true }, C)); a.next = b; const c2 = mk(g + 52, 9, sd * 6, Object.assign({ h: 1.0, h1: 2.0 }, C)), d2 = mk(g + 61, 9, sd * 6, Object.assign({ h: 2.0, h1: 1.0, noRamp: true }, C)); c2.next = d2; set([a, b, c2, d2]); f.label = "A-frame rails"; }
+  else if (t === 7) { const C = { fixedLen: true, color: 0x3fae4a }, a = mk(g + 18, 17, 0, Object.assign({ h: 1.0, h1: 2.6 }, C)), b = mk(g + 35, 17, 0, Object.assign({ h: 2.6, h1: 1.0, noRamp: true }, C)); a.next = b; const c2 = mk(g + 78, 15, sd * 6, Object.assign({ h: 1.0, h1: 2.3 }, C)), d2 = mk(g + 93, 15, sd * 6, Object.assign({ h: 2.3, h1: 1.0, noRamp: true }, C)); c2.next = d2; set([a, b, c2, d2]); f.label = "A-frame rails"; }
   else if (t === 8) { set([mk(g + 18, 24, sd * 3, { fixedLen: true, tube: true, h: 1.25 }), mk(g + 56, 18, -sd * 4, { fixedLen: true, tube: true, h: 1.1 })]); f.label = "Tube jibs · ride the big pipes"; }
   else if (t === 9) { const xs = [0, 3, -3, 3, -3, 3, 0], rs = []; for (let q = 0; q < xs.length - 1; q++) rs.push(mk(g + 18 + q * 9, 9, xs[q], { x1: xs[q + 1], fixedLen: true, wall: true, noRamp: q > 0, h: 1.25 - 0.1 * q, color: 0x2a2d33 })); rs.forEach((r, q) => { if (rs[q + 1]) r.next = rs[q + 1]; }); set(rs); f.label = "Zig-zag wall rail"; }
   else if (t === 4) { set([mk(g + 14, 72, -7, { amp: 3.2 * sd, k: 2, fixedLen: true }), mk(g + 30, 72, 7, { amp: -3.8, k: 1, fixedLen: true })]); f.label = "Curved rails"; }
@@ -764,7 +762,7 @@ function H_(x, s) {
   if (HP) return baseY(s) + pipeOff(Math.abs(x - pc(s)), s);
   if (GT || BLD) { const xr = x - pc(s), ax = Math.abs(xr); const fp = featIndex(s); return baseY(s) + (BLD && fp >= 0 ? featOff(feats[fp], x, s) : 0) + 0.3 * (und(xr, s) + 0.35 * Math.sin(s * 0.09 + xr * 0.12)) * 0.6 + 3.5 * smooth((ax - PISTE + 1) / 5) + 0.12 * Math.max(0, ax - PISTE - 5) + clamp(-xr * pcc(s) * 4, -3.5, 3.5) * (1 - smooth((ax - PISTE - 2) / 6)); }
   const xr = x - pc(s), ax = Math.abs(xr), lv = baseY(s) + cliffOff(s);
-  let y = PARK ? lv + 0.5 * und(0, s) : lv + und(xr, s) + 0.35 * Math.sin(s * 0.09 + xr * 0.12) + 0.25 * Math.sin(xr * 0.21 - s * 0.045);
+  let y = PARK || WIDE ? lv + 0.5 * und(0, s) : lv + und(xr, s) + 0.35 * Math.sin(s * 0.09 + xr * 0.12) + 0.25 * Math.sin(xr * 0.21 - s * 0.045);
   if (PEAK) { const fade = 0.2 + 0.8 * smooth((ax - 6) / 26); y += fade * (4.6 * Math.sin(x * 0.09 + 1.7 * Math.sin(s * 0.006 + x * 0.01)) + 2.6 * Math.sin(x * 0.21 + s * 0.012 + 0.7) + 1.0 * Math.sin(x * 0.47 - s * 0.02)); }
   else if (!DROP) { const qs = WIDE ? qpAt(s) : 0, u = ax - (PISTE - QPR - 1); y += (1 - qs) * (3.5 * smooth((ax - PISTE + 1) / 5)) + 0.12 * Math.max(0, ax - PISTE - 5) + (qs > 0 && u > 0 ? qs * (u < QPR * 0.985 ? QPR - Math.sqrt(QPR * QPR - u * u) : QPR + (u - QPR) * 0.03) : 0); }
   y += clamp(-xr * pcc(s) * 4, -3.5, 3.5) * (1 - smooth((ax - PISTE - 2) / 6)); // banked turns
@@ -962,6 +960,14 @@ function startTrail(f) {
 function railX(r, s) { const bx = r.lane ? alleyX(s) + r.dx : r.x1 !== undefined ? r.x + (r.x1 - r.x) * clamp((s - r.s0) / (r.s1 - r.s0), 0, 1) : r.x; return r.amp ? bx + r.amp * Math.sin(Math.PI * (r.k || 1) * clamp((s - r.s0) / (r.s1 - r.s0), 0, 1)) * smooth((s - r.s0) / 20) : bx; }
 function railY(r, s) { if (r.y0 === undefined) { const h = r.h || RAIL_H; r.y0 = H(railX(r, r.s0), r.s0) + h; r.y1 = H(railX(r, r.s1), r.s1) + (r.h1 !== undefined ? r.h1 : h); } return r.y0 + (r.y1 - r.y0) * clamp((s - r.s0) / (r.s1 - r.s0), 0, 1); }
 function onRailRamp(x, s) { for (const f of sectionsAt(s, 6)) for (const p of f.parts) if (p.type === "railramp" && s >= p.s0 && s <= p.s0 + p.L + 3 && latW(p, x, 0.5) > 0.1) return true; return false; }
+/* the nearest rail on the chosen side that the skier can reach from this pop */
+function xferTarget(r, dir) {
+  const chain = new Set(); for (let c = r; c; c = c.next) chain.add(c); for (const f of sectionsAt(sk.s, 40)) for (const rl of railsOf(f)) if (rl.next && chain.has(rl.next)) chain.add(rl);
+  const secs = ALLEY && ALLEY.f ? sectionsAt(sk.s, 40).concat([ALLEY.f]) : sectionsAt(sk.s, 40); let best = null;
+  for (const f of secs) for (const rl of railsOf(f)) { if (chain.has(rl)) continue;
+    for (let t = 0.3; t < 2.4; t += 0.02) { const s = sk.s + sk.vs * t, y = sk.y + sk.vy * t - 0.5 * G * t * t; if (sk.vy - G * t > 0 || s < rl.s0 + 0.6 || s > rl.s1 - 0.6) continue; if (y > railY(rl, s) + 0.05) continue; const dx = railX(rl, s) - sk.x; if (dx * dir >= 1 && Math.abs(dx) <= 13 && (!best || Math.abs(dx) < Math.abs(best.dx))) best = { rl, vx: dx / t, dx, t, s }; break; } }
+  return best;
+}
 function railBeside(x, s, y) { for (const f of sectionsAt(s, 12)) for (const rl of railsOf(f)) if (s >= rl.s0 - 2 && s <= rl.s1 && Math.abs(x - railX(rl, s)) < 9 && y > railY(rl, s) - 3) return true; return false; }
 function onLake(x, s) { return Math.hypot((x - pc(s)) / 50, (s - 172) / 88) < 1; }
 /* a low rail just ahead (handrails, ledges, alley rails): the ollie only goes high enough to land on it */
@@ -1054,7 +1060,7 @@ function landing(surfaceType, rail) {
   }
   const sA = sA_(sk.x, sk.s, sk.psi), diff = wrap(sk.rot - sA);
   const spinOff = Math.abs(sk.spin - Math.round(sk.spin / Math.PI) * Math.PI);
-  const real = sk.airT > 0.3, heli = sk.heli; sk.heli = false;
+  const real = sk.airT > 0.3, heli = sk.heli; sk.heli = false; sk.xfer = null;
   { const res = wrap(sk.spin - Math.round(sk.spin / Math.PI) * Math.PI); sk.slideYaw = Math.abs(res) > Math.PI / 4 ? Math.sign(res) * 1.45 : 0; }
   if (real && !heli && Math.abs(diff) > (GL ? 2.3 : 1.6) + PHYS.land) return crash("Bad landing"); // a sideways spin never crashes: the skis swing round to the nearest forward or backward
   sk.rot = sA + diff; // normalise so a flip never unwinds on the ground
@@ -1097,7 +1103,7 @@ function landing(surfaceType, rail) {
   if (surfaceType === "rail") { sk.yOff = 0; sk.grind = rail; sk.grindT = 0; sk.psi = 0; sk.spinTarget = 0; sk.railNet = 0; sk.railOn = false; sk.spinHeld = !!(K.spinL || K.spinR); }
 }
 function crash(why) {
-  sk.crashed = true; sk.crashT = 0; sk.air = false; sk.why = why; sk.grind = null;
+  sk.crashed = true; sk.crashT = 0; sk.air = false; sk.xfer = null; sk.why = why; sk.grind = null;
   sk.sp = Math.max(Math.hypot(sk.vx, sk.vs) * 0.5, 5); sk.psi = Math.atan2(sk.vx, sk.vs) || 0;
   sk.rotV = (sk.flipAcc >= 0 ? 1 : -1) * 6; sk.tumZ = (Math.random() - 0.5) * 7;
   mult = 1; comboList = []; showCombo(); stats.wipes++;
@@ -1146,7 +1152,7 @@ function step(dt) {
     if (sk.crashT > 1.8) respawn();
     return;
   }
-  const onGr = !sk.air && !sk.grind, butterNow = onGr && !sk.bike && !sk.crashed && sk.sp > 2 && (K.down || K.up), boxSpin = onGr && !sk.bike && !sk.crashed && sk.boxT > 0.15 && (K.spinL || K.spinR), steer = sk.finished || butterNow || boxSpin ? 0 : ((K.right || (onGr && K.spinR)) ? 1 : 0) - ((K.left || (onGr && K.spinL)) ? 1 : 0);
+  const onGr = !sk.air && !sk.grind, butterNow = onGr && !sk.bike && !sk.crashed && sk.sp > 2 && (K.down || K.up), boxSpin = onGr && !sk.bike && !sk.crashed && sk.boxT > 0.15 && (K.spinL || K.spinR), steer = sk.finished || butterNow || boxSpin ? 0 : onGr ? ((K.spinR || (window.touchMode && K.right)) ? 1 : 0) - ((K.spinL || (window.touchMode && K.left)) ? 1 : 0) : (K.right ? 1 : 0) - (K.left ? 1 : 0);
   if (sk.air) sk.butSpun = false;
   if (butterNow || boxSpin) { const spI = (K.spinR ? 1 : 0) - (K.spinL ? 1 : 0); if (spI) sk.spinV += clamp(spI * 6 - sk.spinV, -30 * dt, 30 * dt); else sk.spinV *= Math.exp(-6 * dt); sk.spin += sk.spinV * dt; sk.butSpun = true; }
   else if (sk.butSpun && onGr) { sk.spin += sk.spinV * dt; sk.spinV *= Math.exp(-5 * dt); if (Math.abs(sk.spinV) < 0.5) { const kk = Math.round(sk.spin / Math.PI); sk.spin -= kk * Math.PI; if (kk % 2) sk.sw = !sk.sw; sk.butSpun = false; sk.spinV = 0; } }
@@ -1172,6 +1178,7 @@ function step(dt) {
       else if (popReq || sk.s >= r.s1) {
         const pop = popReq ? 10.5 * (0.35 + 0.65 * popPow) : 1; sk.noRail = 0.5; sk.railNet = Math.round(sk.spin / Math.PI);
         sk.air = true; sk.vx = 0; sk.vs = sk.sp * Math.cos(sA); sk.vy = sk.sp * Math.sin(sA) + pop;
+        { const dirX = popReq ? (K.right ? 1 : 0) - (K.left ? 1 : 0) : 0; sk.xfer = null; if (dirX) { const tr = xferTarget(r, dirX); if (tr) { sk.vx = tr.vx; sk.xfer = tr; sk.noRail = 0.12; } else sk.vx = dirX * 4; } }
         sk.airT = 0; sk.flipAcc = 0; sk.spin = 0; sk.spinV = 0; sk.grabT = 0; sk.rotV = 0; sk.jumpNo++;
         const railSpins = Math.abs(sk.railNet || 0), pts = sk.grindT * 140 + 150 + railSpins * 150, wasGood = sk.grindT > 0.5 || railSpins > 0;
         if (railSpins % 2 === 1) sk.sw = !sk.sw;
@@ -1263,8 +1270,9 @@ function step(dt) {
     sk.spin += sk.spinV * dt;
     if (K.grab || K.grabN || K.grabI || K.grabQ) { sk.grabT += dt; sk.grabKind = K.grab ? "Tail" : K.grabN ? "Nose" : K.grabI ? "Indy" : "Japan"; }
     // air steering rotates the velocity a little
-    const ang = steer * (steer && railBeside(sk.x, sk.s, sk.y) ? 2.2 : 0.7) * dt, ca = Math.cos(ang), sa = Math.sin(ang), nvx = sk.vx * ca + sk.vs * sa, nvs = -sk.vx * sa + sk.vs * ca;
-    sk.vx = nvx; sk.vs = nvs; sk.psi += ang;
+    if (sk.xfer) { // hopping rail to rail: steer the arc onto the target rail so it lands smoothly
+      const X = sk.xfer, rem = Math.max(0.06, (X.s - sk.s) / Math.max(1, sk.vs)), want = (railX(X.rl, clamp(X.s, X.rl.s0, X.rl.s1)) - sk.x) / rem; sk.vx += (want - sk.vx) * Math.min(1, 7 * dt); if (sk.s > X.s + 3) sk.xfer = null;
+    } else if (steer && !HP && !sk.qpAir) { sk.vx = clamp(sk.vx + steer * 7 * dt, -9, 9); } // arrows slide you side to side in the air
     if (HP || sk.qpAir) { // aerials: go straight up from the lip and come back down on the inside of the same wall
       if (sk.airT < 0.03 || sk.hpx === undefined) sk.hpx = Math.abs(sk.x) > 14 ? sk.x - Math.sign(sk.x) * 3.2 : sk.x;
       sk.vx += ((sk.hpx - sk.x) * 6 - sk.vx * 2.6) * dt; }
@@ -2248,7 +2256,7 @@ function buildFeature(f) {
       const lp = p.s0 + p.L; [-1, 1].forEach(sd => { const ex = p.cx + sd * (p.hw - 0.4), a1 = []; for (let q = 0; q <= 16; q++) { const ss = p.s0 + 2 + (p.L - 2) * q / 16; a1.push(new THREE.Vector3(ex, H(ex, ss) + 0.04, -ss)); } ribbon(a1, 0.08); });
       const lp2 = []; for (let q = 0; q <= 8; q++) { const x = p.cx - (p.hw - 0.4) + (2 * p.hw - 0.8) * q / 8; lp2.push(new THREE.Vector3(x, H(x, lp - 0.05) + 0.04, -lp + 0.05)); } ribbon(lp2, 0.08, true);
     }
-    if (p.type === "kicker" && !p.pit && !p.whale && !p.up && !p.lin && !GL && !PEAK) { const kn = p.s0 + p.L + p.gap + 0.6, kl = []; for (let q = 0; q <= 16; q++) { const x = p.cx - (p.lhw - 1.2) + (2 * p.lhw - 2.4) * q / 16; kl.push(new THREE.Vector3(x, H(x, kn) + 0.04, -kn)); } ribbon(kl, 0.12, true); } // knuckle line
+    // (no cross-slope dye lines on landings)
     if (p.type === "kicker") {
       const lip = p.s0 + p.L, big = p.hw > 8, ph = big ? 3.6 : 2.6;
       [-1, 1].forEach(sd => {
@@ -2259,7 +2267,8 @@ function buildFeature(f) {
           const eL = p.cx + sd * (p.lhw - 0.9); for (let q = 0; q <= 70; q++) { const ss = lip + p.gap + (p.Ll + p.Tr * 0.6) * q / 70; b1.push(new THREE.Vector3(eL, H(eL, ss) + 0.04, -ss)); } ribbon(b1);
         } else {
         for (let q = 0; q <= 22; q++) { const ss = p.s0 + p.L * q / 22; a1.push(new THREE.Vector3(ex, H(ex, ss) + 0.04, -ss)); } ribbon(a1);
-        for (let q = 0; q <= 26; q++) { const ss = lip + p.gap + p.Ll * q / 26; b1.push(new THREE.Vector3(ex, H(ex, ss) + 0.04, -ss)); } ribbon(b1);
+        { const tab = !p.pit && !p.whale && !GL && !PEAK && p.Ll > 8, Hd = p.up || p.H * 0.88, E = p.up ? clamp(p.up * 1.3, 2.5, 7) : clamp(Hd * 1.4, 2.5, 7), eL = tab ? p.cx + sd * (p.lhw - E) : ex, sA0 = tab ? lip + 0.3 : lip + p.gap, sA1 = tab ? lip + p.gap + p.Ll * 0.62 : lip + p.gap + p.Ll;
+          for (let q = 0; q <= 36; q++) { const ss = sA0 + (sA1 - sA0) * q / 36; b1.push(new THREE.Vector3(eL, H(eL, ss) + 0.04, -ss)); } ribbon(b1); }
         }
         if (p.pit) for (let q = 0; q <= 6; q++) { const s2 = lip + 1 + (p.gap - 2) * q / 6, x2 = p.cx + sd * (p.hw - 0.3); const c = new THREE.Mesh(cone, cm); c.position.set(x2, H(x2, s2) + 0.4, -s2); grp.add(c); }
       });
@@ -3257,9 +3266,27 @@ function updateCamera(dt) {
 }
 
 const _n = typeof THREE !== "undefined" ? new THREE.Vector3() : null, _q = typeof THREE !== "undefined" ? new THREE.Quaternion() : null, _z = typeof THREE !== "undefined" ? new THREE.Vector3(0, 0, 1) : null;
+/* Village Park: a great pyramid peak in the Swiss style rising above the end of the valley, kept far away like a backdrop */
+let hornM = null;
+function buildHorn() {
+  const g = new THREE.Group(), R = 520, Hh = 1150, nA = 40, nH = 30, pos = [], col = [], idx = [], rr = mulberry(1865);
+  const ridge = a => { const k = ((a / (Math.PI / 2)) % 1 + 1) % 1, d = Math.abs(k - 0.5) * 2; return 0.84 + 0.16 * Math.pow(d, 1.3); }; // four sharp ridges, concave faces between them
+  for (let j = 0; j <= nH; j++) { const t = j / nH, hookX = 70 * Math.pow(t, 3), hookZ = -30 * Math.pow(t, 3);
+    for (let i = 0; i < nA; i++) { const a = i / nA * Math.PI * 2 + 0.3, rad = R * (t < 0.55 ? Math.pow(1 - t, 1.5) : Math.pow(0.45, 1.5) * Math.pow((1 - t) / 0.45, 1.05)) * ridge(a) * (1 + 0.06 * Math.sin(a * 7 + t * 9) + 0.04 * (rr() - 0.5)), x = Math.cos(a) * rad + hookX, z = Math.sin(a) * rad + hookZ, y = t * Hh + (t > 0.97 ? 0 : 6 * (rr() - 0.5));
+      pos.push(x, y, z); const steep = 1 - Math.abs(Math.cos(a * 2)), face = Math.max(0, Math.cos(a - 1.2)), snow = clamp(-0.08 + 0.55 * smooth((t - 0.1) / 0.55) - 0.45 * steep + 0.35 * face * (1 - t) + 0.35 * (rr() - 0.5), 0, 0.92), rock = [0.27 + 0.05 * rr(), 0.25 + 0.04 * rr(), 0.24 + 0.04 * rr()];
+      col.push(lerp(rock[0], 0.95, snow), lerp(rock[1], 0.97, snow), lerp(rock[2], 1.0, snow)); } }
+  pos.push(70, Hh + 8, -30); col.push(0.96, 0.97, 1); const top = (nH + 1) * nA;
+  for (let j = 0; j < nH; j++) for (let i = 0; i < nA; i++) { const a = j * nA + i, b = j * nA + (i + 1) % nA, c = a + nA, d = b + nA; idx.push(a, b, c, b, d, c); }
+  for (let i = 0; i < nA; i++) idx.push(nH * nA + i, nH * nA + (i + 1) % nA, top);
+  const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute("color", new THREE.Float32BufferAttribute(col, 3)); geo.setIndex(idx); geo.computeVertexNormals();
+  const m = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, fog: false, side: THREE.DoubleSide })); g.add(m);
+  for (const [dx, dz, sc] of [[-620, 120, 0.42], [560, 200, 0.36], [-1100, 300, 0.3], [1050, 260, 0.33]]) { const sh = new THREE.Mesh(geo, m.material); sh.scale.set(sc * 1.6, sc, sc * 1.6); sh.position.set(dx, 0, dz); sh.rotation.y = dx * 0.01; g.add(sh); } // lower shoulders either side
+  g.renderOrder = -1; scene.add(g); return g;
+}
+function updateHorn() { if (!scene) return; if (!hornM) { hornM = buildHorn(); hornM.scale.set(1.0, 0.6, 1.0); } hornM.position.set(camera.position.x + 45, camera.position.y - 540, camera.position.z - 1110); } // inside the sky dome, at the apparent size of a peak about 3.6 km away
 function render(dt, time) {
   if (!renderer) return;
-  manageWorld(); updateHeli(dt); updateBike(dt);
+  manageWorld(); updateHeli(dt); updateBike(dt); if (PARK) updateHorn();
   poseSkier(dt, time);
   const R = skierRig;
   R.sink = (R.sink || 0) + (((GL && !sk.air && !sk.grind && !sk.crashed) ? 0.2 : (sk.water && !sk.crashed) ? -0.1 : 0) - (R.sink || 0)) * Math.min(1, 6 * dt);
@@ -3496,7 +3523,7 @@ let spinDir = 0;
 tBtns.forEach(b => {
   const k = b.dataset.k;
   b.addEventListener("pointerdown", e => {
-    e.preventDefault(); audioInit();
+    e.preventDefault(); audioInit(); window.touchMode = true;
     if (k === "spin") { spinDir ^= 1; K.spinL = spinDir ? 0 : 1; K.spinR = spinDir ? 1 : 0; }
     else { if (k === "grab" && !K.grab) gDown(); K[k] = 1; }
     syncTouch();
