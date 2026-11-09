@@ -193,7 +193,7 @@
       <div id="resorts" role="group" aria-label="Ski resorts">
         <button type="button" data-r="alpine" title="Evergreen Run" aria-label="Evergreen Run, forest run"><svg viewBox="0 0 32 32" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 3l7 10h-4l6 9H7l6-9H9z" fill="currentColor" fill-opacity=".25"/><path d="M16 22v7"/></svg></button>
         <button type="button" data-r="peak" title="Couloir Peak" aria-label="Couloir Peak, steep open faces"><svg viewBox="0 0 32 32" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 27L12 8l5 9 3-5 10 15z" fill="currentColor" fill-opacity=".25"/><path d="M12 8l-3 5 3-1 2 2"/></svg></button>
-        <button type="button" data-r="park" title="City Run" aria-label="City Run, streets, rails and an indoor mall"><svg viewBox="0 0 32 32" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h24M7 12v14M25 12v14" /><rect x="10" y="20" width="12" height="6" rx="1" fill="currentColor" fill-opacity=".25"/></svg></button>
+        <button type="button" data-r="park" title="Village Park" aria-label="Village Park, a park run down a Swiss village main street"><svg viewBox="0 0 32 32" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 15l7-7 7 7M5 13v12h10V13M17 18l6-6 6 6M19 16v9h8v-9"/><path d="M9 25v-5h2v5" /></svg></button>
         <button type="button" data-r="drop" title="X Big Air" aria-label="X Big Air, one huge kicker"><svg viewBox="0 0 32 32" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h9l3 3v15h14" /><path d="M20 17l5 7 5-7" fill="currentColor" fill-opacity=".25"/></svg></button>
         <button type="button" data-r="build" title="Snowpark Builder" aria-label="Snowpark Builder, build your own park"><svg viewBox="0 0 32 32" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 27h22M7 27V15h8v12" fill="currentColor" fill-opacity=".25"/><path d="M18 27l6-12 4 12M5 10l4-4 4 4"/></svg></button>
         <button type="button" data-r="glade" title="Powder Glades" aria-label="Powder Glades, deep snow and trees"><svg viewBox="0 0 32 32" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 27V15M9 15l-4 5M9 15l4 5M9 7l-3 5h6zM22 27V12M22 12l-5 7M22 12l5 7M22 4l-4 6h8z" fill="currentColor" fill-opacity=".25"/></svg></button>
@@ -245,7 +245,7 @@
       <div class="picks">
         <button type="button" class="pick" data-r="alpine"><b>Evergreen Run</b><span>Groomed forest runs, kickers, lodges and woods trails</span><i id="pb-alpine"></i></button>
         <button type="button" class="pick" data-r="peak"><b>Couloir Peak</b><span>Steep open faces, couloirs and big cliffs. No trees</span><i id="pb-peak"></i></button>
-        <button type="button" class="pick" data-r="park"><b>City Run</b><span>City streets and rails, then through an abandoned mall and down its escalators and stairs</span><i id="pb-park"></i></button>
+        <button type="button" class="pick" data-r="park"><b>Village Park</b><span>Rails, boxes and kickers down the main street of a Swiss mountain village</span><i id="pb-park"></i></button>
         <button type="button" class="pick" data-r="drop"><b>X Big Air</b><span>One wide, steep Big Air ramp</span><i id="pb-drop"></i></button>
         <button type="button" class="pick" data-r="build"><b>Snowpark Builder</b><span>Place your own rails, boxes and kickers, then ride them</span><i id="pb-build"></i></button>
         <button type="button" class="pick" data-r="glade"><b>Powder Glades</b><span>Deep snow, tight trees and natural drops</span><i id="pb-glade"></i></button>
@@ -297,8 +297,8 @@ const hash = n => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s
    COURSE: coordinates are (x across, y up, s down the mountain). Render z = -s.
    ===================================================================== */
 const RES = location.hash === "#peak" ? "peak" : location.hash === "#park" ? "park" : location.hash === "#drop" ? "drop" : location.hash === "#pipe" ? "pipe" : location.hash === "#glade" ? "glade" : location.hash === "#gates" ? "gates" : location.hash === "#build" ? "build" : "alpine", HELI = RES === "heli", BLD = RES === "build", PEAK = RES === "peak" || HELI, WIDE = RES === "alpine", PARK = RES === "park", DROP = RES === "drop", HP = RES === "pipe", GL = RES === "glade", GT = RES === "gates", PK = PEAK || GL, KS = HELI ? 1.1 : PEAK ? 1.45 : 1;
-const RESORT_NAMES = { alpine: "Evergreen Run", peak: "Couloir Peak", park: "City Run", drop: "X Big Air", pipe: "Mega Pipe", glade: "Powder Glades", gates: "Race Gates", heli: "Heli-Drop", build: "Snowpark Builder" };
-const G = 18, BASE = HELI ? 1.15 : PEAK ? 0.4 : BLD ? 0.22 : DROP ? 0.58 : HP ? 0.36 : GT ? 0.5 : GL ? 0.33 : 0.28, RAIL_H = 3.45, PISTE = PARK ? 11 : WIDE ? 40 : DROP ? 24 : HP ? 36 : BLD ? 30 : GT ? 17 : GL ? 22 : 15, MAXV = 400;
+const RESORT_NAMES = { alpine: "Evergreen Run", peak: "Couloir Peak", park: "Village Park", drop: "X Big Air", pipe: "Mega Pipe", glade: "Powder Glades", gates: "Race Gates", heli: "Heli-Drop", build: "Snowpark Builder" };
+const G = 18, BASE = HELI ? 1.15 : PEAK ? 0.4 : BLD ? 0.22 : DROP ? 0.58 : HP ? 0.36 : GT ? 0.5 : GL ? 0.33 : 0.28, RAIL_H = 3.45, PISTE = PARK ? 13.5 : WIDE ? 40 : DROP ? 24 : HP ? 36 : BLD ? 30 : GT ? 17 : GL ? 22 : 15, MAXV = 400;
 const COURSE_END = location.hash === "#build" ? 700 : location.hash === "#peak" ? 7500 : location.hash === "#park" ? 5200 : location.hash === "#drop" ? 840 : location.hash === "#pipe" ? 2600 : location.hash === "#gates" ? 2300 : location.hash === "#glade" ? 5000 : 3600;
 let rngF = mulberry(2024); const rng = () => rngF();
 const feats = [];
@@ -317,9 +317,9 @@ function baseY(s) {
 }
 if (HELI) { addKnot(70, BASE); addKnot(100, 0); addKnot(245, 0); addKnot(285, BASE); }
 /* City Run: about half the run goes indoors through abandoned malls: escalator banks, stair sets, shops and broken glass */
-const ESC = [], STAIRS = [], MALLZ = [], MALL_CEIL = 9.5, MW = 11.5, ZONE_AT = PARK ? [[480, "mall", 640, 0], [1560, "office", 280, 0], [2440, "mall", 640, 1], [3560, "office", 280, 1]] : [], OFFICE_CEIL = 4.6;
+const ESC = [], STAIRS = [], MALLZ = [], MALL_CEIL = 9.5, MW = 11.5, ZONE_AT = [], OFFICE_CEIL = 4.6;
 /* the secret alley: a taped-off broken shop window on the right near the end leads into a back alley with rails that comes out at the finish */
-const ALLEY = PARK ? { A: COURSE_END - 540, B: COURSE_END - 30, sd: 1, AX: PISTE + 13, hw: 3.4, f: null, found: false, tape: null } : null;
+const ALLEY = false ? { A: COURSE_END - 540, B: COURSE_END - 30, sd: 1, AX: PISTE + 13, hw: 3.4, f: null, found: false, tape: null } : null;
 function alleyX(s) { const A = ALLEY, o = s < A.A + 40 ? lerp(PISTE - 4, A.AX, smooth((s - A.A) / 40)) : s > A.B - 34 ? lerp(A.AX, PISTE - 4, smooth((s - A.B + 34) / 34)) : A.AX; return pc(s) + A.sd * o; }
 const inAlley = (x, s) => !!ALLEY && s > ALLEY.A && s < ALLEY.B && Math.abs(x - alleyX(s)) < ALLEY.hw + 0.8 && (x - pc(s)) * ALLEY.sd > PISTE - 2;
 function makeAlley() {
@@ -493,7 +493,7 @@ function partOff(p, x, s) {
     const w = (u - p.L - p.gap) / p.Ll;
     return w >= 0 && w <= 1 ? p.Hl * bump(w) * lwL : 0;
   }
-  if (p.type === "railramp") { const t = (s - p.s0) / p.L; if (t < 0 || t > 1) return 0; return p.H * t * (1.6 - 0.6 * t) * latW(p, x, 0.5); }
+  if (p.type === "railramp") { const t = (s - p.s0) / p.L; if (GL) { if (t < 0 || t > 1) return 0; return p.H * t * (1.6 - 0.6 * t) * latW(p, x, 0.5); } if (t < 0 || t > 1.03) return 0; return p.H * (t > 1 ? 1 - smooth((t - 1) / 0.03) : rampProf(t)) * latW(p, x, 0.35); }
   if (p.type === "flank") { // low rollers beside the big-air ramp, 4 m under the lip, running on down the sides of the landing
     const k = p.k, lip = k.s0 + k.L, u = Math.abs(x - k.cx), wx = smooth((u - (k.hw - 6)) / 6) * (1 - smooth((u - (k.hw + 63)) / 10)), lat = 1 - smooth((u - 30) / 160); if (wx <= 0 && !(s > lip && lat > 0)) return 0;
     const roll = p.amp * Math.pow(Math.sin(Math.PI * (s - p.s0) / p.sp), 2) * (0.75 + 0.25 * Math.sin(u * 0.28));
@@ -511,10 +511,14 @@ function partOff(p, x, s) {
   let off = 0;
   if (p.sl) { return 0; const d0 = 0 * landOff(p, 0); const d = s - lip - p.gap; if (d <= 0 || d > p.Ll + p.Tr) return 0; const dd = d + 6 * (Math.exp(-d / 6) - 1), Hs = p.sl * p.Ll; return lwL * (d < p.Ll ? -p.sl * dd : -(Hs - p.sl * 6 * (1 - Math.exp(-p.Ll / 6))) * (1 - smooth((d - p.Ll) / p.Tr)) - 0); }
   const u = (s - lip - p.gap) / p.Ll;
-  if (p.up && u >= 0 && u <= 1) off += p.up * smooth(u / 0.03) * (1 - smooth((u - 0.5) / 0.5)) * lwL; else if (u >= 0 && u <= 1) off += p.Hl * bump(u) * lwL;
+  if (p.up && u >= 0 && u <= 1) off += p.up * smooth(u / 0.03) * (1 - smooth((u - 0.5) / 0.5)) * lwL;
+  else if (!p.pit && !p.whale && !GL && !PEAK) { const Hd = p.H * 0.88; if (s > lip && u < 0) off += Hd * lwL; else if (u >= 0 && u <= 1) off += Hd * (1 - landProf(u / 0.62)) * lwL; }
+  else if (u >= 0 && u <= 1) off += p.Hl * bump(u) * lwL;
   if (p.pit && s > lip + 0.4 && s < lip + p.gap) off -= p.pit * smooth((s - lip - 0.4) / 1.2) * smooth((lip + p.gap - s) / 1.2) * lwL;
   return off;
 }
+/* landing slope shape: rounded knuckle, straight steep middle, rounded transition into the run-out */
+function landProf(e) { e = clamp(e, 0, 1); const k = 0.16, t2 = 0.3, m = 1 / (1 - (k + t2) / 2); return e < k ? m * e * e / (2 * k) : e < 1 - t2 ? m * (k / 2 + e - k) : 1 - m * (1 - e) * (1 - e) / (2 * t2); }
 function featOff(f, x, s) { if (s > f.end) return 0; let y = 0; for (const p of f.parts) y += partOff(p, x, s); return y; }
 function genCoins(f, p) {
   return; // gold rings were removed
@@ -963,7 +967,7 @@ function upgradeRails(f) { // longer rails, lifted on posts, each with a small r
     if (r.s0 - 18 < f.s0) { const d = f.s0 + 18 - r.s0; r.s0 += d; r.s1 += d; }
     for (const p of f.parts) if (p.type === "kicker" && !p.side && !r.sided && r.s0 < p.end + 6 && r.s1 > p.s0 && Math.abs(r.x - p.cx) < (p.lhw || 8) + 3) { // rails sit beside a jump, never on its landing
       const sd = p.cx > 1 ? -1 : p.cx < -1 ? 1 : (rng() < 0.5 ? -1 : 1); r.x = p.cx + sd * Math.min((p.lhw || 8) + 5, PISTE - 3); r.sided = true; }
-    f.parts.push({ type: "railramp", s0: r.s0 - 4 - 14 - Math.max(0, ((r.h || RAIL_H) - RAIL_H) * 3), L: 14 + Math.max(0, ((r.h || RAIL_H) - RAIL_H) * 3), H: (r.h || RAIL_H) - 0.25, cx: r.x, hw: 2.1, end: r.s0 + 0.5 });
+    f.parts.push(GL ? { type: "railramp", s0: r.s0 - 4 - 14 - Math.max(0, ((r.h || RAIL_H) - RAIL_H) * 3), L: 14 + Math.max(0, ((r.h || RAIL_H) - RAIL_H) * 3), H: (r.h || RAIL_H) - 0.25, cx: r.x, hw: 2.1, end: r.s0 + 0.5 } : { type: "railramp", s0: r.s0 - 0.45 - 12 - Math.max(0, ((r.h || RAIL_H) - RAIL_H) * 3), L: 12 + Math.max(0, ((r.h || RAIL_H) - RAIL_H) * 3), H: (r.h || RAIL_H) - 0.3, cx: r.x, hw: 1.9, end: r.s0 + 0.9 });
   }
 }
 function nearLip(x, s) {
@@ -1554,7 +1558,7 @@ const UNLOCK = {
   "helmet.santa": ["Finish Couloir Peak", p => p.fin.includes("peak")],
   "jacket.trench": ["Score 5,000 in one run", p => p.maxScore >= 5000],
   "jacket.santa": ["Finish Evergreen Run", p => p.fin.includes("alpine")],
-  "pants.suit": ["Finish City Run", p => p.fin.includes("park")],
+  "pants.suit": ["Finish Village Park", p => p.fin.includes("park")],
   "pants.santa": ["Finish Evergreen Run", p => p.fin.includes("alpine")],
   "accessory.ninja": ["Grind 25 rails", p => p.rails >= 25],
   "accessory.cape": ["Score 15,000 in one run", p => p.maxScore >= 15000],
@@ -2058,24 +2062,25 @@ function buildChunk(ci) {
   [-1, 1].forEach(sd => { const ps = s0 + CH * 0.5, px = pc(ps) + sd * (PISTE + 3), g = new THREE.Sprite(glowMat()); g.scale.set(9, 9, 1); g.position.set(px, inCorr(px, ps) ? -9999 : H(px, ps) + 8.8, -ps); grp.add(g); });
   // trees
   const rt = mulberry(ci * 977 + 5), tr = [];
-  const tryAdd = (x, s, sc) => { if ((PEAK && !HELI) || PARK || HP) return; if (HELI) { const f = clamp((s - (COURSE_END - 1400)) / 600, 0, 1); if (hash(x * 0.31 + s * 0.73) > f * 0.92 || Math.abs(x - pc(s)) < 9 || Math.hypot(x - pc(COURSE_END), s - COURSE_END - 110) < 165) return; } else if (GL) { const lx = x - pc(s), clr = Math.min(Math.abs(lx - 6 * Math.sin(s * 0.017)), Math.abs(lx + 8 * Math.sin(s * 0.011 + 2)), Math.abs(lx - 14 * Math.sin(s * 0.009 + 4))); if (Math.abs(lx) < PISTE + 3) { const near = sectionsAt(s, 16); if (near.some(f => !f.treeRail && (f.parts.length || f.cliff || f.rail))) return; const wl = near.find(f => f.treeRail); if (wl) { const r = wl.rail; if (s > r.s0 - 30 && s < r.s1 + 4 && Math.abs(x - railX(r, clamp(s, r.s0, r.s1))) < 4.5) return; if (hash(x * 0.7 + s * 0.31) < 0.68) return; } else if (clr < 4.2) return; } } else if (WIDE && Math.abs(x - pc(s)) < PISTE + 3) { const lx = x - pc(s), isl = Math.sin(x * 0.075 + s * 0.043) * Math.sin(x * 0.05 - s * 0.087 + 1) > 0.78; if (!isl || Math.abs(lx) < 9 || Math.abs(lx) > PISTE - 4 || sectionsAt(s, 30).some(f => f.parts.length || f.rail || f.rail2 || f.cliff)) return; } else if (Math.abs(x - pc(s)) < PISTE + 3) return; const T = trailFor(s); if (T && Math.abs(x - trailXc(T, s)) < T.hw + 5.2) return; tr.push({ x, s, y: H(x, s) - 0.1, sc }); };
+  const tryAdd = (x, s, sc) => { if ((PEAK && !HELI) || HP || (PARK && Math.abs(x - pc(s)) < PISTE + 34)) return; if (HELI) { const f = clamp((s - (COURSE_END - 1400)) / 600, 0, 1); if (hash(x * 0.31 + s * 0.73) > f * 0.92 || Math.abs(x - pc(s)) < 9 || Math.hypot(x - pc(COURSE_END), s - COURSE_END - 110) < 165) return; } else if (GL) { const lx = x - pc(s), clr = Math.min(Math.abs(lx - 6 * Math.sin(s * 0.017)), Math.abs(lx + 8 * Math.sin(s * 0.011 + 2)), Math.abs(lx - 14 * Math.sin(s * 0.009 + 4))); if (Math.abs(lx) < PISTE + 3) { const near = sectionsAt(s, 16); if (near.some(f => !f.treeRail && (f.parts.length || f.cliff || f.rail))) return; const wl = near.find(f => f.treeRail); if (wl) { const r = wl.rail; if (s > r.s0 - 30 && s < r.s1 + 4 && Math.abs(x - railX(r, clamp(s, r.s0, r.s1))) < 4.5) return; if (hash(x * 0.7 + s * 0.31) < 0.68) return; } else if (clr < 4.2) return; } } else if (WIDE && Math.abs(x - pc(s)) < PISTE + 3) { const lx = x - pc(s), isl = Math.sin(x * 0.075 + s * 0.043) * Math.sin(x * 0.05 - s * 0.087 + 1) > 0.78; if (!isl || Math.abs(lx) < 9 || Math.abs(lx) > PISTE - 4 || sectionsAt(s, 30).some(f => f.parts.length || f.rail || f.rail2 || f.cliff)) return; } else if (Math.abs(x - pc(s)) < PISTE + 3) return; const T = trailFor(s); if (T && Math.abs(x - trailXc(T, s)) < T.hw + 5.2) return; tr.push({ x, s, y: H(x, s) - 0.1, sc }); };
   if (HELI && s0 > COURSE_END - 1500) for (let i = 0; i < 90; i++) { const ts = s0 + rt() * CH; tryAdd(pc(ts) + (rt() - 0.5) * 150, ts, 0.8 + rt() * 1.1); }
   if (WIDE) for (let i = 0; i < 70; i++) { const ts = s0 + rt() * CH; tryAdd(pc(ts) + (rt() - 0.5) * 2 * (PISTE - 4), ts, 0.8 + rt() * 1.1); }
   for (let i = 0; i < 46; i++) { const side = rt() < 0.5 ? -1 : 1, ts = s0 + rt() * CH; tryAdd(pc(ts) + side * (PISTE + 6 + rt() * 34), ts, 0.8 + rt() * 0.9); }
+  if (PARK) for (let i = 0; i < 40; i++) { const ts = s0 + rt() * CH; tryAdd(pc(ts) + (rt() < 0.5 ? -1 : 1) * (PISTE + 36 + rt() * 80), ts, 0.9 + rt() * 0.9); }
   if (GL) for (let i = 0; i < 110; i++) { const ts = s0 + rt() * CH; tryAdd(pc(ts) + (rt() - 0.5) * 2 * (PISTE + 2), ts, 0.8 + rt() * 1.0); }
   for (let i = 0; i < 70; i++) { // dense forest lining a trail
     const s = s0 + rt() * CH, T = trailFor(s), sd = rt() < 0.5 ? -1 : 1, off = T ? T.hw + 5.2 + rt() * 15 : 0, sc = 0.8 + rt() * 1.0;
     if (T) tryAdd(trailXc(T, s) + sd * off, s, sc);
   }
-  const mcol = []; if (PARK) { grp.add(cityBuildings(ci, s0)); grp.add(parkStructure(ci, s0)); } if (mIn) grp.add(mallChunk(ci, s0, mcol)); if (ALLEY && s0 + CH > ALLEY.A - 32 && s0 < ALLEY.B + 8) grp.add(alleyChunk(ci, s0, mcol));
+  const mcol = []; if (PARK) grp.add(villageChunk(ci, s0, mcol)); if (mIn) grp.add(mallChunk(ci, s0, mcol)); if (ALLEY && s0 + CH > ALLEY.A - 32 && s0 < ALLEY.B + 8) grp.add(alleyChunk(ci, s0, mcol));
   if (!treeChunks.has(ci)) { treeChunks.add(ci); tr.forEach(addTree); mcol.forEach(addTree); }
   if (LIFT) grp.add(liftChunk(ci, s0));
   if (!PEAK && !mIn && LIFE && ci % 9 === 4) { const ps = s0 + CH * 0.5, sd = ci % 2 ? 1 : -1, px = pc(ps) + sd * (PISTE + 2.2); grp.add(patrolProp(px, H(px, ps), ps, sd > 0 ? -Math.PI / 2 : Math.PI / 2)); }
-  const lodges = mIn ? [] : lodgesForChunk(ci).filter(L => !(ALLEY && L.s > ALLEY.A - 60 && L.s < ALLEY.B + 30 && (L.x - pc(L.s)) * ALLEY.sd > 0));
+  const lodges = mIn || PARK ? [] : lodgesForChunk(ci).filter(L => !(ALLEY && L.s > ALLEY.A - 60 && L.s < ALLEY.B + 30 && (L.x - pc(L.s)) * ALLEY.sd > 0));
   if (!lodgeChunks.has(ci)) { lodgeChunks.add(ci); lodges.forEach(L => addRock(L.x, L.s, [6, 6, 10, 4, 4][L.kind])); }
   grp.add(lodgeGroup(lodges));
-  if (!rockChunks.has(ci)) { rockChunks.add(ci); if (!mIn) rocksForChunk(ci).forEach(r => addRock(r.x, r.s, r.r)); }
-  if (!mIn) grp.add(rockGroup(rocksForChunk(ci)));
+  if (!rockChunks.has(ci)) { rockChunks.add(ci); if (!PARK) rocksForChunk(ci).forEach(r => addRock(r.x, r.s, r.r)); }
+  if (!PARK) grp.add(rockGroup(rocksForChunk(ci)));
   const N = tr.length;
   if (N) {
     const mk = (geo, color, yOff, vary) => { const m = new THREE.InstancedMesh(geo, new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 }), N), d = new THREE.Object3D(), c0 = new THREE.Color(color), cc = new THREE.Color(); m.castShadow = true; m.receiveShadow = true;
@@ -2211,6 +2216,11 @@ function buildFeature(f) {
       for (let ss = 10; ss <= DLIP - 2; ss += 2) { const b = new THREE.Mesh(hg, bm); b.scale.z = 2.05; b.position.set(sd * 11.6, H(sd * 11.6, ss + 1) + 0.6, -(ss + 1)); grp.add(b); } });
   }
   f.parts.forEach(p => {
+    if (p.type === "railramp" && !GL) { // dye lines on the jib lip: both top edges and the lip
+      const lp = p.s0 + p.L; [-1, 1].forEach(sd => { const ex = p.cx + sd * (p.hw - 0.4), a1 = []; for (let q = 0; q <= 16; q++) { const ss = p.s0 + 2 + (p.L - 2) * q / 16; a1.push(new THREE.Vector3(ex, H(ex, ss) + 0.04, -ss)); } ribbon(a1, 0.08); });
+      const lp2 = []; for (let q = 0; q <= 8; q++) { const x = p.cx - (p.hw - 0.4) + (2 * p.hw - 0.8) * q / 8; lp2.push(new THREE.Vector3(x, H(x, lp - 0.05) + 0.04, -lp + 0.05)); } ribbon(lp2, 0.08, true);
+    }
+    if (p.type === "kicker" && !p.pit && !p.whale && !p.up && !p.lin && !GL && !PEAK) { const kn = p.s0 + p.L + p.gap + 0.6, kl = []; for (let q = 0; q <= 16; q++) { const x = p.cx - (p.lhw - 1.2) + (2 * p.lhw - 2.4) * q / 16; kl.push(new THREE.Vector3(x, H(x, kn) + 0.04, -kn)); } ribbon(kl, 0.12, true); } // knuckle line
     if (p.type === "kicker") {
       const lip = p.s0 + p.L, big = p.hw > 8, ph = big ? 3.6 : 2.6;
       [-1, 1].forEach(sd => {
@@ -2687,6 +2697,78 @@ function liftChunk(ci, s0) { // pylons and cables beside the run
 }
 
 /* Kicker Park: a footbridge and a building tunnel over the run, placed only where no jump or rail is */
+/* Village Park: a Swiss mountain village main street. Tall wooden chalets with stone ground floors, flower-box balconies and shutters line both sides, a church at the bottom. */
+let vilM = null;
+function vilMats() {
+  if (vilM) return vilM;
+  const T = (w, h, f) => { const t = canvasTex(w, h, f); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; return t; };
+  const wood = T(128, 128, (c, w, h) => { c.fillStyle = "#5a3a22"; c.fillRect(0, 0, w, h); const rr = mulberry(31); for (let i = 0; i < 16; i++) { c.fillStyle = i % 2 ? "#62402a" : "#4e321e"; c.fillRect(0, i * 8, w, 7); c.fillStyle = "rgba(0,0,0,.35)"; c.fillRect(0, i * 8 + 7, w, 1); for (let k = 0; k < 3; k++) { c.fillStyle = "rgba(30,18,10,.35)"; c.fillRect(rr() * w, i * 8 + 1, 1.5, 5); } } });
+  const stone = T(128, 128, (c, w, h) => { c.fillStyle = "#77746e"; c.fillRect(0, 0, w, h); const rr = mulberry(32); for (let i = 0; i < 46; i++) { const v = 110 + rr() * 60; c.fillStyle = `rgb(${v},${v - 4},${v - 10})`; c.beginPath(); c.ellipse(rr() * w, rr() * h, 8 + rr() * 10, 5 + rr() * 6, 0, 0, 7); c.fill(); } });
+  const roof = T(128, 128, (c, w, h) => { c.fillStyle = "#3d2f26"; c.fillRect(0, 0, w, h); const rr = mulberry(33); for (let j = 0; j < 16; j++) for (let i = 0; i < 9; i++) { c.fillStyle = `rgb(${60 + rr() * 25},${44 + rr() * 18},${34 + rr() * 12})`; c.fillRect(i * 16 + (j % 2) * 8, j * 8, 15, 7); } });
+  const slate = T(128, 128, (c, w, h) => { c.fillStyle = "#6c6c6a"; c.fillRect(0, 0, w, h); const rr = mulberry(34); for (let j = 0; j < 8; j++) for (let i = 0; i < 5; i++) { const v = 80 + rr() * 40; c.fillStyle = `rgb(${v},${v},${v - 4})`; c.beginPath(); c.ellipse(i * 28 + (j % 2) * 14, j * 16 + 8, 14, 9, 0, 0, 7); c.fill(); } });
+  const sign = ["SKI · SPORT", "BÄCKEREI", "HOTEL", "CAFÉ", "KÄSE", "SKI SCHOOL", "BAR", "APOTHEKE"].map((n, i) => new THREE.MeshBasicMaterial({ map: canvasTex(256, 64, (c, w, h) => { c.fillStyle = ["#2a2018", "#3a2a1c", "#1f2a22"][i % 3]; c.fillRect(0, 0, w, h); c.strokeStyle = "#d9b45a"; c.lineWidth = 4; c.strokeRect(4, 4, w - 8, h - 8); c.fillStyle = "#f2dfae"; c.font = "bold 30px Georgia, serif"; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText(n, w / 2, h / 2 + 2); }) }));
+  const flag = canvasTex(64, 64, (c, w, h) => { c.fillStyle = "#d52b1e"; c.fillRect(0, 0, w, h); c.fillStyle = "#fff"; c.fillRect(26, 13, 12, 38); c.fillRect(13, 26, 38, 12); });
+  return vilM = { wood: new THREE.MeshStandardMaterial({ map: wood, roughness: 0.85 }), stone: new THREE.MeshStandardMaterial({ map: stone, roughness: 0.95 }), plaster: new THREE.MeshStandardMaterial({ color: 0xefe8dc, roughness: 0.9 }), roof: new THREE.MeshStandardMaterial({ map: roof, roughness: 0.8 }), slate: new THREE.MeshStandardMaterial({ map: slate, roughness: 0.9 }),
+    snow: new THREE.MeshStandardMaterial({ color: 0xf6f9fd, roughness: 0.9 }), white: new THREE.MeshStandardMaterial({ color: 0xf4efe6, roughness: 0.8 }), shut: [0x2f5d3a, 0x8c2a22, 0x2a4a6a].map(c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.7 })),
+    glass: new THREE.MeshStandardMaterial({ color: 0x2b3440, roughness: 0.2, metalness: 0.3, emissive: 0x6a4a1a, emissiveIntensity: 0.35 }), flower: new THREE.MeshStandardMaterial({ color: 0xc8202a, roughness: 0.8 }), leaf: new THREE.MeshStandardMaterial({ color: 0x2f6a35, roughness: 0.9 }),
+    iron: new THREE.MeshStandardMaterial({ color: 0x1e1f22, roughness: 0.5, metalness: 0.6 }), bulb: new THREE.MeshBasicMaterial({ color: 0xffe2a8 }), sign, flag: new THREE.MeshBasicMaterial({ map: flag, side: THREE.DoubleSide }), door: new THREE.MeshStandardMaterial({ color: 0x3b2516, roughness: 0.8 }) };
+}
+function vBox(g, w, h, d, m, x, y, z) { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y, z); o.castShadow = true; o.receiveShadow = true; g.add(o); return o; }
+function vGable(g, span, len, h, ov, mat, wallMat) { // ridge along local x, slopes down to +-z
+  const V = vilMats(), rw = span / 2 + ov, a = Math.atan2(h, span / 2), L = rw / Math.cos(a);
+  for (const sd of [-1, 1]) { const r = new THREE.Mesh(new THREE.BoxGeometry(len + ov * 2, 0.32, L), mat); r.position.set(0, h - Math.sin(a) * L / 2, sd * Math.cos(a) * L / 2); r.rotation.x = sd * a; r.castShadow = true; r.receiveShadow = true; g.add(r);
+    const sn = new THREE.Mesh(new THREE.BoxGeometry(len + ov * 2 - 0.4, 0.26, L * 0.94), V.snow); sn.position.set(0, h - Math.sin(a) * L / 2 + 0.28 / Math.cos(a), sd * Math.cos(a) * L / 2); sn.rotation.x = sd * a; g.add(sn); }
+  const tri = new THREE.Shape(); tri.moveTo(-span / 2, 0); tri.lineTo(span / 2, 0); tri.lineTo(0, h); tri.closePath();
+  for (const sd of [-1, 1]) { const t = new THREE.Mesh(new THREE.ShapeGeometry(tri), wallMat || V.wood); t.rotation.y = Math.PI / 2 * sd; t.position.x = sd * len / 2; t.castShadow = true; g.add(t); }
+}
+function vChalet(g, x, s, sd, r, col) { // sd: side of the run the house is on; the eaves face the street
+  const V = vilMats(), len = 10 + r() * 4, dep = 10 + r() * 3, floors = 3 + Math.floor(r() * 2), fh = 2.8, sh = V.shut[Math.floor(r() * 3)], stoneBase = r() < 0.75;
+  const cx = x + sd * dep / 2, hF = H(x, s), hB = H(x + sd * dep, s), base = Math.min(hF, hB) - 0.2, hg = new THREE.Group(); hg.position.set(cx, base, -s); g.add(hg);
+  const face = -sd * (dep / 2); // local z of the street side (house local z = world x)
+  hg.rotation.y = 0; const q = (lx, ly, lz) => [lz, ly, -lx]; // local x along the street, local z across
+  const put = (w, h, d, m, lx, ly, lz) => { const o = vBox(hg, d, h, w, m, lz, ly, -lx); return o; };
+  put(len, fh + 3, dep, stoneBase ? V.stone : V.plaster, 0, (fh - 3) / 2, 0);
+  let y = fh;
+  for (let f = 1; f < floors; f++) {
+    put(len, fh, dep, f === floors - 1 || r() < 0.7 ? V.wood : V.plaster, 0, y + fh / 2, 0);
+    for (const zs of [-1, 1]) for (let k = -1; k <= 1; k++) { const wx = k * len * 0.3; put(1.1, 1.3, 0.12, V.glass, wx, y + 1.45, zs * (dep / 2 + 0.03)); for (const sx of [-1, 1]) put(0.5, 1.35, 0.08, sh, wx + sx * 0.82, y + 1.45, zs * (dep / 2 + 0.07)); }
+    if (f < floors - 1 || r() < 0.6) { const bz = Math.sign(face) * (dep / 2 + 0.7); put(len * 0.86, 0.15, 1.4, V.wood, 0, y + 0.1, bz); put(len * 0.86, 0.85, 0.1, V.wood, 0, y + 0.55, bz + Math.sign(face) * 0.65); put(len * 0.8, 0.28, 0.3, V.flower, 0, y + 1.1, bz + Math.sign(face) * 0.7); put(len * 0.8, 0.12, 0.32, V.leaf, 0, y + 0.95, bz + Math.sign(face) * 0.7); }
+    y += fh;
+  }
+  // ground floor: shop window, door and a hanging sign on the street side
+  const fz = Math.sign(face) * (dep / 2 + 0.03); put(len * 0.42, 1.7, 0.1, V.glass, -len * 0.18, 1.5, fz); put(1.2, 2.2, 0.1, V.door, len * 0.28, 1.1, fz);
+  if (r() < 0.75) { const sg = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.65), V.sign[Math.floor(r() * V.sign.length)]); const p2 = q(-len * 0.18, 2.75, Math.sign(face) * (dep / 2 + 0.09)); sg.position.set(...p2); sg.rotation.y = Math.sign(face) * Math.PI / 2; hg.add(sg); }
+  for (const zs of [-1, 1]) for (const k of [-1, 1]) if (zs !== Math.sign(face) || k > 0) put(1.1, 1.3, 0.12, V.glass, k * len * 0.28, 1.5, zs * (dep / 2 + 0.03));
+  const rg = new THREE.Group(); rg.position.set(0, y, 0); hg.add(rg); vGable(rg, dep, len, dep * 0.4, 1.5, r() < 0.8 ? V.roof : V.slate, V.wood); rg.rotation.y = Math.PI / 2;
+  if (r() < 0.6) { const ch = put(0.8, 2.2, 0.8, V.stone, len * 0.25, y + dep * 0.22 + 0.5, -Math.sign(face) * dep * 0.15); }
+  if (r() < 0.25) { const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 3.2, 6), V.iron); pole.position.set(x + sd * 0.4, hF + y - 0.4, -s + len * 0.3); pole.rotation.z = sd * 0.6; g.add(pole); const fl = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 1.1), V.flag); fl.position.set(x - sd * 0.5, hF + y + 0.5, -s + len * 0.3); fl.rotation.y = Math.PI / 2; g.add(fl); }
+  col.push({ x: cx, s: s - len * 0.25, y: base, sc: 1, rr: Math.min(len, dep) / 2 + 0.2, hh: 30, name: "Ran into a chalet" }, { x: cx, s: s + len * 0.25, y: base, sc: 1, rr: Math.min(len, dep) / 2 + 0.2, hh: 30, name: "Ran into a chalet" });
+  return len;
+}
+function vChurch(g, x, s) { const V = vilMats(), b = H(x, s) - 0.3, cg = new THREE.Group(); cg.position.set(x, b, -s); g.add(cg);
+  vBox(cg, 11, 9, 19, V.plaster, 0, 4.5, 0); const rg = new THREE.Group(); rg.position.y = 9; rg.rotation.y = Math.PI / 2; cg.add(rg); vGable(rg, 11, 19, 5, 0.8, V.slate, V.plaster);
+  vBox(cg, 4.6, 20, 4.6, V.plaster, 0, 10, 10.5); const sp = new THREE.Mesh(new THREE.ConeGeometry(3.5, 10, 4), V.slate); sp.rotation.y = Math.PI / 4; sp.position.set(0, 25, 10.5); sp.castShadow = true; cg.add(sp);
+  const ck = new THREE.Mesh(new THREE.CircleGeometry(1.1, 24), V.white); ck.position.set(0, 16, 12.83); cg.add(ck); const hd = vBox(cg, 0.08, 0.9, 0.05, V.iron, 0, 16.2, 12.9); hd.rotation.z = 0.6; }
+function villageChunk(ci, s0, col) {
+  const g = new THREE.Group(), V = vilMats();
+  for (const sd of [-1, 1]) for (let k = Math.ceil(s0 / 16); k * 16 < s0 + CH; k++) {
+    const s = k * 16 + (hash(k * 3.1 + sd) - 0.5) * 2; if (s < -20 || s > COURSE_END - 70) continue;
+    const r = mulberry(k * 97 + (sd > 0 ? 13 : 71)); if (r() < 0.08) continue; // the odd gap between houses
+    vChalet(g, pc(s) + sd * (PISTE + 4.5 + r() * 1.5), s, sd, r, col);
+  }
+  for (let k = Math.ceil(s0 / 18); k * 18 < s0 + CH; k++) for (const sd of [-1, 1]) { // street lamps
+    const s = k * 18 + (sd > 0 ? 9 : 0), x = pc(s) + sd * (PISTE + 1.8), y = H(x, s); if (s > COURSE_END - 40) continue;
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.1, 4.2, 6), V.iron); pole.position.set(x, y + 2.1, -s); g.add(pole);
+    const arm = vBox(g, 0.7, 0.06, 0.06, V.iron, x - sd * 0.3, y + 4.1, -s); const lt = vBox(g, 0.32, 0.42, 0.32, V.bulb, x - sd * 0.62, y + 3.85, -s); lt.castShadow = false;
+    col.push({ x, s, y, sc: 1, rr: 0.3, hh: 4.5, name: "Hit a lamp post" });
+  }
+  { const c = COURSE_END + 75; if (c >= s0 && c < s0 + CH) vChurch(g, pc(c), c); }
+  for (let k = Math.ceil(s0 / 90); k * 90 < s0 + CH; k++) { const s = k * 90 + 30; if (s > COURSE_END - 60) continue; // bunting strung across the street, high above the jumps
+    const xa = pc(s) - PISTE - 5, xb = pc(s) + PISTE + 5, ya = H(xa, s) + 13, yb = H(xb, s) + 13, pts = []; for (let q = 0; q <= 24; q++) { const u = q / 24; pts.push(new THREE.Vector3(lerp(xa, xb, u), lerp(ya, yb, u) - 1.6 * Math.sin(Math.PI * u), -s)); }
+    g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0x222222 })));
+    for (let q = 1; q < 24; q++) { const fl = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.6), q % 2 ? V.flag : V.white); fl.position.copy(pts[q]); fl.position.y -= 0.35; g.add(fl); } }
+  return g;
+}
 function parkStructure(ci, s0) {
   const g = new THREE.Group(); let kind = null, sm = 0;
   for (const f of feats) if (f.structure && f.structure.s >= s0 && f.structure.s < s0 + CH) { kind = f.structure.kind; sm = f.structure.s; }
@@ -2770,7 +2852,7 @@ function fenceBlocked(x, s) {
   return false;
 }
 function manageFences() {
-  if (DROP || PEAK || HP || GL) return;
+  if (DROP || PEAK || HP || GL || PARK) return;
   if (!fenceMats) {
     const nT = canvasTex(256, 128, (c, w, h) => {
       c.clearRect(0, 0, w, h); c.strokeStyle = "rgba(120,168,226,0.85)"; c.lineWidth = 1.2;
@@ -3462,5 +3544,5 @@ if (BLD) {
 }
 if (location.hash === "#peak" || location.hash === "#alpine" || location.hash === "#park" || location.hash === "#drop" || location.hash === "#pipe" || location.hash === "#glade" || location.hash === "#gates" || location.hash === "#heli" || location.hash === "#build" || !glOK) { $("home").hidden = true; } else startHome();
 if (!glOK) $("intro").hidden = false;
-if (location.hash === "#peak" || location.hash === "#alpine" || location.hash === "#park" || location.hash === "#drop" || location.hash === "#pipe" || location.hash === "#glade" || location.hash === "#gates" || location.hash === "#heli" || location.hash === "#build") { begin(); if (HELI) setTimeout(() => popup("Heli-Drop", "Jump out, pick a line, survive the face"), 500); if (BLD) setTimeout(() => popup("Snowpark Builder", "Place rails, boxes and kickers, then ride"), 500); if (GL) setTimeout(() => popup("Powder Glades", "Deep snow · trees · natural drops"), 500); if (GT) setTimeout(() => popup("Race Gates", "Hit every gate · miss = +3 s · 6 misses and you're out"), 500); if (HP) setTimeout(() => popup("Mega Pipe", "Huge walls · carve and launch"), 500); if (DROP) setTimeout(() => popup("Big Air", "Wide steep ramp · one huge kicker"), 500); if (PEAK && !HELI) setTimeout(() => popup("Couloir Peak", "Open faces · chutes · cliffs"), 500); if (PARK) setTimeout(() => popup("City Run", "Streets · rails · ski through the mall"), 500); }
+if (location.hash === "#peak" || location.hash === "#alpine" || location.hash === "#park" || location.hash === "#drop" || location.hash === "#pipe" || location.hash === "#glade" || location.hash === "#gates" || location.hash === "#heli" || location.hash === "#build") { begin(); if (HELI) setTimeout(() => popup("Heli-Drop", "Jump out, pick a line, survive the face"), 500); if (BLD) setTimeout(() => popup("Snowpark Builder", "Place rails, boxes and kickers, then ride"), 500); if (GL) setTimeout(() => popup("Powder Glades", "Deep snow · trees · natural drops"), 500); if (GT) setTimeout(() => popup("Race Gates", "Hit every gate · miss = +3 s · 6 misses and you're out"), 500); if (HP) setTimeout(() => popup("Mega Pipe", "Huge walls · carve and launch"), 500); if (DROP) setTimeout(() => popup("Big Air", "Wide steep ramp · one huge kicker"), 500); if (PEAK && !HELI) setTimeout(() => popup("Couloir Peak", "Open faces · chutes · cliffs"), 500); if (PARK) setTimeout(() => popup("Village Park", "Main street · rails · kickers"), 500); }
 </script>
