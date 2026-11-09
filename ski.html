@@ -506,7 +506,11 @@ function partOff(p, x, s) {
   // step-up: the landing is a big rounded mound, its front rolls up smoothly beside and in front of the kicker, no flat walls
   const upB = p.up ? (() => { const a = lip + p.gap, F = Math.max(6, p.up * 1.8), E = clamp(p.up * 1.3, 2.5, 7), lat = 1 - smooth((Math.abs(x - p.cx) - (p.lhw - E)) / E); if (lat <= 0 || s < a - F || s > lip + p.gap + p.Ll) return 0; const u2 = (s - a) / p.Ll; return p.up * lat * (s < a ? smooth((s - a + F) / F) : 1 - smooth((u2 - 0.5) / 0.5)); })() : 0;
   // table landing: the deck beside the kicker rolls up smoothly from the approach and its sides slope away, no flat walls
-  const tabB = !p.up && !p.pit && !p.whale && !GL && !PEAK && !p.lin && p.Ll > 8 ? (() => { const Hd = p.H * 0.88, F = Math.max(6, Hd * 2.0), E = clamp(Hd * 1.4, 2.5, 7), lat = 1 - smooth((Math.abs(x - p.cx) - (p.lhw - E)) / E); if (lat <= 0 || s < lip - F || s > lip + p.gap + p.Ll) return 0; const u3 = (s - lip - p.gap) / p.Ll; return Hd * lat * (s < lip ? smooth((s - lip + F) / F) : u3 < 0 ? 1 : 1 - landProf(u3 / 0.62)); })() : 0;
+  const tabB = !p.up && !p.pit && !p.whale && !GL && !PEAK && !p.lin && p.Ll > 8 ? (() => { const Hd = p.H * 0.88, F = Math.max(6, Hd * 2.0), E = clamp(Hd * 1.4, 2.5, 7), wallSide = p.qp && (x - p.cx) * p.qp > 0, lat = wallSide ? 1 : 1 - smooth((Math.abs(x - p.cx) - (p.lhw - E)) / E); if (lat <= 0 || s < lip - F || s > lip + p.gap + p.Ll) return 0; const u3 = (s - lip - p.gap) / p.Ll;
+    const side = smooth((Math.abs(x - p.cx) - p.hw + 0.5) / 1.5), low = 1 - 0.45 * side * (1 - smooth((s - lip + 3) / 7)); // the deck beside the takeoff sits well below the lip
+    let y = Hd * lat * low * (s < lip ? smooth((s - lip + F) / F) : u3 < 0 ? 1 : 1 - landProf(u3 / 0.62));
+    if (wallSide) { const R = 5.5, u = (x - p.cx) * p.qp - (p.lhw - 1.5), env = smooth((s - lip - p.gap * 0.2) / 10) * (1 - smooth((s - (lip + p.gap + p.Ll - 10)) / 10)); if (u > 0 && env > 0) y += env * (u < R * 0.985 ? R - Math.sqrt(R * R - u * u) : R + (u - R) * 0.04 + (u < R + 0.5 ? 0 : 0)); }
+    return y; })() : 0;
   const mB = Math.max(upB, tabB);
   if (lw <= 0 && lwL <= 0 && !mB) return 0;
   if (s <= lip) { if (lw <= 0) return mB; const t = (s - p.s0) / p.L, wf = p.whale ? 0.6 + 0.65 * Math.pow(clamp(Math.abs(x - p.cx) / p.hw, 0, 1), 1.7) * t : 1; return Math.max(mB, p.H * t * t * lw * wf * (PARK || WIDE ? 1 : 1 + 0.012 * Math.sin(x * 1.9 + s * 0.83) + 0.008 * Math.sin(x * 4.3 - s * 1.7))); }
@@ -601,8 +605,11 @@ function sideHouse(f, sd, sBase, x0) { // lodge beside the piste: kicker up to t
   f.rail = { s0: box.s0 + 4, s1: box.end - 3, x: cx };
   f.label += " + side house";
 }
+function qpWallAt(x, s) { for (const f of sectionsAt(s, 0)) for (const p of f.parts) if (p.qp) { const lip = p.s0 + p.L; if (s > lip + p.gap * 0.2 && s < lip + p.gap + p.Ll && (x - p.cx) * p.qp > p.lhw - 4.5) return p.qp; } return 0; }
 function fixLandings(f) { // a wide landing must not run into side kickers or cabins
-  for (const p of f.parts) if (p.type === "kicker" && !p.side) for (const q of f.parts) if (q !== p && (q.type === "kicker" || q.type === "box") && q.hw) p.lhw = Math.min(p.lhw, Math.max(p.hw, Math.abs(q.cx - p.cx) - q.hw - 1));
+  for (const p of f.parts) if (p.type === "kicker" && !p.side) for (const q of f.parts) if (q !== p && (q.type === "kicker" || q.type === "box") && q.hw) { const l2 = Math.max(p.hw, Math.abs(q.cx - p.cx) - q.hw - 1); if (l2 < p.lhw) { p.lhw = l2; p.squeeze = Math.sign(q.cx - p.cx) || 1; } }
+  if (WIDE) for (const p of f.parts) if (p.type === "kicker" && !p.side && !p.up && !p.pit && !p.whale && p.squeeze) { // squeezed landing: bigger jump, quarterpipe wall on the open side
+    const end0 = p.end; p.L *= 1.2; p.H *= 1.3; const fd = flightD(p.L, p.H, p.v0); p.gap = clamp(0.35 * fd.d, 6, 48); p.Ll = clamp(1.05 * fd.d, 30, 110); p.end = p.s0 + p.L + p.gap + p.Ll; p.qp = -p.squeeze; p.label = "Kicker · quarterpipe landing"; }
 }
 function houseSection(f, diff) {
   const B = 4.2 + rng() * 1.4, hw = 5.6 + rng() * 0.8, cx = 0, ramp = Math.floor(secCount / 6) % 2 === 1, walls = WALLS;
@@ -1192,7 +1199,7 @@ function step(dt) {
       // carving: the longer you hold a turn the more the edges bite, which turns tighter and scrubs less speed
       sk.carve = steer ? Math.min(1, sk.carve + dt / 0.55) : Math.max(0, sk.carve - dt * 2.5);
       const wat = HELI && !sk.air && onLake(sk.x, sk.s); sk.water = wat; if (wat) { if (!K.brake && !K.down && sk.sp < 18) sk.sp += (18 - sk.sp) * 0.9 * dt; if (sk.sp < 4.5) { crash("Sank in the lake"); return; } spray(sk.x - Math.sin(sk.psi) * 0.4 - 0.5, sk.y + 0.1, sk.s - Math.cos(sk.psi) * 0.4, 3, 2.4, -3); spray(sk.x - Math.sin(sk.psi) * 0.4 + 0.5, sk.y + 0.1, sk.s - Math.cos(sk.psi) * 0.4, 3, 2.4, 3); }
-      const hpm = HP || (WIDE && qpAt(sk.s) > 0.05 && Math.abs(sk.x - pc(sk.s)) > PISTE - QPR - 10); sk.qpAir = hpm;
+      const qw = WIDE ? qpWallAt(sk.x, sk.s) : 0, hpm = HP || qw || (WIDE && qpAt(sk.s) > 0.05 && Math.abs(sk.x - pc(sk.s)) > PISTE - QPR - 10); sk.qpAir = hpm; sk.qpW = qw;
       sk.psi += steer * (1.15 + 0.95 * sk.carve) * dt * PHYS.turn * (hpm ? 1.25 : clamp(1.25 / (1 + Math.pow(sk.sp / 32, 2)), 0.55, 1)); // faster means wider arcs
       if (!steer && !hpm) sk.psi -= sk.psi * 0.35 * dt;
       const Tt = trailFor(sk.s); let onTrail = false;
@@ -1274,7 +1281,7 @@ function step(dt) {
       const X = sk.xfer, rem = Math.max(0.06, (X.s - sk.s) / Math.max(1, sk.vs)), want = (railX(X.rl, clamp(X.s, X.rl.s0, X.rl.s1)) - sk.x) / rem; sk.vx += (want - sk.vx) * Math.min(1, 7 * dt); if (sk.s > X.s + 3) sk.xfer = null;
     } else if (steer && !HP && !sk.qpAir) { sk.vx = clamp(sk.vx + steer * 7 * dt, -9, 9); } // arrows slide you side to side in the air
     if (HP || sk.qpAir) { // aerials: go straight up from the lip and come back down on the inside of the same wall
-      if (sk.airT < 0.03 || sk.hpx === undefined) sk.hpx = Math.abs(sk.x) > 14 ? sk.x - Math.sign(sk.x) * 3.2 : sk.x;
+      if (sk.airT < 0.03 || sk.hpx === undefined) sk.hpx = sk.qpW ? sk.x - sk.qpW * 2.6 : Math.abs(sk.x) > 14 ? sk.x - Math.sign(sk.x) * 3.2 : sk.x;
       sk.vx += ((sk.hpx - sk.x) * 6 - sk.vx * 2.6) * dt; }
     sk.vy -= G * dt; sk.x += sk.vx * dt; sk.s += sk.vs * dt; sk.y += sk.vy * dt;
     // coins
@@ -1876,7 +1883,7 @@ function poseSkier(dt, time) {
     const ddy = hY - aY, dist = Math.min(Math.hypot(ddy, aZ), R.a + R.b - 0.005), phi = Math.atan2(aZ, ddy);
     const cosA = clamp((R.a * R.a + dist * dist - R.b * R.b) / (2 * R.a * dist), -1, 1), th = Math.acos(cosA), t1 = th - phi;
     const kf = R.a * Math.sin(t1), t2 = Math.atan2(-aZ - kf, ddy - R.a * Math.cos(t1));
-    return { t1, t2, hY, aY, aZ, isIn, yaw: (p.hb || 0) * (i ? 0.07 : -0.07) + nk * (0.06 * Math.sin(time * 1.2 + i * 2.4) + 0.012 * Math.sin(time * 2.1 + i * 0.9) * spdN + (i ? 0.02 : -0.02)), roll: -tn * nk * lerp(0.02, 0.09, wIn) * p.carve, w: nk * 0.022 * Math.sin(time * 0.8 + i * 1.9) + (p.hb || 0) * 0.11 };
+    return { t1, t2, hY, aY, aZ, isIn, yaw: (p.hb || 0) * (i ? -0.13 : 0.13) + nk * (0.06 * Math.sin(time * 1.2 + i * 2.4) + 0.012 * Math.sin(time * 2.1 + i * 0.9) * spdN + (i ? 0.02 : -0.02)), roll: -tn * nk * lerp(0.02, 0.09, wIn) * p.carve, w: nk * 0.022 * Math.sin(time * 0.8 + i * 1.9) - (p.hb || 0) * 0.02 };
   });
   R.legs.forEach((l, i) => { const P = LP[i]; l.hip.position.set(l.x - inside + (i ? 1 : -1) * P.w, P.hY, 0.04); l.hip.rotation.x = P.t1; l.hip.rotation.z = -tn * p.carve * 0.12 + -tn * 0.06 * cvA * (i === 0 ? clamp(tn * 2.5, 0, 1) : clamp(-tn * 2.5, 0, 1)) + (i ? 1 : -1) * 0.03 * nk * Math.sin(time * 1.9 + i); l.knee.rotation.x = P.t2 - P.t1; });
   p.gs = (p.gs || 0) + ((sk.grind && !sk.crashed ? 1 : 0) - (p.gs || 0)) * (1 - Math.exp(-9 * dt)); const gs = p.gs;
@@ -3266,38 +3273,9 @@ function updateCamera(dt) {
 }
 
 const _n = typeof THREE !== "undefined" ? new THREE.Vector3() : null, _q = typeof THREE !== "undefined" ? new THREE.Quaternion() : null, _z = typeof THREE !== "undefined" ? new THREE.Vector3(0, 0, 1) : null;
-/* Village Park: a great pyramid peak in the Swiss style rising above the end of the valley, kept far away like a backdrop */
-let hornM = null;
-function buildHorn() {
-  // seen from the valley: a broad snowy massif, then a steep four-sided tooth with a ridge running down the middle toward you, the summit hooked over to the left
-  const g = new THREE.Group(), Hh = 1150, W = 640, nA = 64, nH = 70, pos = [], col = [], idx = [], rr = mulberry(1865);
-  const width = t => t < 0.3 ? lerp(1, 0.4, Math.pow(t / 0.3, 0.8)) : 0.4 * Math.pow(1 - (t - 0.3) / 0.7, 0.92);
-  const lean = t => -0.11 * Math.pow(smooth((t - 0.45) / 0.55), 1.6) - 0.05 * smooth((t - 0.9) / 0.1);
-  const sq = a => { const c = Math.abs(Math.cos(a)), sn = Math.abs(Math.sin(a)); return 1 / Math.pow(Math.pow(c, 0.9) + Math.pow(sn, 0.9), 1 / 0.9); };
-  for (let j = 0; j <= nH; j++) { const t = j / nH, wv = width(t), cx = lean(t) * W, cz = -0.04 * W * t;
-    for (let i = 0; i < nA; i++) { const a = i / nA * Math.PI * 2, ar = a + Math.PI / 4 + 0.22;
-      const ledge = t > 0.3 ? 0.035 * Math.sin(t * 90 + a * 3) * (1 - t) : 0, nzv = 1 + ledge + (t < 0.3 ? 0.07 * Math.sin(a * 5 + t * 20) + 0.05 * (rr() - 0.5) : 0.03 * (rr() - 0.5));
-      const rad = W * wv * sq(ar) * nzv, x = cx + Math.cos(a) * rad, z = cz + Math.sin(a) * rad, y = t * Hh + (t < 0.3 ? 14 * Math.sin(a * 4 + 1) * (0.3 - t) / 0.3 : 0);
-      pos.push(x, y, z);
-      const onRidge = Math.pow(Math.abs(Math.cos(2 * ar)), 6), front = Math.max(0, -Math.sin(a)), north = Math.max(0, Math.cos(a + 0.6));
-      let snow = t < 0.26 ? 0.92 - 0.25 * smooth((t - 0.18) / 0.08) : 0.14 + 0.45 * (0.4 + 0.6 * north) * smooth((Math.sin(t * 48 + a * 2.5 + Math.sin(a * 7) * 1.5) + 0.1) / 0.7) + 0.2 * onRidge + 0.25 * smooth((t - 0.93) / 0.07);
-      snow = clamp(snow + 0.08 * (rr() - 0.5), 0, 1); snow = snow > 0.3 ? Math.min(1, snow + 0.35) : snow * 0.6; const sh = 0.72 + 0.4 * front;
-      col.push(lerp(0.36 * sh, 0.95, snow), lerp(0.32 * sh, 0.96, snow), lerp(0.3 * sh, 1.0, snow)); } }
-  pos.push(lean(1) * W, Hh + 6, -0.04 * W); col.push(0.9, 0.92, 0.96); const top = (nH + 1) * nA;
-  for (let j = 0; j < nH; j++) for (let i = 0; i < nA; i++) { const a = j * nA + i, b = j * nA + (i + 1) % nA, c = a + nA, d = b + nA; idx.push(a, c, b, b, c, d); }
-  for (let i = 0; i < nA; i++) idx.push(nH * nA + i, top, nH * nA + (i + 1) % nA);
-  const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute("color", new THREE.Float32BufferAttribute(col, 3)); geo.setIndex(idx); geo.computeVertexNormals();
-  const mat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, fog: false, side: THREE.DoubleSide, emissive: 0x2a2c34 }); g.add(new THREE.Mesh(geo, mat));
-  const dome = (sx, sz, w, h, seed) => { const r2 = mulberry(seed), P = [], C = [], I = [], na = 36, nh = 14; for (let j = 0; j <= nh; j++) { const t = j / nh; for (let i = 0; i < na; i++) { const a = i / na * Math.PI * 2, rad = w * Math.pow(1 - t, 0.75) * (1 + 0.12 * Math.sin(a * 3 + seed) + 0.06 * (r2() - 0.5)); P.push(Math.cos(a) * rad, t * h, Math.sin(a) * rad * 0.7); const sn = clamp(0.75 + 0.3 * (r2() - 0.5) - 0.3 * (t > 0.4 && t < 0.8 ? Math.max(0, Math.sin(a * 4)) : 0), 0, 1); C.push(lerp(0.3, 0.92, sn), lerp(0.29, 0.94, sn), lerp(0.28, 0.98, sn)); } }
-    P.push(0, h, 0); C.push(0.93, 0.95, 0.99); const tp = (nh + 1) * na; for (let j = 0; j < nh; j++) for (let i = 0; i < na; i++) { const a = j * na + i, b = j * na + (i + 1) % na; I.push(a, a + na, b, b, a + na, b + na); } for (let i = 0; i < na; i++) I.push(nh * na + i, tp, nh * na + (i + 1) % na);
-    const dg = new THREE.BufferGeometry(); dg.setAttribute("position", new THREE.Float32BufferAttribute(P, 3)); dg.setAttribute("color", new THREE.Float32BufferAttribute(C, 3)); dg.setIndex(I); dg.computeVertexNormals(); const m = new THREE.Mesh(dg, mat); m.position.set(sx, 0, sz); g.add(m); };
-  dome(-950, 220, 620, 420, 3); dome(980, 260, 700, 380, 7); dome(-1700, 380, 700, 300, 11); dome(1750, 420, 760, 320, 13);
-  g.renderOrder = -1; scene.add(g); return g;
-}
-function updateHorn() { if (!scene) return; if (!hornM) { hornM = buildHorn(); hornM.scale.set(1.0, 0.6, 1.0); } hornM.position.set(camera.position.x + 30, camera.position.y - 560, camera.position.z - 1110); } // inside the sky dome, at the apparent size of a peak about 3.6 km away
 function render(dt, time) {
   if (!renderer) return;
-  manageWorld(); updateHeli(dt); updateBike(dt); if (PARK) updateHorn();
+  manageWorld(); updateHeli(dt); updateBike(dt);
   poseSkier(dt, time);
   const R = skierRig;
   R.sink = (R.sink || 0) + (((GL && !sk.air && !sk.grind && !sk.crashed) ? 0.2 : (sk.water && !sk.crashed) ? -0.1 : 0) - (R.sink || 0)) * Math.min(1, 6 * dt);
