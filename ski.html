@@ -175,6 +175,7 @@
 
 <div id="stage">
   <canvas id="cv"></canvas>
+  <div id="speedfx" aria-hidden="true" style="position:fixed;inset:0;pointer-events:none;opacity:0;transition:opacity .25s linear;background:radial-gradient(ellipse at 50% 55%, rgba(0,0,0,0) 52%, rgba(10,14,22,.18) 74%, rgba(10,14,22,.42) 100%);z-index:1"></div>
   <div id="wxfog"></div>
   <div id="glare"></div>
   <div id="veil"></div>
@@ -1591,7 +1592,7 @@ function applyOutfit(R) {
   { const sm = outfit.style === "simple", k = sm ? 1 : 0, Sc = (m, x, y, z) => m.scale.set(sm ? x : 1, sm ? y : 1, sm ? z : 1);
     R.detail.forEach(m => { m.visible = !sm; }); R.simpleOnly.forEach(m => { m.visible = sm && (!m.userData.helmetOnly || h === "redbull"); });
     R.torsoM.scale.set(sm ? 1.62 : 1.2, 1, sm ? 1.12 : 0.82); R.hoodM.scale.set(sm ? 1.55 : 1.2, sm ? 1.05 : 0.85, sm ? 1.2 : 0.9); R.hoodM.position.set(0, sm ? 0.73 : 0.7, sm ? 0.14 : 0.115);
-    R.shape.shoulders.forEach(m => { m.visible = !sm; }); R.torsoM.visible = !sm; R.simpleBody.visible = sm; if (sm) m.jacketArm.color.setHex(J.j); R.shape.arms.forEach(m => Sc(m, 1.45, 1, 1.45)); R.shape.elbows.forEach(m => Sc(m, 1.45, 1.45, 1.45)); 
+    R.shape.shoulders.forEach(m => { m.visible = !sm; }); R.torsoM.visible = !sm; R.simpleBody.visible = sm; if (sm) m.jacketArm.color.setHex(J.j); R.shape.arms.forEach(m => Sc(m, 1.26, 1, 1.26)); R.shape.elbows.forEach(m => Sc(m, 1.26, 1.26, 1.26)); 
     R.shape.calves.forEach(m => { m.visible = !sm; }); 
     m.boot.color.setHex(sm ? 0xe8ebef : 0x1a1f29); }
   for (const k in R.acc) R.acc[k].visible = k === outfit.accessory;
@@ -1666,7 +1667,7 @@ function buildSkier() {
   add(new THREE.SphereGeometry(0.21, 16, 10), jacket, 0, 0.56, 0, torso).scale.set(1.22, 0.5, 0.82);
   const logo = add(new THREE.PlaneGeometry(0.2, 0.2), new THREE.MeshStandardMaterial({ map: logoTex, roughness: 0.8 }), 0, 0.3, 0.172, torso); logo.visible = false;
   { const nR = 26, nA = 28, pos = [], idx = [];
-    for (let i = 0; i <= nR; i++) { const y = -0.02 + 0.76 * i / nR, t = clamp((y + 0.02) / 0.76, 0, 1); let w = 0.275 + 0.055 * Math.sin(Math.min(1, t / 0.75) * Math.PI * 0.5), d = 0.185 + 0.02 * t; const top = smooth((t - 0.86) / 0.14); w = lerp(w, 0.11, Math.pow(top, 1.4)); d = lerp(d, 0.1, Math.pow(top, 1.4)); const shl = smooth((t - 0.74) / 0.12) * (1 - smooth((t - 0.9) / 0.1)); w += 0.02 * shl; for (let k = 0; k < nA; k++) { const a = k / nA * Math.PI * 2, c = Math.cos(a), sn = Math.sin(a); pos.push(w * Math.sign(c) * Math.pow(Math.abs(c), 0.8), y, d * Math.sign(sn) * Math.pow(Math.abs(sn), 0.8)); } }
+    for (let i = 0; i <= nR; i++) { const y = -0.13 + 0.87 * i / nR, t = clamp((y + 0.13) / 0.87, 0, 1); let w = 0.262 + 0.012 * (1 - smooth(t / 0.12)) + 0.05 * Math.sin(Math.min(1, t / 0.78) * Math.PI * 0.5), d = 0.18 + 0.025 * t; const top = smooth((t - 0.86) / 0.14); w = lerp(w, 0.11, Math.pow(top, 1.4)); d = lerp(d, 0.1, Math.pow(top, 1.4)); const shl = smooth((t - 0.74) / 0.12) * (1 - smooth((t - 0.9) / 0.1)); w += 0.02 * shl; for (let k = 0; k < nA; k++) { const a = k / nA * Math.PI * 2, c = Math.cos(a), sn = Math.sin(a); pos.push(w * Math.sign(c) * Math.pow(Math.abs(c), 0.8), y, d * Math.sign(sn) * Math.pow(Math.abs(sn), 0.8)); } }
     for (let i = 0; i < nR; i++) for (let k = 0; k < nA; k++) { const p0 = i * nA + k, p1 = i * nA + (k + 1) % nA, q0 = p0 + nA, q1 = p1 + nA; idx.push(p0, p1, q0, p1, q1, q0); }
     const tg = new THREE.BufferGeometry(); tg.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); tg.setIndex(idx); { const uv = []; for (let i = 0; i <= nR; i++) for (let k = 0; k < nA; k++) uv.push(k / nA * 2, i / nR * 1.5); tg.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2)); } tg.computeVertexNormals(); tg.userData.base = Float32Array.from(pos); tg.userData.nR = nR; tg.userData.nA = nA;
     const tm = new THREE.Mesh(tg, jacket); tm.position.set(0, 0.0, 0); torso.add(tm); tm.userData.simpleBody = true; simpleBody = tm; }
@@ -1812,6 +1813,7 @@ function poseSkier(dt, time) {
     c = 0.93; lean = 0.62; L = [-0.82, 1.2, -0.1]; Rt = [0.82, 1.2, -0.1];
     c = 0.9; lean = GRAB_P[p.kind || "tail"].lean !== undefined ? GRAB_P[p.kind || "tail"].lean : 0.15; L = [-0.75, 1.1, -0.05]; Rt = tailT;
   }
+  else if (flipping && sk.rotV > 0) { c = -0.12; lean = -0.12; L = [-0.78, 1.18, 0.12]; Rt = [0.78, 1.18, 0.12]; } // laid-out backflip: body straight, legs long, arms out wide
   else if (flipping) { c = 0.96; lean = 0.95; L = [-0.2, 0.5, -0.34]; Rt = [0.2, 0.5, -0.34]; }
   else if (air) { c = 0.5; lean = 0.25; L = [-0.78, 1.32, -0.05]; Rt = [0.78, 1.32, -0.05]; }
   else if (nbutter) { c = 0.62; lean = 0.6; L = [-0.75, 0.95, -0.3]; Rt = [0.75, 0.95, -0.3]; }
@@ -1855,24 +1857,25 @@ function poseSkier(dt, time) {
     return { t1, t2, hY, aY, aZ, isIn, yaw: nk * (0.06 * Math.sin(time * 1.2 + i * 2.4) + 0.012 * Math.sin(time * 2.1 + i * 0.9) * spdN + (i ? 0.02 : -0.02)), roll: -tn * nk * lerp(0.02, 0.09, wIn) * p.carve, w: nk * 0.022 * Math.sin(time * 0.8 + i * 1.9) };
   });
   R.legs.forEach((l, i) => { const P = LP[i]; l.hip.position.set(l.x - inside + (i ? 1 : -1) * P.w, P.hY, 0.04); l.hip.rotation.x = P.t1; l.hip.rotation.z = -tn * p.carve * 0.12 + -tn * 0.06 * cvA * (i === 0 ? clamp(tn * 2.5, 0, 1) : clamp(-tn * 2.5, 0, 1)) + (i ? 1 : -1) * 0.03 * nk * Math.sin(time * 1.9 + i); l.knee.rotation.x = P.t2 - P.t1; });
+  p.gs = (p.gs || 0) + ((sk.grind && !sk.crashed ? 1 : 0) - (p.gs || 0)) * (1 - Math.exp(-9 * dt)); const gs = p.gs;
   const swp = sk.bikeJump ? clamp(sk.airT / 0.45, 0, 1) : 1, ease = 1 + 2.7 * Math.pow(swp - 1, 3) + 1.7 * Math.pow(swp - 1, 2);
   if (sk.bikeJump && !sk.swapDone && swp > 0.05) { sk.swapDone = true; spray(sk.x, sk.y + 0.2, sk.s, 16, 6); }
   if (sk.bikeJump && swp >= 1) sk.bikeJump = false;
   R.bend.forEach(b => b.upd(bt, nb));
   { // baggy trousers that billow and flutter in the wind
     const sm = outfit.style === "simple", spd = sk.crashed ? 0 : (air ? Math.hypot(sk.vx, sk.vs) : sk.sp), w = clamp(spd / 28, 0, 1.4) + 0.12, t = time;
-    R.shape.thighs.forEach((m, i) => { const f = 1 + 0.035 * w * Math.sin(t * 13 + i * 2.1); m.scale.set((sm ? 1.9 : 1.15) * f, 1, (sm ? 1.9 : 1.15) * (1 + 0.035 * w * Math.sin(t * 11 + i))); m.rotation.z = 0.025 * w * Math.sin(t * 9 + i * 1.7); });
-    R.shape.knees.forEach(m => m.scale.setScalar(sm ? 1.95 : 1));
+    R.shape.thighs.forEach((m, i) => { const f = 1 + 0.03 * w * Math.sin(t * 9 + i * 2.1); m.scale.set((sm ? 1.42 : 1.15) * f, 1, (sm ? 1.32 : 1.15) * (1 + 0.03 * w * Math.sin(t * 8 + i))); m.rotation.z = 0.025 * w * Math.sin(t * 9 + i * 1.7); });
+    R.shape.knees.forEach(m => m.scale.set(sm ? 1.42 : 1, sm ? 1.25 : 1, sm ? 1.38 : 1));
     if (R.simpleBody && R.simpleBody.visible) { // jacket hem and chest ripple in the wind
       const g = R.simpleBody.geometry, base = g.userData.base, pa = g.attributes.position.array, nR = g.userData.nR, nA = g.userData.nA, amp = 0.045 * w;
       for (let i = 0; i <= nR; i++) { const tt = i / nR, k = Math.pow(1 - tt, 1.4) * amp + 0.25 * amp * Math.sin(tt * Math.PI); for (let a = 0; a < nA; a++) { const o = (i * nA + a) * 3, bx = base[o], bz = base[o + 2], r = Math.hypot(bx, bz) || 1, ang = a / nA * Math.PI * 2, f = k * (Math.sin(t * 13 + ang * 3 + tt * 6) * 0.6 + Math.sin(t * 21 + ang * 5) * 0.4); pa[o] = bx + bx / r * f; pa[o + 2] = bz + bz / r * f + k * 0.5 * Math.sin(t * 9 + ang * 2); pa[o + 1] = base[o + 1] + 0.012 * amp * 10 * Math.sin(t * 17 + ang * 4) * (1 - tt); } }
       g.attributes.position.needsUpdate = true; g.computeVertexNormals(); }
-    R.shape.arms.forEach((m, i) => { const f = 1 + 0.05 * w * Math.sin(t * 15 + i * 1.7); m.scale.set((sm ? 1.45 : 1) * f, 1, (sm ? 1.45 : 1) * (1 + 0.05 * w * Math.sin(t * 12 + i))); });
-    R.shape.shins.forEach((m, i) => { const f = 1 + 0.05 * w * Math.sin(t * 17 + i * 1.3 + 1); m.scale.set((sm ? 1.95 : 1.35) * f, 1, (sm ? 1.95 : 1.35) * (1 + 0.05 * w * Math.sin(t * 14 + i * 2))); m.rotation.z = 0.04 * w * Math.sin(t * 11 + i * 2.4); m.rotation.x = 0.035 * w * Math.sin(t * 15 + i); });
-    R.cuffs.forEach((m, i) => { const f = 1 + 0.07 * w * Math.sin(t * 21 + i * 1.9); m.scale.set((sm ? 2.1 : 1.5) * f, 1.2 + 0.1 * w * Math.sin(t * 19 + i), (sm ? 2.1 : 1.5) * (1 + 0.07 * w * Math.sin(t * 18 + i * 0.7))); m.rotation.z = 0.08 * w * Math.sin(t * 13 + i * 2.2); m.rotation.x = 0.07 * w * Math.sin(t * 17 + i); });
+    R.shape.arms.forEach((m, i) => { const f = 1 + 0.04 * w * Math.sin(t * 11 + i * 1.7); m.scale.set((sm ? 1.26 : 1) * f, 1, (sm ? 1.26 : 1) * (1 + 0.04 * w * Math.sin(t * 9 + i))); });
+    R.shape.shins.forEach((m, i) => { const f = 1 + 0.05 * w * Math.sin(t * 17 + i * 1.3 + 1); m.scale.set((sm ? 1.4 : 1.35) * f, 1, (sm ? 1.4 : 1.35) * (1 + 0.05 * w * Math.sin(t * 14 + i * 2))); m.rotation.z = 0.04 * w * Math.sin(t * 11 + i * 2.4); m.rotation.x = 0.035 * w * Math.sin(t * 15 + i); });
+    R.cuffs.forEach((m, i) => { const f = 1 + 0.07 * w * Math.sin(t * 21 + i * 1.9); m.scale.set((sm ? 1.6 : 1.5) * f, 1.2 + 0.1 * w * Math.sin(t * 19 + i), (sm ? 1.6 : 1.5) * (1 + 0.07 * w * Math.sin(t * 18 + i * 0.7))); m.rotation.z = 0.08 * w * Math.sin(t * 13 + i * 2.2); m.rotation.x = 0.07 * w * Math.sin(t * 17 + i); });
   }
   R.skiBack.visible = bikeOn || (sk.bikeJump && swp < 0.3); R.skiBack.scale.setScalar(bikeOn ? 1 : Math.max(0.01, 1 - swp / 0.3));
-  R.skiG.forEach((sg, i) => { const P = LP[i]; sg.visible = !bikeOn && swp > 0.05; sg.scale.setScalar(bikeOn ? 0.01 : Math.max(0.01, ease)); sg.position.set((i ? 0.13 : -0.13) + (i ? 1 : -1) * P.w, 0.2 + (P.aY - foot), 0.06 + P.aZ); sg.rotation.x = GP.pitch * tg + (i ? -1 : 1) * (GP.xp || 0) * tg + 0.5 * bt - 0.5 * nb + 0.05 * (P.aY - ankY); sg.rotation.y = (i ? -1 : 1) * GP.cross * tg + P.yaw; sg.rotation.z = (i ? 1 : -1) * (GP.roll || 0) * tg + P.roll; });
+  R.skiG.forEach((sg, i) => { const P = LP[i]; sg.visible = !bikeOn && swp > 0.05; sg.scale.setScalar(bikeOn ? 0.01 : Math.max(0.01, ease)); sg.position.set((i ? 0.13 : -0.13) + (i ? 1 : -1) * P.w, 0.2 + (P.aY - foot), 0.06 + P.aZ); sg.rotation.x = GP.pitch * tg + (i ? -1 : 1) * (GP.xp || 0) * tg + 0.5 * bt - 0.5 * nb + 0.05 * (P.aY - ankY); sg.rotation.y = (i ? -1 : 1) * GP.cross * tg + P.yaw + gs * (i ? -0.16 : 0.1); sg.rotation.z = (i ? 1 : -1) * (GP.roll || 0) * tg + P.roll + gs * (i ? 0.08 : -0.05); sg.rotation.x += gs * (i ? 0.2 : -0.17); sg.position.z += gs * (i ? -0.09 : 0.09); });
   R.hipG.position.set(-inside, hipY + 0.02 - 0.15 * (LP[0].hY + LP[1].hY - 2 * hipY) * -1, 0.04 + 0.04 * p.c); R.hipG.rotation.set(0, nk * (0.05 * Math.sin(time * 1.1) - tn * p.carve * 0.12), nk * 0.6 * (LP[1].hY - LP[0].hY)); R.hipG.updateMatrix();
   R.torso.rotation.y = air ? (GP.twist || 0) * tg : -tn * p.carve * 0.28 - vt * 0.06 + 0.025 * Math.sin(time * 0.9); R.torso.rotation.x = -p.lean; R.torso.rotation.z = tn * p.carve * 0.16 + (air ? 0 : 0); R.torso.scale.y = 1 + 0.006 * Math.sin(time * 3.2);
   R.torso.updateMatrix();
@@ -2078,7 +2081,7 @@ function buildChunk(ci) {
       tr.forEach((t, i) => { const h = hash(t.x * 0.37 + t.s * 0.11); d.position.set(t.x, t.y + yOff * t.sc, -t.s); d.rotation.set((h - 0.5) * 0.08, h * 6, (hash(h * 7) - 0.5) * 0.08); d.scale.set(t.sc * (0.85 + h * 0.3), t.sc * (0.85 + hash(h * 3) * 0.4), t.sc * (0.85 + h * 0.3)); d.updateMatrix(); m.setMatrixAt(i, d.matrix); cc.copy(c0); if (vary) cc.offsetHSL((h - 0.5) * 0.04, (hash(h * 5) - 0.5) * 0.12, (hash(h * 9) - 0.5) * 0.08); m.setColorAt(i, cc); }); return m; };
     const pm2 = mk(pineGeo(), todName === "day" ? 0x3f8f56 : 0x2f6a4a, 0, true); pm2.material.vertexColors = true; pm2.material.roughness = 0.95;
     const snowC = mk(pineSnowGeo(), 0xf4f7fc, 0, false); snowC.castShadow = false; snowC.material.roughness = 0.85;
-    grp.add(mk(new THREE.CylinderGeometry(0.14, 0.3, 2.8, 7), 0x4a3426, 1.4, false), pm2, snowC);
+    grp.add(mk(new THREE.CylinderGeometry(0.13, 0.32, 5.2, 8), 0x4a3426, 2.6, false), pm2, snowC); pm2.material.side = THREE.DoubleSide; snowC.material.side = THREE.DoubleSide;
   }
   return grp;
 }
@@ -2087,8 +2090,8 @@ let logMat = null, logCap = null, pineG = null, pineSnowG = null;
 function pineSnowGeo() {
   if (pineSnowG) return pineSnowG;
   const pos = [], idx = []; let base = 0;
-  for (let i = 0; i < 6; i++) {
-    const r = 2.15 - i * 0.3, h = 2.9 - i * 0.14, y0 = 1.6 + i * 1.2;
+  for (let i = 0; i < 8; i++) {
+    const r = 2.3 - i * 0.25, h = 2.7 - i * 0.12, y0 = 3.3 + i * 1.15;
     const prof = [new THREE.Vector2(0.001, h + 0.05), new THREE.Vector2(r * 0.45, h * 0.56 + 0.07), new THREE.Vector2(r * 0.8, h * 0.2 + 0.05)];
     const g = new THREE.LatheGeometry(prof, 12), p = g.attributes.position;
     for (let v = 0; v < p.count; v++) { const px = p.getX(v), pz = p.getZ(v), py = p.getY(v), a = Math.atan2(pz, px), k = 1.03 + 0.16 * Math.sin(a * 5 + i * 1.7) + 0.09 * Math.sin(a * 9 + i * 0.6), rr = Math.hypot(px, pz) / r, sag = 0.2 * Math.max(0, Math.sin(a * 7 + i * 2.1)) * rr; pos.push(px * k, py + y0 - sag, pz * k); }
@@ -2100,9 +2103,9 @@ function pineSnowGeo() {
 }
 function pineGeo() {
   if (pineG) return pineG;
-  const pos = [], col = [], idx = [], tiers = 6; let base = 0;
+  const pos = [], col = [], idx = [], tiers = 8; let base = 0;
   for (let i = 0; i < tiers; i++) {
-    const r = 2.15 - i * 0.3, h = 2.9 - i * 0.14, y0 = 1.6 + i * 1.2;
+    const r = 2.3 - i * 0.25, h = 2.7 - i * 0.12, y0 = 3.3 + i * 1.15;
     const prof = [new THREE.Vector2(0.001, h), new THREE.Vector2(r * 0.42, h * 0.56), new THREE.Vector2(r * 0.84, h * 0.17), new THREE.Vector2(r, 0), new THREE.Vector2(0.001, -0.04)];
     const g = new THREE.LatheGeometry(prof, 10), p = g.attributes.position;
     for (let v = 0; v < p.count; v++) {
@@ -2262,16 +2265,16 @@ function buildFeature(f) {
   for (const r of railsOf(f)) {
     const log = r.wood || GL;
     if (log && !logMat) { const bt = canvasTex(64, 256, (x, w, h) => { x.fillStyle = "#6b4a2e"; x.fillRect(0, 0, w, h); const rr = mulberry(12); for (let i = 0; i < 60; i++) { x.fillStyle = rr() < 0.5 ? "rgba(40,26,16,.55)" : "rgba(150,112,76,.35)"; x.fillRect(rr() * w, rr() * h, 1 + rr() * 3, 10 + rr() * 50); } for (let i = 0; i < 8; i++) { x.fillStyle = "rgba(30,20,12,.6)"; x.beginPath(); x.ellipse(rr() * w, rr() * h, 3, 5, 0, 0, 6.3); x.fill(); } }); bt.wrapS = bt.wrapT = THREE.RepeatWrapping; logMat = new THREE.MeshStandardMaterial({ map: bt, roughness: 0.95 }); logCap = new THREE.MeshStandardMaterial({ color: 0xc89a64, roughness: 0.9 }); }
-    const rm = log ? logMat : r.glass || r.metal ? new THREE.MeshStandardMaterial({ color: 0x2a2e36, roughness: 0.35, metalness: 0.6 }) : new THREE.MeshLambertMaterial({ color: 0xffb300, flatShading: true }), pm = new THREE.MeshLambertMaterial({ color: log ? 0x3f2d1c : 0x13222f });
+    const rm = log ? logMat : new THREE.MeshStandardMaterial({ color: r.glass || r.metal ? 0x2a2e36 : 0x1b1d21, roughness: 0.32, metalness: 0.75 }), pm = log ? new THREE.MeshLambertMaterial({ color: 0x3f2d1c }) : new THREE.MeshStandardMaterial({ color: 0x24272c, roughness: 0.5, metalness: 0.6 });
     const segs = Math.ceil((r.s1 - r.s0) / 1.5), rw = log ? 1.9 : 1;
     for (let i = 0; i < segs; i++) {
       const sa = r.s0 + i * 1.5, sb = Math.min(r.s1, sa + 1.5), pa = new THREE.Vector3(railX(r, sa), railY(r, sa), -sa), pb = new THREE.Vector3(railX(r, sb), railY(r, sb), -sb);
-      const len = pa.distanceTo(pb), m = new THREE.Mesh(log ? (() => { const cg = new THREE.CylinderGeometry(0.3, 0.3, len + 0.06, 10, 1, true); cg.rotateX(Math.PI / 2); return cg; })() : new THREE.BoxGeometry(0.46 * rw, 0.2 * rw, len + 0.03), rm);
+      const len = pa.distanceTo(pb), m = new THREE.Mesh(log ? (() => { const cg = new THREE.CylinderGeometry(0.3, 0.3, len + 0.06, 10, 1, true); cg.rotateX(Math.PI / 2); return cg; })() : (() => { const cg = new THREE.CylinderGeometry(0.085, 0.085, len + 0.02, 12); cg.rotateX(Math.PI / 2); return cg; })(), rm);
       m.position.copy(pa).add(pb).multiplyScalar(0.5); m.lookAt(pb); m.castShadow = true; grp.add(m);
       if (i === segs - 1 && r.next) { const y1 = railY(r, r.s1), y2 = railY(r.next, r.next.s0), cm = new THREE.Mesh(new THREE.BoxGeometry(0.34, Math.max(0.1, y1 - y2), 0.34), rm); cm.position.set(railX(r, r.s1), (y1 + y2) / 2, -r.s1); grp.add(cm); }
       if (log && (i === 0 || i === segs - 1)) { const ce = new THREE.Mesh(new THREE.CircleGeometry(0.3, 12), logCap), at = i === 0 ? pa : pb, to = i === 0 ? pb : pa; ce.position.copy(at); ce.lookAt(at.clone().multiplyScalar(2).sub(to)); grp.add(ce); }
       if (r.glass) { const rx = railX(r, sa), gy = H(rx, sa), gb = H(rx, sb), ph = railY(r, sa) - gy - 0.1, broke = hash(sa * 0.37 + r.x) < 0.3, pg = new THREE.Mesh(new THREE.PlaneGeometry(sb - sa, Math.max(0.2, ph)), broke ? mallMats().crack : mallMats().glass); pg.position.set(rx, (gy + gb) / 2 + ph / 2, -(sa + sb) / 2); pg.rotation.y = Math.PI / 2; pg.rotation.x = Math.atan2(gy - gb, sb - sa) * 0; grp.add(pg); }
-      else if (i % (log ? 6 : 4) === 0) { const rx = railX(r, sa), gy = H(rx, sa), ph = railY(r, sa) - gy; const post = new THREE.Mesh(log ? new THREE.CylinderGeometry(0.22, 0.28, Math.max(0.2, ph), 8) : new THREE.BoxGeometry(0.26, Math.max(0.2, ph), 0.26), pm); post.position.set(rx, gy + ph / 2 - 0.02, -sa); grp.add(post); }
+      else if (i % (log ? 6 : 2) === 0 || i === segs - 1) { const ss = i === segs - 1 ? sb - 0.3 : sa + 0.3, rx = railX(r, ss), gy = H(rx, ss), ph = railY(r, ss) - gy; const post = new THREE.Mesh(log ? new THREE.CylinderGeometry(0.22, 0.28, Math.max(0.2, ph), 8) : new THREE.CylinderGeometry(0.045, 0.05, Math.max(0.2, ph), 8), pm); post.position.set(rx, gy + ph / 2 - 0.02, -ss); grp.add(post); if (!log) { const ft = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.05, 0.2), pm); ft.position.set(rx, gy + 0.01, -ss); grp.add(ft); } }
     }
   }
   if (f.esc) grp.add(escalatorMesh(f.esc));
@@ -3017,7 +3020,7 @@ function manageWorld() {
   }
 }
 
-let camHead = 0, camX = 0, camS = 0, camY = 0, airBlend = 0, lastFov = 0;
+let camHead = 0, camX = 0, camS = 0, camY = 0, airBlend = 0, lastFov = 0, camGY = null, camLX = 0, camLS = 0;
 let paused = false, pauseT = 0;
 let intro = { active: false, landed: false, landS: 0 }, heliMesh = null, heliT = 99, heliBase = null;
 function startHeli() {
@@ -3100,10 +3103,14 @@ function updateCamera(dt) {
   camHead += wrap(sk.psi - camHead) * Math.min(1, 2.6 * dt);
   airBlend += ((sk.air && !sk.crashed ? 1 : 0) - airBlend) * Math.min(1, 2.2 * dt);
   const speed = sk.air ? Math.hypot(sk.vx, sk.vs) : sk.sp;
-  const back = (lerp(5.4, 8.0, airBlend) + clamp(speed, 0, 50) * 0.05) * 0.78, height = 0.7 + (lerp(4.4, 5.8, airBlend) - 0.7) * 0.62;
-  const tx = sk.x - back * Math.sin(camHead), ts = sk.s - back * Math.cos(camHead), ty = sk.y + height;
+  const back = (lerp(5.4, 8.0, airBlend) + clamp(speed, 0, 50) * 0.06) * 0.64, height = 0.7 + (lerp(4.4, 5.8, airBlend) - 0.7) * 0.5;
+  // a slow ground reference so the camera rides over small bumps instead of copying them
+  if (snapCam || camGY === null) { camGY = sk.y; camLX = sk.x; camLS = sk.s; }
+  camGY += (sk.y - camGY) * (1 - Math.exp(-(sk.air ? 2.6 : 1.7) * dt)); camGY = clamp(camGY, sk.y - 1.1, sk.y + 1.1);
+  camLX += (sk.x - camLX) * (1 - Math.exp(-4.2 * dt)); camLX = clamp(camLX, sk.x - 0.9, sk.x + 0.9); camLS += (sk.s - camLS) * (1 - Math.exp(-9 * dt));
+  const tx = sk.x - back * Math.sin(camHead), ts = sk.s - back * Math.cos(camHead), ty = camGY + height;
   if (snapCam) { camX = tx; camS = ts; camY = ty; snapCam = false; }
-  camX += (tx - camX) * Math.min(1, 8 * dt); camS += (ts - camS) * Math.min(1, 10 * dt); camY += (ty - camY) * Math.min(1, 4.5 * dt);
+  camX += (tx - camX) * (1 - Math.exp(-3.4 * dt)); camS += (ts - camS) * (1 - Math.exp(-10 * dt)); camY += (ty - camY) * (1 - Math.exp(-3.2 * dt));
   camY = Math.max(camY, H(camX, camS) + 1.35);
   camera.position.set(camX + (Math.random() - 0.5) * shake * 0.3, camY + (Math.random() - 0.5) * shake * 0.3, -camS);
   if (window.__cam) { camera.position.set(...window.__cam.pos); camera.lookAt(...window.__cam.look); return; }
@@ -3126,10 +3133,12 @@ function updateCamera(dt) {
     camera.lookAt(lerp(sk.x, sk.x + Math.sin(camHead) * ah, e), lerp(sk.y + 1.5, sk.y + 0.7, e), -lerp(sk.s, sk.s + Math.cos(camHead) * ah, e));
     camera.fov = lerp(36, 54 + clamp(speed, 0, 50) * 0.62, e); camera.updateProjectionMatrix(); lastFov = camera.fov; return;
   }
-  const ahead = 1.7, lx = sk.x + Math.sin(camHead) * ahead, ls = sk.s + Math.cos(camHead) * ahead;
-  camera.lookAt(lx, sk.y + 0.7, -ls);
-  camera.rotateZ(-sk.turn * 0.035 * (sk.air ? 0.3 : 1));
-  const fov = 54 + clamp(speed, 0, 50) * 0.62 + boostPulse * 8 + airBlend * 3;
+  const ahead = 1.7, lx = camLX + Math.sin(camHead) * ahead, ls = camLS + Math.cos(camHead) * ahead, sp01 = clamp((speed - 5) / 40, 0, 1);
+  camera.lookAt(lx, camGY + 0.75, -ls);
+  camera.rotateZ(-(skierRig && skierRig.pose.vt !== undefined ? skierRig.pose.vt : sk.turn) * 0.035 * (sk.air ? 0.3 : 1));
+  { const tt = performance.now() / 1000, j = Math.pow(sp01, 2) * (sk.air ? 0.3 : 1) * 0.0045; camera.rotateX(j * (Math.sin(tt * 23) + 0.6 * Math.sin(tt * 37 + 1))); camera.rotateZ(j * 0.7 * Math.sin(tt * 29 + 2)); } // high-speed chatter
+  const fov = 48 + Math.pow(sp01, 1.3) * 30 + boostPulse * 8 + airBlend * 3;
+  { const sv = $("speedfx"); if (sv) sv.style.opacity = String(clamp((speed - 16) / 24, 0, 1) * (sk.crashed ? 0 : 1)); }
   if (Math.abs(fov - lastFov) > 0.05) { camera.fov = fov; camera.updateProjectionMatrix(); lastFov = fov; }
 }
 
@@ -3197,7 +3206,7 @@ function render(dt, time) {
   updateLife(dt, time); bldUpdate(dt);
   { const ce = $("chg"); if (ce) { const on = sk.chg > 0.02; if (ce.hidden === on) ce.hidden = !on; if (on) ce.firstElementChild.style.width = Math.round(sk.chg * 100) + "%"; } }
   updateCamera(dt);
-  { const S = scene.userData.streaks, speed = sk.crashed ? 0 : (sk.air ? Math.hypot(sk.vx, sk.vs) : sk.sp), amt = clamp((speed - 18) / 22, 0, 1);
+  { const S = scene.userData.streaks, speed = sk.crashed ? 0 : (sk.air ? Math.hypot(sk.vx, sk.vs) : sk.sp), amt = Math.pow(clamp((speed - 13) / 22, 0, 1), 0.8);
     S.lines.material.opacity = amt * 0.7;
     if (amt > 0) for (let i = 0; i < S.NS; i++) { const m = S.meta[i]; m.z += speed * dt * 1.15; if (m.z > -1.5) { m.z = -40 - Math.random() * 10; const a = Math.random() * TAU, r = 2.2 + Math.random() * 7; m.x = Math.cos(a) * r; m.y = Math.sin(a) * r * 0.7 - 0.5; }
       const len = 0.5 + speed * 0.07; S.sp[i * 6] = m.x; S.sp[i * 6 + 1] = m.y; S.sp[i * 6 + 2] = m.z; S.sp[i * 6 + 3] = m.x; S.sp[i * 6 + 4] = m.y; S.sp[i * 6 + 5] = m.z - len; }
