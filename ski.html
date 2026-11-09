@@ -1876,7 +1876,7 @@ function poseSkier(dt, time) {
     const ddy = hY - aY, dist = Math.min(Math.hypot(ddy, aZ), R.a + R.b - 0.005), phi = Math.atan2(aZ, ddy);
     const cosA = clamp((R.a * R.a + dist * dist - R.b * R.b) / (2 * R.a * dist), -1, 1), th = Math.acos(cosA), t1 = th - phi;
     const kf = R.a * Math.sin(t1), t2 = Math.atan2(-aZ - kf, ddy - R.a * Math.cos(t1));
-    return { t1, t2, hY, aY, aZ, isIn, yaw: nk * (0.06 * Math.sin(time * 1.2 + i * 2.4) + 0.012 * Math.sin(time * 2.1 + i * 0.9) * spdN + (i ? 0.02 : -0.02)), roll: -tn * nk * lerp(0.02, 0.09, wIn) * p.carve, w: nk * 0.022 * Math.sin(time * 0.8 + i * 1.9) };
+    return { t1, t2, hY, aY, aZ, isIn, yaw: (p.hb || 0) * (i ? 0.07 : -0.07) + nk * (0.06 * Math.sin(time * 1.2 + i * 2.4) + 0.012 * Math.sin(time * 2.1 + i * 0.9) * spdN + (i ? 0.02 : -0.02)), roll: -tn * nk * lerp(0.02, 0.09, wIn) * p.carve, w: nk * 0.022 * Math.sin(time * 0.8 + i * 1.9) + (p.hb || 0) * 0.11 };
   });
   R.legs.forEach((l, i) => { const P = LP[i]; l.hip.position.set(l.x - inside + (i ? 1 : -1) * P.w, P.hY, 0.04); l.hip.rotation.x = P.t1; l.hip.rotation.z = -tn * p.carve * 0.12 + -tn * 0.06 * cvA * (i === 0 ? clamp(tn * 2.5, 0, 1) : clamp(-tn * 2.5, 0, 1)) + (i ? 1 : -1) * 0.03 * nk * Math.sin(time * 1.9 + i); l.knee.rotation.x = P.t2 - P.t1; });
   p.gs = (p.gs || 0) + ((sk.grind && !sk.crashed ? 1 : 0) - (p.gs || 0)) * (1 - Math.exp(-9 * dt)); const gs = p.gs;
@@ -2952,7 +2952,7 @@ function buildWallSeg(a, b) {
     if (PARK) { cr = 0.62; cg = 0.66; cb = 0.72; }
     { const al = smooth((rise - 140 - 25 * nz) / 50); cr = lerp(cr, 0.44 + 0.04 * nz, al); cg = lerp(cg, 0.42 + 0.03 * nz, al); cb = lerp(cb, 0.41, al); } // above the tree line: scree and rock
     if (slope > 0.75) { const t = clamp((slope - 0.75) * 1.4, 0, 1); cr = lerp(cr, 0.38, t); cg = lerp(cg, 0.36, t); cb = lerp(cb, 0.37, t); }
-    const snow = Math.max(1 - smooth((ax - 28) / 45), smooth((rise - (PEAK ? 70 : 105) - 30 * nz) / 55) * clamp(2.4 - slope, 0, 1), smooth((rise - 220) / 50) * 0.92, 0.32 + 0.12 * nz * (slope < 0.6 ? 1 : 0)); cr = lerp(cr, 0.95, snow); cg = lerp(cg, 0.96, snow); cb = lerp(cb, 0.99, snow);
+    const snow = Math.max(1 - smooth((ax - 105 - 18 * nz) / 95), smooth((rise - (PEAK ? 70 : 105) - 30 * nz) / 55) * clamp(2.4 - slope, 0, 1), smooth((rise - 220) / 50) * 0.92, 0.32 + 0.12 * nz * (slope < 0.6 ? 1 : 0)); cr = lerp(cr, 0.95, snow); cg = lerp(cg, 0.96, snow); cb = lerp(cb, 0.99, snow);
     pos.push(pc(s) + o, y, -s); col.push(cr * shade, cg * shade, cb * shade);
   }));
   for (let i = 0; i < nR; i++) for (let j = 0; j < NX - 1; j++) { const p = i * NX + j, q = p + NX; idx.push(p, p + 1, q, p + 1, q + 1, q); }
@@ -2963,7 +2963,7 @@ function buildWallSeg(a, b) {
   while (ti < cnt && guard++ < 6000) {
     const o = (r() - 0.5) * 2 * 1300, s = a + r() * (b - a); if (Math.abs(o) < 105) continue;
     const y = wallVH(o, s), rise = y - (baseY(s) + cliffOff(s) - 3); if (rise > 175 || (rise > 30 && Math.hypot((wallVH(o + 6, s) - y) / 6, (wallVH(o, s + 6) - y) / 6) > 1.1)) continue;
-    const sc = 0.9 + r() * 1.6; mt.makeScale(sc, sc, sc); mt.setPosition(pc(s) + o, y + 7 * sc, -s); tm.setMatrixAt(ti, mt); cc.setHSL(0.34 + r() * 0.05, 0.42 + r() * 0.14, 0.24 + r() * 0.11); tm.setColorAt(ti++, cc);
+    const sc = 0.9 + r() * 1.6; mt.makeScale(sc, sc, sc); mt.setPosition(pc(s) + o, y + 7 * sc, -s); tm.setMatrixAt(ti, mt); cc.setHSL(0.35 + r() * 0.04, 0.36 + r() * 0.12, 0.15 + r() * 0.07); tm.setColorAt(ti++, cc);
   }
   tm.count = ti; tm.frustumCulled = false; g.add(tm);
   return g;
@@ -3032,7 +3032,7 @@ function buildValleyDrop() { // big-air map: steep forested valley walls close i
     const x = (r() - 0.5) * 2 * 1500, sv = SMIN + 120 + r() * (LL - 300); if (Math.abs(x + cx0 - pc(sv)) < 105 && sv < COURSE_END + 150) continue;
     const y = VH(x, sv), rise = y - yRun(sv); if (rise > 175 || (rise > 30 && Math.hypot((VH(x + 6, sv) - y) / 6, (VH(x, sv + 6) - y) / 6) > 1.1)) continue;
     if (lakeM(x, sv) > 0.05 || townM(x, sv) > 0.5 && r() < 0.8) continue; if (Math.abs(x) < 90 && sv > COURSE_END && sv < S0 + 220) continue;
-    const sc = 0.9 + r() * 1.6; mt.makeScale(sc, sc, sc); mt.setPosition(x, y + 7 * sc, -sv); tm.setMatrixAt(ti, mt); cc.setHSL(0.34 + r() * 0.05, 0.42 + r() * 0.14, 0.24 + r() * 0.11); tm.setColorAt(ti++, cc);
+    const sc = 0.9 + r() * 1.6; mt.makeScale(sc, sc, sc); mt.setPosition(x, y + 7 * sc, -sv); tm.setMatrixAt(ti, mt); cc.setHSL(0.35 + r() * 0.04, 0.36 + r() * 0.12, 0.15 + r() * 0.07); tm.setColorAt(ti++, cc);
   }
   tm.count = ti; g.add(tm);
   // village
@@ -3269,21 +3269,32 @@ const _n = typeof THREE !== "undefined" ? new THREE.Vector3() : null, _q = typeo
 /* Village Park: a great pyramid peak in the Swiss style rising above the end of the valley, kept far away like a backdrop */
 let hornM = null;
 function buildHorn() {
-  const g = new THREE.Group(), R = 520, Hh = 1150, nA = 40, nH = 30, pos = [], col = [], idx = [], rr = mulberry(1865);
-  const ridge = a => { const k = ((a / (Math.PI / 2)) % 1 + 1) % 1, d = Math.abs(k - 0.5) * 2; return 0.84 + 0.16 * Math.pow(d, 1.3); }; // four sharp ridges, concave faces between them
-  for (let j = 0; j <= nH; j++) { const t = j / nH, hookX = 70 * Math.pow(t, 3), hookZ = -30 * Math.pow(t, 3);
-    for (let i = 0; i < nA; i++) { const a = i / nA * Math.PI * 2 + 0.3, rad = R * (t < 0.55 ? Math.pow(1 - t, 1.5) : Math.pow(0.45, 1.5) * Math.pow((1 - t) / 0.45, 1.05)) * ridge(a) * (1 + 0.06 * Math.sin(a * 7 + t * 9) + 0.04 * (rr() - 0.5)), x = Math.cos(a) * rad + hookX, z = Math.sin(a) * rad + hookZ, y = t * Hh + (t > 0.97 ? 0 : 6 * (rr() - 0.5));
-      pos.push(x, y, z); const steep = 1 - Math.abs(Math.cos(a * 2)), face = Math.max(0, Math.cos(a - 1.2)), snow = clamp(-0.08 + 0.55 * smooth((t - 0.1) / 0.55) - 0.45 * steep + 0.35 * face * (1 - t) + 0.35 * (rr() - 0.5), 0, 0.92), rock = [0.27 + 0.05 * rr(), 0.25 + 0.04 * rr(), 0.24 + 0.04 * rr()];
-      col.push(lerp(rock[0], 0.95, snow), lerp(rock[1], 0.97, snow), lerp(rock[2], 1.0, snow)); } }
-  pos.push(70, Hh + 8, -30); col.push(0.96, 0.97, 1); const top = (nH + 1) * nA;
-  for (let j = 0; j < nH; j++) for (let i = 0; i < nA; i++) { const a = j * nA + i, b = j * nA + (i + 1) % nA, c = a + nA, d = b + nA; idx.push(a, b, c, b, d, c); }
-  for (let i = 0; i < nA; i++) idx.push(nH * nA + i, nH * nA + (i + 1) % nA, top);
+  // seen from the valley: a broad snowy massif, then a steep four-sided tooth with a ridge running down the middle toward you, the summit hooked over to the left
+  const g = new THREE.Group(), Hh = 1150, W = 640, nA = 64, nH = 70, pos = [], col = [], idx = [], rr = mulberry(1865);
+  const width = t => t < 0.3 ? lerp(1, 0.4, Math.pow(t / 0.3, 0.8)) : 0.4 * Math.pow(1 - (t - 0.3) / 0.7, 0.92);
+  const lean = t => -0.11 * Math.pow(smooth((t - 0.45) / 0.55), 1.6) - 0.05 * smooth((t - 0.9) / 0.1);
+  const sq = a => { const c = Math.abs(Math.cos(a)), sn = Math.abs(Math.sin(a)); return 1 / Math.pow(Math.pow(c, 0.9) + Math.pow(sn, 0.9), 1 / 0.9); };
+  for (let j = 0; j <= nH; j++) { const t = j / nH, wv = width(t), cx = lean(t) * W, cz = -0.04 * W * t;
+    for (let i = 0; i < nA; i++) { const a = i / nA * Math.PI * 2, ar = a + Math.PI / 4 + 0.22;
+      const ledge = t > 0.3 ? 0.035 * Math.sin(t * 90 + a * 3) * (1 - t) : 0, nzv = 1 + ledge + (t < 0.3 ? 0.07 * Math.sin(a * 5 + t * 20) + 0.05 * (rr() - 0.5) : 0.03 * (rr() - 0.5));
+      const rad = W * wv * sq(ar) * nzv, x = cx + Math.cos(a) * rad, z = cz + Math.sin(a) * rad, y = t * Hh + (t < 0.3 ? 14 * Math.sin(a * 4 + 1) * (0.3 - t) / 0.3 : 0);
+      pos.push(x, y, z);
+      const onRidge = Math.pow(Math.abs(Math.cos(2 * ar)), 6), front = Math.max(0, -Math.sin(a)), north = Math.max(0, Math.cos(a + 0.6));
+      let snow = t < 0.26 ? 0.92 - 0.25 * smooth((t - 0.18) / 0.08) : 0.14 + 0.45 * (0.4 + 0.6 * north) * smooth((Math.sin(t * 48 + a * 2.5 + Math.sin(a * 7) * 1.5) + 0.1) / 0.7) + 0.2 * onRidge + 0.25 * smooth((t - 0.93) / 0.07);
+      snow = clamp(snow + 0.08 * (rr() - 0.5), 0, 1); snow = snow > 0.3 ? Math.min(1, snow + 0.35) : snow * 0.6; const sh = 0.72 + 0.4 * front;
+      col.push(lerp(0.36 * sh, 0.95, snow), lerp(0.32 * sh, 0.96, snow), lerp(0.3 * sh, 1.0, snow)); } }
+  pos.push(lean(1) * W, Hh + 6, -0.04 * W); col.push(0.9, 0.92, 0.96); const top = (nH + 1) * nA;
+  for (let j = 0; j < nH; j++) for (let i = 0; i < nA; i++) { const a = j * nA + i, b = j * nA + (i + 1) % nA, c = a + nA, d = b + nA; idx.push(a, c, b, b, c, d); }
+  for (let i = 0; i < nA; i++) idx.push(nH * nA + i, top, nH * nA + (i + 1) % nA);
   const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute("color", new THREE.Float32BufferAttribute(col, 3)); geo.setIndex(idx); geo.computeVertexNormals();
-  const m = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, fog: false, side: THREE.DoubleSide })); g.add(m);
-  for (const [dx, dz, sc] of [[-620, 120, 0.42], [560, 200, 0.36], [-1100, 300, 0.3], [1050, 260, 0.33]]) { const sh = new THREE.Mesh(geo, m.material); sh.scale.set(sc * 1.6, sc, sc * 1.6); sh.position.set(dx, 0, dz); sh.rotation.y = dx * 0.01; g.add(sh); } // lower shoulders either side
+  const mat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, fog: false, side: THREE.DoubleSide, emissive: 0x2a2c34 }); g.add(new THREE.Mesh(geo, mat));
+  const dome = (sx, sz, w, h, seed) => { const r2 = mulberry(seed), P = [], C = [], I = [], na = 36, nh = 14; for (let j = 0; j <= nh; j++) { const t = j / nh; for (let i = 0; i < na; i++) { const a = i / na * Math.PI * 2, rad = w * Math.pow(1 - t, 0.75) * (1 + 0.12 * Math.sin(a * 3 + seed) + 0.06 * (r2() - 0.5)); P.push(Math.cos(a) * rad, t * h, Math.sin(a) * rad * 0.7); const sn = clamp(0.75 + 0.3 * (r2() - 0.5) - 0.3 * (t > 0.4 && t < 0.8 ? Math.max(0, Math.sin(a * 4)) : 0), 0, 1); C.push(lerp(0.3, 0.92, sn), lerp(0.29, 0.94, sn), lerp(0.28, 0.98, sn)); } }
+    P.push(0, h, 0); C.push(0.93, 0.95, 0.99); const tp = (nh + 1) * na; for (let j = 0; j < nh; j++) for (let i = 0; i < na; i++) { const a = j * na + i, b = j * na + (i + 1) % na; I.push(a, a + na, b, b, a + na, b + na); } for (let i = 0; i < na; i++) I.push(nh * na + i, tp, nh * na + (i + 1) % na);
+    const dg = new THREE.BufferGeometry(); dg.setAttribute("position", new THREE.Float32BufferAttribute(P, 3)); dg.setAttribute("color", new THREE.Float32BufferAttribute(C, 3)); dg.setIndex(I); dg.computeVertexNormals(); const m = new THREE.Mesh(dg, mat); m.position.set(sx, 0, sz); g.add(m); };
+  dome(-950, 220, 620, 420, 3); dome(980, 260, 700, 380, 7); dome(-1700, 380, 700, 300, 11); dome(1750, 420, 760, 320, 13);
   g.renderOrder = -1; scene.add(g); return g;
 }
-function updateHorn() { if (!scene) return; if (!hornM) { hornM = buildHorn(); hornM.scale.set(1.0, 0.6, 1.0); } hornM.position.set(camera.position.x + 45, camera.position.y - 540, camera.position.z - 1110); } // inside the sky dome, at the apparent size of a peak about 3.6 km away
+function updateHorn() { if (!scene) return; if (!hornM) { hornM = buildHorn(); hornM.scale.set(1.0, 0.6, 1.0); } hornM.position.set(camera.position.x + 30, camera.position.y - 560, camera.position.z - 1110); } // inside the sky dome, at the apparent size of a peak about 3.6 km away
 function render(dt, time) {
   if (!renderer) return;
   manageWorld(); updateHeli(dt); updateBike(dt); if (PARK) updateHorn();
