@@ -536,29 +536,8 @@ const shortsMat = new THREE.MeshPhongMaterial({ map: shortsTex, shininess: 12, s
 const sleeveTex = shortsTex.clone(); sleeveTex.needsUpdate = true; sleeveTex.center.set(0.5, 0.5); sleeveTex.rotation = Math.PI / 2;
 const sleeveMat = new THREE.MeshPhongMaterial({ map: sleeveTex, shininess: 12, side: THREE.DoubleSide });
 const hairMat = new THREE.MeshPhongMaterial({ color: 0xf6d77c, emissive: 0x5a3f0a, shininess: 60, specular: 0xfff2b0 });
-const cyl = (rt, rb, mat) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, 1, 12), mat); m.matrixAutoUpdate = false; surfer.add(m); return m; };
-// a limb with muscle shape: radii listed from the start joint to the end joint
-const lathe = (rs, mat, seg = 14) => {
-  const pts = new THREE.SplineCurve(rs.map((r, i) => new THREE.Vector2(r, i / (rs.length - 1) - 0.5))).getPoints(16);
-  const m = new THREE.Mesh(new THREE.LatheGeometry(pts, seg), mat); m.matrixAutoUpdate = false; surfer.add(m); return m;
-};
-const THIGH = [0.09, 0.094, 0.084, 0.068, 0.058], CALF = [0.055, 0.067, 0.062, 0.046, 0.038], UARM = [0.054, 0.059, 0.05, 0.042], FARM = [0.041, 0.047, 0.038, 0.029], SLEEVE = [0.098, 0.1, 0.102, 0.1];
-const body = {
-  torso: lathe([0.118, 0.134, 0.126, 0.14, 0.172, 0.196, 0.19, 0.12], skinMat, 20), neck: cyl(0.046, 0.055, skinMat),
-  thF: lathe(THIGH, skinMat), thB: lathe(THIGH, skinMat), shF: lathe(CALF, skinMat), shB: lathe(CALF, skinMat),
-  srF: lathe(SLEEVE, sleeveMat), srB: lathe(SLEEVE, sleeveMat),
-  uaF: lathe(UARM, skinMat), uaB: lathe(UARM, skinMat), laF: lathe(FARM, skinMat), laB: lathe(FARM, skinMat)
-};
-const ball = (r, mat, sx = 1, sy = 1, sz = 1) => { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 16, 12), mat); m.scale.set(sx, sy, sz); surfer.add(m); return m; };
-const pelvis = ball(0.14, shortsMat, 1.08, 0.82, 0.84), chestL = ball(0.06, skinMat), chestR = ball(0.06, skinMat);
-const kneeF = ball(0.059, skinMat), kneeB = ball(0.059, skinMat), elbF = ball(0.043, skinMat), elbB = ball(0.043, skinMat), ankF = ball(0.04, skinMat), ankB = ball(0.04, skinMat);
-const handF = ball(0.047, skinMat, 1, 0.6, 1.25), handB = ball(0.047, skinMat, 1, 0.6, 1.25), footF = ball(0.062, skinMat, 0.78, 0.42, 2.0), footB = ball(0.062, skinMat, 0.78, 0.42, 2.0);
 const head = new THREE.Group(); surfer.add(head);
 const hpart = (r, mat, x, y, z, sx, sy, sz) => { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 18, 14), mat); m.position.set(x, y, z); m.scale.set(sx, sy, sz); head.add(m); return m; };
-hpart(0.105, skinMat, 0, 0, 0, 1.02, 1.14, 0.9);                      // skull
-hpart(0.078, skinMat, 0.028, -0.068, 0, 1, 0.82, 0.86);               // jaw
-hpart(0.018, skinMat, 0.108, -0.012, 0, 1, 1.4, 0.8);                 // nose
-for (const z of [-0.094, 0.094]) hpart(0.022, skinMat, -0.005, -0.008, z, 0.6, 1.2, 0.5);   // ears
 hpart(0.119, hairMat, -0.03, 0.032, 0, 1.02, 1.08, 0.94);             // hair on the scalp
 hpart(0.07, hairMat, 0.052, 0.082, 0, 1, 0.55, 1.35);                 // fringe
 for (const z of [-0.038, 0.038]) hpart(0.012, new THREE.MeshBasicMaterial({ color: 0x1a2440 }), 0.098, 0.02, z, 1, 1, 1);
@@ -566,8 +545,79 @@ const leashGeo = new THREE.BufferGeometry(); leashGeo.setAttribute('position', n
 const leash = new THREE.Line(leashGeo, new THREE.LineBasicMaterial({ color: 0x0b1530 })); leash.frustumCulled = false; surfer.add(leash);
 
 // joints, solved procedurally each frame in board space (x = nose, y = up, z = heel side)
-const J = {}; for (const n of ['hip', 'hipF', 'hipB', 'knF', 'knB', 'ftF', 'ftB', 'neck', 'head', 'shF', 'shB', 'elF', 'elB', 'haF', 'haB']) J[n] = new V3();
+const J = {}; for (const n of ['hip', 'hipF', 'hipB', 'knF', 'knB', 'ftF', 'ftB', 'neck', 'head', 'shF', 'shB', 'elF', 'elB', 'haF', 'haB', 'toF', 'toB']) J[n] = new V3();
 const A = {}, B = {}, C = {}; for (const n in J) { A[n] = new V3(); B[n] = new V3(); C[n] = new V3(); }
+
+// The body is one smooth surface: a signed distance field built from the joints (rounded bones blended
+// together like muscle and skin), ray-marched inside a box that hugs the surfer.
+const JN = ['hip', 'hipF', 'hipB', 'knF', 'knB', 'ftF', 'ftB', 'neck', 'head', 'shF', 'shB', 'elF', 'elB', 'haF', 'haB', 'toF', 'toB'];
+const bodyU = { uJ: { value: JN.map(n => J[n]) }, uCam: { value: new V3() }, uC: { value: new V3() }, uS: { value: new V3(1, 1, 1) },
+  uShorts: { value: shortsTex }, uSun: { value: SUN }, uKey: { value: new V3(-0.45, 0.85, 0.8).normalize() } };
+const bodyMat = new THREE.ShaderMaterial({
+  uniforms: bodyU, extensions: { fragDepth: true },
+  vertexShader: 'uniform vec3 uC; uniform vec3 uS; varying vec3 vL; void main(){ vL = position * uS + uC; gl_Position = projectionMatrix * modelViewMatrix * vec4(vL, 1.0); }',
+  fragmentShader: `
+precision highp float;
+uniform vec3 uJ[17]; uniform vec3 uCam; uniform sampler2D uShorts; uniform vec3 uSun; uniform vec3 uKey;
+uniform mat4 modelViewMatrix; uniform mat4 projectionMatrix; uniform mat4 modelMatrix;
+varying vec3 vL;
+float cap(vec3 p, vec3 a, vec3 b, float r1, float r2){ vec3 pa = p - a, ba = b - a; float h = clamp(dot(pa, ba) / max(dot(ba, ba), 1e-6), 0.0, 1.0); return length(pa - ba * h) - mix(r1, r2, h); }
+float smin(float a, float b, float k){ float h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0); return mix(b, a, h) - k * h * (1.0 - h); }
+float leg(vec3 p, vec3 h, vec3 k, vec3 f, vec3 t){
+  float d = cap(p, h, k, 0.09, 0.057);
+  d = smin(d, smin(cap(p, k, f, 0.054, 0.035), length(p - mix(k, f, 0.3)) - 0.058, 0.04), 0.03);
+  return smin(d, cap(p, f + (f - t) * 0.22, t, 0.037, 0.027), 0.025);
+}
+float arm(vec3 p, vec3 s, vec3 e, vec3 a){
+  float d = smin(cap(p, s, e, 0.054, 0.04), length(p - s) - 0.062, 0.03);
+  d = smin(d, cap(p, e, a, 0.043, 0.027), 0.03);
+  return smin(d, cap(p, a, a + normalize(a - e) * 0.085, 0.03, 0.024), 0.02);
+}
+vec2 map(vec3 p){
+  vec3 hip = uJ[0], hF = uJ[1], hB = uJ[2], nk = uJ[7], hd = uJ[8], sF = uJ[9], sB = uJ[10];
+  vec3 ax = normalize(sB - sF), wc = mix(hip, nk, 0.34), cc = mix(hip, nk, 0.72);
+  float d = cap(p, hF, hB, 0.098, 0.098);                                              // pelvis
+  d = smin(d, cap(p, wc - ax * 0.05, wc + ax * 0.05, 0.098, 0.098), 0.08);             // waist
+  float ch = smin(cap(p, cc - ax * 0.085, cc + ax * 0.085, 0.114, 0.114), cap(p, sF, sB, 0.058, 0.058), 0.06);   // ribcage + shoulder girdle
+  d = smin(d, ch, 0.09);
+  d = smin(d, cap(p, nk, mix(nk, hd, 0.7), 0.053, 0.046), 0.05);                       // neck
+  float h = smin(length(p - hd) - 0.103, length(p - hd - vec3(0.03, -0.066, 0.0)) - 0.074, 0.03);
+  h = smin(h, length(p - hd - vec3(0.106, -0.012, 0.0)) - 0.016, 0.02);                // nose
+  d = smin(d, h, 0.02);
+  d = smin(d, leg(p, hF, uJ[3], uJ[5], uJ[15]), 0.045); d = smin(d, leg(p, hB, uJ[4], uJ[6], uJ[16]), 0.045);
+  d = smin(d, arm(p, sF, uJ[11], uJ[13]), 0.035); d = smin(d, arm(p, sB, uJ[12], uJ[14]), 0.035);
+  float so = min(cap(p, hF, hB, 0.115, 0.115), min(cap(p, hF, mix(hF, uJ[3], 0.8), 0.108, 0.088), cap(p, hB, mix(hB, uJ[4], 0.8), 0.108, 0.088)));
+  return so < d ? vec2(so, 1.0) : vec2(d, 0.0);
+}
+void main(){
+  vec3 rd = normalize(vL - uCam); float t = length(vL - uCam), tmax = t + 3.2; vec2 m = vec2(1.0); vec3 p; bool hit = false;
+  for (int i = 0; i < 64; i++) { p = uCam + rd * t; m = map(p); if (m.x < 0.0012) { hit = true; break; } t += m.x * 0.92; if (t > tmax) break; }
+  if (!hit) discard;
+  vec2 e = vec2(0.0015, 0.0);
+  vec3 n = normalize(vec3(map(p + e.xyy).x - map(p - e.xyy).x, map(p + e.yxy).x - map(p - e.yxy).x, map(p + e.yyx).x - map(p - e.yyx).x));
+  mat3 rot = mat3(modelMatrix);
+  vec3 nW = normalize(rot * n), vW = normalize(rot * -rd);
+  float ao = clamp(map(p + n * 0.06).x / 0.06, 0.0, 1.0) * 0.55 + 0.45;
+  vec3 alb = vec3(0.80, 0.56, 0.41); float gloss = 0.2;
+  if (m.y > 0.5) {
+    vec3 sp = normalize(uJ[7] - uJ[0]), hx = normalize(uJ[2] - uJ[1]), fw = normalize(cross(sp, hx)), q = p - uJ[0];
+    alb = texture2D(uShorts, vec2(fract(atan(dot(q, fw), dot(q, hx)) / 3.1416 + 1.0), clamp(0.66 + dot(q, sp) * 2.1, 0.02, 0.98))).rgb; gloss = 0.04;
+  }
+  float kd = max(dot(nW, uKey), 0.0), bd = max(dot(nW, uSun), 0.0);
+  vec3 hemi = mix(vec3(0.30, 0.43, 0.66), vec3(1.0), nW.y * 0.5 + 0.5) * 0.6;
+  vec3 c = alb * (hemi * ao + vec3(1.0, 0.96, 0.88) * kd * 0.6 * ao + vec3(1.0, 0.9, 0.72) * bd * 0.55);
+  if (m.y < 0.5) c += vec3(0.25, 0.06, 0.02) * (1.0 - kd) * 0.18;                       // warmth of skin in shade
+  float rim = pow(1.0 - max(dot(nW, vW), 0.0), 3.0);
+  c += vec3(1.0, 0.93, 0.78) * rim * 0.22 * (0.4 + bd);
+  c += gloss * pow(max(dot(nW, normalize(uKey + vW)), 0.0), 40.0);
+  gl_FragColor = vec4(c, 1.0);
+  vec4 cp = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+  gl_FragDepthEXT = (cp.z / cp.w) * 0.5 + 0.5;
+}`
+});
+const bodyMesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), bodyMat); bodyMesh.frustumCulled = false; surfer.add(bodyMesh);
+const invM = new THREE.Matrix4();
+bodyMesh.onBeforeRender = (r, sc, cam) => { invM.copy(surfer.matrixWorld).invert(); bodyU.uCam.value.copy(cam.position).applyMatrix4(invM); };
 const tA = new V3(), tB = new V3(), tC = new V3(), tD = new V3();
 function ik(a, b, l1, l2, bend, out) {
   tA.subVectors(b, a); const d = Math.min(tA.length(), l1 + l2 - 0.002) || 0.001; tA.normalize();
@@ -577,7 +627,8 @@ function ik(a, b, l1, l2, bend, out) {
 }
 const bendV = new V3();
 function poseStand(o, c, lean, arms, grab, tw) {
-  o.ftF.set(0.33, 0.05, 0); o.ftB.set(-0.4, 0.05, 0);
+  o.ftF.set(0.33, 0.085, 0.03); o.ftB.set(-0.4, 0.085, 0.03);
+  o.toF.set(0.37, 0.06, -0.15); o.toB.set(-0.38, 0.06, -0.15);
   o.hip.set(-0.04, 0.87 - 0.37 * c, 0.03 - 0.2 * lean);
   o.hipF.copy(o.hip).x += 0.1; o.hipB.copy(o.hip).x -= 0.1;
   ik(o.hipF, o.ftF, 0.46, 0.46, bendV.set(0.3, 0, -1), o.knF); ik(o.hipB, o.ftB, 0.46, 0.46, bendV.set(-0.15, 0, -1), o.knB);
@@ -594,6 +645,7 @@ function poseSit(o, t) {
   o.hip.set(-0.12, 0.13, 0); o.hipF.set(-0.12, 0.13, -0.1); o.hipB.set(-0.12, 0.13, 0.1);
   o.knF.set(0.26, 0.1, -0.29); o.knB.set(0.26, 0.1, 0.29);
   o.ftF.set(0.2 + 0.05 * Math.sin(t * 1.3), -0.34, -0.33); o.ftB.set(0.2 - 0.05 * Math.sin(t * 1.3), -0.34, 0.33);
+  o.toF.copy(o.ftF).add(tD.set(0.1, -0.13, 0)); o.toB.copy(o.ftB).add(tD.set(0.1, -0.13, 0));
   o.neck.set(-0.03, 0.63, 0); o.head.set(0, 0.82, 0);
   o.shF.set(-0.03, 0.58, -0.19); o.shB.set(-0.03, 0.58, 0.19);
   o.haF.set(0.26, 0.18, -0.2); o.haB.set(0.26, 0.18, 0.2);
@@ -601,7 +653,7 @@ function poseSit(o, t) {
 }
 function poseProne(o, t) {
   o.hip.set(-0.3, 0.13, 0); o.hipF.set(-0.3, 0.13, -0.09); o.hipB.set(-0.3, 0.13, 0.09);
-  o.knF.set(-0.72, 0.11, -0.08); o.knB.set(-0.72, 0.11, 0.08); o.ftF.set(-1.1, 0.22, -0.08); o.ftB.set(-1.1, 0.22, 0.08);
+  o.knF.set(-0.72, 0.11, -0.08); o.knB.set(-0.72, 0.11, 0.08); o.ftF.set(-1.1, 0.22, -0.08); o.ftB.set(-1.1, 0.22, 0.08); o.toF.set(-1.27, 0.2, -0.08); o.toB.set(-1.27, 0.2, 0.08);
   o.neck.set(0.2, 0.27, 0); o.head.set(0.36, 0.38, 0);
   o.shF.set(0.17, 0.24, -0.19); o.shB.set(0.17, 0.24, 0.19);
   const a = t * 9;
@@ -623,20 +675,9 @@ function updateBody(dt) {
   const arms = clamp(Math.abs(S.omega) * 0.16 + (S.air ? 0.7 : 0) + S.pumpT * 1.2, 0, 1);
   poseStand(A, clamp(S.crouch, 0, 1), clamp(-S.roll * 1.2, -1, 1), arms, S.grab, clamp(S.omega * 0.16, -0.6, 0.6)); poseSit(B, time); poseProne(C, time);
   for (const n in J) J[n].set(0, 0, 0).addScaledVector(A[n], st).addScaledVector(B[n], si).addScaledVector(C[n], pr);
-  tE.subVectors(J.shB, J.shF);
-  limb(body.torso, J.hip, J.neck, tE, 0.62);
-  tF.copy(J.neck).lerp(J.head, 0.75); limb(body.neck, J.neck, tF, sideX);
-  limb(body.thF, J.hipF, J.knF, sideX); limb(body.thB, J.hipB, J.knB, sideX);
-  limb(body.shF, J.knF, J.ftF, sideX); limb(body.shB, J.knB, J.ftB, sideX);
-  tF.copy(J.hipF).lerp(J.knF, 0.84); limb(body.srF, tF, J.hipF, sideZ); tF.copy(J.hipB).lerp(J.knB, 0.84); limb(body.srB, tF, J.hipB, sideZ);
-  limb(body.uaF, J.shF, J.elF, sideX); limb(body.uaB, J.shB, J.elB, sideX); limb(body.laF, J.elF, J.haF, sideX); limb(body.laB, J.elB, J.haB, sideX);
-  pelvis.position.copy(J.hip); pelvis.position.y += 0.02;
-  pelvis.rotation.set(0, st * Math.PI / 2, 0);
-  chestL.position.copy(J.shF); chestR.position.copy(J.shB);
-  handF.position.copy(J.haF); handB.position.copy(J.haB);
-  footF.position.copy(J.ftF); footB.position.copy(J.ftB); footF.position.z -= 0.05 * st; footB.position.z -= 0.05 * st; footF.position.y -= 0.01; footB.position.y -= 0.01;
-  kneeF.position.copy(J.knF); kneeB.position.copy(J.knB); elbF.position.copy(J.elF); elbB.position.copy(J.elB);
-  ankF.position.copy(J.ftF); ankB.position.copy(J.ftB); ankF.position.y += 0.03; ankB.position.y += 0.03;
+  let x0 = 9, y0 = 9, z0 = 9, x1 = -9, y1 = -9, z1 = -9;
+  for (const n in J) { const j = J[n]; x0 = Math.min(x0, j.x); y0 = Math.min(y0, j.y); z0 = Math.min(z0, j.z); x1 = Math.max(x1, j.x); y1 = Math.max(y1, j.y); z1 = Math.max(z1, j.z); }
+  bodyU.uC.value.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2); bodyU.uS.value.set(x1 - x0 + 0.36, y1 - y0 + 0.36, z1 - z0 + 0.36);
   leash.visible = st > 0.5;
   const lp = leashGeo.attributes.position.array;
   for (let i = 0; i < 10; i++) { const q = i / 9, sg = Math.sin(Math.PI * q);
@@ -1045,17 +1086,17 @@ function placeSurfer(dt) {
   if (dt > 0) { S.vel.subVectors(S.pos, S.prev).divideScalar(dt); S.prev.copy(S.pos); }
 }
 const camP = new V3(0, 3, 14), camL = new V3(0, 1, 0), cT = new V3(), cL = new V3();
-let camLead = 2.5;
+let camLead = 5.6;
 function updateCamera(dt, snap) {
   const st = G.state;
   if (st === 'menu') { cT.set(S.x + 3.4, 1.25, LINE_Z + 4.6); cL.set(S.x + 2.3, 0.75, LINE_Z); }
   else if (st === 'lineup') { cT.set(S.x + 1.2, 2.3, LINE_Z + 9.5); cL.set(S.x, 1.5, LINE_Z - 6); }
   else {
-    const dir = Math.cos(S.phi) >= -0.2 ? 1 : -0.4;
-    camLead += ((G.inBarrel ? 6.5 : 2.6 * dir) - camLead) * Math.min(1, dt * 1.6);
+    const dir = Math.cos(S.phi) >= -0.2 ? 1 : 0.55;
+    camLead += ((G.inBarrel ? 8 : 5.6 * dir) - camLead) * Math.min(1, dt * 1.6);
     const airH = S.air ? Math.max(0, S.air.h || 0) : 0;
     cT.set(S.pos.x + camLead, (G.inBarrel ? 1.5 : 2.3) + S.pos.y * 0.28 + airH * 0.25, Math.max(8, S.pos.z + (G.inBarrel ? 8.6 : 9.4) + S.v * 0.12 + airH * 0.8));
-    cL.set(S.pos.x + camLead * 0.35, S.pos.y * 0.72 + 1.15, S.pos.z);
+    cL.set(S.pos.x - 0.7, S.pos.y * 0.72 + 1.15, S.pos.z);
   }
   const k = snap ? 1 : Math.min(1, dt * 5);
   camP.lerp(cT, k); camL.lerp(cL, snap ? 1 : Math.min(1, dt * 7));
