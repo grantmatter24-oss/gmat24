@@ -189,6 +189,13 @@ for (let i = 0; i < 9; i++) {
   s.userData.x0 = s.position.x; scene.add(s);
 }
 
+// the sun, low over the horizon behind the wave
+const sunSpr = [];
+for (const [sz, op, col] of [[190, 1, 0xffffff], [620, 0.55, 0xfff1c4], [1700, 0.22, 0xffe9b0]]) {
+  const sp_ = new THREE.Sprite(new THREE.SpriteMaterial({ map: softTex, color: col, opacity: op, fog: false, depthWrite: false, blending: THREE.AdditiveBlending }));
+  sp_.scale.set(sz, sz, 1); sp_.userData.sun = true; scene.add(sp_); sunSpr.push(sp_);
+}
+
 // ---------------------------------------------------------------- the wave
 // Wave frame: x runs along the crest, +z is toward the beach (and the camera), y is up.
 // Surface coordinate s: metres up the face from the trough (negative = flat water in front).
@@ -235,7 +242,69 @@ const waterTex = canvasTex(512, 512, (g, w, h) => {
   }
 });
 waterTex.wrapS = waterTex.wrapT = THREE.RepeatWrapping;
-const waterMat = new THREE.MeshPhongMaterial({ vertexColors: true, map: waterTex, shininess: 38, specular: 0x1c3f9a, side: THREE.DoubleSide });
+// Water shader: sky reflection by Fresnel, moving ripples, sun glitter, light glowing through thin water.
+const SUN = new V3(-0.38, 0.27, -0.88).normalize();
+const wU = { uTime: { value: 0 }, uSun: { value: SUN }, uTex: { value: waterTex }, uFog: { value: new THREE.Color(0xd6efff) } };
+const W_VERT = `
+varying vec3 vW; varying vec3 vN; varying vec2 vUv; varying vec3 vC; varying float vD;
+void main(){
+  vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; vN = normalize(mat3(modelMatrix) * normal);
+  #ifdef WORLDUV
+  vUv = w.xz * 0.09;
+  #else
+  vUv = uv;
+  #endif
+  #ifdef USE_COLOR
+  vC = color;
+  #endif
+  vec4 mv = viewMatrix * w; vD = -mv.z; gl_Position = projectionMatrix * mv;
+}`;
+const W_FRAG = `
+precision highp float;
+uniform float uTime; uniform vec3 uSun; uniform vec3 uCol; uniform sampler2D uTex; uniform vec3 uFog; uniform float uRip;
+varying vec3 vW; varying vec3 vN; varying vec2 vUv; varying vec3 vC; varying float vD;
+float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float noise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y); }
+float hgt(vec2 p){ return noise(p * 9.0 + vec2(uTime * 0.7, uTime * 0.4)) * 0.6 + noise(p * 23.0 - vec2(uTime * 1.1, -uTime * 0.5)) * 0.3 + noise(p * 61.0 + uTime) * 0.12; }
+void main(){
+  #ifdef USE_COLOR
+  vec3 col = vC;
+  #else
+  vec3 col = uCol;
+  #endif
+  vec3 N = normalize(vN); if (!gl_FrontFacing) N = -N;
+  vec3 V = normalize(cameraPosition - vW);
+  vec2 uvw = mod(vUv, 64.0);
+  float e = 0.004, h0 = hgt(uvw);
+  vec2 g = vec2(hgt(uvw + vec2(e, 0.0)) - h0, hgt(uvw + vec2(0.0, e)) - h0) / e;
+  vec3 T = vec3(1.0, 0.0, 0.0), B = normalize(cross(N, T));
+  vec3 Np = normalize(N - (T * g.x + B * g.y) * uRip / (1.0 + vD * 0.01));
+  float foam = smoothstep(0.62, 0.9, min(col.r, col.g));
+  float F = 0.03 + 0.97 * pow(1.0 - max(dot(Np, V), 0.0), 5.0);
+  vec3 Rf = reflect(-V, Np);
+  vec3 sky = mix(vec3(0.84, 0.94, 1.0), vec3(0.27, 0.56, 0.93), clamp(Rf.y * 1.4, 0.0, 1.0));
+  sky = mix(col * 0.8, sky, smoothstep(-0.25, 0.05, Rf.y));
+  float dif = max(dot(Np, uSun), 0.0);
+  vec3 body = col * mix(vec3(1.0), texture2D(uTex, vUv).rgb, 0.55) * (0.78 + 0.45 * dif);
+  float back = pow(max(dot(V, -uSun) * 0.5 + 0.5, 0.0), 2.0);
+  body += vec3(0.06, 0.5, 0.52) * back * 0.4 * smoothstep(0.42, 0.8, col.g);
+  vec3 c = mix(body, sky, F * 0.8);
+  float rs = max(dot(Rf, uSun), 0.0);
+  c += vec3(1.0, 0.95, 0.82) * (pow(rs, 260.0) * 7.0 + pow(rs, 28.0) * 0.4);
+  vec3 fc = vec3(0.97, 0.985, 1.0) * (0.8 + 0.25 * dif + 0.12 * h0);
+  c = mix(c, fc, foam);
+  c = mix(c, uFog, smoothstep(180.0, 1100.0, vD));
+  gl_FragColor = vec4(c, 1.0);
+}`;
+function makeWater(o) {
+  return new THREE.ShaderMaterial({
+    uniforms: Object.assign({ uCol: { value: new THREE.Color(o.color || 0xffffff) }, uRip: { value: o.rip } }, wU),
+    vertexShader: W_VERT, fragmentShader: W_FRAG, vertexColors: !!o.vcol, side: o.vcol ? THREE.DoubleSide : THREE.FrontSide,
+    defines: o.vcol ? {} : { WORLDUV: 1 }
+  });
+}
+const waterMat = makeWater({ vcol: true, rip: 0.05 });
 
 function gridGeo(cols, rows) {
   const g = new THREE.BufferGeometry();
@@ -257,7 +326,7 @@ waveMesh.frustumCulled = backMesh.frustumCulled = false;
 scene.add(waveMesh, backMesh);
 
 // pure blue: deep at the base, electric up the face
-const CB = [0.0, 0.085, 0.56], CM = [0.0, 0.24, 0.95], CT = [0.13, 0.5, 1.0];
+const CB = [0.03, 0.27, 0.7], CM = [0.06, 0.46, 0.92], CT = [0.36, 0.78, 0.98];
 function updateWave(cx) {
   const dx = W.dx, x0 = Math.round(cx / dx) * dx - NI * 0.5 * dx, t = time;
   const P = waveGeo.attributes.position.array, C = waveGeo.attributes.color.array, U = waveGeo.attributes.uv.array;
@@ -313,9 +382,8 @@ function updateWave(cx) {
 }
 
 // open ocean + the other waves of the set stacked up behind
-const oceanTex = waterTex.clone(); oceanTex.needsUpdate = true; oceanTex.repeat.set(260, 260);
-const ocean = new THREE.Mesh(new THREE.PlaneGeometry(3200, 3200),
-  new THREE.MeshPhongMaterial({ color: new THREE.Color(CB[0], CB[1], CB[2]), map: oceanTex, shininess: 38, specular: 0x1c3f9a }));
+const ocean = new THREE.Mesh(new THREE.PlaneGeometry(3200, 3200), makeWater({ rip: 0.05 }));
+ocean.material.uniforms.uCol.value.setRGB(CB[0], CB[1], CB[2]);
 ocean.rotation.x = -Math.PI / 2; ocean.position.y = -0.05; scene.add(ocean);
 const ridges = [];
 for (let i = 0; i < 4; i++) {
@@ -323,7 +391,7 @@ for (let i = 0; i < 4; i++) {
   const p = g.attributes.position.array;
   for (let k = 0; k < p.length; k += 3) p[k + 1] = 1.7 * Math.exp(-Math.pow((p[k + 2] + 2) / 6.5, 2));
   g.computeVertexNormals();
-  const m = new THREE.Mesh(g, new THREE.MeshPhongMaterial({ color: 0x0736c9, shininess: 60, specular: 0x6f9cff }));
+  const m = new THREE.Mesh(g, makeWater({ rip: 0.05, color: 0x1a63c8 }));
   m.visible = false; scene.add(m); ridges.push(m);
 }
 
@@ -1035,7 +1103,9 @@ function step(dt) {
   if (W.z > -60 || W.breaking) waveSpray(dt, G.camX);
   updateParticles(dt);
   ocean.position.x = Math.round(G.camX / 12.3) * 12.3;
-  for (const c of scene.children) if (c.isSprite) c.position.x = c.userData.x0 + G.camX;
+  for (const c of scene.children) if (c.isSprite && !c.userData.sun) c.position.x = c.userData.x0 + G.camX;
+  for (const c of sunSpr) c.position.copy(camera.position).addScaledVector(SUN, 1500);
+  wU.uTime.value = time;
   if (AC && nGain) {
     const riding = G.state === 'ride';
     const g = muted ? 0 : G.state === 'menu' || G.state === 'results' ? 0.03 : riding ? 0.05 + S.v / 22 * 0.07 + Math.abs(S.omega) * 0.025 + (G.inBarrel ? 0.07 : 0) : 0.05;
