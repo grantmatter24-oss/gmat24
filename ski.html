@@ -648,10 +648,12 @@ function parkSection(f, i, diff) { // Village Park: lines of 2-3 different jibs 
     else if (type === "kink") { const hs = [2.4, 1.7, 1.0], rs = hs.map((h, q) => mk(A + q * 13, 13, x, { fixedLen: true, h, noRamp: q > 0 })); rs.forEach((r, q) => { if (rs[q + 1]) r.next = rs[q + 1]; }); rails.push(...rs); }
     else if (type === "curve") rails.push(mk(A, 40, x, { fixedLen: true, h: 1.5, amp: 2.4 * sd, k: 1 }));
     else if (type === "wall") { const xs = [0, 2.6, -2.6, 2.6, -2.6, 0], rs = []; for (let q = 0; q < xs.length - 1; q++) rs.push(mk(A + q * 8, 8, x + xs[q], { x1: x + xs[q + 1], fixedLen: true, wall: true, noRamp: q > 0, h: 1.25 - 0.08 * q, color: 0x2a2d33 })); rs.forEach((r, q) => { if (rs[q + 1]) r.next = rs[q + 1]; }); rails.push(...rs); }
+    else if (type === "rainbow") rails.push(mk(A, 26, x, { fixedLen: true, h: 1.1, arc: 2.0, pipe: true }));
+    else if (type === "dfd") { const a = mk(A, 11, x, { fixedLen: true, h: 2.8, h1: 1.1, pipe: true }), b = mk(A + 11, 8, x, { fixedLen: true, h: 1.1, noRamp: true, pipe: true, level: true }), c = mk(A + 19, 12, x, { fixedLen: true, h1: 0.9, noRamp: true, pipe: true }); b.from = a; c.from = b; a.next = b; b.next = c; rails.push(a, b, c); }
     else if (type === "box") f.parts.push({ type: "box", s0: A - 2, len: 30, end: A + 28, B: 0.75, cx: x, hw: 1.9 });
   };
-  const NAMES = { flat: "rail", down: "down rail", aframe: "A-frame pipe", tube: "tube", kink: "kinked rail", curve: "curved rail", wall: "zig-zag wall", box: "box" };
-  const LINES = [["flat", "aframe", "box"], ["tube", "down", "kink"], ["box", "flat", "aframe"], ["curve", "box", "tube"], ["aframe", "tube", "down"], ["wall", "box"], ["kink", "flat", "tube"], ["down", "aframe"]];
+  const NAMES = { rainbow: "rainbow rail", dfd: "down-flat-down pipe", flat: "rail", down: "down rail", aframe: "A-frame pipe", tube: "tube", kink: "kinked rail", curve: "curved rail", wall: "zig-zag wall", box: "box" };
+  const LINES = [["flat", "aframe", "box"], ["rainbow", "tube", "dfd"], ["tube", "down", "kink"], ["dfd", "box", "rainbow"], ["curve", "box", "tube"], ["aframe", "rainbow", "down"], ["wall", "dfd"], ["kink", "flat", "tube"]];
   const line = LINES[i % LINES.length], xs = line.length === 3 ? [-8, 0, 8] : [-5.5, 5.5], flip = sd < 0;
   line.forEach((t, q) => add(t, (flip ? -1 : 1) * xs[q], line.length === 3 && q === 1));
   if (rails.length) { f.rail = rails[0]; f.rail2 = rails.slice(1); }
@@ -974,7 +976,7 @@ function startTrail(f) {
 }
 
 function railX(r, s) { const bx = r.lane ? alleyX(s) + r.dx : r.x1 !== undefined ? r.x + (r.x1 - r.x) * clamp((s - r.s0) / (r.s1 - r.s0), 0, 1) : r.x; return r.amp ? bx + r.amp * Math.sin(Math.PI * (r.k || 1) * clamp((s - r.s0) / (r.s1 - r.s0), 0, 1)) * smooth((s - r.s0) / 20) : bx; }
-function railY(r, s) { if (r.y0 === undefined) { const h = r.h || RAIL_H; r.y0 = H(railX(r, r.s0), r.s0) + h; r.y1 = H(railX(r, r.s1), r.s1) + (r.h1 !== undefined ? r.h1 : h); } return r.y0 + (r.y1 - r.y0) * clamp((s - r.s0) / (r.s1 - r.s0), 0, 1); }
+function railY(r, s) { if (r.y0 === undefined) { const h = r.h || RAIL_H; r.y0 = r.from ? railY(r.from, r.from.s1) : H(railX(r, r.s0), r.s0) + h; r.y1 = r.level ? r.y0 : H(railX(r, r.s1), r.s1) + (r.h1 !== undefined ? r.h1 : h); } const tt = clamp((s - r.s0) / (r.s1 - r.s0), 0, 1); return r.y0 + (r.y1 - r.y0) * tt + (r.arc ? r.arc * Math.sin(Math.PI * tt) : 0); }
 function onRailRamp(x, s) { for (const f of sectionsAt(s, 6)) for (const p of f.parts) if (p.type === "railramp" && s >= p.s0 && s <= p.s0 + p.L + 3 && latW(p, x, 0.5) > 0.1) return true; return false; }
 /* the nearest rail on the chosen side that the skier can reach from this pop */
 function xferTarget(r, dir) {
