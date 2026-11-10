@@ -571,6 +571,7 @@ function addInterlude(kind) {
   f.end = genS + len; feats.push(f); genS = f.end + 58 + rng() * 14;
   return f;
 }
+const DROP_G = 0.62, DROP_L = 28;
 let pendingFiller = false, microCount = 0, structN = 0;
 function addMicro() {
   const i = microCount++, diff = Math.min(1, secCount / 16), f = { s0: genS, parts: [], label: "", boost: null, rail: null, coins: [], mainCx: 0, idx: -1, micro: true }, t = PK ? [0, 1, 1, 3][i % 4] : i % 4;
@@ -649,16 +650,22 @@ function parkSection(f, i, diff) { // Village Park: lines of 2-3 different jibs 
     else if (type === "kink") { const hs = [2.4, 1.7, 1.0], rs = hs.map((h, q) => mk(A + q * 13, 13, x, { fixedLen: true, h, noRamp: q > 0 })); rs.forEach((r, q) => { if (rs[q + 1]) r.next = rs[q + 1]; }); rails.push(...rs); }
     else if (type === "curve") rails.push(mk(A, 40, x, { fixedLen: true, h: 1.5, amp: 2.4 * sd, k: 1 }));
     else if (type === "wall") { const xs = [0, 2.6, -2.6, 2.6, -2.6, 0], rs = []; for (let q = 0; q < xs.length - 1; q++) rs.push(mk(A + q * 8, 8, x + xs[q], { x1: x + xs[q + 1], fixedLen: true, wall: true, noRamp: q > 0, h: 1.25 - 0.08 * q, color: 0x2a2d33 })); rs.forEach((r, q) => { if (rs[q + 1]) r.next = rs[q + 1]; }); rails.push(...rs); }
-    else if (type === "rainbow") rails.push(mk(A, 26, x, { fixedLen: true, h: 1.1, arc: 2.0, pipe: true }));
-    else if (type === "dfd") { const a = mk(A, 11, x, { fixedLen: true, h: 2.8, h1: 1.1, pipe: true }), b = mk(A + 11, 8, x, { fixedLen: true, h: 1.1, noRamp: true, pipe: true, level: true }), c = mk(A + 19, 12, x, { fixedLen: true, h1: 0.9, noRamp: true, pipe: true }); b.from = a; c.from = b; a.next = b; b.next = c; rails.push(a, b, c); }
+    else if (type === "rainbow") rails.push(mk(A, 26, x, { fixedLen: true, h: 1.2, h1: 1.7, arc: 2.0, pipe: true }));
+    else if (type === "dfd") { const a = mk(A, 11, x, { fixedLen: true, h: 2.8, h1: 1.1, pipe: true }), b = mk(A + 11, 8, x, { fixedLen: true, h: 1.1, noRamp: true, pipe: true, level: true }), c = mk(A + 19, 9, x, { fixedLen: true, h1: 1.6, noRamp: true, pipe: true }); b.from = a; c.from = b; a.next = b; b.next = c; rails.push(a, b, c); }
     else if (type === "box") f.parts.push({ type: "box", s0: A - 2, len: 30, end: A + 28, B: 0.75, cx: x, hw: 1.9 });
   };
   const NAMES = { rainbow: "rainbow rail", dfd: "down-flat-down pipe", flat: "rail", down: "down rail", aframe: "A-frame pipe", tube: "tube", kink: "kinked rail", curve: "curved rail", wall: "zig-zag wall", box: "box" };
   const LINES = [["flat", "aframe", "box"], ["rainbow", "tube", "dfd"], ["tube", "down", "kink"], ["dfd", "box", "rainbow"], ["curve", "box", "tube"], ["aframe", "rainbow", "down"], ["wall", "dfd"], ["kink", "flat", "tube"]];
   const line = LINES[i % LINES.length], xs = line.length === 3 ? [-8, 0, 8] : [-5.5, 5.5], flip = sd < 0;
   line.forEach((t, q) => add(t, (flip ? -1 : 1) * xs[q], line.length === 3 && q === 1));
+  { // every lane finishes at the same place, right before the knuckle
+    const heads = rails.filter(r => !rails.some(o => o.next === r)), chainEnd = r => { let e = r; while (e.next) e = e.next; return e.s1; }, boxes = f.parts.filter(q => q.type === "box");
+    const E = Math.max(...heads.map(chainEnd), ...boxes.map(q => q.end));
+    for (const h of heads) { const d = E - chainEnd(h); for (let c = h; c; c = c.next) { c.s0 += d; c.s1 += d; } }
+    for (const q of boxes) { const d = E - q.end; q.s0 += d; q.end += d; }
+  }
   if (rails.length) { f.rail = rails[0]; f.rail2 = rails.slice(1); }
-  f.label = line.map(t => NAMES[t]).join(" · ");
+  f.railLine = true; f.label = line.map(t => NAMES[t]).join(" · ");
 }
 function addSection() {
   if (pendingInterlude) { const k = pendingInterlude; pendingInterlude = null; return addInterlude(k); }
@@ -756,7 +763,7 @@ function addSection() {
   feats.push(f); regRocks(f);
   const a = f.s0 - 34, prevEnd = knots[knots.length - 1].s, gapLen = a - prevEnd;
   if (i > 0 && gapLen > 20) { const v = HELI ? [1.0, 1.1, 1.25, 1.05, 1.15][Math.floor(rng() * 5)] : (PARK && (i % 7 === 3 || i % 7 === 6)) ? 0.5 : (i % 6 === 3 || i % 6 === 5) ? 0.44 : [0.14, 0.2, 0.2, 0.36, 0.44, 0.5][Math.floor(rng() * 6)]; addKnot(prevEnd + gapLen * 0.3, v); addKnot(prevEnd + gapLen * 0.7, v); }
-  if (DROP) { const ls = DLIP + 50, kk = f.parts[0]; addKnot(a, BASE); addKnot(ls - 8, BASE); addKnot(ls + 8, BASE + 0.3); addKnot(ls + kk.Ll, BASE + 0.3); addKnot(ls + kk.Ll + kk.Tr, 0.04); } else { addKnot(a, BASE); addKnot(f.end + 10, BASE); if (PARK && railsOf(f).length) { addKnot(f.end + 16, BASE + 0.17); addKnot(f.end + 36, BASE + 0.17); } }
+  if (DROP) { const ls = DLIP + 50, kk = f.parts[0]; addKnot(a, BASE); addKnot(ls - 8, BASE); addKnot(ls + 8, BASE + 0.3); addKnot(ls + kk.Ll, BASE + 0.3); addKnot(ls + kk.Ll + kk.Tr, 0.04); } else { addKnot(a, BASE); if (PARK && f.railLine) { const k = f.end + 2; f.drop = { k, L: DROP_L }; addKnot(k, BASE); addKnot(k + 5, DROP_G); addKnot(k + DROP_L, DROP_G); addKnot(k + DROP_L + 10, BASE); } else addKnot(f.end + 10, BASE); } // Village Park: a knuckle and a steep landing after every rail line
   pcs.push({ a, b: f.end + 10, x: px, jump: !f.cliff || DROP });
   if (DROP) { genS = 1e9; return f; }
   if (i > 1 && rng() < (PK ? 0.9 : 0.45)) { const fast = secCount % 6 === 3 || secCount % 6 === 5, order = WIDE ? ["carve", "quarter", "cruiser"] : PK ? ["chute", "carve", "chute"] : PARK ? ["carve", "cruiser", "carve"] : ["carve", "chute", "cruiser"]; let k = order[interCount++ % 3]; if (fast && k === "cruiser") k = PARK ? "carve" : WIDE ? "carve" : "chute"; pendingInterlude = k; genS = f.end + 44 + rng() * 10; }
