@@ -643,7 +643,7 @@ const bodyMesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), bodyMat); bodyMe
 const invM = new THREE.Matrix4();
 bodyMesh.onBeforeRender = (r, sc, cam) => { invM.copy(surfer.matrixWorld).invert(); bodyU.uCam.value.copy(cam.position).applyMatrix4(invM); };
 // a fake beer: plain can, made-up label
-const BEER_T = 1.3;
+const BEER_T = 1.6;
 const canTex = canvasTex(256, 128, (g, w, h) => {
   g.fillStyle = '#e9b81f'; g.fillRect(0, 0, w, h); g.fillStyle = '#c2271d'; g.fillRect(0, h * 0.3, w, h * 0.4);
   g.fillStyle = '#fff'; g.font = '900 38px "Arial Black", Arial, sans-serif'; g.textAlign = 'center';
@@ -651,16 +651,21 @@ const canTex = canvasTex(256, 128, (g, w, h) => {
 });
 const canMats = [new THREE.MeshPhongMaterial({ map: canTex, shininess: 90, specular: 0xffffff }), new THREE.MeshPhongMaterial({ color: 0xc9ced6, shininess: 120, specular: 0xffffff }), new THREE.MeshPhongMaterial({ color: 0xc9ced6, shininess: 120 })];
 const canGeo = new THREE.CylinderGeometry(0.033, 0.033, 0.122, 16);
-const can = new THREE.Mesh(canGeo, canMats); can.visible = false; surfer.add(can);
-const canFly = new THREE.Mesh(canGeo, canMats); canFly.visible = false; scene.add(canFly);
+const can = new THREE.Mesh(canGeo, canMats); can.visible = false; can.scale.setScalar(1.7); surfer.add(can);
+const canFly = new THREE.Mesh(canGeo, canMats); canFly.visible = false; canFly.scale.setScalar(1.7); scene.add(canFly);
 const canV = new V3(); let canT = 0;
 function beerStep(dt, st) {
-  if (pressed.KeyE && S.beer <= 0 && S.visible && (st === 'lineup' || st === 'ride')) { S.beer = BEER_T; blip(170, 0.07); }
+  if (pressed.KeyE && S.beer <= 0 && S.visible && (st === 'lineup' || st === 'ride')) { S.beer = BEER_T; blip(170, 0.07); popup('Chug!', 0); }
   if (S.beer > 0) {
     const e0 = BEER_T - S.beer; S.beer -= dt; const e1 = BEER_T - S.beer;
-    for (const g of [0.35, 0.6, 0.85]) if (e0 < g && e1 >= g) blip(150 + g * 60, 0.06);      // gulp, gulp, gulp
+    for (const g of [0.4, 0.65, 0.9, 1.15]) if (e0 < g && e1 >= g) blip(150 + g * 60, 0.07);      // gulp, gulp, gulp
+    $('live').textContent = 'Chugging · ' + Math.round(clamp(e1 / (BEER_T - 0.2), 0, 1) * 100) + '%';
+    if (e1 > 0.35 && e1 < BEER_T - 0.25 && Math.random() < 0.7) {      // foam spilling down the chin
+      can.updateWorldMatrix(true, false); tD.setFromMatrixPosition(can.matrixWorld);
+      spawn(tD.x, tD.y - 0.05, tD.z, rnd(-0.8, 0.8) + S.vel.x * 0.6, rnd(-0.5, 1.2), rnd(0, 1.2) + S.vel.z * 0.6, rnd(0.35, 0.6), 0.05, 0.12, 9, 0.95);
+    }
     if (S.beer <= 0) {
-      S.beer = 0;
+      S.beer = 0; $('live').textContent = ''; blip(90, 0.25);
       if (st === 'ride' && ride) award(S.air ? 'Air Chug' : 'Cold One', S.air ? 600 : 220); else popup('Cold One', 0);
       can.updateWorldMatrix(true, false); canFly.position.setFromMatrixPosition(can.matrixWorld); canFly.visible = true; canT = 1.3;
       canV.copy(S.vel).multiplyScalar(0.4); canV.x -= 2.5; canV.y += 3.5; canV.z += 2;
@@ -744,11 +749,11 @@ function updateBody(dt) {
   leashGeo.attributes.position.needsUpdate = true;
   const bw = beerW();
   if (bw > 0) {                                   // can to the mouth, head back
-    tF.set(J.head.x + 0.17, J.head.y - 0.05, J.head.z); J.haF.lerp(tF, bw);
+    tF.set(J.head.x + 0.2, J.head.y - 0.07, J.head.z); J.haF.lerp(tF, bw);
     ik(J.shF, J.haF, 0.29, 0.27, bendV.set(0.2, -1, -0.5), J.elF);
   }
   can.visible = bw > 0.02;
-  can.position.set(J.haF.x - 0.02, J.haF.y + 0.03, J.haF.z); can.rotation.set(0, 0, 2.0 * sstep(0.3, 1, bw));
+  can.position.set(J.haF.x - 0.03, J.haF.y + 0.06, J.haF.z); can.rotation.set(0, 0, 2.0 * sstep(0.3, 1, bw));
   const ht = pr * 0.5 + 0.5 * bw;
   head.position.copy(J.head); head.rotation.set(0, 0, ht); bodyU.uHt.value.set(Math.cos(ht), Math.sin(ht));
   // air moving past the surfer, in board space: pushes the shorts back and makes them flap
@@ -1159,17 +1164,17 @@ function placeSurfer(dt) {
   if (dt > 0) { S.vel.subVectors(S.pos, S.prev).divideScalar(dt); S.prev.copy(S.pos); }
 }
 const camP = new V3(0, 3, 14), camL = new V3(0, 1, 0), cT = new V3(), cL = new V3();
-let camLead = 5.6;
+let camLead = 3.6;
 function updateCamera(dt, snap) {
-  const st = G.state;
+  const st = G.state, bz = beerW();      // push in close while the beer goes down
   if (st === 'menu') { cT.set(S.x + 3.4, 1.25, LINE_Z + 4.6); cL.set(S.x + 2.3, 0.75, LINE_Z); }
-  else if (st === 'lineup') { cT.set(S.x + 1.2, 2.3, LINE_Z + 9.5); cL.set(S.x, 1.5, LINE_Z - 6); }
+  else if (st === 'lineup') { cT.set(S.x + 1.2 + 1.6 * bz, 2.3 - 0.9 * bz, LINE_Z + 9.5 - 6 * bz); cL.set(S.x, 1.5 - 0.6 * bz, LINE_Z - 6 + 6 * bz); }
   else {
     const dir = Math.cos(S.phi) >= -0.2 ? 1 : 0.55;
-    camLead += ((G.inBarrel ? 8 : 5.6 * dir) - camLead) * Math.min(1, dt * 1.6);
+    camLead += ((G.inBarrel ? 6 : 3.6 * dir) - camLead) * Math.min(1, dt * 1.6);
     const airH = S.air ? Math.max(0, S.air.h || 0) : 0;
-    cT.set(S.pos.x + camLead, (G.inBarrel ? 1.5 : 2.3) + S.pos.y * 0.28 + airH * 0.25, Math.max(8, S.pos.z + (G.inBarrel ? 8.6 : 9.4) + S.v * 0.12 + airH * 0.8));
-    cL.set(S.pos.x - 0.7, S.pos.y * 0.72 + 1.15, S.pos.z);
+    cT.set(S.pos.x + camLead, (G.inBarrel ? 1.5 : 2.3) + S.pos.y * 0.28 + airH * 0.25, Math.max(4.5, S.pos.z + (G.inBarrel ? 8.6 : 9.4) + S.v * 0.12 + airH * 0.8 - 4.6 * bz));
+    cL.set(S.pos.x + 0.3, S.pos.y * 0.72 + 1.15 + 0.5 * bz, S.pos.z);
   }
   const k = snap ? 1 : Math.min(1, dt * 5);
   camP.lerp(cT, k); camL.lerp(cL, snap ? 1 : Math.min(1, dt * 7));
