@@ -93,7 +93,7 @@
 </div>
 <div class="hud" id="keys" hidden>
   <kbd>D</kbd> turn up &nbsp; <kbd>A</kbd> turn down &nbsp; <kbd>Shift</kbd> hard carve &nbsp; <kbd>Space</kbd> pump / grab<br>
-  <kbd>X</kbd> stall &nbsp; <kbd>E</kbd> beer &nbsp; <kbd>Q</kbd> kick out &nbsp; <kbd>P</kbd> pause &nbsp; <kbd>M</kbd> sound
+  <kbd>X</kbd> stall &nbsp; <kbd>E</kbd> beer &nbsp; <kbd>Q</kbd> grind the lip &nbsp; <kbd>P</kbd> pause &nbsp; <kbd>M</kbd> sound
 </div>
 <div class="hud" id="lineup" hidden>
   <div class="label" id="setLabel">Set incoming</div>
@@ -118,6 +118,7 @@
     <div><kbd>Space</kbd></div><div>Paddle in · pump for speed · grab in the air</div>
     <div>Hit the lip going up</div><div>Launch an air. <kbd>A</kbd> <kbd>D</kbd> spin.</div>
     <div><kbd>X</kbd></div><div>Stall to stay deep in the barrel</div>
+    <div><kbd>Q</kbd> near the top</div><div>Hold to grind the lip like a rail</div>
     <div><kbd>E</kbd></div><div>Chug a (fake) beer for style</div>
     <div><kbd>Enter</kbd></div><div>Start</div>
   </div>
@@ -464,7 +465,7 @@ pGeo.setAttribute('aAlpha', new THREE.BufferAttribute(pAlpha, 1));
 { const sd = new Float32Array(PN); for (let i = 0; i < PN; i++) sd[i] = Math.random(); pGeo.setAttribute('aSeed', new THREE.BufferAttribute(sd, 1)); }
 const pMat = new THREE.ShaderMaterial({
   uniforms: { uTex: { value: softTex }, uScale: { value: 600 } },
-  vertexShader: 'attribute float aSize; attribute float aAlpha; attribute float aSeed; varying float vA; varying float vS; varying float vPx; varying float vSz; uniform float uScale; void main(){ vA=aAlpha; vS=aSeed; vSz=aSize; vec4 mv=modelViewMatrix*vec4(position,1.0); vPx=aSize*uScale/max(0.5,-mv.z); gl_PointSize=vPx; gl_Position=projectionMatrix*mv; }',
+  vertexShader: 'attribute float aSize; attribute float aAlpha; attribute float aSeed; varying float vA; varying float vS; varying float vPx; varying float vSz; uniform float uScale; void main(){ vS=aSeed; vSz=aSize; vec4 mv=modelViewMatrix*vec4(position,1.0); vA=aAlpha*smoothstep(1.5,6.0,-mv.z); vPx=aSize*uScale/max(0.5,-mv.z); gl_PointSize=vPx; gl_Position=projectionMatrix*mv; }',
   // big particles are lumpy puffs of mist, small ones are crisp droplets that catch the sun
   fragmentShader: `varying float vA; varying float vS; varying float vPx; varying float vSz;
 void main(){
@@ -537,7 +538,7 @@ function waveSpray(dt, cx) {
     if (W.spitT <= 0) { W.spitT = rnd(5, 9); W.spit = 0.55; }
     if (W.spit > 0) {
       W.spit -= 1 / 60; colP(W.peelX + 1, sp2);
-      for (let i = 0; i < 14; i++) spawn(W.peelX + rnd(0, 2), rnd(0.25, 0.7) * sp2.H, W.z + rnd(-0.3, 0.4) * sp2.R, rnd(14, 26), rnd(-1, 2.5), rnd(-1, 2.5), rnd(0.7, 1.3), 0.5, 3.2, 1, 0.3);
+      for (let i = 0; i < 8; i++) spawn(W.peelX + rnd(0, 2), rnd(0.25, 0.7) * sp2.H, W.z + rnd(-0.3, 0.4) * sp2.R, rnd(14, 26), rnd(-1, 2.5), rnd(-1, 2.5), rnd(0.7, 1.3), 0.5, 3.2, 1, 0.3);
     }
     // a section that has thrown ahead of the peel
     const sc = W.sec;
@@ -556,7 +557,7 @@ function waveSpray(dt, cx) {
 }
 
 // ---------------------------------------------------------------- the surfer
-const S = { x: 0, s: 0, v: 0, phi: Math.PI / 2, omega: 0, air: null, pumpCd: 0, pumpT: 0, crouch: 0, stand: 0, prone: 0, grab: 0, beer: 0, roll: 0, bob: 0, visible: true, tumble: 0, flail: 0, wipeY: 0, landT: 0,
+const S = { x: 0, s: 0, v: 0, phi: Math.PI / 2, omega: 0, air: null, pumpCd: 0, pumpT: 0, crouch: 0, stand: 0, prone: 0, grab: 0, beer: 0, roll: 0, bob: 0, visible: true, tumble: 0, grind: null, gy: 0, flail: 0, wipeY: 0, landT: 0,
   pos: new V3(), prev: new V3(), vel: new V3(), T: new V3(1, 0, 0), N: new V3(0, 1, 0), Z: new V3(0, 0, 1), th: 0, tn: 0 };
 const surfer = new THREE.Group(); surfer.matrixAutoUpdate = false; scene.add(surfer);
 
@@ -605,18 +606,18 @@ function buildBoard() {
 const board = buildBoard(); surfer.add(board);
 
 const skinMat = new THREE.MeshPhongMaterial({ color: 0xc08a66, shininess: 50, specular: 0x7a6252, emissive: 0x1e110b, side: THREE.DoubleSide });
-const shortsTex = canvasTex(512, 256, (g, w, h) => {
-  g.fillStyle = '#0b2a8f'; g.fillRect(0, 0, w, h);
-  g.fillStyle = '#ff6a3d'; g.beginPath(); g.moveTo(0, h); g.lineTo(w, h * 0.62); g.lineTo(w, h); g.fill();
-  g.fillStyle = '#19d3c5'; g.beginPath(); g.moveTo(0, h * 0.86); g.lineTo(w, h * 0.5); g.lineTo(w, h * 0.62); g.lineTo(0, h * 0.98); g.fill();
-  g.fillStyle = '#f6fbff'; g.fillRect(0, 0, w, h * 0.09);
-  g.font = 'italic 900 50px "Arial Black", Arial, sans-serif'; g.textAlign = 'center'; g.fillStyle = '#fff';
-  g.fillText('BILLABONG', w * 0.25, h * 0.46); g.fillText('BILLABONG', w * 0.75, h * 0.46);
+const shortsTex = canvasTex(512, 256, (g, w, h) => {      // left and right edges of this map land on the outside of each leg
+  g.fillStyle = '#0c0c0e'; g.fillRect(0, 0, w, h);
+  g.fillStyle = '#d3121c'; g.fillRect(0, 0, w * 0.075, h); g.fillRect(w * 0.925, 0, w * 0.075, h);
+  g.fillStyle = '#1b1b1f'; g.fillRect(0, 0, w, h * 0.07);
+  g.font = 'italic 900 30px "Arial Black", Arial, sans-serif'; g.textAlign = 'center'; g.fillStyle = '#fff';
+  g.fillText('BILLABONG', w * 0.5, h * 0.36);
 });
 const shortsMat = new THREE.MeshPhongMaterial({ map: shortsTex, shininess: 12, side: THREE.DoubleSide });
 const sleeveTex = shortsTex.clone(); sleeveTex.needsUpdate = true; sleeveTex.center.set(0.5, 0.5); sleeveTex.rotation = Math.PI / 2;
 const sleeveMat = new THREE.MeshPhongMaterial({ map: sleeveTex, shininess: 12, side: THREE.DoubleSide });
-const hairMat = new THREE.MeshPhongMaterial({ color: 0xf6d77c, emissive: 0x5a3f0a, shininess: 60, specular: 0xfff2b0 });
+const hairTip = new THREE.MeshPhongMaterial({ color: 0xc79d5c, emissive: 0x2c2010, shininess: 35, specular: 0x8a7448 });
+const hairMat = new THREE.MeshPhongMaterial({ color: 0x8d683a, emissive: 0x24180a, shininess: 60, specular: 0xfff2b0 });
 const head = new THREE.Group(); surfer.add(head);
 const hpart = (r, mat, x, y, z, sx, sy, sz) => { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 18, 14), mat); m.position.set(x, y, z); m.scale.set(sx, sy, sz); head.add(m); return m; };
 hpart(0.119, hairMat, -0.03, 0.032, 0, 1.02, 1.08, 0.94);             // hair on the scalp
@@ -858,13 +859,15 @@ function updateBody(dt) {
 }
 
 // blond hair: strands of verlet points dragged through the air
-const HS = 46, HN = 5, SEG = 0.076;
-const hairRoot = [], hP = new Float32Array(HS * HN * 3), hO = new Float32Array(HS * HN * 3), hairSeg = [];
+const HS = 96, HN = 4, SEG = 0.036;      // about 11 cm: short and messy
+const hairDir = [], hdir = new V3(), hairRoot = [], hP = new Float32Array(HS * HN * 3), hO = new Float32Array(HS * HN * 3), hairSeg = [];
 for (let i = 0; i < HS; i++) {
-  const az = lerp(1.0, 5.28, (i + 0.5) / HS) + rnd(-0.1, 0.1), el = rnd(-0.15, 1.2);
+  const az = rnd(0, Math.PI * 2), el = Math.asin(rnd(0.12, 1));
   hairRoot.push(new V3(Math.cos(az) * Math.cos(el) * 0.11 - 0.028, Math.sin(el) * 0.11 + 0.024, Math.sin(az) * Math.cos(el) * 0.11));
+  // each tuft grows out from the scalp, swept forward into a fringe at the front, with some mess
+  hairDir.push(new V3(Math.cos(az) * Math.cos(el) + 0.45 * Math.max(0, Math.cos(az)) + rnd(-0.35, 0.35), Math.sin(el) * 0.9 + rnd(-0.2, 0.3) - 0.5 * Math.max(0, Math.cos(az)) * (1 - Math.sin(el)), Math.sin(az) * Math.cos(el) + rnd(-0.35, 0.35)).normalize());
   for (let k = 0; k < HN - 1; k++) {
-    const m = new THREE.Mesh(new THREE.CylinderGeometry(lerp(0.018, 0.006, (k + 1) / (HN - 1)), lerp(0.018, 0.006, k / (HN - 1)), 1, 5), hairMat);
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(lerp(0.021, 0.007, (k + 1) / (HN - 1)), lerp(0.021, 0.007, k / (HN - 1)), 1, 5), k === HN - 2 ? hairTip : hairMat);
     m.matrixAutoUpdate = false; m.frustumCulled = false; scene.add(m); hairSeg.push(m);
   }
 }
@@ -876,16 +879,19 @@ function updateHair(dt) {
   for (let i = 0; i < HS; i++) {
     const b = i * HN * 3;
     hr.copy(hairRoot[i]).applyMatrix4(head.matrixWorld);
+    hdir.copy(hairRoot[i]).addScaledVector(hairDir[i], 0.1).applyMatrix4(head.matrixWorld).sub(hr).normalize();
     hP[b] = hr.x; hP[b + 1] = hr.y; hP[b + 2] = hr.z;
     for (let k = 1; k < HN; k++) {
       const q = b + k * 3;
-      if (hairReset) { hP[q] = hO[q] = hr.x; hP[q + 1] = hO[q + 1] = hr.y - k * SEG; hP[q + 2] = hO[q + 2] = hr.z; continue; }
+      if (hairReset) { hP[q] = hO[q] = hr.x + hdir.x * k * SEG; hP[q + 1] = hO[q + 1] = hr.y + hdir.y * k * SEG; hP[q + 2] = hO[q + 2] = hr.z + hdir.z * k * SEG; continue; }
       let vx = hP[q] - hO[q], vy = hP[q + 1] - hO[q + 1], vz = hP[q + 2] - hO[q + 2];
       const rel = Math.min(1, 5.5 * dt);                 // air drag: relax toward the wind
       const wx = (0.6 + 0.9 * Math.sin(time * 3.1 + i)) * dt, wy = 0.5 * Math.sin(time * 2.3 + i * 1.7) * dt, wz = (-2.6 + 0.9 * Math.cos(time * 2.7 + i * 0.6)) * dt;
-      vx += (wx - vx) * rel; vy += (wy - vy) * rel - 9 * dt * dt; vz += (wz - vz) * rel;
+      vx += (wx - vx) * rel; vy += (wy - vy) * rel - 4 * dt * dt; vz += (wz - vz) * rel;
       hO[q] = hP[q]; hO[q + 1] = hP[q + 1]; hO[q + 2] = hP[q + 2];
       hP[q] += vx; hP[q + 1] += vy; hP[q + 2] += vz;
+      const stf = Math.min(1, 7 * dt), ks = k * SEG;      // short hair springs back to its shape, the wind still pushes it around
+      hP[q] += (hr.x + hdir.x * ks - hP[q]) * stf; hP[q + 1] += (hr.y + hdir.y * ks - hP[q + 1]) * stf; hP[q + 2] += (hr.z + hdir.z * ks - hP[q + 2]) * stf;
     }
     for (let it = 0; it < 3; it++) for (let k = 1; k < HN; k++) {
       const q = b + k * 3, p = q - 3;
@@ -930,7 +936,7 @@ function updateTrail(dt, laying) {
   while (trail.length && (trail[0].age > TRL || trail.length > TR)) trail.shift();
   if (laying) {
     const l = trail[trail.length - 1];
-    if (!l || Math.hypot(l.x - S.x, l.s - S.s) > 0.35 || l.brk) trail.push({ x: S.x, s: S.s, age: 0, w: 0.1 + Math.min(0.2, Math.abs(S.omega) * 0.06), brk: false });
+    if (!l || Math.hypot(l.x - S.x, l.s - S.s) > 0.35 || l.brk) trail.push({ x: S.x, s: S.s, age: 0, w: 0.06 + Math.min(0.12, Math.abs(S.omega) * 0.04), brk: false });
   } else if (trail.length) trail[trail.length - 1].brk = true;
   let n = 0;
   for (let i = 0; i < trail.length; i++) {
@@ -1019,7 +1025,7 @@ function drawPips() {
 }
 function toLineup(delay) {
   G.state = 'lineup'; ride = null; S.air = null; S.visible = true; S.tumble = 0; S.v = 0; S.omega = 0; S.roll = 0; S.grab = 0;
-  S.phi = Math.PI / 2; trail.length = 0; hairReset = true; S.beer = 0; S.pumpT = 0; S.flail = 0; S.wipeY = 0; S.landT = 0; S.prone = 0;
+  S.phi = Math.PI / 2; trail.length = 0; hairReset = true; S.beer = 0; S.pumpT = 0; S.flail = 0; S.wipeY = 0; S.landT = 0; S.prone = 0; S.grind = null; S.gy = 0;
   board.position.set(0, 0, 0); board.rotation.set(0, 0, 0);
   newSet(delay);
   show('lineup', true); show('tl', false); show('bl', false); show('keys', false); show('summary', false); $('live').textContent = '';
@@ -1060,7 +1066,7 @@ function endRide(kind) {
   if (G.mode === 'heat') { G.rides.push(sc); $('sumBig').textContent = sc.toFixed(1); $('sumSub').textContent = `${fmt(pts)} style points · ${ft(W.H)} ft wave`; }
   else { G.rides.push(pts); G.total += pts; $('sumBig').textContent = fmt(pts); $('sumSub').textContent = `${ride.moves} moves · ${ft(W.H)} ft wave`; }
   if (kind === 'wipeout') { S.visible = true; S.s = -5; S.stand = 0; S.prone = 1; S.phi = 0.5; hairReset = true; }     // surfaces, back on the board
-  S.tumble = 0; S.flail = 0; S.wipeY = 0; S.air = null; board.position.set(0, 0, 0); board.rotation.set(0, 0, 0);
+  S.tumble = 0; S.flail = 0; S.wipeY = 0; S.air = null; S.grind = null; board.position.set(0, 0, 0); board.rotation.set(0, 0, 0);
   G.state = 'summary'; G.stT = 0; show('summary', true); $('live').textContent = ''; hudRight();
 }
 function showResults() {
@@ -1109,7 +1115,7 @@ function finishFloat() {
 }
 function wipeout(why) {
   if (G.state !== 'ride') return;
-  G.state = 'wipe'; G.stT = 0; S.air = null; S.beer = 0; popup(why, 0, true); blip(140, 0.5);
+  G.state = 'wipe'; G.stT = 0; S.air = null; S.beer = 0; S.grind = null; popup(why, 0, true); blip(140, 0.5);
   if (ride) { ride.carve = null; ride.barrelT = 0; ride.floatT = 0; ride.mult = 1; }
   for (let i = 0; i < 90; i++) spawn(S.pos.x + rnd(-0.6, 0.6), S.pos.y + rnd(0, 0.8), S.pos.z + rnd(-0.3, 0.6), rnd(-4, 4), rnd(2, 9), rnd(-1, 5), rnd(0.7, 1.4), 0.5, 2.2, 10, 0.9);
 }
@@ -1129,12 +1135,28 @@ function rideStep(dt) {
     if (sc.b >= 1 && W.peelX >= sc.l - 2.5) { W.peelX = Math.max(W.peelX, sc.r); W.sec = null; W.secT = rnd(11, 18); }
   }
   if (W.t > W.dur) { W.amp = 1 - 0.78 * sstep(0, 3.2, W.t - W.dur); if (W.t > W.dur + 3.2) return endRide('complete'); }
-  if (pressed.KeyQ) return endRide('kickout');
 
   const ix = (held('ArrowRight', 'KeyD') ? 1 : 0) - (held('ArrowLeft', 'KeyA') ? 1 : 0);
   const iy = (held('ArrowUp', 'KeyW') ? 1 : 0) - (held('ArrowDown', 'KeyS') ? 1 : 0);
   const hard = held('ShiftLeft', 'ShiftRight');
   S.pumpCd -= dt; S.pumpT = Math.max(0, S.pumpT - dt * 1.7);
+
+  // Q: grind the lip like a rail. Board sideways on the crest, crouched low.
+  colP(S.x, sp2);
+  const canG = sp2.thMax < 1.8 && sp2.broken < 0.3 && W.amp > 0.6, wantG = held('KeyQ') && !S.air;
+  if (S.grind && (!wantG || !canG)) {
+    if (S.grind.t > 0.3) award('Lip Grind ' + S.grind.t.toFixed(1) + 's', 420 * S.grind.t);
+    S.phi = S.grind.dir > 0 ? -0.5 : Math.PI + 0.5; S.s = sp2.sLip - 0.45; S.grind = null; S.landT = 0.7;
+  } else if (!S.grind && wantG && canG && S.s > 0.5 * sp2.sLip) { S.grind = { t: 0, dir: Math.cos(S.phi) >= 0 ? 1 : -1 }; finishCarve(); finishFloat(); blip(600, 0.12); }
+  if (S.grind) {
+    const gr = S.grind; gr.t += dt;
+    S.v = Math.max(4.5, S.v - 0.5 * dt); S.x += S.v * gr.dir * dt; colP(S.x, sp2);
+    S.s += (sp2.sLip - 0.06 - S.s) * Math.min(1, dt * 14); S.phi = gr.dir > 0 ? 0 : Math.PI; S.omega = 0; S.tn = 1; G.inBarrel = false;
+    ride.comboT = Math.max(ride.comboT, 1.5);
+    for (let i = 0; i < 5; i++) spawn(S.pos.x + rnd(-0.7, 0.7), S.pos.y + 0.05, S.pos.z + rnd(-0.2, 0.2), -gr.dir * rnd(1, 5), rnd(1.5, 5), rnd(-4, 3), rnd(0.5, 0.9), 0.05, 0.16, 9.8, 0.9);
+    if (Math.random() < 0.15) spawn(S.pos.x - gr.dir * 0.8, S.pos.y, S.pos.z - 0.3, -gr.dir * rnd(1, 3), rnd(1, 3), rnd(-3, -1), rnd(0.5, 0.8), 0.25, 0.9, 4, 0.2);
+    return;
+  }
 
   if (S.air) return airStep(dt, ix);
 
@@ -1268,7 +1290,8 @@ function lineupStep(dt, playable) {
 // ---------------------------------------------------------------- per-frame placement
 const up = new V3(0, 1, 0), nV = new V3(), mS = new THREE.Matrix4();
 function placeSurfer(dt) {
-  let th = 0, h = S.phi;
+  S.gy += ((S.grind ? 1.45 : 0) - S.gy) * Math.min(1, dt * 12);
+  let th = 0, h = S.phi + S.gy;
   if (G.state === 'lineup' || G.state === 'menu') S.pos.set(S.x, 0.02 + S.bob, LINE_Z);
   else if (S.air) {
     colP(S.x, sp2); surfPt(S.x, sp2.sLip, sp); th = sp.th;
@@ -1347,7 +1370,7 @@ function step(dt) {
     rideStep(dt);
     if (ride) {
       if (ride.comboT > 0) { ride.comboT -= dt; if (ride.comboT <= 0) { ride.mult = 1; ride.last = ''; } }
-      let tc = S.air ? (S.grab > 0.3 ? 0.95 : 0.45) : S.pumpT > 0 ? pumpCurve() : G.inBarrel ? 0.8 : 0.28 + Math.abs(S.omega) * 0.07 + (held('KeyX') ? 0.3 : 0);
+      let tc = S.grind ? 0.92 : S.air ? (S.grab > 0.3 ? 0.95 : 0.45) : S.pumpT > 0 ? pumpCurve() : G.inBarrel ? 0.8 : 0.28 + Math.abs(S.omega) * 0.07 + (held('KeyX') ? 0.3 : 0);
       if (!S.air) tc += 0.07 * Math.sin(time * 9.3) * Math.sin(time * 5.1) * clamp(S.v / 10, 0, 1);    // knees soaking up the chop
       tc = Math.max(tc, 0.97 * S.landT); S.landT = Math.max(0, S.landT - dt * 2.4);                       // and the landing
       S.crouch += (tc - S.crouch) * Math.min(1, dt * (S.pumpT > 0 || S.landT > 0.5 ? 20 : 9));
@@ -1355,7 +1378,7 @@ function step(dt) {
       $('mult').textContent = ride.mult > 1 ? '×' + ride.mult.toFixed(ride.mult % 1 ? 2 : 0).replace(/0$/, '') + ' combo' : '';
       $('combo').firstChild.style.width = (ride.mult > 1 ? clamp(ride.comboT / 5, 0, 1) * 100 : 0) + '%';
       $('speed').textContent = Math.round(S.v * 3.6) + ' km/h';
-      $('live').textContent = G.inBarrel && ride.barrelT > 0.3 ? 'In the barrel · ' + ride.barrelT.toFixed(1) + 's'
+      $('live').textContent = S.grind ? 'Lip grind · ' + S.grind.t.toFixed(1) + 's' : G.inBarrel && ride.barrelT > 0.3 ? 'In the barrel · ' + ride.barrelT.toFixed(1) + 's'
         : S.air ? (Math.abs(S.air.spin) > 100 ? Math.round(Math.abs(S.air.spin) / 180) * 180 + '° ' : '') + 'Air ' + Math.max(0, S.air.maxH).toFixed(1) + ' m' + (S.air.grabT > 0.25 ? ' · grab' : '')
         : ride.foamT > 0.15 ? 'In the white water · get out!' : ride.floatT > 0.3 ? 'Floater' : '';
     }
