@@ -191,7 +191,7 @@ for (let i = 0; i < 9; i++) {
 
 // the sun, low over the horizon behind the wave
 const sunSpr = [];
-for (const [sz, op, col] of [[190, 1, 0xffffff], [620, 0.55, 0xfff1c4], [1700, 0.22, 0xffe9b0]]) {
+for (const [sz, op, col] of [[120, 1, 0xffffff], [380, 0.5, 0xfff1c4], [1300, 0.2, 0xffe9b0]]) {
   const sp_ = new THREE.Sprite(new THREE.SpriteMaterial({ map: softTex, color: col, opacity: op, fog: false, depthWrite: false, blending: THREE.AdditiveBlending }));
   sp_.scale.set(sz, sz, 1); sp_.userData.sun = true; scene.add(sp_); sunSpr.push(sp_);
 }
@@ -304,7 +304,7 @@ function makeWater(o) {
     defines: o.vcol ? {} : { WORLDUV: 1 }
   });
 }
-const waterMat = makeWater({ vcol: true, rip: 0.05 });
+const waterMat = makeWater({ vcol: true, rip: 0.038 });
 
 function gridGeo(cols, rows) {
   const g = new THREE.BufferGeometry();
@@ -382,7 +382,7 @@ function updateWave(cx) {
 }
 
 // open ocean + the other waves of the set stacked up behind
-const ocean = new THREE.Mesh(new THREE.PlaneGeometry(3200, 3200), makeWater({ rip: 0.05 }));
+const ocean = new THREE.Mesh(new THREE.PlaneGeometry(3200, 3200), makeWater({ rip: 0.038 }));
 ocean.material.uniforms.uCol.value.setRGB(CB[0], CB[1], CB[2]);
 ocean.rotation.x = -Math.PI / 2; ocean.position.y = -0.05; scene.add(ocean);
 const ridges = [];
@@ -666,7 +666,7 @@ function updateTrail(dt, laying) {
   while (trail.length && (trail[0].age > 2.6 || trail.length > TR)) trail.shift();
   if (laying) {
     const l = trail[trail.length - 1];
-    if (!l || Math.hypot(l.x - S.x, l.s - S.s) > 0.35 || l.brk) trail.push({ x: S.x, s: S.s, age: 0, w: 0.06 + Math.min(0.2, Math.abs(S.omega) * 0.055), brk: false });
+    if (!l || Math.hypot(l.x - S.x, l.s - S.s) > 0.35 || l.brk) trail.push({ x: S.x, s: S.s, age: 0, w: 0.04 + Math.min(0.12, Math.abs(S.omega) * 0.035), brk: false });
   } else if (trail.length) trail[trail.length - 1].brk = true;
   let n = 0;
   for (let i = 0; i < trail.length; i++) {
