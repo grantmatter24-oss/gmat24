@@ -92,7 +92,7 @@
   <div id="speed">0 km/h</div>
 </div>
 <div class="hud" id="keys" hidden>
-  <kbd>←↑↓→</kbd> carve &nbsp; <kbd>Shift</kbd> hard carve &nbsp; <kbd>Space</kbd> pump / grab<br>
+  <kbd>D</kbd> turn up &nbsp; <kbd>A</kbd> turn down &nbsp; <kbd>Shift</kbd> hard carve &nbsp; <kbd>Space</kbd> pump / grab<br>
   <kbd>X</kbd> stall &nbsp; <kbd>Q</kbd> kick out &nbsp; <kbd>P</kbd> pause &nbsp; <kbd>M</kbd> sound
 </div>
 <div class="hud" id="lineup" hidden>
@@ -111,10 +111,12 @@
     <button id="bHeat"><b>Contest Heat</b><small>3 minutes. Judges score 0–10. Best two waves count.</small></button>
   </div>
   <div class="legend">
-    <div><kbd>←</kbd> <kbd>↑</kbd> <kbd>↓</kbd> <kbd>→</kbd> / WASD</div><div>Point the board. Turn hard for spray.</div>
+    <div><kbd>D</kbd> or <kbd>→</kbd></div><div>Turn up the wave face</div>
+    <div><kbd>A</kbd> or <kbd>←</kbd></div><div>Turn down the wave face</div>
+    <div><kbd>W</kbd> / <kbd>S</kbd></div><div>Aim straight up / straight down</div>
     <div><kbd>Shift</kbd></div><div>Hard carve: tighter turn, bigger fan</div>
     <div><kbd>Space</kbd></div><div>Paddle in · pump for speed · grab in the air</div>
-    <div><kbd>↑</kbd> at the lip</div><div>Launch an air. <kbd>←</kbd> <kbd>→</kbd> spin.</div>
+    <div>Hit the lip going up</div><div>Launch an air. <kbd>A</kbd> <kbd>D</kbd> spin.</div>
     <div><kbd>X</kbd></div><div>Stall to stay deep in the barrel</div>
     <div><kbd>Enter</kbd></div><div>Start</div>
   </div>
@@ -201,7 +203,7 @@ for (const [sz, op, col] of [[120, 1, 0xffffff], [380, 0.5, 0xfff1c4], [1300, 0.
 // Surface coordinate s: metres up the face from the trough (negative = flat water in front).
 const C_UP = 3.0;      // water is drawn up the face at this speed; it is what keeps you on the wave
 const TH_B = 3.95;     // lip angle (radians of arc) when the barrel is fully thrown
-const NI = 220, JF = 14, JA = 30, NJ = JF + JA, NB = 6, FLAT = 46, LINE_Z = 2.5;
+const NI = 240, JF = 14, JA = 46, NJ = JF + JA, NB = 6, FLAT = 46, LINE_Z = 2.5;
 const W = { z: -200, H: 4.6, amp: 1, open: 1.25, breaking: false, peelX: 0, peelV: 8.5, curlW: 10, seed: 0, t: 0, dur: 45, dx: 1.6 };
 let time = 0;
 const cp = {}, sp = {}, sp2 = {};
@@ -265,7 +267,8 @@ uniform float uTime; uniform vec3 uSun; uniform vec3 uCol; uniform sampler2D uTe
 varying vec3 vW; varying vec3 vN; varying vec2 vUv; varying vec3 vC; varying float vD;
 float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float noise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
-  return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y); }
+  i = mod(i, 256.0); vec2 j = mod(i + 1.0, 256.0);
+  return mix(mix(hash(i), hash(vec2(j.x, i.y)), f.x), mix(hash(vec2(i.x, j.y)), hash(j), f.x), f.y); }
 float hgt(vec2 p){ return noise(p * 9.0 + vec2(uTime * 0.7, uTime * 0.4)) * 0.6 + noise(p * 23.0 - vec2(uTime * 1.1, -uTime * 0.5)) * 0.3 + noise(p * 61.0 + uTime) * 0.12; }
 void main(){
   #ifdef USE_COLOR
@@ -275,24 +278,31 @@ void main(){
   #endif
   vec3 N = normalize(vN); if (!gl_FrontFacing) N = -N;
   vec3 V = normalize(cameraPosition - vW);
-  vec2 uvw = mod(vUv, 64.0);
+  vec2 uvw = vUv;
   float e = 0.004, h0 = hgt(uvw);
   vec2 g = vec2(hgt(uvw + vec2(e, 0.0)) - h0, hgt(uvw + vec2(0.0, e)) - h0) / e;
   vec3 T = vec3(1.0, 0.0, 0.0), B = normalize(cross(N, T));
   vec3 Np = normalize(N - (T * g.x + B * g.y) * uRip / (1.0 + vD * 0.01));
-  float foam = smoothstep(0.62, 0.9, min(col.r, col.g));
+  float fn = noise(uvw * 34.0 + vec2(0.0, uTime * 0.15)) * 0.6 + noise(uvw * 83.0) * 0.4;
+  float fw = smoothstep(0.4, 0.93, min(col.r, col.g));
+  float foam = smoothstep(fn * 0.9, fn * 0.9 + 0.25, fw * 1.15) * step(0.02, fw);   // lacy foam edges
   float F = 0.03 + 0.97 * pow(1.0 - max(dot(Np, V), 0.0), 5.0);
   vec3 Rf = reflect(-V, Np);
   vec3 sky = mix(vec3(0.84, 0.94, 1.0), vec3(0.27, 0.56, 0.93), clamp(Rf.y * 1.4, 0.0, 1.0));
   sky = mix(col * 0.8, sky, smoothstep(-0.25, 0.05, Rf.y));
   float dif = max(dot(Np, uSun), 0.0);
-  vec3 body = col * mix(vec3(1.0), texture2D(uTex, vUv).rgb, 0.55) * (0.78 + 0.45 * dif);
+  #ifdef WORLDUV
+  float streak = noise(uvw * 21.0);
+  #else
+  float streak = noise(vec2(uvw.x * 46.0, uvw.y * 5.0)) * 0.6 + noise(vec2(uvw.x * 110.0, uvw.y * 11.0)) * 0.4;   // water stretched up the face
+  #endif
+  vec3 body = col * (0.84 + 0.26 * streak) * (0.78 + 0.45 * dif);
   float back = pow(max(dot(V, -uSun) * 0.5 + 0.5, 0.0), 2.0);
   body += vec3(0.06, 0.5, 0.52) * back * 0.4 * smoothstep(0.42, 0.8, col.g);
   vec3 c = mix(body, sky, F * 0.8);
   float rs = max(dot(Rf, uSun), 0.0);
   c += vec3(1.0, 0.95, 0.82) * (pow(rs, 260.0) * 7.0 + pow(rs, 28.0) * 0.4);
-  vec3 fc = vec3(0.97, 0.985, 1.0) * (0.8 + 0.25 * dif + 0.12 * h0);
+  vec3 fc = mix(vec3(0.66, 0.78, 0.9), vec3(1.0), clamp(0.45 + 0.35 * dif + 0.5 * fn, 0.0, 1.0));
   c = mix(c, fc, foam);
   c = mix(c, uFog, smoothstep(180.0, 1100.0, vD));
   gl_FragColor = vec4(c, 1.0);
@@ -342,26 +352,28 @@ function updateWave(cx) {
         const f = j / JF, zf = FLAT * Math.pow(1 - f, 1.8);
         z = zf; s = -zf;
         y = (0.04 + 0.04 * Math.sin(x * 0.9 + t * 1.7) * Math.sin(zf * 0.8 - t * 2.4)) * (1 - f);
-        let fo = br * sstep(17, 2, zf) * (0.7 + 0.3 * Math.sin(x * 0.8 + zf * 1.3 - t * 3) * n2);
+        let fo = br * sstep(30, 2, zf) * (0.75 + 0.25 * Math.sin(x * 0.8 + zf * 1.3 - t * 3) * n2);
         fo = Math.max(fo, cu * cu * sstep(4.5, 0.5, zf) * 0.3);
         r = lerp(CB[0], 0.95, fo); g = lerp(CB[1], 0.97, fo); b = lerp(CB[2], 1, fo);
       } else {
         const tn = (j - JF) / JA, th = tn * thM;
         z = -R * Math.sin(th); y = R * (1 - Math.cos(th)); s = tn * cp.sLip;
+        y += sstep(0.8, 1, tn) * 0.03 * H * (n1 * n2 + 0.6 * Math.sin(x * 1.6 - t * 2.2));      // ragged, feathering lip
+        z += 0.05 * Math.sin(x * 0.9 + tn * 7 - t * 1.5) * Math.sin(x * 0.37 + t) * Math.sin(Math.PI * tn);   // chop on the face
         const hf = clamp(y / H, 0, 1);
         if (hf < 0.5) { const q = hf * 2; r = lerp(CB[0], CM[0], q); g = lerp(CB[1], CM[1], q); b = lerp(CB[2], CM[2], q); }
         else { const q = hf * 2 - 1; r = lerp(CM[0], CT[0], q); g = lerp(CM[1], CT[1], q); b = lerp(CM[2], CT[2], q); }
         const lw = sstep(0.9, 1, tn) * (0.55 + 0.45 * cu) * (0.75 + 0.25 * n1);
         r = lerp(r, 0.96, lw); g = lerp(g, 0.98, lw); b = lerp(b, 1, lw);
         if (br > 0) {
-          const sn = Math.sin(Math.PI * tn), tur = 1 + 0.22 * Math.sin(x * 1.3 + t * 5 + tn * 6) * n2;
+          const sn = Math.sin(Math.PI * tn), tur = (1 + 0.3 * Math.sin(x * 1.3 + t * 5 + tn * 6) * n2 + 0.16 * Math.sin(x * 3.1 - t * 7 + tn * 11)) * (1 + 0.5 * Math.exp(Math.min(0, cp.d) / 7));
           z = lerp(z, -5 * tn + 2.2 * sn, br); y = lerp(y, H * 0.5 * Math.pow(sn, 0.7) * tur, br);
           const shd = 0.84 + 0.16 * Math.sin(x * 2.1 + tn * 9 - t * 6) * n1;
           r = lerp(r, 0.93 * shd, br); g = lerp(g, 0.96 * shd, br); b = lerp(b, shd, br);
         }
       }
       P[k] = x; P[k + 1] = y; P[k + 2] = z; C[k] = r; C[k + 1] = g; C[k + 2] = b; k += 3;
-      U[ku++] = x * 0.09; U[ku++] = s * 0.09 - t * C_UP * 0.09;
+      U[ku++] = x * 0.09; U[ku++] = s * 0.09 - (t * C_UP * 0.09) % 256;
     }
     // back of the wave, sloping away out to sea
     const thb = Math.min(thM, 2.0);
@@ -443,7 +455,7 @@ function waveSpray(dt, cx) {
     }
     if (!W.breaking) continue;
     // where the lip lands: the impact zone
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 6; i++) {
       const x = W.peelX + rnd(-1.5, 3.5);
       spawn(x, rnd(0.1, 1.2), W.z + rnd(0.3, 2.8), rnd(-2, 3.5), rnd(3, 9) * W.amp, rnd(0.5, 5), rnd(0.9, 1.7), 0.9, 3.0, 9, 0.8);
     }
@@ -452,6 +464,8 @@ function waveSpray(dt, cx) {
       const x = W.peelX + rnd(0.3, W.curlW * 0.55); colP(x, sp2); surfPt(x, sp2.sLip, sp);
       spawn(sp.x, sp.y, sp.z, rnd(-0.5, 0.5), rnd(-1, 1), rnd(0.5, 2), rnd(0.4, 0.8), 0.3, 0.8, 9, 0.6);
     }
+    // mist hanging over the white water
+    for (let i = 0; i < 2; i++) spawn(W.peelX - rnd(0, 40), rnd(1, 2.6) * W.amp, W.z + rnd(-2, 2.5), rnd(-0.5, 1.5), rnd(0.5, 2), rnd(-2, 0.5), rnd(1.6, 2.6), 2.2, 6, 0.4, 0.22);
     // rolling white water
     for (let i = 0; i < 6; i++) {
       const x = W.peelX - rnd(1, 46);
@@ -475,7 +489,7 @@ function buildBoard() {
     for (let i = 0; i <= NA; i++) for (let j = 0; j <= NC; j++) {
       const a = i / NA, c = -1 + 2 * j / NC, th = thick(a);
       const y = rocker(a) + (top ? th * 0.5 * (1 - Math.pow(Math.abs(c), 2.5)) : -th * 0.5 * (1 - Math.pow(Math.abs(c), 4)));
-      pos.push((a - 0.46) * L, y, c * halfW(a)); uv.push(a, j / NC);
+      pos.push((a - 0.46) * L, y, c * halfW(a)); uv.push(a, 1 - j / NC);
     }
     for (let i = 0; i < NA; i++) for (let j = 0; j < NC; j++) {
       const a = i * (NC + 1) + j, b = a + NC + 1;
@@ -509,7 +523,7 @@ function buildBoard() {
 }
 const board = buildBoard(); surfer.add(board);
 
-const skinMat = new THREE.MeshPhongMaterial({ color: 0xd99a66, shininess: 25, specular: 0x553322, emissive: 0x2a1508 });
+const skinMat = new THREE.MeshPhongMaterial({ color: 0xc08a66, shininess: 50, specular: 0x7a6252, emissive: 0x1e110b, side: THREE.DoubleSide });
 const shortsTex = canvasTex(512, 256, (g, w, h) => {
   g.fillStyle = '#0b2a8f'; g.fillRect(0, 0, w, h);
   g.fillStyle = '#ff6a3d'; g.beginPath(); g.moveTo(0, h); g.lineTo(w, h * 0.62); g.lineTo(w, h); g.fill();
@@ -518,23 +532,38 @@ const shortsTex = canvasTex(512, 256, (g, w, h) => {
   g.font = 'italic 900 50px "Arial Black", Arial, sans-serif'; g.textAlign = 'center'; g.fillStyle = '#fff';
   g.fillText('BILLABONG', w * 0.25, h * 0.46); g.fillText('BILLABONG', w * 0.75, h * 0.46);
 });
-const shortsMat = new THREE.MeshPhongMaterial({ map: shortsTex, shininess: 12 });
-const hairMat = new THREE.MeshPhongMaterial({ color: 0xffdf7a, emissive: 0x6b4a08, shininess: 60, specular: 0xfff2b0 });
+const shortsMat = new THREE.MeshPhongMaterial({ map: shortsTex, shininess: 12, side: THREE.DoubleSide });
+const sleeveTex = shortsTex.clone(); sleeveTex.needsUpdate = true; sleeveTex.center.set(0.5, 0.5); sleeveTex.rotation = Math.PI / 2;
+const sleeveMat = new THREE.MeshPhongMaterial({ map: sleeveTex, shininess: 12, side: THREE.DoubleSide });
+const hairMat = new THREE.MeshPhongMaterial({ color: 0xf6d77c, emissive: 0x5a3f0a, shininess: 60, specular: 0xfff2b0 });
 const cyl = (rt, rb, mat) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, 1, 12), mat); m.matrixAutoUpdate = false; surfer.add(m); return m; };
+// a limb with muscle shape: radii listed from the start joint to the end joint
+const lathe = (rs, mat, seg = 14) => {
+  const pts = new THREE.SplineCurve(rs.map((r, i) => new THREE.Vector2(r, i / (rs.length - 1) - 0.5))).getPoints(16);
+  const m = new THREE.Mesh(new THREE.LatheGeometry(pts, seg), mat); m.matrixAutoUpdate = false; surfer.add(m); return m;
+};
+const THIGH = [0.09, 0.094, 0.084, 0.068, 0.058], CALF = [0.055, 0.067, 0.062, 0.046, 0.038], UARM = [0.054, 0.059, 0.05, 0.042], FARM = [0.041, 0.047, 0.038, 0.029], SLEEVE = [0.098, 0.1, 0.102, 0.1];
 const body = {
-  torso: cyl(0.175, 0.125, skinMat), neck: cyl(0.045, 0.05, skinMat),
-  thF: cyl(0.062, 0.078, skinMat), thB: cyl(0.062, 0.078, skinMat), shF: cyl(0.04, 0.056, skinMat), shB: cyl(0.04, 0.056, skinMat),
-  srF: cyl(0.088, 0.095, shortsMat), srB: cyl(0.088, 0.095, shortsMat),
-  uaF: cyl(0.04, 0.05, skinMat), uaB: cyl(0.04, 0.05, skinMat), laF: cyl(0.032, 0.04, skinMat), laB: cyl(0.032, 0.04, skinMat)
+  torso: lathe([0.118, 0.134, 0.126, 0.14, 0.172, 0.196, 0.19, 0.12], skinMat, 20), neck: cyl(0.046, 0.055, skinMat),
+  thF: lathe(THIGH, skinMat), thB: lathe(THIGH, skinMat), shF: lathe(CALF, skinMat), shB: lathe(CALF, skinMat),
+  srF: lathe(SLEEVE, sleeveMat), srB: lathe(SLEEVE, sleeveMat),
+  uaF: lathe(UARM, skinMat), uaB: lathe(UARM, skinMat), laF: lathe(FARM, skinMat), laB: lathe(FARM, skinMat)
 };
 const ball = (r, mat, sx = 1, sy = 1, sz = 1) => { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 16, 12), mat); m.scale.set(sx, sy, sz); surfer.add(m); return m; };
-const pelvis = ball(0.15, shortsMat, 1.12, 0.9, 0.86), chestL = ball(0.06, skinMat), chestR = ball(0.06, skinMat);
-const handF = ball(0.045, skinMat), handB = ball(0.045, skinMat), footF = ball(0.06, skinMat, 0.8, 0.5, 1.7), footB = ball(0.06, skinMat, 0.8, 0.5, 1.7);
+const pelvis = ball(0.14, shortsMat, 1.08, 0.82, 0.84), chestL = ball(0.06, skinMat), chestR = ball(0.06, skinMat);
+const kneeF = ball(0.059, skinMat), kneeB = ball(0.059, skinMat), elbF = ball(0.043, skinMat), elbB = ball(0.043, skinMat), ankF = ball(0.04, skinMat), ankB = ball(0.04, skinMat);
+const handF = ball(0.047, skinMat, 1, 0.6, 1.25), handB = ball(0.047, skinMat, 1, 0.6, 1.25), footF = ball(0.062, skinMat, 0.78, 0.42, 2.0), footB = ball(0.062, skinMat, 0.78, 0.42, 2.0);
 const head = new THREE.Group(); surfer.add(head);
-head.add(new THREE.Mesh(new THREE.SphereGeometry(0.105, 18, 14), skinMat));
-const cap = new THREE.Mesh(new THREE.SphereGeometry(0.116, 18, 14), hairMat); cap.position.set(-0.028, 0.024, 0); head.add(cap);
-const fringe = new THREE.Mesh(new THREE.SphereGeometry(0.07, 12, 10), hairMat); fringe.position.set(0.05, 0.075, 0); fringe.scale.set(1, 0.55, 1.35); head.add(fringe);
-for (const z of [-0.04, 0.04]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.013, 8, 6), new THREE.MeshBasicMaterial({ color: 0x1a2440 })); e.position.set(0.098, 0.012, z); head.add(e); }
+const hpart = (r, mat, x, y, z, sx, sy, sz) => { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 18, 14), mat); m.position.set(x, y, z); m.scale.set(sx, sy, sz); head.add(m); return m; };
+hpart(0.105, skinMat, 0, 0, 0, 1.02, 1.14, 0.9);                      // skull
+hpart(0.078, skinMat, 0.028, -0.068, 0, 1, 0.82, 0.86);               // jaw
+hpart(0.018, skinMat, 0.108, -0.012, 0, 1, 1.4, 0.8);                 // nose
+for (const z of [-0.094, 0.094]) hpart(0.022, skinMat, -0.005, -0.008, z, 0.6, 1.2, 0.5);   // ears
+hpart(0.119, hairMat, -0.03, 0.032, 0, 1.02, 1.08, 0.94);             // hair on the scalp
+hpart(0.07, hairMat, 0.052, 0.082, 0, 1, 0.55, 1.35);                 // fringe
+for (const z of [-0.038, 0.038]) hpart(0.012, new THREE.MeshBasicMaterial({ color: 0x1a2440 }), 0.098, 0.02, z, 1, 1, 1);
+const leashGeo = new THREE.BufferGeometry(); leashGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(30), 3));
+const leash = new THREE.Line(leashGeo, new THREE.LineBasicMaterial({ color: 0x0b1530 })); leash.frustumCulled = false; surfer.add(leash);
 
 // joints, solved procedurally each frame in board space (x = nose, y = up, z = heel side)
 const J = {}; for (const n of ['hip', 'hipF', 'hipB', 'knF', 'knB', 'ftF', 'ftB', 'neck', 'head', 'shF', 'shB', 'elF', 'elB', 'haF', 'haB']) J[n] = new V3();
@@ -547,7 +576,7 @@ function ik(a, b, l1, l2, bend, out) {
   return out.copy(a).addScaledVector(tA, a1).addScaledVector(tB, h);
 }
 const bendV = new V3();
-function poseStand(o, c, lean, arms, grab) {
+function poseStand(o, c, lean, arms, grab, tw) {
   o.ftF.set(0.33, 0.05, 0); o.ftB.set(-0.4, 0.05, 0);
   o.hip.set(-0.04, 0.87 - 0.37 * c, 0.03 - 0.2 * lean);
   o.hipF.copy(o.hip).x += 0.1; o.hipB.copy(o.hip).x -= 0.1;
@@ -555,9 +584,10 @@ function poseStand(o, c, lean, arms, grab) {
   const bend = 0.24 + 0.6 * c;
   o.neck.set(o.hip.x + 0.07, o.hip.y + 0.5 * Math.cos(bend), o.hip.z - 0.5 * Math.sin(bend) - 0.1 * lean);
   o.head.set(o.neck.x + 0.04, o.neck.y + 0.19, o.neck.z - 0.02);
-  o.shF.set(o.neck.x + 0.19, o.neck.y - 0.05, o.neck.z - 0.07); o.shB.set(o.neck.x - 0.19, o.neck.y - 0.05, o.neck.z + 0.07);
-  o.haF.set(o.shF.x + 0.4, o.shF.y - 0.1 + 0.36 * arms, o.shF.z - 0.16);
-  o.haB.set(lerp(o.shB.x - 0.38, -0.12, grab), lerp(o.shB.y + 0.02 + 0.45 * arms, 0.07, grab), lerp(o.shB.z - 0.14, -0.26, grab));
+  const ct = Math.cos(tw) * 0.2, stw = Math.sin(tw) * 0.2;   // shoulders wind into the turn
+  o.shF.set(o.neck.x + ct, o.neck.y - 0.05, o.neck.z - 0.07 - stw); o.shB.set(o.neck.x - ct, o.neck.y - 0.05, o.neck.z + 0.07 + stw);
+  o.haF.set(o.shF.x + 0.46, o.shF.y - 0.17 + 0.24 * arms, o.shF.z - 0.16);
+  o.haB.set(lerp(o.shB.x - 0.44, -0.12, grab), lerp(o.shB.y - 0.1 + 0.3 * arms, 0.07, grab), lerp(o.shB.z - 0.14, -0.26, grab));
   ik(o.shF, o.haF, 0.29, 0.27, bendV.set(0, -1, 0.4), o.elF); ik(o.shB, o.haB, 0.29, 0.27, bendV.set(-0.4, -1, 0.5), o.elB);
 }
 function poseSit(o, t) {
@@ -591,30 +621,38 @@ const sideX = new V3(1, 0, 0), sideZ = new V3(0, 0, 1), tE = new V3(), tF = new 
 function updateBody(dt) {
   const st = S.stand, pr = S.prone, si = Math.max(0, 1 - st - pr);
   const arms = clamp(Math.abs(S.omega) * 0.16 + (S.air ? 0.7 : 0) + S.pumpT * 1.2, 0, 1);
-  poseStand(A, clamp(S.crouch, 0, 1), clamp(-S.roll * 1.2, -1, 1), arms, S.grab); poseSit(B, time); poseProne(C, time);
+  poseStand(A, clamp(S.crouch, 0, 1), clamp(-S.roll * 1.2, -1, 1), arms, S.grab, clamp(S.omega * 0.16, -0.6, 0.6)); poseSit(B, time); poseProne(C, time);
   for (const n in J) J[n].set(0, 0, 0).addScaledVector(A[n], st).addScaledVector(B[n], si).addScaledVector(C[n], pr);
   tE.subVectors(J.shB, J.shF);
   limb(body.torso, J.hip, J.neck, tE, 0.62);
   tF.copy(J.neck).lerp(J.head, 0.75); limb(body.neck, J.neck, tF, sideX);
   limb(body.thF, J.hipF, J.knF, sideX); limb(body.thB, J.hipB, J.knB, sideX);
   limb(body.shF, J.knF, J.ftF, sideX); limb(body.shB, J.knB, J.ftB, sideX);
-  tF.copy(J.hipF).lerp(J.knF, 0.8); limb(body.srF, J.hipF, tF, sideZ); tF.copy(J.hipB).lerp(J.knB, 0.8); limb(body.srB, J.hipB, tF, sideZ);
+  tF.copy(J.hipF).lerp(J.knF, 0.84); limb(body.srF, tF, J.hipF, sideZ); tF.copy(J.hipB).lerp(J.knB, 0.84); limb(body.srB, tF, J.hipB, sideZ);
   limb(body.uaF, J.shF, J.elF, sideX); limb(body.uaB, J.shB, J.elB, sideX); limb(body.laF, J.elF, J.haF, sideX); limb(body.laB, J.elB, J.haB, sideX);
   pelvis.position.copy(J.hip); pelvis.position.y += 0.02;
   pelvis.rotation.set(0, st * Math.PI / 2, 0);
   chestL.position.copy(J.shF); chestR.position.copy(J.shB);
-  handF.position.copy(J.haF); handB.position.copy(J.haB); footF.position.copy(J.ftF); footB.position.copy(J.ftB);
+  handF.position.copy(J.haF); handB.position.copy(J.haB);
+  footF.position.copy(J.ftF); footB.position.copy(J.ftB); footF.position.z -= 0.05 * st; footB.position.z -= 0.05 * st; footF.position.y -= 0.01; footB.position.y -= 0.01;
+  kneeF.position.copy(J.knF); kneeB.position.copy(J.knB); elbF.position.copy(J.elF); elbB.position.copy(J.elB);
+  ankF.position.copy(J.ftF); ankB.position.copy(J.ftB); ankF.position.y += 0.03; ankB.position.y += 0.03;
+  leash.visible = st > 0.5;
+  const lp = leashGeo.attributes.position.array;
+  for (let i = 0; i < 10; i++) { const q = i / 9, sg = Math.sin(Math.PI * q);
+    lp[i * 3] = lerp(J.ftB.x, -0.84, q) - 0.1 * sg; lp[i * 3 + 1] = lerp(J.ftB.y + 0.04, 0.045, q) + 0.02 * sg; lp[i * 3 + 2] = lerp(J.ftB.z, 0, q) + 0.14 * sg; }
+  leashGeo.attributes.position.needsUpdate = true;
   head.position.copy(J.head); head.rotation.set(0, 0, pr * 0.5);
 }
 
 // blond hair: strands of verlet points dragged through the air
-const HS = 26, HN = 5, SEG = 0.074;
+const HS = 46, HN = 5, SEG = 0.076;
 const hairRoot = [], hP = new Float32Array(HS * HN * 3), hO = new Float32Array(HS * HN * 3), hairSeg = [];
 for (let i = 0; i < HS; i++) {
-  const az = lerp(1.0, 5.28, (i + 0.5) / HS) + rnd(-0.1, 0.1), el = rnd(0.05, 1.15);
+  const az = lerp(1.0, 5.28, (i + 0.5) / HS) + rnd(-0.1, 0.1), el = rnd(-0.15, 1.2);
   hairRoot.push(new V3(Math.cos(az) * Math.cos(el) * 0.11 - 0.028, Math.sin(el) * 0.11 + 0.024, Math.sin(az) * Math.cos(el) * 0.11));
   for (let k = 0; k < HN - 1; k++) {
-    const m = new THREE.Mesh(new THREE.CylinderGeometry(lerp(0.024, 0.009, (k + 1) / (HN - 1)), lerp(0.024, 0.009, k / (HN - 1)), 1, 5), hairMat);
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(lerp(0.018, 0.006, (k + 1) / (HN - 1)), lerp(0.018, 0.006, k / (HN - 1)), 1, 5), hairMat);
     m.matrixAutoUpdate = false; m.frustumCulled = false; scene.add(m); hairSeg.push(m);
   }
 }
@@ -864,12 +902,9 @@ function rideStep(dt) {
 
   // steer toward the direction held on screen
   let omT = 0;
-  if (ix || iy) {
-    let diff = wrapPi(Math.atan2(iy, ix) - S.phi);
-    if (Math.abs(diff) > 3.05) diff = -Math.sign(Math.cos(S.phi) || 1) * Math.PI;   // 180: come round through the bottom
-    const maxR = (hard ? 4.4 : 2.9) * clamp(0.55 + S.v / 14, 0.6, 1.25);
-    omT = clamp(diff * 7, -maxR, maxR);
-  }
+  const maxR = (hard ? 4.4 : 2.9) * clamp(0.55 + S.v / 14, 0.6, 1.25);
+  if (ix) omT = ix * maxR;                       // D / right: turn up the face. A / left: turn down it.
+  else if (iy) omT = clamp(wrapPi(iy * Math.PI / 2 - S.phi) * 7, -maxR, maxR);   // W / S: aim straight up / down
   S.omega += (omT - S.omega) * Math.min(1, dt * 11);
   S.phi = wrapPi(S.phi + S.omega * dt);
 
@@ -1019,7 +1054,7 @@ function updateCamera(dt, snap) {
     const dir = Math.cos(S.phi) >= -0.2 ? 1 : -0.4;
     camLead += ((G.inBarrel ? 6.5 : 2.6 * dir) - camLead) * Math.min(1, dt * 1.6);
     const airH = S.air ? Math.max(0, S.air.h || 0) : 0;
-    cT.set(S.pos.x + camLead, (G.inBarrel ? 1.5 : 2.3) + S.pos.y * 0.28 + airH * 0.25, Math.max(8, S.pos.z + (G.inBarrel ? 9 : 10.2) + S.v * 0.12 + airH * 0.8));
+    cT.set(S.pos.x + camLead, (G.inBarrel ? 1.5 : 2.3) + S.pos.y * 0.28 + airH * 0.25, Math.max(8, S.pos.z + (G.inBarrel ? 8.6 : 9.4) + S.v * 0.12 + airH * 0.8));
     cL.set(S.pos.x + camLead * 0.35, S.pos.y * 0.72 + 1.15, S.pos.z);
   }
   const k = snap ? 1 : Math.min(1, dt * 5);
