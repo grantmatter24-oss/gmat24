@@ -93,7 +93,7 @@
 </div>
 <div class="hud" id="keys" hidden>
   <kbd>D</kbd> turn up &nbsp; <kbd>A</kbd> turn down &nbsp; <kbd>Shift</kbd> hard carve &nbsp; <kbd>Space</kbd> pump / grab<br>
-  <kbd>X</kbd> stall &nbsp; <kbd>Q</kbd> kick out &nbsp; <kbd>P</kbd> pause &nbsp; <kbd>M</kbd> sound
+  <kbd>X</kbd> stall &nbsp; <kbd>E</kbd> beer &nbsp; <kbd>Q</kbd> kick out &nbsp; <kbd>P</kbd> pause &nbsp; <kbd>M</kbd> sound
 </div>
 <div class="hud" id="lineup" hidden>
   <div class="label" id="setLabel">Set incoming</div>
@@ -118,6 +118,7 @@
     <div><kbd>Space</kbd></div><div>Paddle in · pump for speed · grab in the air</div>
     <div>Hit the lip going up</div><div>Launch an air. <kbd>A</kbd> <kbd>D</kbd> spin.</div>
     <div><kbd>X</kbd></div><div>Stall to stay deep in the barrel</div>
+    <div><kbd>E</kbd></div><div>Chug a (fake) beer for style</div>
     <div><kbd>Enter</kbd></div><div>Start</div>
   </div>
 </div>
@@ -296,9 +297,12 @@ void main(){
   #else
   float streak = noise(vec2(uvw.x * 46.0, uvw.y * 5.0)) * 0.6 + noise(vec2(uvw.x * 110.0, uvw.y * 11.0)) * 0.4;   // water stretched up the face
   #endif
-  vec3 body = col * (0.84 + 0.26 * streak) * (0.78 + 0.45 * dif);
+  vec3 body = col * (0.93 + 0.12 * streak) * (0.8 + 0.42 * dif);
+  float c1 = abs(noise(uvw * 13.0 + vec2(uTime * 0.21, -uTime * 0.13)) - 0.5) * 2.0, c2 = abs(noise(uvw * 19.0 - vec2(uTime * 0.17, uTime * 0.09) + 7.3) - 0.5) * 2.0;
+  body += vec3(0.3, 0.5, 0.42) * (pow(1.0 - c1, 7.0) + pow(1.0 - c2, 7.0)) * 0.2 / (1.0 + vD * 0.03);   // sunlight caustics seen through clear water
+  body = mix(body, vec3(0.42, 0.9, 0.88), 0.1);
   float back = pow(max(dot(V, -uSun) * 0.5 + 0.5, 0.0), 2.0);
-  body += vec3(0.06, 0.5, 0.52) * back * 0.4 * smoothstep(0.42, 0.8, col.g);
+  body += vec3(0.1, 0.55, 0.5) * back * 0.6 * smoothstep(0.5, 0.88, col.g);
   vec3 c = mix(body, sky, F * 0.8);
   float rs = max(dot(Rf, uSun), 0.0);
   c += vec3(1.0, 0.95, 0.82) * (pow(rs, 260.0) * 7.0 + pow(rs, 28.0) * 0.4);
@@ -336,7 +340,7 @@ waveMesh.frustumCulled = backMesh.frustumCulled = false;
 scene.add(waveMesh, backMesh);
 
 // pure blue: deep at the base, electric up the face
-const CB = [0.03, 0.27, 0.7], CM = [0.06, 0.46, 0.92], CT = [0.36, 0.78, 0.98];
+const CB = [0.04, 0.36, 0.74], CM = [0.08, 0.57, 0.9], CT = [0.46, 0.89, 0.97];
 function updateWave(cx) {
   const dx = W.dx, x0 = Math.round(cx / dx) * dx - NI * 0.5 * dx, t = time;
   const P = waveGeo.attributes.position.array, C = waveGeo.attributes.color.array, U = waveGeo.attributes.uv.array;
@@ -363,7 +367,9 @@ function updateWave(cx) {
         const hf = clamp(y / H, 0, 1);
         if (hf < 0.5) { const q = hf * 2; r = lerp(CB[0], CM[0], q); g = lerp(CB[1], CM[1], q); b = lerp(CB[2], CM[2], q); }
         else { const q = hf * 2 - 1; r = lerp(CM[0], CT[0], q); g = lerp(CM[1], CT[1], q); b = lerp(CM[2], CT[2], q); }
-        const lw = sstep(0.9, 1, tn) * (0.55 + 0.45 * cu) * (0.75 + 0.25 * n1);
+        const gl_ = sstep(0.78, 1, tn) * 0.55;      // thin water at the crest lets the light through
+        r = lerp(r, 0.62, gl_); g = lerp(g, 0.95, gl_); b = lerp(b, 1, gl_);
+        const lw = sstep(0.93, 1, tn) * (0.16 + 0.84 * cu) * (0.7 + 0.3 * n1);
         r = lerp(r, 0.96, lw); g = lerp(g, 0.98, lw); b = lerp(b, 1, lw);
         if (br > 0) {
           const sn = Math.sin(Math.PI * tn), tur = (1 + 0.3 * Math.sin(x * 1.3 + t * 5 + tn * 6) * n2 + 0.16 * Math.sin(x * 3.1 - t * 7 + tn * 11)) * (1 + 0.5 * Math.exp(Math.min(0, cp.d) / 7));
@@ -381,7 +387,7 @@ function updateWave(cx) {
     for (let j = 0; j <= NB; j++) {
       const q = j / NB;
       BP[kb] = x; BP[kb + 1] = by * (0.5 + 0.5 * Math.cos(Math.PI * q)) - 0.04 * q; BP[kb + 2] = bz - q * 26;
-      const wq = (1 - q) * (br * 0.9 + (1 - br) * 0.25 * sstep(0.3, 0, q));
+      const wq = (1 - q) * (br * 0.9 + (1 - br) * 0.07 * sstep(0.3, 0, q));
       BC[kb] = lerp(CB[0], 0.93, wq); BC[kb + 1] = lerp(CB[1] + 0.06 * (1 - q), 0.96, wq); BC[kb + 2] = lerp(CB[2] + 0.12 * (1 - q), 1, wq);
       kb += 3; BU[kbu++] = x * 0.09; BU[kbu++] = q * 2.3 + t * 0.1;
     }
@@ -408,7 +414,7 @@ for (let i = 0; i < 4; i++) {
 }
 
 // ---------------------------------------------------------------- spray particles
-const PN = 5000;
+const PN = 11000;
 const pp = new Float32Array(PN * 3), pv = new Float32Array(PN * 3), pSize = new Float32Array(PN), pAlpha = new Float32Array(PN);
 const pLife = new Float32Array(PN), pMax = new Float32Array(PN), pS0 = new Float32Array(PN), pS1 = new Float32Array(PN), pG = new Float32Array(PN), pA = new Float32Array(PN);
 let pHead = 0;
@@ -416,10 +422,22 @@ const pGeo = new THREE.BufferGeometry();
 pGeo.setAttribute('position', new THREE.BufferAttribute(pp, 3));
 pGeo.setAttribute('aSize', new THREE.BufferAttribute(pSize, 1));
 pGeo.setAttribute('aAlpha', new THREE.BufferAttribute(pAlpha, 1));
+{ const sd = new Float32Array(PN); for (let i = 0; i < PN; i++) sd[i] = Math.random(); pGeo.setAttribute('aSeed', new THREE.BufferAttribute(sd, 1)); }
 const pMat = new THREE.ShaderMaterial({
   uniforms: { uTex: { value: softTex }, uScale: { value: 600 } },
-  vertexShader: 'attribute float aSize; attribute float aAlpha; varying float vA; uniform float uScale; void main(){ vA=aAlpha; vec4 mv=modelViewMatrix*vec4(position,1.0); gl_PointSize=aSize*uScale/max(0.5,-mv.z); gl_Position=projectionMatrix*mv; }',
-  fragmentShader: 'uniform sampler2D uTex; varying float vA; void main(){ float a=texture2D(uTex,gl_PointCoord).a*vA; if(a<0.01) discard; gl_FragColor=vec4(0.97,0.985,1.0,a); }',
+  vertexShader: 'attribute float aSize; attribute float aAlpha; attribute float aSeed; varying float vA; varying float vS; varying float vPx; varying float vSz; uniform float uScale; void main(){ vA=aAlpha; vS=aSeed; vSz=aSize; vec4 mv=modelViewMatrix*vec4(position,1.0); vPx=aSize*uScale/max(0.5,-mv.z); gl_PointSize=vPx; gl_Position=projectionMatrix*mv; }',
+  // big particles are lumpy puffs of mist, small ones are crisp droplets that catch the sun
+  fragmentShader: `varying float vA; varying float vS; varying float vPx; varying float vSz;
+void main(){
+  vec2 pc = gl_PointCoord - 0.5; float r = length(pc) * 2.0, ang = atan(pc.y, pc.x);
+  float drop = step(vSz, 0.22);
+  float edge = 0.8 + 0.1 * sin(ang * 2.0 + vS * 40.0) + 0.08 * sin(ang * 5.0 + vS * 90.0);
+  float a = mix(smoothstep(edge, edge * 0.2, r), smoothstep(1.0, 0.55, r), drop) * vA;
+  if (a < 0.01) discard;
+  vec3 c = mix(vec3(0.8, 0.89, 0.97), vec3(1.0), smoothstep(0.35, -0.35, pc.y) * 0.75 + 0.25 * vS);
+  c += vec3(1.0, 0.95, 0.8) * drop * step(0.8, vS) * 0.4;
+  gl_FragColor = vec4(c, a);
+}`,
   transparent: true, depthWrite: false
 });
 const points = new THREE.Points(pGeo, pMat); points.frustumCulled = false; points.renderOrder = 5; scene.add(points);
@@ -451,7 +469,8 @@ function waveSpray(dt, cx) {
       const x = cx + rnd(-26, 32); colP(x, sp2);
       if (sp2.d < 1 || W.amp < 0.5) continue;
       surfPt(x, sp2.sLip, sp);
-      spawn(sp.x, sp.y, sp.z, rnd(-1, 1), rnd(0.5, 3), rnd(-6, -2), rnd(0.5, 0.9), 0.25, 1.0, 3, 0.4);
+      spawn(sp.x, sp.y, sp.z, rnd(-1, 1), rnd(0.5, 3), rnd(-6, -2), rnd(0.6, 1.1), 0.4, 1.6, 2, 0.2);
+      for (let k = 0; k < 4; k++) spawn(sp.x + rnd(-0.4, 0.4), sp.y + rnd(-0.1, 0.1), sp.z, rnd(-1, 1), rnd(1, 4.5), rnd(-8, -3), rnd(0.5, 1.0), 0.05, 0.14, 6, 0.75);
     }
     if (!W.breaking) continue;
     // where the lip lands: the impact zone
@@ -475,7 +494,7 @@ function waveSpray(dt, cx) {
 }
 
 // ---------------------------------------------------------------- the surfer
-const S = { x: 0, s: 0, v: 0, phi: Math.PI / 2, omega: 0, air: null, pumpCd: 0, pumpT: 0, crouch: 0, stand: 0, prone: 0, grab: 0, roll: 0, bob: 0, visible: true, tumble: 0,
+const S = { x: 0, s: 0, v: 0, phi: Math.PI / 2, omega: 0, air: null, pumpCd: 0, pumpT: 0, crouch: 0, stand: 0, prone: 0, grab: 0, beer: 0, roll: 0, bob: 0, visible: true, tumble: 0,
   pos: new V3(), prev: new V3(), vel: new V3(), T: new V3(1, 0, 0), N: new V3(0, 1, 0), Z: new V3(0, 0, 1), th: 0, tn: 0 };
 const surfer = new THREE.Group(); surfer.matrixAutoUpdate = false; scene.add(surfer);
 
@@ -552,13 +571,14 @@ const A = {}, B = {}, C = {}; for (const n in J) { A[n] = new V3(); B[n] = new V
 // together like muscle and skin), ray-marched inside a box that hugs the surfer.
 const JN = ['hip', 'hipF', 'hipB', 'knF', 'knB', 'ftF', 'ftB', 'neck', 'head', 'shF', 'shB', 'elF', 'elB', 'haF', 'haB', 'toF', 'toB'];
 const bodyU = { uJ: { value: JN.map(n => J[n]) }, uCam: { value: new V3() }, uC: { value: new V3() }, uS: { value: new V3(1, 1, 1) },
-  uShorts: { value: shortsTex }, uSun: { value: SUN }, uKey: { value: new V3(-0.45, 0.85, 0.8).normalize() } };
+  uShorts: { value: shortsTex }, uWind: { value: new V3() }, uFl: { value: 0.004 }, uT: { value: 0 }, uHt: { value: new THREE.Vector2(1, 0) }, uSun: { value: SUN }, uKey: { value: new V3(-0.45, 0.85, 0.8).normalize() } };
 const bodyMat = new THREE.ShaderMaterial({
   uniforms: bodyU, extensions: { fragDepth: true },
   vertexShader: 'uniform vec3 uC; uniform vec3 uS; varying vec3 vL; void main(){ vL = position * uS + uC; gl_Position = projectionMatrix * modelViewMatrix * vec4(vL, 1.0); }',
   fragmentShader: `
 precision highp float;
-uniform vec3 uJ[17]; uniform vec3 uCam; uniform sampler2D uShorts; uniform vec3 uSun; uniform vec3 uKey;
+uniform vec3 uJ[17]; uniform vec3 uCam; uniform sampler2D uShorts; uniform vec3 uSun; uniform vec3 uKey; uniform vec3 uWind; uniform float uFl; uniform float uT; uniform vec2 uHt;
+vec3 hr(float x, float y){ return vec3(x * uHt.x - y * uHt.y, x * uHt.y + y * uHt.x, 0.0); }
 uniform mat4 modelViewMatrix; uniform mat4 projectionMatrix; uniform mat4 modelMatrix;
 varying vec3 vL;
 float cap(vec3 p, vec3 a, vec3 b, float r1, float r2){ vec3 pa = p - a, ba = b - a; float h = clamp(dot(pa, ba) / max(dot(ba, ba), 1e-6), 0.0, 1.0); return length(pa - ba * h) - mix(r1, r2, h); }
@@ -581,17 +601,21 @@ vec2 map(vec3 p){
   float ch = smin(cap(p, cc - ax * 0.085, cc + ax * 0.085, 0.114, 0.114), cap(p, sF, sB, 0.058, 0.058), 0.06);   // ribcage + shoulder girdle
   d = smin(d, ch, 0.09);
   d = smin(d, cap(p, nk, mix(nk, hd, 0.7), 0.053, 0.046), 0.05);                       // neck
-  float h = smin(length(p - hd) - 0.103, length(p - hd - vec3(0.03, -0.066, 0.0)) - 0.074, 0.03);
-  h = smin(h, length(p - hd - vec3(0.106, -0.012, 0.0)) - 0.016, 0.02);                // nose
+  float h = smin(length(p - hd) - 0.103, length(p - hd - hr(0.03, -0.066)) - 0.074, 0.03);
+  h = smin(h, length(p - hd - hr(0.106, -0.012)) - 0.016, 0.02);                // nose
   d = smin(d, h, 0.02);
   d = smin(d, leg(p, hF, uJ[3], uJ[5], uJ[15]), 0.045); d = smin(d, leg(p, hB, uJ[4], uJ[6], uJ[16]), 0.045);
   d = smin(d, arm(p, sF, uJ[11], uJ[13]), 0.035); d = smin(d, arm(p, sB, uJ[12], uJ[14]), 0.035);
-  float so = min(cap(p, hF, hB, 0.115, 0.115), min(cap(p, hF, mix(hF, uJ[3], 0.8), 0.108, 0.088), cap(p, hB, mix(hB, uJ[4], 0.8), 0.108, 0.088)));
+  // board shorts: loose tubes wider than the legs, hems pushed back by the wind, cloth rippling
+  vec3 eF = mix(hF, uJ[3], 0.88) + uWind, eB = mix(hB, uJ[4], 0.88) + uWind;
+  float so = min(cap(p, hF, hB, 0.12, 0.12), min(cap(p, hF, eF, 0.116, 0.122), cap(p, hB, eB, 0.116, 0.122)));
+  float hem = smoothstep(0.0, 0.3, hip.y - p.y + 0.06);
+  so -= uFl * hem * sin(p.x * 46.0 + p.z * 31.0 + uT * 19.0) * sin(p.y * 38.0 - uT * 13.0) + 0.003 * sin(p.y * 64.0 + p.x * 23.0);
   return so < d ? vec2(so, 1.0) : vec2(d, 0.0);
 }
 void main(){
   vec3 rd = normalize(vL - uCam); float t = length(vL - uCam), tmax = t + 3.2; vec2 m = vec2(1.0); vec3 p; bool hit = false;
-  for (int i = 0; i < 64; i++) { p = uCam + rd * t; m = map(p); if (m.x < 0.0012) { hit = true; break; } t += m.x * 0.92; if (t > tmax) break; }
+  for (int i = 0; i < 80; i++) { p = uCam + rd * t; m = map(p); if (m.x < 0.0012) { hit = true; break; } t += m.x * 0.8; if (t > tmax) break; }
   if (!hit) discard;
   vec2 e = vec2(0.0015, 0.0);
   vec3 n = normalize(vec3(map(p + e.xyy).x - map(p - e.xyy).x, map(p + e.yxy).x - map(p - e.yxy).x, map(p + e.yyx).x - map(p - e.yyx).x));
@@ -618,6 +642,36 @@ void main(){
 const bodyMesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), bodyMat); bodyMesh.frustumCulled = false; surfer.add(bodyMesh);
 const invM = new THREE.Matrix4();
 bodyMesh.onBeforeRender = (r, sc, cam) => { invM.copy(surfer.matrixWorld).invert(); bodyU.uCam.value.copy(cam.position).applyMatrix4(invM); };
+// a fake beer: plain can, made-up label
+const BEER_T = 1.3;
+const canTex = canvasTex(256, 128, (g, w, h) => {
+  g.fillStyle = '#e9b81f'; g.fillRect(0, 0, w, h); g.fillStyle = '#c2271d'; g.fillRect(0, h * 0.3, w, h * 0.4);
+  g.fillStyle = '#fff'; g.font = '900 38px "Arial Black", Arial, sans-serif'; g.textAlign = 'center';
+  g.fillText('BEER', w * 0.25, h * 0.62); g.fillText('BEER', w * 0.75, h * 0.62);
+});
+const canMats = [new THREE.MeshPhongMaterial({ map: canTex, shininess: 90, specular: 0xffffff }), new THREE.MeshPhongMaterial({ color: 0xc9ced6, shininess: 120, specular: 0xffffff }), new THREE.MeshPhongMaterial({ color: 0xc9ced6, shininess: 120 })];
+const canGeo = new THREE.CylinderGeometry(0.033, 0.033, 0.122, 16);
+const can = new THREE.Mesh(canGeo, canMats); can.visible = false; surfer.add(can);
+const canFly = new THREE.Mesh(canGeo, canMats); canFly.visible = false; scene.add(canFly);
+const canV = new V3(); let canT = 0;
+function beerStep(dt, st) {
+  if (pressed.KeyE && S.beer <= 0 && S.visible && (st === 'lineup' || st === 'ride')) { S.beer = BEER_T; blip(170, 0.07); }
+  if (S.beer > 0) {
+    const e0 = BEER_T - S.beer; S.beer -= dt; const e1 = BEER_T - S.beer;
+    for (const g of [0.35, 0.6, 0.85]) if (e0 < g && e1 >= g) blip(150 + g * 60, 0.06);      // gulp, gulp, gulp
+    if (S.beer <= 0) {
+      S.beer = 0;
+      if (st === 'ride' && ride) award(S.air ? 'Air Chug' : 'Cold One', S.air ? 600 : 220); else popup('Cold One', 0);
+      can.updateWorldMatrix(true, false); canFly.position.setFromMatrixPosition(can.matrixWorld); canFly.visible = true; canT = 1.3;
+      canV.copy(S.vel).multiplyScalar(0.4); canV.x -= 2.5; canV.y += 3.5; canV.z += 2;
+      for (let i = 0; i < 14; i++) spawn(canFly.position.x, canFly.position.y, canFly.position.z, rnd(-1.5, 1.5), rnd(1, 3.5), rnd(-1, 1.5), rnd(0.4, 0.7), 0.05, 0.13, 9, 0.9);
+    }
+  }
+  if (canT > 0) {
+    canT -= dt; canV.y -= 9.8 * dt; canFly.position.addScaledVector(canV, dt); canFly.rotation.x += 11 * dt; canFly.rotation.z += 7 * dt;
+    if (canT <= 0 || canFly.position.y < 0) { canT = 0; canFly.visible = false; }
+  }
+}
 const tA = new V3(), tB = new V3(), tC = new V3(), tD = new V3();
 function ik(a, b, l1, l2, bend, out) {
   tA.subVectors(b, a); const d = Math.min(tA.length(), l1 + l2 - 0.002) || 0.001; tA.normalize();
@@ -626,10 +680,14 @@ function ik(a, b, l1, l2, bend, out) {
   return out.copy(a).addScaledVector(tA, a1).addScaledVector(tB, h);
 }
 const bendV = new V3();
+// pump: drop low over the front foot, then drive up and throw the arms
+let pumpFwd = 0;
+function pumpCurve() { const q = 1 - S.pumpT; return q < 0.4 ? 0.98 * sstep(0, 0.4, q) : 0.98 * (1 - sstep(0.4, 0.95, q)); }
+function beerW() { if (S.beer <= 0) return 0; const e = BEER_T - S.beer; return sstep(0, 0.22, e) * (1 - sstep(BEER_T - 0.2, BEER_T, e)); }
 function poseStand(o, c, lean, arms, grab, tw) {
   o.ftF.set(0.33, 0.085, 0.03); o.ftB.set(-0.4, 0.085, 0.03);
   o.toF.set(0.37, 0.06, -0.15); o.toB.set(-0.38, 0.06, -0.15);
-  o.hip.set(-0.04, 0.87 - 0.37 * c, 0.03 - 0.2 * lean);
+  o.hip.set(-0.04 + pumpFwd, 0.87 - 0.4 * c, 0.03 - 0.2 * lean);
   o.hipF.copy(o.hip).x += 0.1; o.hipB.copy(o.hip).x -= 0.1;
   ik(o.hipF, o.ftF, 0.46, 0.46, bendV.set(0.3, 0, -1), o.knF); ik(o.hipB, o.ftB, 0.46, 0.46, bendV.set(-0.15, 0, -1), o.knB);
   const bend = 0.24 + 0.6 * c;
@@ -672,7 +730,8 @@ function limb(mesh, a, b, side, flat) {
 const sideX = new V3(1, 0, 0), sideZ = new V3(0, 0, 1), tE = new V3(), tF = new V3();
 function updateBody(dt) {
   const st = S.stand, pr = S.prone, si = Math.max(0, 1 - st - pr);
-  const arms = clamp(Math.abs(S.omega) * 0.16 + (S.air ? 0.7 : 0) + S.pumpT * 1.2, 0, 1);
+  const pq = 1 - S.pumpT; pumpFwd = S.pumpT > 0 ? 0.12 * pumpCurve() : 0;
+  const arms = clamp(Math.abs(S.omega) * 0.16 + (S.air ? 0.7 : 0) + (S.pumpT > 0 ? sstep(0.35, 0.8, pq) * 1.1 - 0.3 * sstep(0, 0.35, pq) * (1 - sstep(0.35, 0.5, pq)) : 0), -0.4, 1);
   poseStand(A, clamp(S.crouch, 0, 1), clamp(-S.roll * 1.2, -1, 1), arms, S.grab, clamp(S.omega * 0.16, -0.6, 0.6)); poseSit(B, time); poseProne(C, time);
   for (const n in J) J[n].set(0, 0, 0).addScaledVector(A[n], st).addScaledVector(B[n], si).addScaledVector(C[n], pr);
   let x0 = 9, y0 = 9, z0 = 9, x1 = -9, y1 = -9, z1 = -9;
@@ -683,7 +742,20 @@ function updateBody(dt) {
   for (let i = 0; i < 10; i++) { const q = i / 9, sg = Math.sin(Math.PI * q);
     lp[i * 3] = lerp(J.ftB.x, -0.84, q) - 0.1 * sg; lp[i * 3 + 1] = lerp(J.ftB.y + 0.04, 0.045, q) + 0.02 * sg; lp[i * 3 + 2] = lerp(J.ftB.z, 0, q) + 0.14 * sg; }
   leashGeo.attributes.position.needsUpdate = true;
-  head.position.copy(J.head); head.rotation.set(0, 0, pr * 0.5);
+  const bw = beerW();
+  if (bw > 0) {                                   // can to the mouth, head back
+    tF.set(J.head.x + 0.17, J.head.y - 0.05, J.head.z); J.haF.lerp(tF, bw);
+    ik(J.shF, J.haF, 0.29, 0.27, bendV.set(0.2, -1, -0.5), J.elF);
+  }
+  can.visible = bw > 0.02;
+  can.position.set(J.haF.x - 0.02, J.haF.y + 0.03, J.haF.z); can.rotation.set(0, 0, 2.0 * sstep(0.3, 1, bw));
+  const ht = pr * 0.5 + 0.5 * bw;
+  head.position.copy(J.head); head.rotation.set(0, 0, ht); bodyU.uHt.value.set(Math.cos(ht), Math.sin(ht));
+  // air moving past the surfer, in board space: pushes the shorts back and makes them flap
+  tF.copy(S.vel).multiplyScalar(-1); tF.z -= 2.5;
+  const wsp = Math.min(tF.length(), 18);
+  bodyU.uWind.value.set(tF.dot(S.T), tF.dot(S.N) * 0.3, tF.dot(S.Z)).multiplyScalar(0.0042).clampLength(0, 0.06);
+  bodyU.uFl.value = 0.004 + 0.013 * wsp / 12; bodyU.uT.value = time;
 }
 
 // blond hair: strands of verlet points dragged through the air
@@ -833,7 +905,7 @@ function drawPips() {
 }
 function toLineup(delay) {
   G.state = 'lineup'; ride = null; S.air = null; S.visible = true; S.tumble = 0; S.v = 0; S.omega = 0; S.roll = 0; S.grab = 0;
-  S.phi = Math.PI / 2; trail.length = 0; hairReset = true;
+  S.phi = Math.PI / 2; trail.length = 0; hairReset = true; S.beer = 0; S.pumpT = 0;
   newSet(delay);
   show('lineup', true); show('tl', false); show('bl', false); show('keys', false); show('summary', false); $('live').textContent = '';
   hudRight();
@@ -920,7 +992,7 @@ function finishFloat() {
 }
 function wipeout(why) {
   if (G.state !== 'ride') return;
-  G.state = 'wipe'; G.stT = 0; S.air = null; popup(why, 0, true); blip(140, 0.5);
+  G.state = 'wipe'; G.stT = 0; S.air = null; S.beer = 0; popup(why, 0, true); blip(140, 0.5);
   if (ride) { ride.carve = null; ride.barrelT = 0; ride.floatT = 0; ride.mult = 1; }
   for (let i = 0; i < 90; i++) spawn(S.pos.x + rnd(-0.6, 0.6), S.pos.y + rnd(0, 0.8), S.pos.z + rnd(-0.3, 0.6), rnd(-4, 4), rnd(2, 9), rnd(-1, 5), rnd(0.7, 1.4), 0.5, 2.2, 10, 0.9);
 }
@@ -937,7 +1009,7 @@ function rideStep(dt) {
   const ix = (held('ArrowRight', 'KeyD') ? 1 : 0) - (held('ArrowLeft', 'KeyA') ? 1 : 0);
   const iy = (held('ArrowUp', 'KeyW') ? 1 : 0) - (held('ArrowDown', 'KeyS') ? 1 : 0);
   const hard = held('ShiftLeft', 'ShiftRight');
-  S.pumpCd -= dt; S.pumpT = Math.max(0, S.pumpT - dt * 2.2);
+  S.pumpCd -= dt; S.pumpT = Math.max(0, S.pumpT - dt * 1.7);
 
   if (S.air) return airStep(dt, ix);
 
@@ -989,13 +1061,14 @@ function rideStep(dt) {
     c.ang += Math.abs(S.omega) * dt; c.tnMax = Math.max(c.tnMax, S.tn); c.tnMin = Math.min(c.tnMin, S.tn); c.vAvg = lerp(c.vAvg, S.v, 0.05); c.hard = c.hard || hard;
   }
   const power = Math.abs(S.omega) * S.v;
-  if (power > 9) {
-    const n = Math.min(14, Math.floor(power * (hard ? 0.5 : 0.32) * dt * 60 * 0.5 + Math.random())), sg = Math.sign(S.omega);
+  if (power > 9) {      // a fan of droplets thrown off the rail, with mist behind it
+    const n = Math.min(36, Math.floor(power * (hard ? 1.1 : 0.7) * dt * 60 * 0.5 + Math.random())), sg = Math.sign(S.omega);
     for (let i = 0; i < n; i++) {
-      const sp_ = S.v * rnd(0.4, 0.95), o = 0.75 * sg, up = rnd(0.6, 1.1), bk = -rnd(0.1, 0.4);
-      spawn(S.pos.x - S.T.x * 0.55 + rnd(-0.15, 0.15), S.pos.y - S.T.y * 0.55 + 0.05, S.pos.z - S.T.z * 0.55 + rnd(-0.15, 0.15),
-        (S.Z.x * o + S.N.x * up + S.T.x * bk) * sp_ + rnd(-1, 1), (S.Z.y * o + S.N.y * up + S.T.y * bk) * sp_ + rnd(0, 1.5), (S.Z.z * o + S.N.z * up + S.T.z * bk) * sp_ + rnd(-1, 1),
-        rnd(0.6, 1.15), 0.18, hard ? 1.5 : 1.1, 9.5, 0.85);
+      const mist = Math.random() < 0.2, q = Math.random(), bk0 = 0.7 - 0.5 * q, j = mist ? 1 : 0.4;
+      const sp_ = S.v * (mist ? rnd(0.3, 0.6) : rnd(0.55, 1.0) * (0.75 + 0.25 * q)), o = (0.6 + 0.3 * q) * sg, up = mist ? rnd(0.5, 0.9) : rnd(0.8, 1.15), bk = -rnd(0.15, 0.45);
+      spawn(S.pos.x - S.T.x * bk0 + S.Z.x * sg * 0.15, S.pos.y - S.T.y * bk0 + 0.03, S.pos.z - S.T.z * bk0 + S.Z.z * sg * 0.15,
+        (S.Z.x * o + S.N.x * up + S.T.x * bk) * sp_ + rnd(-j, j), (S.Z.y * o + S.N.y * up + S.T.y * bk) * sp_ + rnd(0, j), (S.Z.z * o + S.N.z * up + S.T.z * bk) * sp_ + rnd(-j, j),
+        mist ? rnd(0.7, 1.3) : rnd(0.55, 1.0), mist ? 0.3 : rnd(0.05, 0.09), mist ? (hard ? 1.8 : 1.3) : rnd(0.1, 0.2), mist ? 4 : 9.8, mist ? 0.38 : 0.95);
     }
   }
   if (S.v > 5 && S.s > -8 && Math.random() < 0.5) spawn(S.pos.x - S.T.x * 0.8, S.pos.y + 0.05, S.pos.z - S.T.z * 0.8, rnd(-1, 1), rnd(0.5, 2), rnd(-0.5, 1), 0.5, 0.15, 0.6, 8, 0.6);
@@ -1143,8 +1216,8 @@ function step(dt) {
     rideStep(dt);
     if (ride) {
       if (ride.comboT > 0) { ride.comboT -= dt; if (ride.comboT <= 0) { ride.mult = 1; ride.last = ''; } }
-      const tc = S.air ? (S.grab > 0.3 ? 0.95 : 0.45) : G.inBarrel ? 0.8 : 0.28 + S.pumpT * 0.5 + Math.abs(S.omega) * 0.07 + (held('KeyX') ? 0.3 : 0);
-      S.crouch += (tc - S.crouch) * Math.min(1, dt * 9);
+      const tc = S.air ? (S.grab > 0.3 ? 0.95 : 0.45) : S.pumpT > 0 ? pumpCurve() : G.inBarrel ? 0.8 : 0.28 + Math.abs(S.omega) * 0.07 + (held('KeyX') ? 0.3 : 0);
+      S.crouch += (tc - S.crouch) * Math.min(1, dt * (S.pumpT > 0 ? 20 : 9));
       $('score').textContent = fmt(ride.pts);
       $('mult').textContent = ride.mult > 1 ? '×' + ride.mult.toFixed(ride.mult % 1 ? 2 : 0).replace(/0$/, '') + ' combo' : '';
       $('combo').firstChild.style.width = (ride.mult > 1 ? clamp(ride.comboT / 5, 0, 1) * 100 : 0) + '%';
@@ -1170,6 +1243,7 @@ function step(dt) {
     }
   }
 
+  beerStep(dt, G.state);
   placeSurfer(dt);
   updateCamera(dt, snapCam);
   updateBody(dt);
@@ -1206,7 +1280,7 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
-window.__surf = { G, S, W, step, keys, get ride() { return ride; } };
+window.__surf = { G, S, W, step, keys, clearPressed() { pressed = {}; }, get ride() { return ride; } };
 })();
 </script>
 </body>
