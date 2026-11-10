@@ -459,11 +459,11 @@ function flightD(L, Hh, v0, roof) { // where a nominal flight from the lip comes
   return { d, tanA };
 }
 function mkKicker(s0, kind, cx, hw, diff, sc, tall) {
-  sc = sc || 1; const q = WIDE ? clamp(s0 / COURSE_END, 0, 1) : 0; // jumps grow toward the bottom of Evergreen Run
+  sc = sc || 1; if (WIDE && tall) { tall = false; kind = 4; } const q = WIDE ? clamp(s0 / COURSE_END, 0, 1) : 0; // jumps grow toward the bottom of Evergreen Run
   const T = [[8, 1.5, 0.15, 22, 0.5, 10, 32, "Small kicker"], [11, 2, 0.17, 26, 0.55, 18, 50, "Kicker"], [14, 2, 0.2, 30, 0.6, 28, 80, "Big air"], [14, 2, 0.22, 30, 0.33, 18, 55, "Gap jump"], [18, 2, 0.28, 36, 0.6, 50, 140, "Mega air"]][kind];
-  const L = (T[0] + rng() * T[1]) * (sc < 1 ? 0.8 : 1) * 1.1 * (1 + 0.45 * q) * (WIDE ? 1.25 : 1), ratio = (T[2] + rng() * 0.02) * (kind < 4 ? 1.55 : 1.25) * (tall ? 1.55 : 1) * (1 + 0.5 * q) * (WIDE ? 1.12 : 1), v0 = T[3] + 2 - (tall ? 3 : 0) + 5 * q;
+  const L = (T[0] + rng() * T[1]) * (sc < 1 ? 0.8 : 1) * 1.1 * (1 + 0.45 * q) * (WIDE ? 1.25 : 1), ratio = (T[2] + rng() * 0.02) * (kind < 4 ? 1.55 : 1.25) * (tall ? 1.55 : 1) * (1 + 0.5 * q) * (WIDE ? 1.25 : 1), v0 = T[3] + 2 - (tall ? 3 : 0) + 5 * q;
   const Hh = L * ratio * (kind < 3 ? 1 + 0.1 * diff : 1), fd = flightD(L, Hh, v0);
-  const gap = kind === 3 ? clamp(T[4] * fd.d * sc, T[5] * sc, T[6] * sc * 1.3) : clamp((tall && WIDE ? 0.08 : WIDE ? 0.2 : 0.35) * fd.d * sc, 6, 40 * (1 + q)), Ll = kind === 3 ? clamp(gap * 0.8 + 10, 18, 60) : clamp((0.9 + 0.35 * q) * fd.d * sc, 24, 70 * (1 + 1.3 * q));
+  const gap = kind === 3 ? clamp(T[4] * fd.d * sc, T[5] * sc, T[6] * sc * 1.3) : clamp(WIDE ? 0.42 * clamp(1 - (Hh - 9) * 0.065, 0.32, 1) * flightD(L, Hh, Math.sqrt(Math.max(v0 * v0 - 2 * G * Hh * 0.85, v0 * v0 * 0.25))).d * sc : 0.35 * fd.d * sc, 6, 48 * (1 + q)), Ll = kind === 3 ? clamp(gap * 0.8 + 10, 18, 60) : clamp((0.9 + 0.35 * q) * fd.d * sc, 24, 70 * (1 + 1.3 * q));
   const Hl = clamp((fd.tanA - BASE) * 0.5 * Ll / 1.5, 0.8, 7 + 4 * q), pit = kind === 3 ? 3.6 : 0;
   const hwK = (kind < 4 ? hw * (PEAK ? 1.7 : 1.3) : hw) * (1 + 0.8 * q);
   const p = { type: "kicker", label: T[7], s0, L, H: Hh, gap, Ll, Hl, cx, hw: hwK, lhw: Math.min(hwK * 2.7, WIDE ? 25 : PISTE + 5), v0, pit };
@@ -610,7 +610,7 @@ function qpWallAt(x, s) { for (const f of sectionsAt(s, 0)) for (const p of f.pa
 function fixLandings(f) { // a wide landing must not run into side kickers or cabins
   for (const p of f.parts) if (p.type === "kicker" && !p.side) for (const q of f.parts) if (q !== p && (q.type === "kicker" || q.type === "box") && q.hw) { const l2 = Math.max(p.hw, Math.abs(q.cx - p.cx) - q.hw - 1); if (l2 < p.lhw) { p.lhw = l2; p.squeeze = Math.sign(q.cx - p.cx) || 1; } }
   if (WIDE) for (const p of f.parts) if (p.type === "kicker" && !p.side && !p.up && !p.pit && !p.whale && p.squeeze) { // squeezed landing: bigger jump, quarterpipe wall on the open side
-    const end0 = p.end; p.L *= 1.2; p.H *= 1.3; const fd = flightD(p.L, p.H, p.v0); p.gap = clamp(0.2 * fd.d, 6, 48); p.Ll = clamp(1.05 * fd.d, 30, 110); p.end = p.s0 + p.L + p.gap + p.Ll; p.qp = -p.squeeze; p.label = "Kicker · quarterpipe landing"; }
+    const end0 = p.end; p.L *= 1.2; p.H *= 1.3; const fd = flightD(p.L, p.H, Math.sqrt(Math.max(p.v0 * p.v0 - 2 * G * p.H * 0.85, p.v0 * p.v0 * 0.25))); p.gap = clamp(0.42 * clamp(1 - (p.H - 9) * 0.065, 0.32, 1) * fd.d, 6, 52); p.Ll = clamp(1.05 * fd.d, 30, 110); p.end = p.s0 + p.L + p.gap + p.Ll; p.qp = -p.squeeze; p.label = "Kicker · quarterpipe landing"; }
 }
 function houseSection(f, diff) {
   const B = 4.2 + rng() * 1.4, hw = 5.6 + rng() * 0.8, cx = 0, ramp = Math.floor(secCount / 6) % 2 === 1, walls = WALLS;
@@ -636,18 +636,26 @@ function gladeRails(f, i, diff) { // big fallen-log rail features for Powder Gla
   else if (t === 2) { const k = mkKicker(g, 2, 0, 4.4, diff); f.parts.push(k); const rs0 = k.s0 + k.L + k.gap + k.Ll * 0.45; set([mk(rs0, 60, -4.5, { h: 4.0, noRamp: true }), mk(rs0 + 6, 60, 4.5, { h: 4.0, noRamp: true })]); f.label = "Kicker into twin logs"; f.endExtra = rs0 + 80; }
   else { set([mk(g + 22, 100, -7, { amp: 4.2 * sd, k: 2, h: 3.8 }), mk(g + 34, 100, 7, { amp: -4.5, k: 1, h: 3.8 })]); f.label = "SNAKE LOGS · curved rails"; f.endExtra = g + 150; }
 }
-function parkSection(f, i, diff) { // Kicker Park: mostly rails, a couple of jumps
-  const mk = (s0, len, x, o) => Object.assign({ s0, s1: s0 + len, x }, o || {}), set = (arr) => { f.rail = arr[0]; f.rail2 = arr.slice(1); }, g = genS, t = i === 7 ? 99 : [0, 7, 1, 8, 2, 9, 3, 4, 5, 6][i % 10], sd = i % 2 ? 1 : -1;
-  if (t === 99) { const k = mkKicker(g, 4, 0, 8.5, diff); f.parts.push(k); const rs0 = k.s0 + k.L + k.gap + k.Ll * 0.1; f.rail = { s0: rs0, s1: rs0 + k.Ll * 0.7, x: 0 }; const k2 = mkKicker(k.end + 26, 2, 0, 5.5, diff); f.parts.push(k2); f.label = "THE BIG LINE · mega air, rail, big air"; }
-  else if (t === 0) { set([mk(g + 14, 24, -9), mk(g + 40, 24, 0, { pad: 1.6 }), mk(g + 66, 24, 9)]); f.label = "Rail garden · middle rail up on the block"; }
-  else if (t === 1) { [[-4, 0, 16], [4, 26, 18], [-3, 54, 14], [3, 78, 20]].forEach(([x, o, len]) => f.parts.push({ type: "box", s0: g + o, len, end: g + o + len, B: 0.75, cx: x, hw: 1.9 })); f.label = "Box line"; }
-  else if (t === 2) { const hs = [RAIL_H, 2.6, 1.8, 1.0]; set(hs.map((h, q) => mk(g + 16 + q * 26, 26, 0, { h, fixedLen: true, noRamp: q > 0 }))); [f.rail, ...f.rail2].forEach((r, q, a) => { if (a[q + 1]) r.next = a[q + 1]; }); f.label = "Step-down rail"; }
-  else if (t === 3 || t === 6) { const L0 = g + 16; set([mk(L0, 50, 0, { pad: 1.5 }), mk(L0 + 24, 52, sd * 5, { h: 1.1, fixedLen: true, noRamp: true }), mk(L0 + 92, 52, -sd * 5, { h: 1.1, fixedLen: true, noRamp: true })]); f.label = "Long rail · hop down to the side rails"; f.endExtra = L0 + 175; }
-  else if (t === 7) { const C = { fixedLen: true, color: 0x3fae4a }, a = mk(g + 18, 17, 0, Object.assign({ h: 1.0, h1: 2.6 }, C)), b = mk(g + 35, 17, 0, Object.assign({ h: 2.6, h1: 1.0, noRamp: true }, C)); a.next = b; const c2 = mk(g + 78, 15, sd * 6, Object.assign({ h: 1.0, h1: 2.3 }, C)), d2 = mk(g + 93, 15, sd * 6, Object.assign({ h: 2.3, h1: 1.0, noRamp: true }, C)); c2.next = d2; set([a, b, c2, d2]); f.label = "A-frame rails"; }
-  else if (t === 8) { set([mk(g + 18, 24, sd * 3, { fixedLen: true, tube: true, h: 1.25 }), mk(g + 56, 18, -sd * 4, { fixedLen: true, tube: true, h: 1.1 })]); f.label = "Tube jibs · ride the big pipes"; }
-  else if (t === 9) { const xs = [0, 3, -3, 3, -3, 3, 0], rs = []; for (let q = 0; q < xs.length - 1; q++) rs.push(mk(g + 18 + q * 9, 9, xs[q], { x1: xs[q + 1], fixedLen: true, wall: true, noRamp: q > 0, h: 1.25 - 0.1 * q, color: 0x2a2d33 })); rs.forEach((r, q) => { if (rs[q + 1]) r.next = rs[q + 1]; }); set(rs); f.label = "Zig-zag wall rail"; }
-  else if (t === 4) { set([mk(g + 14, 72, -7, { amp: 3.2 * sd, k: 2, fixedLen: true }), mk(g + 30, 72, 7, { amp: -3.8, k: 1, fixedLen: true })]); f.label = "Curved rails"; }
-  else { const k = mkKicker(g, 2, 0, 4.4, diff); f.parts.push(k); const rs0 = k.s0 + k.L + k.gap + k.Ll * 0.1; f.rail = { s0: rs0, s1: rs0 + 24, x: 0 }; f.label = "Big air + rail"; }
+function parkSection(f, i, diff) { // Village Park: lines of 2-3 different jibs side by side, plus the odd jump line
+  const mk = (s0, len, x, o) => Object.assign({ s0, s1: s0 + len, x }, o || {}), rails = [], g = genS, sd = i % 2 ? 1 : -1, A = g + 18;
+  if (i === 7) { const k = mkKicker(g, 4, 0, 8.5, diff); f.parts.push(k); const rs0 = k.s0 + k.L + k.gap + k.Ll * 0.1; f.rail = { s0: rs0, s1: rs0 + k.Ll * 0.7, x: 0 }; const k2 = mkKicker(k.end + 26, 2, 0, 5.5, diff); f.parts.push(k2); f.label = "THE BIG LINE · mega air, rail, big air"; return; }
+  if (i % 5 === 4) { const k = mkKicker(g, 2, 0, 4.4, diff); f.parts.push(k); const rs0 = k.s0 + k.L + k.gap + k.Ll * 0.1; f.rail = { s0: rs0, s1: rs0 + 26, x: -sd * 9, fixedLen: true, h: 1.4 }; f.rail2 = [{ s0: rs0 + 4, s1: rs0 + 30, x: sd * 9, fixedLen: true, tube: true, h: 1.2 }]; f.label = "Big air · rail and tube either side"; return; }
+  const add = (type, x, mid) => {
+    if (type === "flat") rails.push(mk(A, 36, x, { fixedLen: true, h: 2.0, pad: mid ? 1.5 : 0 }));
+    else if (type === "down") rails.push(mk(A, 38, x, { fixedLen: true, h: 2.8, h1: 1.0 }));
+    else if (type === "aframe") { const a = mk(A, 19, x, { fixedLen: true, h: 1.2, h1: 3.0, pipe: true }), b = mk(A + 19, 19, x, { fixedLen: true, h: 3.0, h1: 1.2, noRamp: true, pipe: true }); a.next = b; rails.push(a, b); }
+    else if (type === "tube") rails.push(mk(A, 32, x, { fixedLen: true, tube: true, h: 1.25 }));
+    else if (type === "kink") { const hs = [2.4, 1.7, 1.0], rs = hs.map((h, q) => mk(A + q * 13, 13, x, { fixedLen: true, h, noRamp: q > 0 })); rs.forEach((r, q) => { if (rs[q + 1]) r.next = rs[q + 1]; }); rails.push(...rs); }
+    else if (type === "curve") rails.push(mk(A, 40, x, { fixedLen: true, h: 1.5, amp: 2.4 * sd, k: 1 }));
+    else if (type === "wall") { const xs = [0, 2.6, -2.6, 2.6, -2.6, 0], rs = []; for (let q = 0; q < xs.length - 1; q++) rs.push(mk(A + q * 8, 8, x + xs[q], { x1: x + xs[q + 1], fixedLen: true, wall: true, noRamp: q > 0, h: 1.25 - 0.08 * q, color: 0x2a2d33 })); rs.forEach((r, q) => { if (rs[q + 1]) r.next = rs[q + 1]; }); rails.push(...rs); }
+    else if (type === "box") f.parts.push({ type: "box", s0: A - 2, len: 30, end: A + 28, B: 0.75, cx: x, hw: 1.9 });
+  };
+  const NAMES = { flat: "rail", down: "down rail", aframe: "A-frame pipe", tube: "tube", kink: "kinked rail", curve: "curved rail", wall: "zig-zag wall", box: "box" };
+  const LINES = [["flat", "aframe", "box"], ["tube", "down", "kink"], ["box", "flat", "aframe"], ["curve", "box", "tube"], ["aframe", "tube", "down"], ["wall", "box"], ["kink", "flat", "tube"], ["down", "aframe"]];
+  const line = LINES[i % LINES.length], xs = line.length === 3 ? [-8, 0, 8] : [-5.5, 5.5], flip = sd < 0;
+  line.forEach((t, q) => add(t, (flip ? -1 : 1) * xs[q], line.length === 3 && q === 1));
+  if (rails.length) { f.rail = rails[0]; f.rail2 = rails.slice(1); }
+  f.label = line.map(t => NAMES[t]).join(" · ");
 }
 function addSection() {
   if (pendingInterlude) { const k = pendingInterlude; pendingInterlude = null; return addInterlude(k); }
@@ -2326,7 +2334,7 @@ function buildFeature(f) {
     const segs = Math.ceil((r.s1 - r.s0) / 1.5), rw = log ? 1.9 : 1;
     for (let i = 0; i < segs; i++) {
       const sa = r.s0 + i * 1.5, sb = Math.min(r.s1, sa + 1.5), pa = new THREE.Vector3(railX(r, sa), railY(r, sa), -sa), pb = new THREE.Vector3(railX(r, sb), railY(r, sb), -sb);
-      const len = pa.distanceTo(pb), m = new THREE.Mesh(log ? (() => { const cg = new THREE.CylinderGeometry(0.3, 0.3, len + 0.06, 10, 1, true); cg.rotateX(Math.PI / 2); return cg; })() : (() => { const rad = r.tube ? 0.55 : 0.085, cg = new THREE.CylinderGeometry(rad, rad, len + 0.02, r.tube ? 24 : 12); cg.rotateX(Math.PI / 2); if (r.tube) cg.translate(0, -0.55, 0); return cg; })(), rm);
+      const len = pa.distanceTo(pb), m = new THREE.Mesh(log ? (() => { const cg = new THREE.CylinderGeometry(0.3, 0.3, len + 0.06, 10, 1, true); cg.rotateX(Math.PI / 2); return cg; })() : (() => { const rad = r.tube ? 0.55 : r.pipe ? 0.14 : 0.085, cg = new THREE.CylinderGeometry(rad, rad, len + 0.02, r.tube ? 24 : 12); cg.rotateX(Math.PI / 2); if (r.tube) cg.translate(0, -0.55, 0); return cg; })(), rm);
       m.position.copy(pa).add(pb).multiplyScalar(0.5); m.lookAt(pb); m.castShadow = true; grp.add(m);
       if (i === segs - 1 && r.next) { const y1 = railY(r, r.s1), y2 = railY(r.next, r.next.s0), cm = new THREE.Mesh(new THREE.BoxGeometry(0.34, Math.max(0.1, y1 - y2), 0.34), rm); cm.position.set(railX(r, r.s1), (y1 + y2) / 2, -r.s1); grp.add(cm); }
       if (log && (i === 0 || i === segs - 1)) { const ce = new THREE.Mesh(new THREE.CircleGeometry(0.3, 12), logCap), at = i === 0 ? pa : pb, to = i === 0 ? pb : pa; ce.position.copy(at); ce.lookAt(at.clone().multiplyScalar(2).sub(to)); grp.add(ce); }
