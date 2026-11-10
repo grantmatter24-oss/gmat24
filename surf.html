@@ -62,12 +62,35 @@
   button.mini { width: auto; padding: 10px 18px; margin-top: 14px; }
   button.mini b { font-size: 22px; margin: 0; }
   #custom { align-items: flex-end; justify-content: center; text-align: left; padding-right: min(6vw, 90px); background: linear-gradient(90deg, rgba(4,18,58,0), rgba(4,18,58,.78) 62%); }
-  #custom .panel { width: min(430px, 92vw); }
+  #custom .panel { width: min(470px, 92vw); }
   #custom h3 { font-family: var(--display); font-weight: 900; font-size: 22px; text-transform: uppercase; letter-spacing: .04em; margin: 20px 0 8px; color: var(--sun); }
   .chips { display: flex; gap: 8px; flex-wrap: wrap; }
   .chips button { width: auto; padding: 9px 14px; font-weight: 600; font-size: 17px; }
   .chips button i { display: inline-block; width: 16px; height: 16px; border-radius: 50%; margin-right: 8px; vertical-align: -2px; border: 2px solid rgba(255,255,255,.7); }
   .note { font-size: 15px; color: var(--dim); margin: 8px 0 0; min-height: 20px; }
+  #custom .panel { max-height: 94vh; overflow-y: auto; padding-right: 8px; }
+  .wallet { font-family: var(--display); font-weight: 900; font-size: 30px; color: var(--sun); margin: 2px 0 14px; }
+  .wallet .label { font-family: var(--body); font-weight: 600; font-size: 13px; vertical-align: 4px; }
+  .list { display: flex; flex-direction: column; gap: 8px; }
+  .item { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center; padding: 10px 12px; border-radius: 10px; background: rgba(4,18,58,.55); border: 2px solid rgba(246,251,255,.18); }
+  .item.on { border-color: var(--sun); }
+  .item .nm { font-weight: 600; font-size: 17px; }
+  .item .nm i { display: inline-block; width: 14px; height: 14px; border-radius: 3px; margin-right: 8px; vertical-align: -1px; border: 1px solid rgba(255,255,255,.6); }
+  .item .ds { grid-column: 1; font-size: 14px; color: var(--dim); }
+  .item button { grid-row: 1 / span 3; grid-column: 2; width: auto; padding: 8px 14px; font-weight: 600; font-size: 15px; text-align: center; }
+  .item button:disabled { opacity: .45; cursor: default; background: rgba(4,18,58,.55); border-color: rgba(246,251,255,.3); }
+  .stats { grid-column: 1; display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; font-size: 12px; color: var(--dim); max-width: 230px; }
+  .stats span { align-self: center; height: 5px; border-radius: 3px; background: rgba(255,255,255,.15); overflow: hidden; }
+  .stats span b { display: block; height: 100%; background: var(--sun); }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; width: min(1100px, 100%); }
+  .cards.five { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  @media (max-width: 900px) { .cards.five { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .cards button { width: auto; min-width: 0; padding: 12px 14px; }
+  .cards button b { font-size: 24px; }
+  .cards button .tag { display: block; font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--sun); margin-bottom: 4px; }
+  .cards button.locked { opacity: .5; cursor: default; }
+  .cards button.locked:hover { background: rgba(4,18,58,.55); border-color: rgba(246,251,255,.45); }
+  .cards button.won .tag::after { content: ' · Won'; color: #7dffa8; }
   .legend { margin-top: 26px; display: grid; grid-template-columns: auto auto; gap: 5px 16px; font-size: 16px; text-align: left; color: var(--dim); }
   .legend div:nth-child(odd) { text-align: right; }
   #summary { background: none; justify-content: flex-end; padding-bottom: 12vh; }
@@ -115,11 +138,12 @@
   <div class="label">A surf game</div>
   <h1>Blue Room</h1>
   <p class="sub">Pick off the sets, carve the face, get shacked, boost the lip.</p>
+  <div class="wallet"><span class="label">Cash</span> <b id="mCash">$0</b></div>
   <div class="modes">
-    <button id="bFree" class="sel"><b>Free Surf</b><small>No clock. Chain moves, chase a high score.</small></button>
-    <button id="bHeat"><b>Contest Heat</b><small>3 minutes. Judges score 0–10. Best two waves count.</small></button>
+    <button id="bFree" class="sel"><b>Free Surf</b><small id="mFree">Pick a spot. No clock, earn cash.</small></button>
+    <button id="bHeat"><b>Contest</b><small id="mHeat">Level 1</small></button>
   </div>
-  <button id="bCust" class="mini"><b>Customize board &amp; suit</b></button>
+  <button id="bCust" class="mini"><b>Shop &amp; locker</b></button>
   <div class="legend">
     <div><kbd>D</kbd> or <kbd>→</kbd></div><div>Turn up the wave face</div>
     <div><kbd>A</kbd> or <kbd>←</kbd></div><div>Turn down the wave face</div>
@@ -130,19 +154,37 @@
     <div><kbd>X</kbd></div><div>Stall to stay deep in the barrel</div>
     <div><kbd>Q</kbd> near the top</div><div>Hold to grind the lip like a rail</div>
     <div><kbd>E</kbd></div><div>Chug a (fake) beer for style</div>
-    <div><kbd>Enter</kbd></div><div>Start</div>
+    <div><kbd>Enter</kbd> · <kbd>C</kbd></div><div>Start · open the shop</div>
   </div>
 </div>
 
 <div class="screen" id="custom" hidden>
   <div class="panel">
-    <div class="label">Customize</div>
-    <h2 style="font-size:56px">Your quiver</h2>
-    <h3>Board</h3><div class="chips" id="cBoard"></div><p class="note" id="cBoardNote"></p>
+    <div class="label">Shop &amp; locker</div>
+    <h2 style="font-size:52px">Your quiver</h2>
+    <div class="wallet"><span class="label">Cash</span> <b id="cCash">$0</b></div>
+    <h3>Boards</h3><div class="list" id="cBoard"></div>
     <h3>Board color</h3><div class="chips" id="cColor"></div>
+    <h3>Board shorts</h3><div class="list" id="cShorts"></div>
     <h3>Wearing</h3><div class="chips" id="cSuit"></div>
     <button id="bCustDone" class="mini sel"><b>Done</b></button>
   </div>
+</div>
+
+<div class="screen" id="spots" hidden>
+  <div class="label">Free surf</div>
+  <h2>Pick a spot</h2>
+  <p class="sub">Win contests to unlock bigger waves.</p>
+  <div class="cards" id="spotCards"></div>
+  <button id="bSpotsBack" class="mini"><b>Back</b></button>
+</div>
+
+<div class="screen" id="ladder" hidden>
+  <div class="label">Contest</div>
+  <h2>The tour</h2>
+  <p class="sub">Beat each rival's heat total to move up. Best two waves count, out of 20.</p>
+  <div class="cards five" id="levelCards"></div>
+  <button id="bLadderBack" class="mini"><b>Back</b></button>
 </div>
 
 <div class="screen" id="summary" hidden>
@@ -158,7 +200,7 @@
   <h2 id="resTitle">You win</h2>
   <table id="resTable"></table>
   <p class="sub" id="resSub"></p>
-  <div class="modes"><button id="bAgain" class="sel"><b>Back to menu</b><small>Press Enter</small></button></div>
+  <div class="modes"><button id="bNext" class="sel" hidden><b id="bNextT">Next level</b><small>Press Enter</small></button><button id="bAgain"><b>Back to menu</b><small>Press Esc</small></button></div>
 </div>
 
 <div class="screen" id="pause" hidden><h2>Paused</h2><p class="sub">Press <kbd>P</kbd> to drop back in. <kbd>Esc</kbd> ends the session.</p></div>
@@ -197,7 +239,7 @@ scene.background = canvasTex(8, 512, (g, w, h) => {
   g.fillStyle = gr; g.fillRect(0, 0, w, h);
 });
 scene.fog = new THREE.Fog(0xd6efff, 180, 1100);
-scene.add(new THREE.HemisphereLight(0xdff1ff, 0x1a49c8, 0.78));
+const hemi = new THREE.HemisphereLight(0xdff1ff, 0x1a49c8, 0.78); scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xfff6e0, 0.8);
 sun.position.set(-0.45, 0.85, 0.8); scene.add(sun);
 
@@ -207,26 +249,57 @@ const softTex = canvasTex(64, 64, (g) => {
   g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
 });
 // clouds on the horizon
+const clouds = [];
 for (let i = 0; i < 9; i++) {
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: softTex, opacity: 0.75, fog: false, depthWrite: false }));
   s.position.set(-1400 + i * 340 + rnd(-80, 80), rnd(90, 230), -1500);
   s.scale.set(rnd(380, 620), rnd(70, 130), 1);
-  s.userData.x0 = s.position.x; scene.add(s);
+  s.userData.x0 = s.position.x; s.userData.sc = s.scale.clone(); scene.add(s); clouds.push(s);
 }
 
 // a hazy island with palms on the horizon
-const island = new THREE.Mesh(new THREE.PlaneGeometry(1150, 288), new THREE.MeshBasicMaterial({ transparent: true, fog: false, depthWrite: false, map: canvasTex(1024, 256, (g, w, h) => {
-  const gr = g.createLinearGradient(0, 60, 0, h); gr.addColorStop(0, '#7ea9a4'); gr.addColorStop(1, '#b4d2dc');
-  g.fillStyle = gr; g.beginPath(); g.moveTo(0, h); g.bezierCurveTo(140, h - 30, 220, 100, 380, 86); g.bezierCurveTo(520, 76, 560, 135, 700, 152); g.bezierCurveTo(820, 166, 900, 216, w, h); g.closePath(); g.fill();
-  const img = g.getImageData(0, 0, w, h).data, top = x => { for (let y = 0; y < h; y++) if (img[(y * w + (x | 0)) * 4 + 3] > 0) return y; return h; };
-  g.strokeStyle = '#5d8a84'; g.lineCap = 'round';
-  for (let i = 0; i < 34; i++) {
-    const x = rnd(110, 930), y = top(x) + 5, ln = rnd(-7, 7), hh = rnd(16, 30);
-    g.lineWidth = 2; g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + ln * 0.3, y - hh * 0.6, x + ln, y - hh); g.stroke();
-    g.lineWidth = 1.6;
-    for (let k = 0; k < 7; k++) { const a = -Math.PI * (0.05 + 0.9 * k / 6), l = rnd(8, 13); g.beginPath(); g.moveTo(x + ln, y - hh); g.quadraticCurveTo(x + ln + Math.cos(a) * l * 0.6, y - hh + Math.sin(a) * l * 0.9, x + ln + Math.cos(a) * l, y - hh + Math.sin(a) * l * 0.3 + 3); g.stroke(); }
+const island = new THREE.Mesh(new THREE.PlaneGeometry(1150, 288), new THREE.MeshBasicMaterial({ transparent: true, fog: false, depthWrite: false, map: canvasTex(1024, 256, () => {}) }));
+function drawBackdrop(kind) {
+  const c = island.material.map.image, g = c.getContext('2d'), w = c.width, h = c.height;
+  g.clearRect(0, 0, w, h);
+  const hill = (pts, top, bot) => { const gr = g.createLinearGradient(0, 40, 0, h); gr.addColorStop(0, top); gr.addColorStop(1, bot); g.fillStyle = gr; g.beginPath(); g.moveTo(0, h); for (const [x, y] of pts) g.lineTo(x, y); g.lineTo(w, h); g.closePath(); g.fill(); };
+  const smooth = (n, base, amp, f, seed) => { const a = []; for (let i = 0; i <= n; i++) { const x = i / n * w; a.push([x, base - amp * (0.6 * Math.sin(x * f + seed) + 0.4 * Math.sin(x * f * 2.7 + seed * 2))]); } return a; };
+  const top = x => { const img = g.getImageData(x | 0, 0, 1, h).data; for (let y = 0; y < h; y++) if (img[y * 4 + 3] > 0) return y; return h; };
+  g.lineCap = 'round';
+  if (kind === 'beach') {
+    hill(smooth(40, 222, 10, 0.01, 1), '#cdbf97', '#d9d6c4');
+    for (let i = 0; i < 9; i++) { const x = 160 + i * 80 + rnd(-20, 20), y = top(x); g.fillStyle = ['#e9e3d4', '#d8c9a8', '#c9d6dc'][i % 3]; g.fillRect(x, y - 14, 22, 16); g.fillStyle = '#a37b5a'; g.fillRect(x - 2, y - 17, 26, 4); }
+    const tx = 520, ty = top(tx); g.strokeStyle = '#8a6d4c'; g.lineWidth = 2; g.beginPath(); g.moveTo(tx - 6, ty); g.lineTo(tx - 3, ty - 26); g.moveTo(tx + 6, ty); g.lineTo(tx + 3, ty - 26); g.stroke();
+    g.fillStyle = '#e04b3a'; g.fillRect(tx - 9, ty - 36, 18, 11);        // lifeguard tower
+  } else if (kind === 'palms') {
+    g.fillStyle = '#7ea9a4'; g.beginPath(); g.moveTo(0, h); g.bezierCurveTo(140, h - 30, 220, 100, 380, 86); g.bezierCurveTo(520, 76, 560, 135, 700, 152); g.bezierCurveTo(820, 166, 900, 216, w, h); g.closePath();
+    const gr = g.createLinearGradient(0, 60, 0, h); gr.addColorStop(0, '#7ea9a4'); gr.addColorStop(1, '#b4d2dc'); g.fillStyle = gr; g.fill();
+    g.strokeStyle = '#5d8a84';
+    for (let i = 0; i < 34; i++) {
+      const x = rnd(110, 930), y = top(x) + 5, ln = rnd(-7, 7), hh = rnd(16, 30);
+      g.lineWidth = 2; g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + ln * 0.3, y - hh * 0.6, x + ln, y - hh); g.stroke();
+      g.lineWidth = 1.6;
+      for (let k = 0; k < 7; k++) { const a = -Math.PI * (0.05 + 0.9 * k / 6), l = rnd(8, 13); g.beginPath(); g.moveTo(x + ln, y - hh); g.quadraticCurveTo(x + ln + Math.cos(a) * l * 0.6, y - hh + Math.sin(a) * l * 0.9, x + ln + Math.cos(a) * l, y - hh + Math.sin(a) * l * 0.3 + 3); g.stroke(); }
+    }
+  } else if (kind === 'mesa') {
+    hill([[0, 150], [90, 150], [120, 96], [330, 92], [360, 140], [470, 146], [500, 70], [760, 66], [790, 128], [900, 136], [930, 110], [1024, 108]], '#c9905e', '#e4c39a');
+    g.strokeStyle = 'rgba(150,90,50,.45)'; g.lineWidth = 3;
+    for (const y of [110, 128, 146, 168, 190]) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y + 4); g.stroke(); }
+    g.globalCompositeOperation = 'destination-in'; hill([[0, 150], [90, 150], [120, 96], [330, 92], [360, 140], [470, 146], [500, 70], [760, 66], [790, 128], [900, 136], [930, 110], [1024, 108]], '#000', '#000'); g.globalCompositeOperation = 'source-over';
+    g.strokeStyle = '#6f7a46'; g.lineWidth = 3;
+    for (let i = 0; i < 6; i++) { const x = 150 + i * 140, y = top(x) + 30; g.beginPath(); g.moveTo(x, y); g.lineTo(x, y - 20); g.moveTo(x, y - 10); g.lineTo(x - 6, y - 10); g.lineTo(x - 6, y - 16); g.moveTo(x, y - 13); g.lineTo(x + 6, y - 13); g.lineTo(x + 6, y - 19); g.stroke(); }
+  } else if (kind === 'snow') {
+    const pk = []; for (let i = 0; i <= 26; i++) pk.push([i / 26 * w, 60 + ((i * 37) % 5) * 22 + (i % 2) * 30]);
+    hill(pk, '#4c5866', '#8d99a6');
+    g.fillStyle = '#f2f6fa';
+    for (let i = 1; i < pk.length - 1; i++) if (pk[i][1] < pk[i - 1][1] && pk[i][1] < pk[i + 1][1]) { const [x, y] = pk[i]; g.beginPath(); g.moveTo(x, y); g.lineTo(x - 22, y + 24); g.lineTo(x - 8, y + 18); g.lineTo(x, y + 28); g.lineTo(x + 10, y + 17); g.lineTo(x + 22, y + 24); g.closePath(); g.fill(); }
+  } else if (kind === 'headland') {
+    hill([[0, 230], [300, 222], [420, 150], [520, 96], [610, 90], [680, 110], [720, 150], [780, 175], [1024, 182]], '#2a3138', '#4d575f');
+    g.fillStyle = '#eef0f2'; g.fillRect(588, 58, 12, 34); g.fillStyle = '#c33'; g.fillRect(588, 70, 12, 6);
+    const gl = g.createRadialGradient(594, 56, 0, 594, 56, 40); gl.addColorStop(0, 'rgba(255,240,190,.9)'); gl.addColorStop(1, 'rgba(255,240,190,0)'); g.fillStyle = gl; g.fillRect(550, 16, 90, 80);   // lighthouse
   }
-}) }));
+  island.material.map.needsUpdate = true;
+}
 island.position.set(620, 138, -1600); island.renderOrder = -1; scene.add(island);
 
 // the sun, low over the horizon behind the wave
@@ -292,7 +365,7 @@ const SUN = new V3(-0.38, 0.27, -0.88).normalize();
 const rings = []; for (let i = 0; i < 24; i++) rings.push(new V3(0, 0, 1));    // x, z, age 0..1
 let ringI = 0;
 function addRing(x, z) { rings[ringI].set(x, z, 0); ringI = (ringI + 1) % 24; }
-const wU = { uRing: { value: rings }, uTime: { value: 0 }, uSun: { value: SUN }, uTex: { value: waterTex }, uFog: { value: new THREE.Color(0xd6efff) } };
+const wU = { uTint: { value: new V3(0.46, 0.89, 0.97) }, uGlow: { value: 1 }, uSkyLo: { value: new V3(0.84, 0.94, 1) }, uSkyHi: { value: new V3(0.27, 0.56, 0.93) }, uSand: { value: new V3(0.66, 0.88, 0.78) }, uReef: { value: new V3(0.09, 0.32, 0.4) }, uBed: { value: new THREE.Vector2(0.62, 0.5) }, uRing: { value: rings }, uTime: { value: 0 }, uSun: { value: SUN }, uTex: { value: waterTex }, uFog: { value: new THREE.Color(0xd6efff) } };
 const W_VERT = `
 varying vec3 vW; varying vec3 vN; varying vec2 vUv; varying vec3 vC; varying float vD;
 void main(){
@@ -309,7 +382,7 @@ void main(){
 }`;
 const W_FRAG = `
 precision highp float;
-uniform float uTime; uniform vec3 uSun; uniform vec3 uCol; uniform sampler2D uTex; uniform vec3 uFog; uniform float uRip; uniform vec3 uRing[24];
+uniform float uTime; uniform vec3 uSun; uniform vec3 uCol; uniform sampler2D uTex; uniform vec3 uFog; uniform float uRip; uniform vec3 uRing[24]; uniform vec3 uSkyLo; uniform vec3 uSkyHi; uniform vec3 uTint; uniform float uGlow; uniform vec3 uSand; uniform vec3 uReef; uniform vec2 uBed;
 varying vec3 vW; varying vec3 vN; varying vec2 vUv; varying vec3 vC; varying float vD;
 float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float noise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
@@ -334,7 +407,7 @@ void main(){
   float foam = smoothstep(fn * 0.9, fn * 0.9 + 0.25, fw * 1.15) * step(0.02, fw);   // lacy foam edges
   float F = 0.03 + 0.97 * pow(1.0 - max(dot(Np, V), 0.0), 5.0);
   vec3 Rf = reflect(-V, Np);
-  vec3 sky = mix(vec3(0.84, 0.94, 1.0), vec3(0.27, 0.56, 0.93), clamp(Rf.y * 1.4, 0.0, 1.0));
+  vec3 sky = mix(uSkyLo, uSkyHi, clamp(Rf.y * 1.4, 0.0, 1.0));
   sky = mix(col * 0.8, sky, smoothstep(-0.25, 0.05, Rf.y));
   float dif = max(dot(Np, uSun), 0.0);
   #ifdef WORLDUV
@@ -344,18 +417,18 @@ void main(){
   #endif
   vec3 body = col * (0.93 + 0.12 * streak) * (0.8 + 0.42 * dif);
   float c1 = abs(noise(uvw * 13.0 + vec2(uTime * 0.21, -uTime * 0.13)) - 0.5) * 2.0, c2 = abs(noise(uvw * 19.0 - vec2(uTime * 0.17, uTime * 0.09) + 7.3) - 0.5) * 2.0;
-  body += vec3(0.3, 0.5, 0.42) * (pow(1.0 - c1, 7.0) + pow(1.0 - c2, 7.0)) * 0.2 / (1.0 + vD * 0.03);   // sunlight caustics seen through clear water
-  body = mix(body, vec3(0.42, 0.9, 0.88), 0.1);
+  body += vec3(0.3, 0.5, 0.42) * uGlow * (pow(1.0 - c1, 7.0) + pow(1.0 - c2, 7.0)) * 0.2 / (1.0 + vD * 0.03);   // sunlight caustics seen through clear water
+  body = mix(body, uTint, 0.1);
   // the reef and sand below, bent by the surface and sliding under the wave
   vec2 sb = vW.xz + vec2(0.0, uTime * 3.0) + Np.xz * 1.6;
-  float reef = smoothstep(0.42, 0.6, noise(sb * 0.17) * 0.65 + noise(sb * 0.47 + 3.1) * 0.35);
-  vec3 bed = mix(vec3(0.66, 0.88, 0.78), vec3(0.09, 0.32, 0.4), reef) * (0.82 + 0.36 * noise(sb * 2.3));
-  body = mix(body, bed, (1.0 - F) * smoothstep(3.4, 0.0, vW.y) * 0.62 / (1.0 + vD * 0.02));
+  float reef = smoothstep(0.92 - uBed.y, 1.1 - uBed.y, noise(sb * 0.17) * 0.65 + noise(sb * 0.47 + 3.1) * 0.35);
+  vec3 bed = mix(uSand, uReef, reef) * (0.82 + 0.36 * noise(sb * 2.3));
+  body = mix(body, bed, (1.0 - F) * smoothstep(3.4, 0.0, vW.y) * uBed.x / (1.0 + vD * 0.02));
   float back = pow(max(dot(V, -uSun) * 0.5 + 0.5, 0.0), 2.0);
-  body += vec3(0.1, 0.55, 0.5) * back * 0.6 * smoothstep(0.5, 0.88, col.g);
+  body += uTint * 0.6 * back * 0.6 * uGlow * smoothstep(0.5, 0.88, col.g);
   vec3 c = mix(body, sky, F * 0.8);
   float rs = max(dot(Rf, uSun), 0.0);
-  c += vec3(1.0, 0.95, 0.82) * (pow(rs, 260.0) * 7.0 + pow(rs, 28.0) * 0.4);
+  c += vec3(1.0, 0.95, 0.82) * uGlow * (pow(rs, 260.0) * 7.0 + pow(rs, 28.0) * 0.4);
   vec3 fc = mix(vec3(0.66, 0.78, 0.9), vec3(1.0), clamp(0.45 + 0.35 * dif + 0.5 * fn, 0.0, 1.0));
   c = mix(c, fc, foam);
   float ring = 0.0;
@@ -393,7 +466,7 @@ waveMesh.frustumCulled = backMesh.frustumCulled = false;
 scene.add(waveMesh, backMesh);
 
 // pure blue: deep at the base, electric up the face
-const CB = [0.04, 0.36, 0.74], CM = [0.08, 0.57, 0.9], CT = [0.46, 0.89, 0.97];
+const CB = [0.04, 0.36, 0.74], CM = [0.08, 0.57, 0.9], CT = [0.46, 0.89, 0.97], CG = [0.62, 0.95, 1];      // CG: light glowing through the crest
 function updateWave(cx) {
   const dx = W.dx, x0 = Math.round(cx / dx) * dx - NI * 0.5 * dx, t = time;
   const P = waveGeo.attributes.position.array, C = waveGeo.attributes.color.array, U = waveGeo.attributes.uv.array;
@@ -404,14 +477,14 @@ function updateWave(cx) {
     const R = cp.R, H = cp.H, thM = cp.thMax, br = cp.broken, cu = cp.curl;
     const n1 = Math.sin(x * 1.1 + t * 4.2), n2 = Math.sin(x * 0.53 - t * 2.6);
     const span = Math.max(0.08, thM - 1.9), Tl = Math.min(0.5, 0.11 * H) * (0.55 + 0.45 * cu);    // lip thickness
-    const lipN = 0.03 * H * (n1 * n2 + 0.6 * Math.sin(x * 1.6 - t * 2.2));
+    const lipN = 0.03 * Math.min(H, 4.5) * (n1 * n2 + 0.6 * Math.sin(x * 1.6 - t * 2.2));
     for (let j = 0; j <= NJ + JL; j++) {
       let y, z, s, r, g, b;
       if (j > NJ) {            // the lip has thickness: wrap from the tip back over its outer side
         const f = (j - NJ) / JL, thk = thM - span * f, Ro = R + Tl * Math.pow(f, 0.6);
         z = -Ro * Math.sin(thk); y = R - Ro * Math.cos(thk) + lipN * (1 - f); s = cp.sLip + f * 0.6;
         const wl = (0.3 + 0.7 * cu) * (1 - 0.6 * f);
-        r = lerp(lerp(0.62, CM[0], f), 0.96, wl); g = lerp(lerp(0.95, CM[1], f), 0.98, wl); b = 1;
+        r = lerp(lerp(CG[0], CM[0], f), 0.96, wl); g = lerp(lerp(CG[1], CM[1], f), 0.98, wl); b = lerp(lerp(CG[2], CM[2], f), 1, wl);
         if (br > 0) { z = lerp(z, lerp(-0.9, -2.2, f), br); y = lerp(y, H * 0.5 * (1 - 0.06 * f), br); r = lerp(r, 0.93, br); g = lerp(g, 0.96, br); }
       } else if (j <= JF) {
         const f = j / JF, zf = FLAT * Math.pow(1 - f, 1.8);
@@ -429,7 +502,7 @@ function updateWave(cx) {
         if (hf < 0.5) { const q = hf * 2; r = lerp(CB[0], CM[0], q); g = lerp(CB[1], CM[1], q); b = lerp(CB[2], CM[2], q); }
         else { const q = hf * 2 - 1; r = lerp(CM[0], CT[0], q); g = lerp(CM[1], CT[1], q); b = lerp(CM[2], CT[2], q); }
         const gl_ = sstep(0.78, 1, tn) * 0.55;      // thin water at the crest lets the light through
-        r = lerp(r, 0.62, gl_); g = lerp(g, 0.95, gl_); b = lerp(b, 1, gl_);
+        r = lerp(r, CG[0], gl_); g = lerp(g, CG[1], gl_); b = lerp(b, CG[2], gl_);
         const lw = sstep(0.93, 1, tn) * (0.16 + 0.84 * cu) * (0.7 + 0.3 * n1);
         r = lerp(r, 0.96, lw); g = lerp(g, 0.98, lw); b = lerp(b, 1, lw);
         if (br > 0) {
@@ -582,10 +655,12 @@ const S = { x: 0, s: 0, v: 0, phi: Math.PI / 2, omega: 0, air: null, pumpCd: 0, 
   pos: new V3(), prev: new V3(), vel: new V3(), T: new V3(1, 0, 0), N: new V3(0, 1, 0), Z: new V3(0, 0, 1), th: 0, tn: 0 };
 const surfer = new THREE.Group(); surfer.matrixAutoUpdate = false; scene.add(surfer);
 
-function buildBoard(long, sc) {
-  const NA = 40, NC = 8, L = long ? 2.74 : 1.83, Wm = long ? 0.29 : 0.24, T = long ? 0.078 : 0.064;   // 6'0" x 18 7/8"
-  const halfW = a => a > 0.45 ? Wm * Math.pow(Math.max(0, 1 - Math.pow((a - 0.45) / 0.55, long ? 3.4 : 2.3)), long ? 0.55 : 0.8) : Wm * (1 - (long ? 0.3 : 0.42) * Math.pow((0.45 - a) / 0.45, 2.3));
-  const rocker = a => a > 0.5 ? (long ? 0.075 : 0.12) * Math.pow((a - 0.5) / 0.5, 2.6) : 0.04 * Math.pow((0.5 - a) / 0.5, 2.2);
+function buildBoard(bd, sc) {
+  const NA = 40, NC = 8, L = bd.L, Wm = bd.W, T = bd.T, long = bd.shape === 'long';
+  // outline: [nose curve power, nose fullness, tail narrowing, nose rocker]
+  const sh = { short: [2.3, 0.8, 0.42, 0.12], long: [3.4, 0.55, 0.3, 0.075], fish: [3.0, 0.62, 0.2, 0.1], gun: [1.8, 1.0, 0.6, 0.1] }[bd.shape];
+  const halfW = a => a > 0.45 ? Wm * Math.pow(Math.max(0, 1 - Math.pow((a - 0.45) / 0.55, sh[0])), sh[1]) : Wm * (1 - sh[2] * Math.pow((0.45 - a) / 0.45, 2.3));
+  const rocker = a => a > 0.5 ? sh[3] * Math.pow((a - 0.5) / 0.5, 2.6) : 0.04 * Math.pow((0.5 - a) / 0.5, 2.2);
   const thick = a => T * (0.3 + 0.7 * Math.pow(Math.sin(Math.PI * clamp(0.07 + 0.86 * a, 0, 1)), 0.6));
   const make = (top) => {
     const pos = [], uv = [], idx = [];
@@ -612,7 +687,7 @@ function buildBoard(long, sc) {
     g.strokeStyle = '#3a4358'; g.lineWidth = 3;
     for (let i = 1; i < 9; i++) { g.beginPath(); g.moveTo(w * 0.03 + i * w * 0.022, h * 0.16); g.lineTo(w * 0.03 + i * w * 0.022, h * 0.84); g.stroke(); }
     g.fillStyle = sc.text; g.font = '900 40px "Arial Narrow", Arial, sans-serif'; g.textAlign = 'center';
-    g.fillText('BLUE ROOM', w * 0.47, h * 0.42); g.font = '600 20px Arial, sans-serif'; g.fillText(long ? "9'0\"  ×  22 3/4  ×  3" : "6'0\"  ×  18 7/8  ×  2 5/16", w * 0.47, h * 0.72);
+    g.fillText('BLUE ROOM', w * 0.47, h * 0.42); g.font = '600 20px Arial, sans-serif'; g.fillText(bd.dims, w * 0.47, h * 0.72);
   });
   const grp = new THREE.Group();
   grp.add(new THREE.Mesh(make(true), new THREE.MeshPhongMaterial({ map: deck, shininess: 120, specular: 0xffffff })));
@@ -620,11 +695,72 @@ function buildBoard(long, sc) {
   const fs = new THREE.Shape(); fs.moveTo(0.07, 0); fs.quadraticCurveTo(0.02, -0.07, -0.07, -0.13); fs.quadraticCurveTo(-0.03, -0.05, -0.06, 0); fs.lineTo(0.07, 0);
   const fg = new THREE.ShapeGeometry(fs), fm = new THREE.MeshPhongMaterial({ color: 0x0a2a8c, side: THREE.DoubleSide, shininess: 80 });
   const xt = -0.46 * L;      // shortboard: thruster. longboard: one big centre fin
-  for (const [x, z, cant] of long ? [[xt + 0.22, 0, 0]] : [[xt + 0.06, 0, 0], [xt + 0.24, 0.15, -0.14], [xt + 0.24, -0.15, 0.14]]) {
-    const f = new THREE.Mesh(fg, fm); f.position.set(x, 0.0, z); f.rotation.x = cant; if (long) f.scale.setScalar(1.75); grp.add(f);
+  const fins = bd.fins === 1 ? [[xt + 0.22, 0, 0, 1.75]] : bd.fins === 2 ? [[xt + 0.13, 0.14, -0.12, 1.2], [xt + 0.13, -0.14, 0.12, 1.2]] : [[xt + 0.06, 0, 0, 1], [xt + 0.24, 0.15, -0.14, 1], [xt + 0.24, -0.15, 0.14, 1]];
+  for (const [x, z, cant, k] of fins) {
+    const f = new THREE.Mesh(fg, fm); f.position.set(x, 0.0, z); f.rotation.x = cant; f.scale.setScalar(k); grp.add(f);
   }
   return grp;
 }
+// ---- everything the player can unlock
+const SPOTS = [
+  { name: 'Sandy Bay', kind: 'Beach break', ft: [3, 4], need: 0, sky: ['#3b97ea', '#a3d8ff', '#eef8ff'], fog: 0xdff1ff, skyLo: [0.86, 0.95, 1], skyHi: [0.3, 0.6, 0.94],
+    w: [[0.06, 0.42, 0.72], [0.12, 0.62, 0.86], [0.5, 0.9, 0.95]], sand: [0.82, 0.88, 0.72], reef: [0.42, 0.58, 0.5], bedAmt: 0.62, reefAmt: 0.2,
+    sun: [-0.38, 0.27, -0.88], sunCol: 0xfff6e0, sunI: 0.8, glow: [0xffffff, 0xfff1c4, 0xffe9b0], glowOp: 1, hemi: [0xdff1ff, 0x1a49c8, 0.78], cloud: [0xffffff, 0.75, 1], back: 'beach' },
+  { name: 'Coral Pass', kind: 'Tropical reef', ft: [5, 6], need: 2, sky: ['#2f8fe8', '#8fd0ff', '#e4f5ff'], fog: 0xd6efff, skyLo: [0.84, 0.94, 1], skyHi: [0.27, 0.56, 0.93],
+    w: [[0.04, 0.36, 0.74], [0.08, 0.57, 0.9], [0.46, 0.89, 0.97]], sand: [0.66, 0.88, 0.78], reef: [0.09, 0.32, 0.4], bedAmt: 0.62, reefAmt: 0.5,
+    sun: [-0.38, 0.27, -0.88], sunCol: 0xfff6e0, sunI: 0.8, glow: [0xffffff, 0xfff1c4, 0xffe9b0], glowOp: 1, hemi: [0xdff1ff, 0x1a49c8, 0.78], cloud: [0xffffff, 0.75, 1], back: 'palms' },
+  { name: 'Dune Point', kind: 'Desert point', ft: [7, 8], need: 4, sky: ['#3f8fd6', '#b4d6ec', '#f7e3c0'], fog: 0xf0e2c8, skyLo: [0.98, 0.9, 0.78], skyHi: [0.3, 0.55, 0.85],
+    w: [[0.03, 0.28, 0.58], [0.06, 0.47, 0.78], [0.42, 0.8, 0.88]], sand: [0.84, 0.76, 0.56], reef: [0.45, 0.36, 0.26], bedAmt: 0.5, reefAmt: 0.35,
+    sun: [-0.6, 0.16, -0.78], sunCol: 0xffd9a0, sunI: 0.9, glow: [0xfffbe8, 0xffd59a, 0xffb86a], glowOp: 1, hemi: [0xffe8c8, 0x1a3f9a, 0.72], cloud: [0xfff0dc, 0.55, 0.8], back: 'mesa' },
+  { name: 'Iron Slab', kind: 'Cold-water slab', ft: [10, 12], need: 6, sky: ['#5d7f9f', '#a9bccd', '#dbe4ec'], fog: 0xcfdae4, skyLo: [0.82, 0.86, 0.9], skyHi: [0.36, 0.48, 0.6],
+    w: [[0.02, 0.17, 0.3], [0.05, 0.31, 0.45], [0.3, 0.6, 0.68]], sand: [0.42, 0.45, 0.44], reef: [0.12, 0.14, 0.15], bedAmt: 0.35, reefAmt: 0.6,
+    sun: [-0.3, 0.32, -0.9], sunCol: 0xe8f0ff, sunI: 0.55, glow: [0xf4f8ff, 0xdfe8f4, 0xc8d6e6], glowOp: 0.55, hemi: [0xd8e2ec, 0x14283c, 0.85], cloud: [0xd8dee6, 0.9, 1.4], back: 'snow' },
+  { name: 'The Outer Reef', kind: 'Big-wave outer reef', ft: [18, 25], need: 8, sky: ['#36414f', '#66737f', '#a2acb4'], fog: 0x9aa5ae, skyLo: [0.62, 0.67, 0.72], skyHi: [0.24, 0.3, 0.37],
+    w: [[0.02, 0.12, 0.2], [0.04, 0.23, 0.33], [0.24, 0.48, 0.55]], sand: [0.3, 0.34, 0.34], reef: [0.06, 0.1, 0.12], bedAmt: 0.25, reefAmt: 0.6,
+    sun: [-0.2, 0.4, -0.9], sunCol: 0xd6dde6, sunI: 0.35, glow: [0xe6ebf0, 0xc0c8d0, 0xa0a8b0], glowOp: 0.25, hemi: [0xb8c2cc, 0x0e1a26, 0.95], cloud: [0x7d8790, 0.95, 1.9], back: 'headland' }
+];
+const BOARDS = [
+  { id: 'stock', name: "Stock 6'0\"", dims: "6'0\"  ×  18 7/8  ×  2 5/16", L: 1.83, W: 0.24, T: 0.064, fins: 3, shape: 'short', speed: 1, carve: 1, pop: 1, price: 0, note: 'Your first board. Does everything okay.' },
+  { id: 'long', name: "Log 9'0\"", dims: "9'0\"  ×  22 3/4  ×  3", L: 2.74, W: 0.29, T: 0.078, fins: 1, shape: 'long', speed: 1.1, carve: 0.68, pop: 0.7, price: 0, note: 'Glides and holds speed. Slow to turn, hard to launch.' },
+  { id: 'fish', name: "Twin Fish 5'6\"", dims: "5'6\"  ×  20 1/2  ×  2 1/2", L: 1.68, W: 0.27, T: 0.066, fins: 2, shape: 'fish', speed: 1.08, carve: 1.06, pop: 1.05, price: 600, note: 'Wide and quick. Flies through flat sections.' },
+  { id: 'step', name: "Step-Up 6'4\"", dims: "6'4\"  ×  18 3/4  ×  2 1/2", L: 1.93, W: 0.24, T: 0.068, fins: 3, shape: 'short', speed: 1.13, carve: 1.08, pop: 1.02, price: 1500, note: 'Longer for bigger days. Holds a rail.' },
+  { id: 'pro', name: "Pro Model 5'11\"", dims: "5'11\"  ×  18 1/2  ×  2 5/16", L: 1.8, W: 0.235, T: 0.062, fins: 3, shape: 'short', speed: 1.15, carve: 1.22, pop: 1.18, price: 3500, note: 'Tighter turns, bigger airs.' },
+  { id: 'gun', name: "Big-Wave Gun 8'0\"", dims: "8'0\"  ×  19 1/2  ×  3", L: 2.44, W: 0.25, T: 0.076, fins: 3, shape: 'gun', speed: 1.32, carve: 0.94, pop: 0.85, price: 6000, note: 'Made for The Outer Reef. Fastest paddle and glide.' },
+  { id: 'carbon', name: "Carbon Pro 5'10\"", dims: "5'10\"  ×  18 1/4  ×  2 1/4", L: 1.78, W: 0.235, T: 0.06, fins: 3, shape: 'short', speed: 1.25, carve: 1.38, pop: 1.32, price: 12000, note: 'The best board in the game.' }
+];
+const SHORTS = [
+  { id: 'black', name: 'Black, red stripe', price: 0, base: '#0c0c0e', stripe: '#d3121c', band: '#1b1b1f' },
+  { id: 'navy', name: 'Navy, white stripe', price: 300, base: '#13224f', stripe: '#ffffff', band: '#0b1534' },
+  { id: 'guard', name: 'Lifeguard red', price: 500, base: '#c8141c', stripe: '#ffd23f', band: '#8e0e14' },
+  { id: 'floral', name: 'Hibiscus print', price: 900, base: '#0e8a8a', stripe: '#ffd23f', band: '#0a6464', pattern: 'floral' },
+  { id: 'camo', name: 'Desert camo', price: 1500, base: '#8c7a55', stripe: '#2a2a20', band: '#5d5038', pattern: 'camo' },
+  { id: 'sunset', name: 'Sunset fade', price: 2500, base: '#ff8a2f', base2: '#d92a6a', stripe: '#ffffff', band: '#b21f55', pattern: 'fade' },
+  { id: 'gold', name: 'Gold pro', price: 6000, base: '#0c0c0e', stripe: '#e8b923', band: '#e8b923', pattern: 'pro' }
+];
+const LEVELS = [
+  { name: 'Local Grom Contest', rival: 'Tyler Banks', target: 8.0, spot: 0 },
+  { name: 'Sandy Bay Open', rival: 'Jess Moreno', target: 9.2, spot: 0 },
+  { name: 'Coral Pass Pro-Am', rival: 'Koa Akana', target: 10.4, spot: 1 },
+  { name: 'Reef Masters', rival: 'Leilani Cruz', target: 11.5, spot: 1 },
+  { name: 'Dune Point Classic', rival: 'Rafa Lima', target: 12.6, spot: 2 },
+  { name: 'Desert Point Pro', rival: 'Ana Sousa', target: 13.7, spot: 2 },
+  { name: 'Iron Slab Invitational', rival: 'Sven Holm', target: 14.8, spot: 3 },
+  { name: 'Cold Water Challenge', rival: 'Brodie Hale', target: 16.0, spot: 3 },
+  { name: 'Outer Reef Big Wave Event', rival: 'Mia Tanaka', target: 17.2, spot: 4 },
+  { name: 'World Title Final', rival: 'Kai Nalu', target: 18.5, spot: 4 }
+];
+// saved progress: cash, what you own, how many contest levels you have won
+const SAVE = { cash: 0, boards: ['stock', 'long'], shorts: ['black'], beat: 0, best: {} };
+try {
+  const v = JSON.parse(localStorage.getItem('blueroom.save') || '{}');
+  if (v.cash >= 0) SAVE.cash = Math.floor(v.cash);
+  if (Array.isArray(v.boards)) SAVE.boards = [...new Set(['stock', 'long', ...v.boards.filter(b => BOARDS.some(x => x.id === b))])];
+  if (Array.isArray(v.shorts)) SAVE.shorts = [...new Set(['black', ...v.shorts.filter(b => SHORTS.some(x => x.id === b))])];
+  if (v.beat >= 0) SAVE.beat = Math.min(LEVELS.length, Math.floor(v.beat));
+  if (v.best && typeof v.best === 'object') SAVE.best = v.best;
+} catch (e) {}
+function save() { try { localStorage.setItem('blueroom.save', JSON.stringify(SAVE)); } catch (e) {} }
+const spotOpen = i => SAVE.beat >= SPOTS[i].need;
 // what the player picked in Customize
 const SCHEMES = {
   white: { name: 'White / blue', base: '#fbfbf4', fade: '#0a4bff', a1: '#ffd23f', a2: '#ff6a3d', text: '#04123a' },
@@ -633,19 +769,37 @@ const SCHEMES = {
   red: { name: 'Red', base: '#e3352f', fade: '#ffffff', a1: '#ffd23f', a2: '#04123a', text: '#ffffff' },
   black: { name: 'Black', base: '#1a1b20', fade: '#d3121c', a1: '#ffffff', a2: '#d3121c', text: '#ffffff' }
 };
-const cfg = { board: 'short', color: 'white', suit: 'shorts' };
-try { const c = JSON.parse(localStorage.getItem('blueroom.cfg') || '{}'); if (c.board === 'long') cfg.board = 'long'; if (SCHEMES[c.color]) cfg.color = c.color; if (c.suit === 'full') cfg.suit = 'full'; } catch (e) {}
-const isLong = () => cfg.board === 'long';
-let board = buildBoard(isLong(), SCHEMES[cfg.color]); surfer.add(board);
+const cfg = { board: 'stock', color: 'white', suit: 'shorts', shorts: 'black' };
+try {
+  const c = JSON.parse(localStorage.getItem('blueroom.cfg') || '{}');
+  if (c.board === 'long') cfg.board = 'long'; else if (SAVE.boards.includes(c.board)) cfg.board = c.board;
+  if (SCHEMES[c.color]) cfg.color = c.color; if (c.suit === 'full') cfg.suit = 'full'; if (SAVE.shorts.includes(c.shorts)) cfg.shorts = c.shorts;
+} catch (e) {}
+const BD = () => BOARDS.find(b => b.id === cfg.board) || BOARDS[0];
+let board = buildBoard(BD(), SCHEMES[cfg.color]); surfer.add(board);
 
 const skinMat = new THREE.MeshPhongMaterial({ color: 0xc08a66, shininess: 50, specular: 0x7a6252, emissive: 0x1e110b, side: THREE.DoubleSide });
-const shortsTex = canvasTex(512, 256, (g, w, h) => {      // left and right edges of this map land on the outside of each leg
-  g.fillStyle = '#0c0c0e'; g.fillRect(0, 0, w, h);
-  g.fillStyle = '#d3121c'; g.fillRect(0, 0, w * 0.075, h); g.fillRect(w * 0.925, 0, w * 0.075, h);
-  g.fillStyle = '#1b1b1f'; g.fillRect(0, 0, w, h * 0.07);
-  g.font = 'italic 900 30px "Arial Black", Arial, sans-serif'; g.textAlign = 'center'; g.fillStyle = '#fff';
+const shortsTex = canvasTex(512, 256, () => {});
+function drawShorts(sd) {      // left and right edges of this map land on the outside of each leg
+  const c = shortsTex.image, g = c.getContext('2d'), w = c.width, h = c.height;
+  g.fillStyle = sd.base; g.fillRect(0, 0, w, h);
+  if (sd.pattern === 'fade') { const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, sd.base); gr.addColorStop(1, sd.base2); g.fillStyle = gr; g.fillRect(0, 0, w, h); }
+  if (sd.pattern === 'camo') for (let i = 0; i < 70; i++) {
+    g.fillStyle = ['#6b5d3e', '#b7a27a', '#4d4530'][i % 3]; g.beginPath();
+    const x = (i * 97) % w, y = (i * 53) % h; g.ellipse(x, y, 18 + (i * 7) % 22, 10 + (i * 5) % 12, i, 0, 7); g.fill();
+  }
+  if (sd.pattern === 'floral') for (let i = 0; i < 26; i++) {
+    const x = (i * 131) % w, y = (i * 71) % h; g.fillStyle = i % 2 ? '#ff5d8f' : '#ffffff';
+    for (let k = 0; k < 5; k++) { g.beginPath(); g.ellipse(x + Math.cos(k * 1.257) * 9, y + Math.sin(k * 1.257) * 9, 9, 5, k * 1.257, 0, 7); g.fill(); }
+    g.fillStyle = '#ffd23f'; g.beginPath(); g.arc(x, y, 4, 0, 7); g.fill();
+  }
+  g.fillStyle = sd.stripe; g.fillRect(0, 0, w * 0.075, h); g.fillRect(w * 0.925, 0, w * 0.075, h);
+  if (sd.pattern === 'pro') { g.fillRect(0, h * 0.86, w, h * 0.04); }
+  g.fillStyle = sd.band; g.fillRect(0, 0, w, h * 0.07);
+  g.font = 'italic 900 30px "Arial Black", Arial, sans-serif'; g.textAlign = 'center'; g.fillStyle = sd.pattern === 'pro' ? sd.stripe : '#fff';
   g.fillText('BILLABONG', w * 0.5, h * 0.36);
-});
+  shortsTex.needsUpdate = true;
+}
 const shortsMat = new THREE.MeshPhongMaterial({ map: shortsTex, shininess: 12, side: THREE.DoubleSide });
 const sleeveTex = shortsTex.clone(); sleeveTex.needsUpdate = true; sleeveTex.center.set(0.5, 0.5); sleeveTex.rotation = Math.PI / 2;
 const sleeveMat = new THREE.MeshPhongMaterial({ map: sleeveTex, shininess: 12, side: THREE.DoubleSide });
@@ -700,12 +854,17 @@ vec2 map(vec3 p){
   vec3 ax = normalize(sB - sF), wc = mix(hip, nk, 0.36), cc = mix(hip, nk, 0.74);
   vec3 fwd = normalize(cross(ax, nk - hip)) * uFs;
   vec3 pF = mix(hip, hF, 0.7), pB = mix(hip, hB, 0.7);
-  float d = cap(p, pF, pB, 0.086, 0.086);                                              // pelvis
-  d = smin(d, cap(p, wc - ax * 0.034 - fwd * 0.012, wc + ax * 0.034 - fwd * 0.012, 0.074, 0.074), 0.04);           // waist
-  float ch = smin(cap(p, cc - ax * 0.08, cc + ax * 0.08, 0.104, 0.104), cap(p, sF, sB, 0.054, 0.054), 0.04);   // ribcage + shoulder girdle
-  vec3 pc = mix(hip, nk, 0.82);
-  ch = smin(ch, min(length(p - pc - fwd * 0.05 - ax * 0.06), length(p - pc - fwd * 0.05 + ax * 0.06)) - 0.05, 0.015);   // chest muscles
-  d = smin(d, ch, 0.055);
+  float d = cap(p, pF, pB, 0.09, 0.09);                                                // pelvis
+  float t = cap(p, wc - ax * 0.05 - fwd * 0.01, wc + ax * 0.05 - fwd * 0.01, 0.094, 0.094);          // waist
+  vec3 rb = mix(hip, nk, 0.6), pc = mix(hip, nk, 0.84);
+  t = smin(t, cap(p, rb - ax * 0.085, rb + ax * 0.085, 0.1, 0.1), 0.11);                          // lower ribs
+  t = smin(t, cap(p, pc - ax * 0.11 - fwd * 0.005, pc + ax * 0.11 - fwd * 0.005, 0.106, 0.106), 0.1);   // upper chest and back
+  t = smin(t, min(length(p - pc - fwd * 0.045 - ax * 0.068), length(p - pc - fwd * 0.045 + ax * 0.068)) - 0.058, 0.035);   // pecs
+  t = smin(t, min(cap(p, rb - fwd * 0.03 - ax * 0.12, pc - fwd * 0.03 - ax * 0.15, 0.04, 0.05), cap(p, rb - fwd * 0.03 + ax * 0.12, pc - fwd * 0.03 + ax * 0.15, 0.04, 0.05)), 0.04);   // lats
+  vec3 nb = mix(nk, pc, 0.25);
+  t = smin(t, min(cap(p, nb, sF, 0.05, 0.045), cap(p, nb, sB, 0.05, 0.045)), 0.04);                  // traps into the shoulders
+  t = smin(t, min(length(p - sF + fwd * 0.005 - (nk - hip) * 0.06) - 0.068, length(p - sB + fwd * 0.005 - (nk - hip) * 0.06) - 0.068), 0.03);   // delts
+  d = smin(d, t, 0.09);
   d = smin(d, cap(p, nk, mix(nk, hd, 0.7), 0.05, 0.045), 0.03);                       // neck
   float h = smin(length(p - hd) - 0.103, length(p - hd - hr(0.03, -0.066)) - 0.074, 0.03);
   h = smin(h, length(p - hd - hr(0.106, -0.012)) - 0.016, 0.02);                // nose
@@ -822,7 +981,7 @@ function poseStand(o, c, lean, arms, grab, tw) {
   const bend = 0.24 + 0.6 * c;
   o.neck.set(o.hip.x + 0.07, o.hip.y + 0.5 * Math.cos(bend), o.hip.z - 0.5 * Math.sin(bend) - 0.1 * lean);
   o.head.set(o.neck.x + 0.04, o.neck.y + 0.19, o.neck.z - 0.02);
-  const ct = Math.cos(tw) * 0.2, stw = Math.sin(tw) * 0.2;   // shoulders wind into the turn
+  const ct = Math.cos(tw) * 0.215, stw = Math.sin(tw) * 0.215;   // shoulders wind into the turn
   o.shF.set(o.neck.x + ct, o.neck.y - 0.05, o.neck.z - 0.07 - stw); o.shB.set(o.neck.x - ct, o.neck.y - 0.05, o.neck.z + 0.07 + stw);
   o.haF.set(o.shF.x + 0.46, o.shF.y - 0.17 + 0.24 * arms, o.shF.z - 0.16);
   o.haB.set(lerp(o.shB.x - 0.44, -0.12, grab), lerp(o.shB.y - 0.1 + 0.3 * arms, 0.07, grab), lerp(o.shB.z - 0.14, -0.26, grab));
@@ -881,7 +1040,7 @@ function updateBody(dt) {
   leash.visible = st > 0.5;
   const lp = leashGeo.attributes.position.array;
   for (let i = 0; i < 10; i++) { const q = i / 9, sg = Math.sin(Math.PI * q);
-    lp[i * 3] = lerp(J.ftB.x, isLong() ? -1.26 : -0.84, q) - 0.1 * sg; lp[i * 3 + 1] = lerp(J.ftB.y + 0.04, 0.045, q) + 0.02 * sg; lp[i * 3 + 2] = lerp(J.ftB.z, 0, q) + 0.14 * sg; }
+    lp[i * 3] = lerp(J.ftB.x, -0.46 * BD().L, q) - 0.1 * sg; lp[i * 3 + 1] = lerp(J.ftB.y + 0.04, 0.045, q) + 0.02 * sg; lp[i * 3 + 2] = lerp(J.ftB.z, 0, q) + 0.14 * sg; }
   leashGeo.attributes.position.needsUpdate = true;
   const bw = beerW();
   if (bw > 0) {                                   // can to the mouth, head back
@@ -907,7 +1066,9 @@ for (let i = 0; i < HS; i++) {
   hairRoot.push(new V3(Math.cos(az) * Math.cos(el) * 0.114 - 0.03, Math.sin(el) * 0.118 + 0.04, Math.sin(az) * Math.cos(el) * 0.108));
   // each tuft grows out from the scalp, swept forward into a fringe at the front, with some mess
   { const tp = Math.sin(el), ce = Math.cos(el);      // sides and back lie down, the top is swept forward and up, the front falls as a fringe
-    hairDir.push(new V3(Math.cos(az) * ce * 0.55 + 0.5 * tp + 0.25 * Math.max(0, Math.cos(az)) + rnd(-0.3, 0.3), 0.45 * tp - 0.75 * (1 - tp) + rnd(-0.15, 0.3), Math.sin(az) * ce * 0.55 + rnd(-0.3, 0.3)).normalize()); }
+    { const hd_ = new V3(Math.cos(az) * ce * 0.55 + 0.5 * tp + 0.25 * Math.max(0, Math.cos(az)) + rnd(-0.3, 0.3), 0.45 * tp - 0.75 * (1 - tp) + rnd(-0.15, 0.3), Math.sin(az) * ce * 0.55 + rnd(-0.3, 0.3)).normalize();
+      const rad = new V3(Math.cos(az) * Math.cos(el), Math.sin(el), Math.sin(az) * Math.cos(el));      // lie along the scalp, not straight out
+      hairDir.push(hd_.addScaledVector(rad, -0.75 * hd_.dot(rad)).normalize()); } }
   for (let k = 0; k < HN - 1; k++) {
     const m = new THREE.Mesh(new THREE.CylinderGeometry(lerp(0.027, 0.008, (k + 1) / (HN - 1)), lerp(0.027, 0.008, k / (HN - 1)), 1, 5), k === HN - 2 ? hairTip : hairMat);
     m.matrixAutoUpdate = false; m.frustumCulled = false; scene.add(m); hairSeg.push(m);
@@ -1029,12 +1190,12 @@ function blip(f, len = 0.16) {
 }
 
 // ---------------------------------------------------------------- game state
-const G = { state: 'menu', mode: 'free', paused: false, heatT: 180, total: 0, rides: [], set: [], idx: 0, lull: 0, passT: -1, stT: 0, menuSel: 0, inBarrel: false, camX: 0, best: 0 };
+const G = { spot: 0, level: 0, sub: null, next: -1, state: 'menu', mode: 'free', paused: false, heatT: 180, total: 0, rides: [], set: [], idx: 0, lull: 0, passT: -1, stT: 0, menuSel: 0, inBarrel: false, camX: 0, best: 0 };
 let ride = null;
 try { G.best = +localStorage.getItem('blueroom.best') || 0; } catch (e) {}
 const ft = H => Math.round(H * 1.3);
 const fmt = n => Math.round(n).toLocaleString('en-US');
-const judge = p => Math.min(10, Math.round(100 * (1 - Math.exp(-p / 18000))) / 10);
+const judge = p => Math.min(10, Math.round(100 * (1 - Math.exp(-p / 9000))) / 10);
 function show(id, on) { $(id).hidden = !on; }
 function wash() { const w = $('wash'); w.style.transition = 'none'; w.style.opacity = 0.9; requestAnimationFrame(() => requestAnimationFrame(() => { w.style.transition = ''; w.style.opacity = 0; })); }
 function popup(name, pts, bad) {
@@ -1046,7 +1207,7 @@ function popup(name, pts, bad) {
 function award(name, base) {
   if (!ride) return;
   const same = ride.last === name;
-  const pts = base * ride.mult * (W.H / 4.4) * (same ? 0.7 : 1);
+  const pts = base * ride.mult * Math.sqrt(W.H / 4.4) * (same ? 0.7 : 1);
   ride.pts += pts; ride.moves++;
   ride.mult = Math.min(4, ride.mult + (same ? 0.1 : 0.25)); ride.comboT = 5; ride.last = name;
   popup(name, pts); blip(440 + ride.mult * 70);
@@ -1055,7 +1216,8 @@ function award(name, base) {
 function newSet(delay) {
   const n = 3 + (Math.random() < 0.5 ? 1 : 0), big = Math.floor(rnd(1, n));
   G.set = []; G.idx = 0; G.passT = -1;
-  for (let k = 0; k < n; k++) G.set.push({ H: k === big ? rnd(4.9, 5.5) : rnd(3.2, 4.6), z: -95 - delay * 13 - k * 66, gone: false });
+  const sp = SPOTS[G.spot], lo = sp.ft[0] / 1.3, hi = sp.ft[1] / 1.3, gap = 66 * Math.sqrt(Math.max(1, hi / 4.6));
+  for (let k = 0; k < n; k++) G.set.push({ H: k === big ? rnd(hi * 0.95, hi * 1.05) : rnd(lo, lo + (hi - lo) * 0.75), z: -95 - delay * 13 - k * gap, gone: false });
   W.breaking = false; W.dx = 1.6; W.seed = rnd(0, 100); W.peelX = -1e6; W.sec = null;
   drawPips();
 }
@@ -1074,13 +1236,13 @@ function toLineup(delay) {
   hudRight();
 }
 function startSession(mode) {
-  G.mode = mode; G.total = 0; G.rides = []; G.heatT = 180; S.x = 0; G.camX = 0;
+  G.mode = mode; G.best = SAVE.best[G.spot] || 0; G.total = 0; G.rides = []; G.heatT = 180; S.x = 0; G.camX = 0;
   show('menu', false); show('results', false); show('tr', true); wash();
   toLineup(0.5);
 }
 function hudRight() {
   if (G.mode === 'heat') {
-    const t = Math.max(0, G.heatT); $('trLabel').textContent = 'Heat clock';
+    const t = Math.max(0, G.heatT); $('trLabel').textContent = `Level ${G.level + 1} · beat ${LEVELS[G.level].target.toFixed(1)}`;
     $('trBig').textContent = Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0');
     const top = [...G.rides].sort((a, b) => b - a);
     $('waves').innerHTML = G.rides.length ? 'Waves ' + G.rides.map(r => (top.indexOf(r) < 2 ? '<b>' : '') + r.toFixed(1) + (top.indexOf(r) < 2 ? '</b>' : '')).join(' · ') : 'Best two waves count';
@@ -1107,6 +1269,7 @@ function endRide(kind) {
   $('sumLabel').textContent = kind === 'wipeout' ? 'Wipeout · half points' : kind === 'kickout' ? 'Kicked out clean' : 'Ride complete';
   if (G.mode === 'heat') { G.rides.push(sc); $('sumBig').textContent = sc.toFixed(1); $('sumSub').textContent = `${fmt(pts)} style points · ${ft(W.H)} ft wave`; }
   else { G.rides.push(pts); G.total += pts; $('sumBig').textContent = fmt(pts); $('sumSub').textContent = `${ride.moves} moves · ${ft(W.H)} ft wave`; }
+  const cash = Math.round(pts / 15); SAVE.cash += cash; save(); if (cash > 0) $('sumSub').textContent += ` · +${money(cash)}`;
   if (kind === 'wipeout') { S.visible = true; S.s = -5; S.stand = 0; S.prone = 1; S.phi = 0.5; hairReset = true; }     // surfaces, back on the board
   S.tumble = 0; S.flail = 0; S.wipeY = 0; S.air = null; S.grind = null; board.position.set(0, 0, 0); board.rotation.set(0, 0, 0);
   G.state = 'summary'; G.stT = 0; show('summary', true); $('live').textContent = ''; hudRight();
@@ -1117,26 +1280,89 @@ function showResults() {
   const row = (a, b, top) => { const tr = tb.insertRow(); if (top) tr.className = 'top'; tr.insertCell().textContent = a; tr.insertCell().textContent = b; };
   if (G.mode === 'heat') {
     const top = [...G.rides].sort((a, b) => b - a), mine = (top[0] || 0) + (top[1] || 0);
-    const rival = Math.round(rnd(10.5, 15.5) * 10) / 10;
-    $('resLabel').textContent = 'Heat over'; $('resTitle').textContent = mine > rival ? 'You win the heat' : 'Knocked out';
+    const lv = LEVELS[G.level], rival = lv.target, won = mine > rival, first = won && G.level === SAVE.beat;
+    $('resLabel').textContent = `Level ${G.level + 1} · ${lv.name}`; $('resTitle').textContent = won ? 'You win the heat' : 'Knocked out';
     G.rides.forEach((r, i) => row('Wave ' + (i + 1), r.toFixed(1), top.indexOf(r) < 2));
-    row('Your heat total', mine.toFixed(1) + ' / 20'); row('Kai (rival)', rival.toFixed(1) + ' / 20');
-    $('resSub').textContent = mine > rival ? 'Through to the next round.' : 'Pick the bigger set waves and link more turns.';
+    row('Your heat total', mine.toFixed(1) + ' / 20'); row(lv.rival + ' (rival)', rival.toFixed(1) + ' / 20');
+    const msg = [];
+    if (won) {
+      const bonus = (first ? 300 : 100) * (G.level + 1); SAVE.cash += bonus; row('Prize money', money(bonus), true);
+      if (first) {
+        SAVE.beat++;
+        const sp = SPOTS.findIndex(x => x.need === SAVE.beat);
+        if (sp > 0) msg.push(`New spot unlocked: ${SPOTS[sp].name} (${SPOTS[sp].ft[0]}–${SPOTS[sp].ft[1]} ft).`);
+        msg.push(SAVE.beat < LEVELS.length ? `Level ${SAVE.beat + 1} unlocked.` : 'You are the world champion!');
+      }
+      save();
+    } else msg.push(`Need more than ${rival.toFixed(1)}. Pick the bigger set waves and link more turns.`);
+    $('resSub').textContent = msg.join(' ');
+    G.next = won ? (G.level + 1 < LEVELS.length ? G.level + 1 : -1) : G.level;
+    $('bNextT').textContent = won ? 'Next level' : 'Try again'; show('bNext', G.next >= 0);
   } else {
-    const hi = G.total > G.best;
-    if (hi) { G.best = G.total; try { localStorage.setItem('blueroom.best', String(Math.round(G.best))); } catch (e) {} }
+    const hi = G.total > (SAVE.best[G.spot] || 0);
+    if (hi) { SAVE.best[G.spot] = Math.round(G.total); save(); } G.best = SAVE.best[G.spot] || 0; show('bNext', false);
     $('resLabel').textContent = 'Session over'; $('resTitle').textContent = hi && G.total > 0 ? 'New high score' : 'Nice session';
     row('Waves ridden', String(G.rides.length)); row('Best wave', fmt(Math.max(0, ...G.rides)));
-    row('Session score', fmt(G.total), true); row('High score', fmt(G.best));
+    row('Session score', fmt(G.total), true); row('High score at ' + SPOTS[G.spot].name, fmt(G.best)); row('Cash', money(SAVE.cash));
     $('resSub').textContent = '';
   }
   show('results', true);
 }
+// ---- the spot sets the sky, light, water, seabed and backdrop
+function applySpot(i) {
+  const sp = SPOTS[i]; G.spot = i;
+  const bg = scene.background.image, g = bg.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, bg.height);
+  gr.addColorStop(0, sp.sky[0]); gr.addColorStop(0.42, sp.sky[1]); gr.addColorStop(0.56, sp.sky[2]); gr.addColorStop(1, sp.sky[2]);
+  g.fillStyle = gr; g.fillRect(0, 0, bg.width, bg.height); scene.background.needsUpdate = true;
+  scene.fog.color.set(sp.fog); wU.uFog.value.set(sp.fog);
+  wU.uSkyLo.value.fromArray(sp.skyLo); wU.uSkyHi.value.fromArray(sp.skyHi);
+  wU.uSand.value.fromArray(sp.sand); wU.uReef.value.fromArray(sp.reef); wU.uBed.value.set(sp.bedAmt, sp.reefAmt);
+  for (let k = 0; k < 3; k++) { CB[k] = sp.w[0][k]; CM[k] = sp.w[1][k]; CT[k] = sp.w[2][k]; CG[k] = Math.min(1, lerp(CT[k], [0.62, 0.95, 1][k], Math.min(1, sp.sunI / 0.8)) * 1.08); }
+  wU.uTint.value.fromArray(CT); wU.uGlow.value = Math.min(1, sp.sunI / 0.8);
+  ocean.material.uniforms.uCol.value.setRGB(CB[0], CB[1], CB[2]);
+  for (const r of ridges) r.material.uniforms.uCol.value.setRGB(CM[0] * 0.75, CM[1] * 0.75, CM[2] * 0.85);
+  SUN.fromArray(sp.sun).normalize(); sun.color.set(sp.sunCol); sun.intensity = sp.sunI;
+  sunSpr.forEach((m, k) => { m.material.color.set(sp.glow[k]); m.material.opacity = [1, 0.5, 0.2][k] * sp.glowOp; });
+  hemi.color.set(sp.hemi[0]); hemi.groundColor.set(sp.hemi[1]); hemi.intensity = sp.hemi[2];
+  for (const c of clouds) { c.material.color.set(sp.cloud[0]); c.material.opacity = sp.cloud[1]; c.scale.copy(c.userData.sc).multiplyScalar(sp.cloud[2]); }
+  drawBackdrop(sp.back);
+}
 // ---- Customize
+const money = n => '$' + fmt(n);
+function statBars(bd) {
+  const d = document.createElement('div'); d.className = 'stats';
+  for (const [k, v] of [['Speed', bd.speed], ['Carve', bd.carve], ['Pop', bd.pop]]) {
+    const l = document.createElement('div'); l.textContent = k; const b = document.createElement('span'), f = document.createElement('b');
+    f.style.width = Math.round(clamp((v - 0.55) / 0.85, 0.05, 1) * 100) + '%'; b.appendChild(f); d.append(l, b);
+  }
+  return d;
+}
+function itemRow(name, desc, owned, on, price, swatch, onEquip, onBuy, extra) {
+  const r = document.createElement('div'); r.className = 'item' + (on ? ' on' : '');
+  const n = document.createElement('div'); n.className = 'nm';
+  if (swatch) { const i = document.createElement('i'); i.style.background = swatch; n.appendChild(i); }
+  n.appendChild(document.createTextNode(name)); r.appendChild(n);
+  const b = document.createElement('button');
+  if (on) { b.textContent = 'Using'; b.disabled = true; }
+  else if (owned) { b.textContent = 'Use'; b.onclick = onEquip; }
+  else { b.textContent = 'Buy ' + money(price); if (SAVE.cash < price) b.disabled = true; else b.onclick = onBuy; }
+  r.appendChild(b);
+  if (desc) { const d = document.createElement('div'); d.className = 'ds'; d.textContent = desc; r.appendChild(d); }
+  if (extra) r.appendChild(extra);
+  return r;
+}
 function applyCfg() {
-  surfer.remove(board); board = buildBoard(isLong(), SCHEMES[cfg.color]); surfer.add(board);
+  surfer.remove(board); board = buildBoard(BD(), SCHEMES[cfg.color]); surfer.add(board);
   bodyU.uSuit.value = cfg.suit === 'full' ? 1 : 0;
+  drawShorts(SHORTS.find(x => x.id === cfg.shorts) || SHORTS[0]);
   try { localStorage.setItem('blueroom.cfg', JSON.stringify(cfg)); } catch (e) {}
+  $('cCash').textContent = $('mCash').textContent = money(SAVE.cash);
+  const bl = $('cBoard'); bl.textContent = '';
+  for (const bd of BOARDS) bl.appendChild(itemRow(bd.name, bd.note, SAVE.boards.includes(bd.id), cfg.board === bd.id, bd.price, null,
+    () => { cfg.board = bd.id; applyCfg(); }, () => { SAVE.cash -= bd.price; SAVE.boards.push(bd.id); cfg.board = bd.id; save(); blip(700, 0.2); applyCfg(); }, statBars(bd)));
+  const sl = $('cShorts'); sl.textContent = '';
+  for (const sd of SHORTS) sl.appendChild(itemRow(sd.name, '', SAVE.shorts.includes(sd.id), cfg.shorts === sd.id, sd.price, sd.pattern === 'fade' ? `linear-gradient(${sd.base}, ${sd.base2})` : sd.base,
+    () => { cfg.shorts = sd.id; cfg.suit = 'shorts'; applyCfg(); }, () => { SAVE.cash -= sd.price; SAVE.shorts.push(sd.id); cfg.shorts = sd.id; cfg.suit = 'shorts'; save(); blip(700, 0.2); applyCfg(); }));
   const chips = (id, key, opts) => {
     const el = $(id); el.textContent = '';
     for (const [val, label, sw] of opts) {
@@ -1145,15 +1371,49 @@ function applyCfg() {
       b.appendChild(document.createTextNode(label)); b.onclick = () => { cfg[key] = val; applyCfg(); }; el.appendChild(b);
     }
   };
-  chips('cBoard', 'board', [['short', "Shortboard 6'0\""], ['long', "Longboard 9'0\""]]);
   chips('cColor', 'color', Object.keys(SCHEMES).map(k => [k, SCHEMES[k].name, SCHEMES[k].base]));
   chips('cSuit', 'suit', [['shorts', 'Board shorts'], ['full', 'Full wetsuit']]);
-  $('cBoardNote').textContent = isLong() ? 'Glides faster and holds speed. Turns slower, needs more speed to launch airs.' : 'Quick, tight turns and easy airs.';
+  menuText();
 }
-function openCustom(on) { G.custom = on; show('custom', on); show('menu', !on); }
+function openCustom(on) { G.custom = on; show('custom', on); show('menu', !on); if (on) applyCfg(); }
+// ---- spot picker and contest ladder
+function menuText() {
+  const open = SPOTS.filter((_, i) => spotOpen(i)).length;
+  $('mFree').textContent = `${open} of ${SPOTS.length} spots open. No clock, earn cash.`;
+  $('mHeat').textContent = SAVE.beat >= LEVELS.length ? 'World champion! Replay any level.' : `Level ${SAVE.beat + 1}: ${LEVELS[SAVE.beat].name}`;
+  $('mCash').textContent = money(SAVE.cash);
+}
+function card(tag, title, sub, cls, onclick) {
+  const b = document.createElement('button'); if (cls) b.className = cls;
+  const t = document.createElement('span'); t.className = 'tag'; t.textContent = tag; const h = document.createElement('b'); h.textContent = title; const sm = document.createElement('small'); sm.textContent = sub;
+  b.append(t, h, sm); if (onclick) b.onclick = onclick; return b;
+}
+function openSpots(on) {
+  G.sub = on ? 'spots' : null; show('spots', on); show('menu', !on);
+  if (!on) return;
+  const el = $('spotCards'); el.textContent = '';
+  SPOTS.forEach((sp, i) => {
+    const open = spotOpen(i), best = SAVE.best[i];
+    el.appendChild(card(`${sp.ft[0]}–${sp.ft[1]} ft · ${sp.kind}`, sp.name, open ? (best ? 'Best session ' + fmt(best) : 'Open') : `Locked: win contest level ${sp.need} to unlock`,
+      open ? (i === G.spot ? 'sel' : '') : 'locked', open ? () => { initAudio(); G.sub = null; show('spots', false); applySpot(i); startSession('free'); } : null));
+    if (open) el.lastChild.onmouseenter = () => applySpot(i);
+  });
+}
+function openLadder(on) {
+  G.sub = on ? 'ladder' : null; show('ladder', on); show('menu', !on);
+  if (!on) return;
+  const el = $('levelCards'); el.textContent = '';
+  LEVELS.forEach((lv, i) => {
+    const open = i <= SAVE.beat, sp = SPOTS[lv.spot];
+    el.appendChild(card(`Level ${i + 1}`, lv.name, open ? `vs ${lv.rival} · beat ${lv.target.toFixed(1)} · ${sp.name}, ${sp.ft[0]}–${sp.ft[1]} ft` : 'Locked: win the level before',
+      !open ? 'locked' : (i < SAVE.beat ? 'won' : 'sel'), open ? () => startLevel(i) : null));
+  });
+}
+function startLevel(i) { initAudio(); G.level = i; G.sub = null; show('ladder', false); show('results', false); applySpot(LEVELS[i].spot); startSession('heat'); }
+$('bSpotsBack').onclick = () => openSpots(false); $('bLadderBack').onclick = () => openLadder(false);
 $('bCust').onclick = () => openCustom(true); $('bCustDone').onclick = () => openCustom(false);
-applyCfg();
-function toMenu() { G.state = 'menu'; show('results', false); show('menu', true); show('tr', false); newSet(0); }
+applyCfg(); applySpot(0);
+function toMenu() { G.state = 'menu'; G.sub = null; show('results', false); show('menu', true); show('tr', false); menuText(); newSet(0); }
 
 // ---------------------------------------------------------------- riding
 function finishCarve() {
@@ -1184,11 +1444,11 @@ function wipeout(why) {
 }
 function rideStep(dt) {
   W.t += dt;
-  W.peelV = 8.3 + 1.6 * Math.sin(W.t * 0.35 + W.seed) + 1.0 * Math.sin(W.t * 0.9 + W.seed * 3);
+  W.peelV = (8.3 + 1.6 * Math.sin(W.t * 0.35 + W.seed) + 1.0 * Math.sin(W.t * 0.9 + W.seed * 3)) * Math.sqrt(Math.max(0.6, W.H / 4.6));
   colP(S.x, sp2);
   if (sp2.d > 45) W.peelV *= 1.6;
   W.peelX += W.peelV * dt;
-  W.curlW = 10 + 3 * Math.sin(W.t * 0.27 + W.seed * 1.7);
+  W.curlW = (10 + 3 * Math.sin(W.t * 0.27 + W.seed * 1.7)) * Math.pow(Math.max(0.6, W.H / 4.6), 0.7);
   // now and then a section throws out ahead: race under it, float over it, or get caught behind it
   W.secT -= dt;
   if (!W.sec && W.secT <= 0 && W.t < W.dur - 7) { const c = W.peelX + W.curlW + rnd(15, 24); W.sec = { l: c - 2.5, r: c + 2.5, k: 0, b: 0, t: 0 }; popup('Section ahead', 0); }
@@ -1225,7 +1485,8 @@ function rideStep(dt) {
 
   // steer toward the direction held on screen
   let omT = 0;
-  const maxR = (hard ? 4.4 : 2.9) * clamp(0.55 + S.v / 14, 0.6, 1.25) * (isLong() ? 0.68 : 1);      // a longboard draws longer lines
+  const bd = BD(), wq = Math.sqrt(Math.max(0.6, W.H / 4.6));      // bigger waves are faster
+  const maxR = (hard ? 4.4 : 2.9) * clamp(0.55 + S.v / (14 * wq), 0.6, 1.25) * bd.carve;
   if (ix) omT = ix * maxR;                       // D / right: turn up the face. A / left: turn down it.
   else if (iy) omT = clamp(wrapPi(iy * Math.PI / 2 - S.phi) * 7, -maxR, maxR);   // W / S: aim straight up / down
   S.omega += (omT - S.omega) * Math.min(1, dt * 11);
@@ -1233,15 +1494,15 @@ function rideStep(dt) {
 
   surfPt(S.x, S.s, sp); colP(S.x, sp2);
   const sinT = S.s > 0 ? Math.sin(sp.th) : 0;
-  let dv = -9.2 * sinT * (Math.sin(S.phi) - 0.3) - (isLong() ? 0.0093 : 0.011) * S.v * S.v - 0.115 * Math.abs(S.omega) * S.v * (hard ? 1.4 : 1);
+  let dv = -9.2 * sinT * (Math.sin(S.phi) - 0.3) - 0.011 / (bd.speed * bd.speed * wq) * S.v * S.v - 0.115 * Math.abs(S.omega) * S.v * (hard ? 1.4 : 1);
   if (S.s <= 0) dv -= 0.6 * S.v * 0.35;
   if (held('KeyX')) {
     dv -= 8 * clamp(S.v / 8, 0, 1);
     if (Math.random() < 0.6) spawn(S.pos.x - S.T.x * 0.4, S.pos.y + 0.3, S.pos.z - 0.5, -S.T.x * 2 + rnd(-1, 1), rnd(1, 3), rnd(-1, 1), 0.5, 0.15, 0.6, 9, 0.7);
   }
-  if (pressed.Space && S.pumpCd <= 0 && S.s > 0) { S.v = Math.min(17, S.v + 1.6); S.pumpCd = 0.65; S.pumpT = 1; S.popT = 0.45; blip(240, 0.08); }
+  if (pressed.Space && S.pumpCd <= 0 && S.s > 0) { S.v = Math.min(17 * wq * bd.speed, S.v + 1.6 * bd.speed); S.pumpCd = 0.65; S.pumpT = 1; S.popT = 0.45; blip(240, 0.08); }
   S.popT = Math.max(0, (S.popT || 0) - dt);
-  S.v = clamp(S.v + dv * dt, 1.3, 22);
+  S.v = clamp(S.v + dv * dt, 1.3, 22 * wq * bd.speed);
   S.x += S.v * Math.cos(S.phi) * dt;
   const wUp = S.v * Math.sin(S.phi);
   S.s += (wUp + (S.s > 0 ? 1.2 : C_UP)) * dt;
@@ -1249,9 +1510,9 @@ function rideStep(dt) {
   colP(S.x, sp2);
   const roofed = sp2.thMax > 1.8, sCap = roofed ? sp2.R * 1.42 : sp2.sLip - 0.15;
   if (S.s >= sCap) {
-    if (!roofed && wUp > (isLong() ? 5.8 : 4.0) && sp2.broken < 0.3 && W.amp > 0.7) {
+    if (!roofed && wUp > 4.0 / bd.pop && sp2.broken < 0.3 && W.amp > 0.7) {
       finishCarve(); finishFloat();
-      S.air = { w: wUp * (S.popT > 0 ? 1.28 : 1.05) + 1.2, u: S.v * Math.cos(S.phi), sv: sp2.sLip, spin: 0, grabT: 0, maxH: 0, pop: S.popT > 0 };
+      S.air = { w: (wUp * (S.popT > 0 ? 1.28 : 1.05) + 1.2) * Math.sqrt(bd.pop), u: S.v * Math.cos(S.phi), sv: sp2.sLip, spin: 0, grabT: 0, maxH: 0, pop: S.popT > 0 };
       for (let i = 0; i < 40; i++) spawn(S.pos.x + rnd(-0.4, 0.4), S.pos.y, S.pos.z, rnd(-2, 2) + S.air.u * 0.3, rnd(2, 7), rnd(-3, 1), rnd(0.6, 1.1), 0.3, 1.4, 9, 0.8);
       blip(520, 0.25); return;
     }
@@ -1380,12 +1641,13 @@ let camLead = 3.6;
 function updateCamera(dt, snap) {
   const st = G.state, bz = beerW();      // push in close while the beer goes down
   if (st === 'menu') { if (G.custom) { cT.set(S.x + 1.3, 1.5, LINE_Z + 5.4); cL.set(S.x + 1.3, 0.45, LINE_Z); } else { cT.set(S.x + 3.4, 1.25, LINE_Z + 4.6); cL.set(S.x + 2.3, 0.75, LINE_Z); } }
-  else if (st === 'lineup') { cT.set(S.x + 1.2 + 1.6 * bz, 2.3 - 0.9 * bz, LINE_Z + 9.5 - 6 * bz); cL.set(S.x, 1.5 - 0.6 * bz, LINE_Z - 6 + 6 * bz); }
+  else if (st === 'lineup') { const cs = Math.pow(Math.max(1, W.H / 4.6), 0.6); cT.set(S.x + 1.2 + 1.6 * bz, 2.3 * cs - 0.9 * bz, LINE_Z + 9.5 * cs - 6 * bz); cL.set(S.x, 1.5 - 0.6 * bz, LINE_Z - 6 + 6 * bz); }
   else {
     const dir = Math.cos(S.phi) >= -0.2 ? 1 : 0.55;
     camLead += ((G.inBarrel ? 6 : 3.6 * dir) - camLead) * Math.min(1, dt * 1.6);
     const airH = S.air ? Math.max(0, S.air.h || 0) : 0;
-    cT.set(S.pos.x + camLead, (G.inBarrel ? 1.5 : 2.3) + S.pos.y * 0.28 + airH * 0.25, Math.max(4.5, S.pos.z + (G.inBarrel ? 8.6 : 9.4) + S.v * 0.12 + airH * 0.8 - 4.6 * bz));
+    const cs = Math.pow(Math.max(1, W.H / 4.6), 0.8);      // pull back on big waves
+    cT.set(S.pos.x + camLead * cs, ((G.inBarrel ? 1.5 : 2.3) + airH * 0.25) * cs + S.pos.y * 0.28, Math.max(4.5, S.pos.z + ((G.inBarrel ? 8.6 : 9.4) + airH * 0.8) * cs + S.v * 0.12 - 4.6 * bz));
     cL.set(S.pos.x + 0.3, S.pos.y * 0.72 + 1.15 + 0.5 * bz, S.pos.z);
   }
   const k = snap ? 1 : Math.min(1, dt * 5);
@@ -1397,12 +1659,14 @@ function updateCamera(dt, snap) {
 // ---------------------------------------------------------------- main loop
 function menuKeys() {
   if (G.custom) { if (pressed.Escape || pressed.Enter) openCustom(false); return; }
+  if (G.sub === 'spots') { if (pressed.Escape) openSpots(false); else if (pressed.Enter) { initAudio(); G.sub = null; show('spots', false); startSession('free'); } return; }
+  if (G.sub === 'ladder') { if (pressed.Escape) openLadder(false); else if (pressed.Enter) startLevel(Math.min(SAVE.beat, LEVELS.length - 1)); return; }
   if (pressed.KeyC) return openCustom(true);
   if (pressed.ArrowLeft || pressed.ArrowRight || pressed.KeyA || pressed.KeyD || pressed.Tab) { G.menuSel = 1 - G.menuSel; $('bFree').classList.toggle('sel', G.menuSel === 0); $('bHeat').classList.toggle('sel', G.menuSel === 1); }
-  if (pressed.Enter || pressed.Space) startSession(G.menuSel ? 'heat' : 'free');
+  if (pressed.Enter || pressed.Space) G.menuSel ? openLadder(true) : openSpots(true);
 }
-$('bFree').onclick = () => { initAudio(); startSession('free'); }; $('bHeat').onclick = () => { initAudio(); startSession('heat'); };
-$('bAgain').onclick = toMenu;
+$('bFree').onclick = () => openSpots(true); $('bHeat').onclick = () => openLadder(true);
+$('bAgain').onclick = toMenu; $('bNext').onclick = () => { if (G.next >= 0) startLevel(G.next); };
 for (const b of document.querySelectorAll('button')) b.addEventListener('keydown', e => e.preventDefault());
 
 function step(dt) {
@@ -1420,7 +1684,7 @@ function step(dt) {
     if (G.heatT <= 0 && st === 'lineup') return showResults();
   }
   if (st === 'menu') { menuKeys(); if (G.state === 'menu') lineupStep(dt, false); else snapCam = true; }
-  else if (st === 'results') { if (pressed.Enter || pressed.Space) { toMenu(); snapCam = true; } }
+  else if (st === 'results') { if ((pressed.Enter || pressed.Space) && G.next >= 0 && !$('bNext').hidden) startLevel(G.next); else if (pressed.Enter || pressed.Space || pressed.Escape) toMenu(); snapCam = true; }
   else if (st === 'lineup') lineupStep(dt, true);
   else if (st === 'takeoff') {
     G.stT += dt; const q = clamp(G.stT / 1.05, 0, 1), e = q * q * (3 - 2 * q);
@@ -1429,7 +1693,7 @@ function step(dt) {
     S.s = lerp(-(LINE_Z - W.z), 0.74 * sp2.sLip, e); S.x += 3.2 * dt;
     S.phi += wrapPi(-0.95 - S.phi) * Math.min(1, dt * 6);
     S.stand = sstep(0.45, 0.95, q); S.prone = 1 - S.stand; S.crouch = 0.7;
-    if (q >= 1) { G.state = 'ride'; W.z = 0; S.v = 6; S.omega = 0; S.stand = 1; S.prone = 0; G.inBarrel = false; popup('Dropping in', 0); }
+    if (q >= 1) { G.state = 'ride'; W.z = 0; S.v = 6 * Math.sqrt(Math.max(0.6, W.H / 4.6)); S.omega = 0; S.stand = 1; S.prone = 0; G.inBarrel = false; popup('Dropping in', 0); }
   }
   else if (st === 'ride') {
     rideStep(dt);
@@ -1506,7 +1770,7 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
-window.__surf = { G, S, W, step, keys, clearPressed() { pressed = {}; }, get ride() { return ride; } };
+window.__surf = { G, S, W, step, keys, startLevel, SAVE, clearPressed() { pressed = {}; }, get ride() { return ride; } };
 })();
 </script>
 </body>
