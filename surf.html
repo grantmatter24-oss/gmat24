@@ -59,6 +59,15 @@
   button.sel, button:hover { background: var(--blue); border-color: var(--foam); }
   button.sel small, button:hover small { color: var(--foam); }
   button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
+  button.mini { width: auto; padding: 10px 18px; margin-top: 14px; }
+  button.mini b { font-size: 22px; margin: 0; }
+  #custom { align-items: flex-end; justify-content: center; text-align: left; padding-right: min(6vw, 90px); background: linear-gradient(90deg, rgba(4,18,58,0), rgba(4,18,58,.78) 62%); }
+  #custom .panel { width: min(430px, 92vw); }
+  #custom h3 { font-family: var(--display); font-weight: 900; font-size: 22px; text-transform: uppercase; letter-spacing: .04em; margin: 20px 0 8px; color: var(--sun); }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chips button { width: auto; padding: 9px 14px; font-weight: 600; font-size: 17px; }
+  .chips button i { display: inline-block; width: 16px; height: 16px; border-radius: 50%; margin-right: 8px; vertical-align: -2px; border: 2px solid rgba(255,255,255,.7); }
+  .note { font-size: 15px; color: var(--dim); margin: 8px 0 0; min-height: 20px; }
   .legend { margin-top: 26px; display: grid; grid-template-columns: auto auto; gap: 5px 16px; font-size: 16px; text-align: left; color: var(--dim); }
   .legend div:nth-child(odd) { text-align: right; }
   #summary { background: none; justify-content: flex-end; padding-bottom: 12vh; }
@@ -110,6 +119,7 @@
     <button id="bFree" class="sel"><b>Free Surf</b><small>No clock. Chain moves, chase a high score.</small></button>
     <button id="bHeat"><b>Contest Heat</b><small>3 minutes. Judges score 0–10. Best two waves count.</small></button>
   </div>
+  <button id="bCust" class="mini"><b>Customize board &amp; suit</b></button>
   <div class="legend">
     <div><kbd>D</kbd> or <kbd>→</kbd></div><div>Turn up the wave face</div>
     <div><kbd>A</kbd> or <kbd>←</kbd></div><div>Turn down the wave face</div>
@@ -121,6 +131,17 @@
     <div><kbd>Q</kbd> near the top</div><div>Hold to grind the lip like a rail</div>
     <div><kbd>E</kbd></div><div>Chug a (fake) beer for style</div>
     <div><kbd>Enter</kbd></div><div>Start</div>
+  </div>
+</div>
+
+<div class="screen" id="custom" hidden>
+  <div class="panel">
+    <div class="label">Customize</div>
+    <h2 style="font-size:56px">Your quiver</h2>
+    <h3>Board</h3><div class="chips" id="cBoard"></div><p class="note" id="cBoardNote"></p>
+    <h3>Board color</h3><div class="chips" id="cColor"></div>
+    <h3>Wearing</h3><div class="chips" id="cSuit"></div>
+    <button id="bCustDone" class="mini sel"><b>Done</b></button>
   </div>
 </div>
 
@@ -561,10 +582,10 @@ const S = { x: 0, s: 0, v: 0, phi: Math.PI / 2, omega: 0, air: null, pumpCd: 0, 
   pos: new V3(), prev: new V3(), vel: new V3(), T: new V3(1, 0, 0), N: new V3(0, 1, 0), Z: new V3(0, 0, 1), th: 0, tn: 0 };
 const surfer = new THREE.Group(); surfer.matrixAutoUpdate = false; scene.add(surfer);
 
-function buildBoard() {
-  const NA = 34, NC = 8, L = 1.83, Wm = 0.24, T = 0.064;   // 6'0" x 18 7/8"
-  const halfW = a => a > 0.45 ? Wm * Math.pow(Math.max(0, 1 - Math.pow((a - 0.45) / 0.55, 2.3)), 0.8) : Wm * (1 - 0.42 * Math.pow((0.45 - a) / 0.45, 2.3));
-  const rocker = a => a > 0.5 ? 0.12 * Math.pow((a - 0.5) / 0.5, 2.6) : 0.04 * Math.pow((0.5 - a) / 0.5, 2.2);
+function buildBoard(long, sc) {
+  const NA = 40, NC = 8, L = long ? 2.74 : 1.83, Wm = long ? 0.29 : 0.24, T = long ? 0.078 : 0.064;   // 6'0" x 18 7/8"
+  const halfW = a => a > 0.45 ? Wm * Math.pow(Math.max(0, 1 - Math.pow((a - 0.45) / 0.55, long ? 3.4 : 2.3)), long ? 0.55 : 0.8) : Wm * (1 - (long ? 0.3 : 0.42) * Math.pow((0.45 - a) / 0.45, 2.3));
+  const rocker = a => a > 0.5 ? (long ? 0.075 : 0.12) * Math.pow((a - 0.5) / 0.5, 2.6) : 0.04 * Math.pow((0.5 - a) / 0.5, 2.2);
   const thick = a => T * (0.3 + 0.7 * Math.pow(Math.sin(Math.PI * clamp(0.07 + 0.86 * a, 0, 1)), 0.6));
   const make = (top) => {
     const pos = [], uv = [], idx = [];
@@ -582,28 +603,40 @@ function buildBoard() {
     g.setIndex(idx); g.computeVertexNormals(); return g;
   };
   const deck = canvasTex(1024, 256, (g, w, h) => {
-    g.fillStyle = '#fbfbf4'; g.fillRect(0, 0, w, h);
-    let gr = g.createLinearGradient(w * 0.7, 0, w, 0); gr.addColorStop(0, 'rgba(10,75,255,0)'); gr.addColorStop(1, 'rgba(10,75,255,.95)');
+    g.fillStyle = sc.base; g.fillRect(0, 0, w, h);
+    let gr = g.createLinearGradient(w * 0.7, 0, w, 0); gr.addColorStop(0, sc.fade + '00'); gr.addColorStop(1, sc.fade + 'f2');
     g.fillStyle = gr; g.fillRect(w * 0.7, 0, w * 0.3, h);
-    g.fillStyle = '#ffd23f'; g.fillRect(w * 0.665, 0, 10, h); g.fillStyle = '#ff6a3d'; g.fillRect(w * 0.68, 0, 5, h);
+    g.fillStyle = sc.a1; g.fillRect(w * 0.665, 0, 10, h); g.fillStyle = sc.a2; g.fillRect(w * 0.68, 0, 5, h);
     g.fillStyle = '#b08a5a'; g.fillRect(0, h / 2 - 1.5, w, 3);                       // stringer
     g.fillStyle = '#1c2230'; g.beginPath(); g.roundRect ? g.roundRect(w * 0.03, h * 0.14, w * 0.2, h * 0.72, 18) : g.rect(w * 0.03, h * 0.14, w * 0.2, h * 0.72); g.fill();
     g.strokeStyle = '#3a4358'; g.lineWidth = 3;
     for (let i = 1; i < 9; i++) { g.beginPath(); g.moveTo(w * 0.03 + i * w * 0.022, h * 0.16); g.lineTo(w * 0.03 + i * w * 0.022, h * 0.84); g.stroke(); }
-    g.fillStyle = '#04123a'; g.font = '900 40px "Arial Narrow", Arial, sans-serif'; g.textAlign = 'center';
-    g.fillText('BLUE ROOM', w * 0.47, h * 0.42); g.font = '600 20px Arial, sans-serif'; g.fillText("6'0\"  ×  18 7/8  ×  2 5/16", w * 0.47, h * 0.72);
+    g.fillStyle = sc.text; g.font = '900 40px "Arial Narrow", Arial, sans-serif'; g.textAlign = 'center';
+    g.fillText('BLUE ROOM', w * 0.47, h * 0.42); g.font = '600 20px Arial, sans-serif'; g.fillText(long ? "9'0\"  ×  22 3/4  ×  3" : "6'0\"  ×  18 7/8  ×  2 5/16", w * 0.47, h * 0.72);
   });
   const grp = new THREE.Group();
   grp.add(new THREE.Mesh(make(true), new THREE.MeshPhongMaterial({ map: deck, shininess: 120, specular: 0xffffff })));
-  grp.add(new THREE.Mesh(make(false), new THREE.MeshPhongMaterial({ color: 0xf4f7ff, shininess: 120, specular: 0xffffff })));
+  grp.add(new THREE.Mesh(make(false), new THREE.MeshPhongMaterial({ color: new THREE.Color(sc.base), shininess: 120, specular: 0xffffff })));
   const fs = new THREE.Shape(); fs.moveTo(0.07, 0); fs.quadraticCurveTo(0.02, -0.07, -0.07, -0.13); fs.quadraticCurveTo(-0.03, -0.05, -0.06, 0); fs.lineTo(0.07, 0);
   const fg = new THREE.ShapeGeometry(fs), fm = new THREE.MeshPhongMaterial({ color: 0x0a2a8c, side: THREE.DoubleSide, shininess: 80 });
-  for (const [x, z, cant] of [[-0.78, 0, 0], [-0.6, 0.15, -0.14], [-0.6, -0.15, 0.14]]) {
-    const f = new THREE.Mesh(fg, fm); f.position.set(x, 0.0, z); f.rotation.x = cant; grp.add(f);
+  const xt = -0.46 * L;      // shortboard: thruster. longboard: one big centre fin
+  for (const [x, z, cant] of long ? [[xt + 0.22, 0, 0]] : [[xt + 0.06, 0, 0], [xt + 0.24, 0.15, -0.14], [xt + 0.24, -0.15, 0.14]]) {
+    const f = new THREE.Mesh(fg, fm); f.position.set(x, 0.0, z); f.rotation.x = cant; if (long) f.scale.setScalar(1.75); grp.add(f);
   }
   return grp;
 }
-const board = buildBoard(); surfer.add(board);
+// what the player picked in Customize
+const SCHEMES = {
+  white: { name: 'White / blue', base: '#fbfbf4', fade: '#0a4bff', a1: '#ffd23f', a2: '#ff6a3d', text: '#04123a' },
+  yellow: { name: 'Sunshine', base: '#ffd94d', fade: '#ff6a1a', a1: '#ffffff', a2: '#04123a', text: '#04123a' },
+  mint: { name: 'Mint', base: '#c4f2df', fade: '#12a394', a1: '#ffffff', a2: '#ff6a3d', text: '#0b3a3a' },
+  red: { name: 'Red', base: '#e3352f', fade: '#ffffff', a1: '#ffd23f', a2: '#04123a', text: '#ffffff' },
+  black: { name: 'Black', base: '#1a1b20', fade: '#d3121c', a1: '#ffffff', a2: '#d3121c', text: '#ffffff' }
+};
+const cfg = { board: 'short', color: 'white', suit: 'shorts' };
+try { const c = JSON.parse(localStorage.getItem('blueroom.cfg') || '{}'); if (c.board === 'long') cfg.board = 'long'; if (SCHEMES[c.color]) cfg.color = c.color; if (c.suit === 'full') cfg.suit = 'full'; } catch (e) {}
+const isLong = () => cfg.board === 'long';
+let board = buildBoard(isLong(), SCHEMES[cfg.color]); surfer.add(board);
 
 const skinMat = new THREE.MeshPhongMaterial({ color: 0xc08a66, shininess: 50, specular: 0x7a6252, emissive: 0x1e110b, side: THREE.DoubleSide });
 const shortsTex = canvasTex(512, 256, (g, w, h) => {      // left and right edges of this map land on the outside of each leg
@@ -620,7 +653,7 @@ const hairTip = new THREE.MeshPhongMaterial({ color: 0xc79d5c, emissive: 0x2c201
 const hairMat = new THREE.MeshPhongMaterial({ color: 0x8d683a, emissive: 0x24180a, shininess: 60, specular: 0xfff2b0 });
 const head = new THREE.Group(); surfer.add(head);
 const hpart = (r, mat, x, y, z, sx, sy, sz) => { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 18, 14), mat); m.position.set(x, y, z); m.scale.set(sx, sy, sz); head.add(m); return m; };
-hpart(0.119, hairMat, -0.03, 0.032, 0, 1.02, 1.08, 0.94);             // hair on the scalp
+hpart(0.121, hairMat, -0.03, 0.04, 0, 1.02, 1.06, 0.97);             // hair on the scalp
 hpart(0.07, hairMat, 0.052, 0.082, 0, 1, 0.55, 1.35);                 // fringe
 for (const z of [-0.038, 0.038]) hpart(0.012, new THREE.MeshBasicMaterial({ color: 0x1a2440 }), 0.098, 0.02, z, 1, 1, 1);
 const leashGeo = new THREE.BufferGeometry(); leashGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(30), 3));
@@ -634,28 +667,28 @@ const A = {}, B = {}, C = {}, D = {}; for (const n in J) { A[n] = new V3(); B[n]
 // together like muscle and skin), ray-marched inside a box that hugs the surfer.
 const JN = ['hip', 'hipF', 'hipB', 'knF', 'knB', 'ftF', 'ftB', 'neck', 'head', 'shF', 'shB', 'elF', 'elB', 'haF', 'haB', 'toF', 'toB'];
 const bodyU = { uJ: { value: JN.map(n => J[n]) }, uCam: { value: new V3() }, uC: { value: new V3() }, uS: { value: new V3(1, 1, 1) },
-  uShorts: { value: shortsTex }, uWind: { value: new V3() }, uFl: { value: 0.004 }, uT: { value: 0 }, uHt: { value: new THREE.Vector2(1, 0) }, uFs: { value: 1 }, uSun: { value: SUN }, uKey: { value: new V3(-0.45, 0.85, 0.8).normalize() } };
+  uShorts: { value: shortsTex }, uWind: { value: new V3() }, uFl: { value: 0.004 }, uT: { value: 0 }, uHt: { value: new THREE.Vector2(1, 0) }, uFs: { value: 1 }, uSuit: { value: 0 }, uSun: { value: SUN }, uKey: { value: new V3(-0.45, 0.85, 0.8).normalize() } };
 const bodyMat = new THREE.ShaderMaterial({
   uniforms: bodyU, extensions: { fragDepth: true },
   vertexShader: 'uniform vec3 uC; uniform vec3 uS; varying vec3 vL; void main(){ vL = position * uS + uC; gl_Position = projectionMatrix * modelViewMatrix * vec4(vL, 1.0); }',
   fragmentShader: `
 precision highp float;
-uniform vec3 uJ[17]; uniform vec3 uCam; uniform sampler2D uShorts; uniform vec3 uSun; uniform vec3 uKey; uniform vec3 uWind; uniform float uFl; uniform float uT; uniform vec2 uHt; uniform float uFs;
+uniform vec3 uJ[17]; uniform vec3 uCam; uniform sampler2D uShorts; uniform vec3 uSun; uniform vec3 uKey; uniform vec3 uWind; uniform float uFl; uniform float uT; uniform vec2 uHt; uniform float uFs; uniform float uSuit;
 vec3 hr(float x, float y){ return vec3(x * uHt.x - y * uHt.y, x * uHt.y + y * uHt.x, 0.0); }
 uniform mat4 modelViewMatrix; uniform mat4 projectionMatrix; uniform mat4 modelMatrix;
 varying vec3 vL;
 float cap(vec3 p, vec3 a, vec3 b, float r1, float r2){ vec3 pa = p - a, ba = b - a; float h = clamp(dot(pa, ba) / max(dot(ba, ba), 1e-6), 0.0, 1.0); return length(pa - ba * h) - mix(r1, r2, h); }
 float smin(float a, float b, float k){ float h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0); return mix(b, a, h) - k * h * (1.0 - h); }
 float leg(vec3 p, vec3 h, vec3 k, vec3 f, vec3 t){
-  float d = cap(p, h, k, 0.09, 0.057);
-  d = smin(d, smin(cap(p, k, f, 0.054, 0.035), length(p - mix(k, f, 0.3)) - 0.058, 0.04), 0.03);
+  float d = smin(cap(p, h, k, 0.082, 0.053), length(p - k) - 0.051, 0.015);          // thigh, knee
+  d = smin(d, smin(cap(p, k, f, 0.05, 0.034), length(p - mix(k, f, 0.3)) - 0.054, 0.03), 0.02);   // shin, calf
   d = smin(d, cap(p, f + (f - t) * 0.22, t, 0.037, 0.027), 0.025);
   vec3 sd = normalize(cross(t - f, vec3(0.0, 1.0, 0.001)));
   return smin(d, cap(p, t + sd * 0.03 + normalize(t - f) * 0.012, t - sd * 0.03, 0.02, 0.016), 0.012);     // toes
 }
 float arm(vec3 p, vec3 s, vec3 e, vec3 a){
-  float d = smin(cap(p, s, e, 0.054, 0.04), length(p - s) - 0.062, 0.03);
-  d = smin(d, cap(p, e, a, 0.043, 0.027), 0.03);
+  float d = smin(cap(p, s, e, 0.05, 0.038), length(p - s) - 0.06, 0.02);
+  d = smin(d, cap(p, e, a, 0.041, 0.027), 0.018);
   vec3 dr = normalize(a - e), sd = normalize(cross(dr, vec3(0.0, 1.0, 0.001))), pe = a + dr * 0.08;
   d = smin(d, cap(p, a, pe, 0.03, 0.026), 0.02);                                                      // palm
   d = smin(d, cap(p, pe + sd * 0.016, pe + sd * 0.022 + dr * 0.07, 0.016, 0.011), 0.012);             // fingers
@@ -664,14 +697,16 @@ float arm(vec3 p, vec3 s, vec3 e, vec3 a){
 }
 vec2 map(vec3 p){
   vec3 hip = uJ[0], hF = uJ[1], hB = uJ[2], nk = uJ[7], hd = uJ[8], sF = uJ[9], sB = uJ[10];
-  vec3 ax = normalize(sB - sF), wc = mix(hip, nk, 0.34), cc = mix(hip, nk, 0.72);
-  float d = cap(p, hF, hB, 0.098, 0.098);                                              // pelvis
-  d = smin(d, cap(p, wc - ax * 0.05, wc + ax * 0.05, 0.098, 0.098), 0.08);             // waist
-  float ch = smin(cap(p, cc - ax * 0.085, cc + ax * 0.085, 0.114, 0.114), cap(p, sF, sB, 0.058, 0.058), 0.06);   // ribcage + shoulder girdle
+  vec3 ax = normalize(sB - sF), wc = mix(hip, nk, 0.36), cc = mix(hip, nk, 0.74);
   vec3 fwd = normalize(cross(ax, nk - hip)) * uFs;
-  ch = smin(ch, min(length(p - cc - fwd * 0.07 - ax * 0.07), length(p - cc - fwd * 0.07 + ax * 0.07)) - 0.064, 0.035);   // chest muscles
-  d = smin(d, ch, 0.09);
-  d = smin(d, cap(p, nk, mix(nk, hd, 0.7), 0.053, 0.046), 0.05);                       // neck
+  vec3 pF = mix(hip, hF, 0.7), pB = mix(hip, hB, 0.7);
+  float d = cap(p, pF, pB, 0.086, 0.086);                                              // pelvis
+  d = smin(d, cap(p, wc - ax * 0.034 - fwd * 0.012, wc + ax * 0.034 - fwd * 0.012, 0.074, 0.074), 0.04);           // waist
+  float ch = smin(cap(p, cc - ax * 0.08, cc + ax * 0.08, 0.104, 0.104), cap(p, sF, sB, 0.054, 0.054), 0.04);   // ribcage + shoulder girdle
+  vec3 pc = mix(hip, nk, 0.82);
+  ch = smin(ch, min(length(p - pc - fwd * 0.05 - ax * 0.06), length(p - pc - fwd * 0.05 + ax * 0.06)) - 0.05, 0.015);   // chest muscles
+  d = smin(d, ch, 0.055);
+  d = smin(d, cap(p, nk, mix(nk, hd, 0.7), 0.05, 0.045), 0.03);                       // neck
   float h = smin(length(p - hd) - 0.103, length(p - hd - hr(0.03, -0.066)) - 0.074, 0.03);
   h = smin(h, length(p - hd - hr(0.106, -0.012)) - 0.016, 0.02);                // nose
   vec3 er = hd + hr(-0.005, -0.008), ez = vec3(0.0, 0.0, 1.0);
@@ -684,13 +719,14 @@ vec2 map(vec3 p){
   vec3 lp = hd + hr(0.094, -0.06);
   h = smin(h, cap(p, lp - ez * 0.022, lp + ez * 0.022, 0.011, 0.011), 0.008);                         // lips
   d = smin(d, h, 0.02);
-  d = smin(d, leg(p, hF, uJ[3], uJ[5], uJ[15]), 0.045); d = smin(d, leg(p, hB, uJ[4], uJ[6], uJ[16]), 0.045);
-  d = smin(d, arm(p, sF, uJ[11], uJ[13]), 0.035); d = smin(d, arm(p, sB, uJ[12], uJ[14]), 0.035);
+  d = smin(d, leg(p, hF, uJ[3], uJ[5], uJ[15]), 0.03); d = smin(d, leg(p, hB, uJ[4], uJ[6], uJ[16]), 0.03);
+  d = smin(d, arm(p, sF, uJ[11], uJ[13]), 0.022); d = smin(d, arm(p, sB, uJ[12], uJ[14]), 0.022);
   // board shorts: loose tubes wider than the legs, hems pushed back by the wind, cloth rippling
   vec3 eF = mix(hF, uJ[3], 0.88) + uWind, eB = mix(hB, uJ[4], 0.88) + uWind;
-  float so = min(cap(p, hF, hB, 0.12, 0.12), min(cap(p, hF, eF, 0.116, 0.122), cap(p, hB, eB, 0.116, 0.122)));
+  float so = min(cap(p, pF, pB, 0.106, 0.106), min(cap(p, hF, eF, 0.1, 0.112), cap(p, hB, eB, 0.1, 0.112)));
   float hem = smoothstep(0.0, 0.3, hip.y - p.y + 0.06);
   so -= uFl * hem * sin(p.x * 46.0 + p.z * 31.0 + uT * 19.0) * sin(p.y * 38.0 - uT * 13.0) + 0.003 * sin(p.y * 64.0 + p.x * 23.0);
+  if (uSuit > 0.5) return vec2(d - 0.004, 2.0);
   return so < d ? vec2(so, 1.0) : vec2(d, 0.0);
 }
 void main(){
@@ -706,7 +742,12 @@ void main(){
   vec3 hq = p - uJ[8], hl = vec3(hq.x * uHt.x + hq.y * uHt.y, -hq.x * uHt.y + hq.y * uHt.x, hq.z);
   if (hl.x > 0.075 && abs(hl.y - 0.04) < 0.01 && abs(abs(hl.z) - 0.04) < 0.026) alb = vec3(0.5, 0.36, 0.18);     // eyebrows
   if (hl.x > 0.08 && abs(hl.y + 0.06) < 0.009 && abs(hl.z) < 0.027) alb = vec3(0.7, 0.36, 0.33);                // lips
-  if (m.y > 0.5) {
+  if (m.y > 1.5) {       // full wetsuit: neoprene everywhere but head, hands and feet
+    vec3 hdr = normalize(uJ[13] - uJ[11]), hdl = normalize(uJ[14] - uJ[12]);
+    bool skin = length(p - uJ[8]) < 0.15 || cap(p, uJ[13], uJ[13] + hdr * 0.2, 0.0, 0.0) < 0.052 || cap(p, uJ[14], uJ[14] + hdl * 0.2, 0.0, 0.0) < 0.052
+      || cap(p, uJ[5] + (uJ[5] - uJ[15]) * 0.22, uJ[15], 0.0, 0.0) < 0.05 || cap(p, uJ[6] + (uJ[6] - uJ[16]) * 0.22, uJ[16], 0.0, 0.0) < 0.05;
+    if (!skin) { alb = vec3(0.03, 0.035, 0.045); gloss = 0.45; m.y = 1.0; } else m.y = 0.0;
+  } else if (m.y > 0.5) {
     vec3 sp = normalize(uJ[7] - uJ[0]), hx = normalize(uJ[2] - uJ[1]), fw = normalize(cross(sp, hx)), q = p - uJ[0];
     alb = texture2D(uShorts, vec2(fract(atan(dot(q, fw), dot(q, hx)) / 3.1416 + 1.0), clamp(0.66 + dot(q, sp) * 2.1, 0.02, 0.98))).rgb; gloss = 0.04;
   }
@@ -840,7 +881,7 @@ function updateBody(dt) {
   leash.visible = st > 0.5;
   const lp = leashGeo.attributes.position.array;
   for (let i = 0; i < 10; i++) { const q = i / 9, sg = Math.sin(Math.PI * q);
-    lp[i * 3] = lerp(J.ftB.x, -0.84, q) - 0.1 * sg; lp[i * 3 + 1] = lerp(J.ftB.y + 0.04, 0.045, q) + 0.02 * sg; lp[i * 3 + 2] = lerp(J.ftB.z, 0, q) + 0.14 * sg; }
+    lp[i * 3] = lerp(J.ftB.x, isLong() ? -1.26 : -0.84, q) - 0.1 * sg; lp[i * 3 + 1] = lerp(J.ftB.y + 0.04, 0.045, q) + 0.02 * sg; lp[i * 3 + 2] = lerp(J.ftB.z, 0, q) + 0.14 * sg; }
   leashGeo.attributes.position.needsUpdate = true;
   const bw = beerW();
   if (bw > 0) {                                   // can to the mouth, head back
@@ -859,15 +900,16 @@ function updateBody(dt) {
 }
 
 // blond hair: strands of verlet points dragged through the air
-const HS = 96, HN = 4, SEG = 0.036;      // about 11 cm: short and messy
+const HS = 190, HN = 4, SEG = 0.032;      // about 11 cm: short and messy
 const hairDir = [], hdir = new V3(), hairRoot = [], hP = new Float32Array(HS * HN * 3), hO = new Float32Array(HS * HN * 3), hairSeg = [];
 for (let i = 0; i < HS; i++) {
-  const az = rnd(0, Math.PI * 2), el = Math.asin(rnd(0.12, 1));
-  hairRoot.push(new V3(Math.cos(az) * Math.cos(el) * 0.11 - 0.028, Math.sin(el) * 0.11 + 0.024, Math.sin(az) * Math.cos(el) * 0.11));
+  const az = i * 2.39996 + rnd(-0.15, 0.15), el = Math.asin(0.04 + 0.96 * (i + 0.5) / HS);      // evenly spread over the scalp
+  hairRoot.push(new V3(Math.cos(az) * Math.cos(el) * 0.114 - 0.03, Math.sin(el) * 0.118 + 0.04, Math.sin(az) * Math.cos(el) * 0.108));
   // each tuft grows out from the scalp, swept forward into a fringe at the front, with some mess
-  hairDir.push(new V3(Math.cos(az) * Math.cos(el) + 0.45 * Math.max(0, Math.cos(az)) + rnd(-0.35, 0.35), Math.sin(el) * 0.9 + rnd(-0.2, 0.3) - 0.5 * Math.max(0, Math.cos(az)) * (1 - Math.sin(el)), Math.sin(az) * Math.cos(el) + rnd(-0.35, 0.35)).normalize());
+  { const tp = Math.sin(el), ce = Math.cos(el);      // sides and back lie down, the top is swept forward and up, the front falls as a fringe
+    hairDir.push(new V3(Math.cos(az) * ce * 0.55 + 0.5 * tp + 0.25 * Math.max(0, Math.cos(az)) + rnd(-0.3, 0.3), 0.45 * tp - 0.75 * (1 - tp) + rnd(-0.15, 0.3), Math.sin(az) * ce * 0.55 + rnd(-0.3, 0.3)).normalize()); }
   for (let k = 0; k < HN - 1; k++) {
-    const m = new THREE.Mesh(new THREE.CylinderGeometry(lerp(0.021, 0.007, (k + 1) / (HN - 1)), lerp(0.021, 0.007, k / (HN - 1)), 1, 5), k === HN - 2 ? hairTip : hairMat);
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(lerp(0.027, 0.008, (k + 1) / (HN - 1)), lerp(0.027, 0.008, k / (HN - 1)), 1, 5), k === HN - 2 ? hairTip : hairMat);
     m.matrixAutoUpdate = false; m.frustumCulled = false; scene.add(m); hairSeg.push(m);
   }
 }
@@ -1090,6 +1132,27 @@ function showResults() {
   }
   show('results', true);
 }
+// ---- Customize
+function applyCfg() {
+  surfer.remove(board); board = buildBoard(isLong(), SCHEMES[cfg.color]); surfer.add(board);
+  bodyU.uSuit.value = cfg.suit === 'full' ? 1 : 0;
+  try { localStorage.setItem('blueroom.cfg', JSON.stringify(cfg)); } catch (e) {}
+  const chips = (id, key, opts) => {
+    const el = $(id); el.textContent = '';
+    for (const [val, label, sw] of opts) {
+      const b = document.createElement('button'); if (cfg[key] === val) b.className = 'sel';
+      if (sw) { const i = document.createElement('i'); i.style.background = sw; b.appendChild(i); }
+      b.appendChild(document.createTextNode(label)); b.onclick = () => { cfg[key] = val; applyCfg(); }; el.appendChild(b);
+    }
+  };
+  chips('cBoard', 'board', [['short', "Shortboard 6'0\""], ['long', "Longboard 9'0\""]]);
+  chips('cColor', 'color', Object.keys(SCHEMES).map(k => [k, SCHEMES[k].name, SCHEMES[k].base]));
+  chips('cSuit', 'suit', [['shorts', 'Board shorts'], ['full', 'Full wetsuit']]);
+  $('cBoardNote').textContent = isLong() ? 'Glides faster and holds speed. Turns slower, needs more speed to launch airs.' : 'Quick, tight turns and easy airs.';
+}
+function openCustom(on) { G.custom = on; show('custom', on); show('menu', !on); }
+$('bCust').onclick = () => openCustom(true); $('bCustDone').onclick = () => openCustom(false);
+applyCfg();
 function toMenu() { G.state = 'menu'; show('results', false); show('menu', true); show('tr', false); newSet(0); }
 
 // ---------------------------------------------------------------- riding
@@ -1162,7 +1225,7 @@ function rideStep(dt) {
 
   // steer toward the direction held on screen
   let omT = 0;
-  const maxR = (hard ? 4.4 : 2.9) * clamp(0.55 + S.v / 14, 0.6, 1.25);
+  const maxR = (hard ? 4.4 : 2.9) * clamp(0.55 + S.v / 14, 0.6, 1.25) * (isLong() ? 0.68 : 1);      // a longboard draws longer lines
   if (ix) omT = ix * maxR;                       // D / right: turn up the face. A / left: turn down it.
   else if (iy) omT = clamp(wrapPi(iy * Math.PI / 2 - S.phi) * 7, -maxR, maxR);   // W / S: aim straight up / down
   S.omega += (omT - S.omega) * Math.min(1, dt * 11);
@@ -1170,7 +1233,7 @@ function rideStep(dt) {
 
   surfPt(S.x, S.s, sp); colP(S.x, sp2);
   const sinT = S.s > 0 ? Math.sin(sp.th) : 0;
-  let dv = -9.2 * sinT * (Math.sin(S.phi) - 0.3) - 0.011 * S.v * S.v - 0.115 * Math.abs(S.omega) * S.v * (hard ? 1.4 : 1);
+  let dv = -9.2 * sinT * (Math.sin(S.phi) - 0.3) - (isLong() ? 0.0093 : 0.011) * S.v * S.v - 0.115 * Math.abs(S.omega) * S.v * (hard ? 1.4 : 1);
   if (S.s <= 0) dv -= 0.6 * S.v * 0.35;
   if (held('KeyX')) {
     dv -= 8 * clamp(S.v / 8, 0, 1);
@@ -1186,7 +1249,7 @@ function rideStep(dt) {
   colP(S.x, sp2);
   const roofed = sp2.thMax > 1.8, sCap = roofed ? sp2.R * 1.42 : sp2.sLip - 0.15;
   if (S.s >= sCap) {
-    if (!roofed && wUp > 4.0 && sp2.broken < 0.3 && W.amp > 0.7) {
+    if (!roofed && wUp > (isLong() ? 5.8 : 4.0) && sp2.broken < 0.3 && W.amp > 0.7) {
       finishCarve(); finishFloat();
       S.air = { w: wUp * (S.popT > 0 ? 1.28 : 1.05) + 1.2, u: S.v * Math.cos(S.phi), sv: sp2.sLip, spin: 0, grabT: 0, maxH: 0, pop: S.popT > 0 };
       for (let i = 0; i < 40; i++) spawn(S.pos.x + rnd(-0.4, 0.4), S.pos.y, S.pos.z, rnd(-2, 2) + S.air.u * 0.3, rnd(2, 7), rnd(-3, 1), rnd(0.6, 1.1), 0.3, 1.4, 9, 0.8);
@@ -1264,7 +1327,7 @@ function lineupStep(dt, playable) {
   for (let k = G.idx; k < G.set.length; k++) G.set[k].z += 13 * dt;
   const paddling = playable && held('Space');
   S.prone += ((paddling ? 1 : 0) - S.prone) * Math.min(1, dt * 7); S.stand += (0 - S.stand) * Math.min(1, dt * 8);
-  S.phi += wrapPi((paddling ? -1.15 : Math.PI / 2) - S.phi) * Math.min(1, dt * 4);
+  S.phi += wrapPi((paddling ? -1.15 : G.custom ? 0.2 : Math.PI / 2) - S.phi) * Math.min(1, dt * 4);      // side-on while customizing
   if (paddling) S.x += 1.2 * dt;
   if (!cur) { G.lull -= dt; S.bob = 0.04 * Math.sin(time * 1.4); if (G.lull <= 0) newSet(0); return; }
   W.H = cur.H; W.z = cur.z;
@@ -1316,7 +1379,7 @@ const camP = new V3(0, 3, 14), camL = new V3(0, 1, 0), cT = new V3(), cL = new V
 let camLead = 3.6;
 function updateCamera(dt, snap) {
   const st = G.state, bz = beerW();      // push in close while the beer goes down
-  if (st === 'menu') { cT.set(S.x + 3.4, 1.25, LINE_Z + 4.6); cL.set(S.x + 2.3, 0.75, LINE_Z); }
+  if (st === 'menu') { if (G.custom) { cT.set(S.x + 1.3, 1.5, LINE_Z + 5.4); cL.set(S.x + 1.3, 0.45, LINE_Z); } else { cT.set(S.x + 3.4, 1.25, LINE_Z + 4.6); cL.set(S.x + 2.3, 0.75, LINE_Z); } }
   else if (st === 'lineup') { cT.set(S.x + 1.2 + 1.6 * bz, 2.3 - 0.9 * bz, LINE_Z + 9.5 - 6 * bz); cL.set(S.x, 1.5 - 0.6 * bz, LINE_Z - 6 + 6 * bz); }
   else {
     const dir = Math.cos(S.phi) >= -0.2 ? 1 : 0.55;
@@ -1333,6 +1396,8 @@ function updateCamera(dt, snap) {
 
 // ---------------------------------------------------------------- main loop
 function menuKeys() {
+  if (G.custom) { if (pressed.Escape || pressed.Enter) openCustom(false); return; }
+  if (pressed.KeyC) return openCustom(true);
   if (pressed.ArrowLeft || pressed.ArrowRight || pressed.KeyA || pressed.KeyD || pressed.Tab) { G.menuSel = 1 - G.menuSel; $('bFree').classList.toggle('sel', G.menuSel === 0); $('bHeat').classList.toggle('sel', G.menuSel === 1); }
   if (pressed.Enter || pressed.Space) startSession(G.menuSel ? 'heat' : 'free');
 }
