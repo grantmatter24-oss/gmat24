@@ -1035,6 +1035,7 @@ const chgEl = () => $("chg");
 function gDown() { if (!charging && sk && mode === "play" && !paused && !sk.air && !(sk.stumT > 0) && !sk.crashed && !sk.finished && !sk.bike) { charging = true; chargeT = 0; } }
 function gUp() { if (charging) { charging = false; popPow = Math.max(0.3, Math.min(1, chargeT / 0.5)); popReq = true; chargeT = 0; } }
 const GRABS = ["Mute", "Indy", "Tail", "Melon", "Nose", "Stalefish"];
+let scoreMarks = [], runBest0 = 0;
 let comboT = 0, focus = 1, timeScale = 1, mode = "title", score = 0, mult = 1, best = 0, rings = 0, boostPulse = 0, shake = 0, lastCheck = null;
 best = store.get("kb-score-" + RES, 0);
 let bestTime = store.get("kb-time-" + RES, 0), endNewBest = false;
@@ -1070,6 +1071,8 @@ function trickInfo() {
 }
 let comboList = [];
 function showCombo() { const el = $("combolist"); if (!el) return; el.textContent = ""; comboList.slice(-5).forEach((t, i, a) => { const d = document.createElement("div"); d.textContent = t; d.style.opacity = String(0.55 + 0.45 * (i + 1) / a.length); el.appendChild(d); }); el.hidden = !comboList.length; }
+/* a take-off counts as a feature if it is off a kicker, rail lip, roller, quarterpipe, knuckle or any built snow, not a pop on flat ground */
+function featLaunch(x, s) { if (HP || sk.qpAir || nearLip(x, s)) return true; for (const f of sectionsAt(s, 0)) if (featOff(f, x, s) > 0.3) return true; const g0 = (baseY(s - 6) - baseY(s)) / 6, g1 = (baseY(s) - baseY(s + 6)) / 6; return g1 - g0 > 0.12; }
 function payout(pts, label, perfect, isTrick, cork) {
   pts = Math.round(pts / 10) * 10; if (typeof prog !== "undefined") { prog.maxScore = Math.max(prog.maxScore, score + pts * mult); }
   const gain = pts * mult; score += gain;
@@ -1115,6 +1118,7 @@ function landing(surfaceType, rail) {
     if (tr.flips && tr.halves) pts *= 1.3;
     if (perfect) pts *= 1.25;
     if (odd) pts *= 1.15;
+    const flatPop = sk.featLaunch === false; if (flatPop) pts *= 0.35; // tricks off flat ground count for less
     const label = (tr.label || (sk.airT > 0.8 ? "Clean air" : "")) + (odd ? (tr.label ? " · " : "") + "Switch" : "");
     if (surfaceType !== "rail") {
       payout(pts, label, perfect, tr.flips || tr.halves || tr.grab, tr.flips && tr.halves);
@@ -1152,21 +1156,25 @@ function respawn() {
   const T = trailFor(sk.s), inT = T && Math.abs(sk.x - trailXc(T, sk.s)) < T.hw + 3 && Math.abs(sk.x - pc(sk.s)) > PISTE;
   const list = inT ? T.sec : feats, j = idxIn(list, sk.s), f = j >= 0 ? list[j] : null;
   const rs = f ? Math.max(12, f.s0 - 40) : inT ? T.s0 + 60 : 12;
+  { // anything scored past the respawn point gets earned again, so it doesn't count twice
+    let k = scoreMarks.length - 1; while (k >= 0 && scoreMarks[k][0] > rs) k--; const back = k >= 0 ? scoreMarks[k][1] : 0, lost = score - back;
+    scoreMarks.length = k + 1; if (lost > 0) { score = back; best = Math.max(runBest0, score); store.set("kb-score-" + RES, best); popup("Back up the hill", "-" + lost.toLocaleString() + " points since here", true); } }
   sk = newSkier(inT ? trailXc(T, rs) : f ? f.mainCx : 0, rs, 13); snapCam = true;
 }
 function startIntro() { if ((PEAK && !HELI) || DROP || HP || GT || BLD) return; if (PARK) startBike(); else startHeli(); }
-function restart() { if (GT) gateReset(); comboList = []; try { showCombo(); } catch (e) { } endNewBest = false; score = 0; mult = 1; rings = 0; focus = 1; runT = 0; endShown = false; stats = { tricks: 0, biggest: 0, wipes: 0, jumps: 0 }; $("end").hidden = true; for (const f of feats) f.coins.forEach(c => c.got = false); for (const t of trails) for (const f of t.sec) f.coins.forEach(c => c.got = false); sk = newSkier(0, PEAK ? 3 : 10, PEAK ? 4 : 9); startIntro(); snapCam = true; $("pop").className = ""; }
+function restart() { scoreMarks = []; runBest0 = best; if (GT) gateReset(); comboList = []; try { showCombo(); } catch (e) { } endNewBest = false; score = 0; mult = 1; rings = 0; focus = 1; runT = 0; endShown = false; stats = { tricks: 0, biggest: 0, wipes: 0, jumps: 0 }; $("end").hidden = true; for (const f of feats) f.coins.forEach(c => c.got = false); for (const t of trails) for (const f of t.sec) f.coins.forEach(c => c.got = false); sk = newSkier(0, PEAK ? 3 : 10, PEAK ? 4 : 9); startIntro(); snapCam = true; $("pop").className = ""; }
 
 const DT = 1 / 120;
 function step(dt) {
   if (mode !== "play") return;
   if (BLD && editing) { return; }
   if (!sk.finished) runT += dt;
+  if (!sk.crashed && (!scoreMarks.length || sk.s > scoreMarks[scoreMarks.length - 1][0] + 2)) scoreMarks.push([sk.s, score]);
   if (GT && !sk.crashed && !sk.finished) gateCheck();
   if (charging) { if (sk.air || sk.crashed || sk.finished) { charging = false; chargeT = 0; } else chargeT += dt; }
   sk.chg = charging ? Math.min(1, chargeT / 0.5) : 0;
   if (!sk.air && !sk.grind && !sk.bike && !sk.crashed && (K.down || K.up) && sk.sp > 3) { sk.butterT = (sk.butterT || 0) + dt; sk.butterKind = K.up && !K.down ? "Nose butter" : "Tail butter"; if (Math.random() < 0.4) spray(sk.x, sk.y, sk.s - 0.7, 1, 2); }
-  else { if (sk.butterT > 0.8 && !sk.crashed) payout(sk.butterT * 110, sk.butterKind || "Tail butter", false, true); sk.butterT = 0; }
+  else { if (!sk.crashed) { const k = sk.butterKind || "Tail butter"; if (sk.air && sk.featLaunch && sk.butterT > 0.25) payout(350 + sk.butterT * 380, k + " off the lip", false, true); else if (!sk.air && sk.butterT > 0.8) payout(sk.butterT * 55, k, false, true); } sk.butterT = 0; }
   if (mult > 1 && !sk.air && !sk.grind) { comboT -= dt; if (comboT <= 0) { mult = 1; comboT = 0; comboList = []; showCombo(); } }
   sk.boostCd = Math.max(0, sk.boostCd - dt); sk.pumpT = Math.max(0, sk.pumpT - dt); sk.landT = Math.max(0, sk.landT - dt); sk.popT = Math.max(0, sk.popT - dt);
   if (sk.crashed) {
@@ -1204,12 +1212,12 @@ function step(dt) {
       if (!popReq && r.next && sk.s >= r.s1) { sk.yOff = sk.y - railY(r.next, sk.s); sk.grind = r.next; sk.grindT += 0; sk.noRail = 0; }
       else if (popReq || sk.s >= r.s1) {
         const pop = popReq ? 10.5 * (0.35 + 0.65 * popPow) : 1; sk.noRail = 0.5; sk.railNet = Math.round(sk.spin / Math.PI);
-        sk.air = true; sk.vx = 0; sk.vs = sk.sp * Math.cos(sA); sk.vy = sk.sp * Math.sin(sA) + pop;
+        sk.air = true; sk.featLaunch = true; sk.vx = 0; sk.vs = sk.sp * Math.cos(sA); sk.vy = sk.sp * Math.sin(sA) + pop;
         { const dirX = popReq ? (K.right ? 1 : 0) - (K.left ? 1 : 0) : 0; sk.xfer = null; if (dirX) { const tr = xferTarget(r, dirX); if (tr) { sk.vx = tr.vx; sk.xfer = tr; sk.noRail = 0.12; } else sk.vx = dirX * 4; } }
         sk.airT = 0; sk.flipAcc = 0; sk.spin = 0; sk.spinV = 0; sk.grabT = 0; sk.rotV = 0; sk.jumpNo++;
-        const railSpins = Math.abs(sk.railNet || 0), pts = sk.grindT * 140 + 150 + railSpins * 150, wasGood = sk.grindT > 0.5 || railSpins > 0;
+        const railSpins = Math.abs(sk.railNet || 0), pts = sk.grindT * 280 + 300 + railSpins * 400, wasGood = sk.grindT > 0.5 || railSpins > 0;
         if (railSpins % 2 === 1) sk.sw = !sk.sw;
-        const base = sk.carry ? sk.carry.pts : 0, lab = (sk.carry && sk.carry.label ? sk.carry.label + " → " : "") + (railSpins ? "Rail " + railSpins * 180 : "Rail grind");
+        const base = sk.carry ? Math.round(sk.carry.pts * 1.5) : 0, lab = (sk.carry && sk.carry.label ? sk.carry.label + " → " : "") + (railSpins ? "Rail " + railSpins * 180 : "Rail grind");
         payout(pts + base, lab, false, wasGood || (sk.carry && sk.carry.trick));
         if (wasGood) sfx("chime", 2);
         prog.rails++; checkUnlocks();
@@ -1259,7 +1267,7 @@ function step(dt) {
       const pw = 0.35 + 0.65 * popPow;
       if (popNow) { sk.sp += 0.9 * pw * Math.max(0, 1 - sk.sp / 45); spray(sk.x - hx * 0.5, sk.y, sk.s - hs * 0.5, 4, 3); sfx("pump"); }
       if (popNow || yp > hn + (hpm ? 0.04 : 0.12)) {
-        sk.air = true; sk.vx = sk.sp * c * hx; sk.vs = sk.sp * c * hs; const deckLip = popNow && onRailRamp(sk.x, sk.s) === 2, lr = popNow && !deckLip ? lowRailAhead(sk.x, sk.s) : null, ra = popNow && !lr && !deckLip ? railAheadR(sk.x, sk.s) : null, need = ra ? railY(ra, Math.max(ra.s0, sk.s + 2)) - Math.max(yp, hn) + 0.3 : 0; sk.vy = sk.sp * sn + (deckLip ? 0.4 : lr ? Math.sqrt(2 * G * clamp(railY(lr, Math.max(lr.s0, sk.s + 2)) - Math.max(yp, hn) + 0.3, 0.25, 3.6)) : ra ? Math.sqrt(2 * G * clamp(need, 0.25, 3.6)) : (popNow ? (nearLip(sk.x, sk.s) ? 6.5 : 5.2) * pw : 0) + (!popNow && onRailRamp(sk.x, sk.s) ? (onRailRamp(sk.x, sk.s) === 2 ? 0 : 1.3) : 3.0));
+        sk.featLaunch = featLaunch(sk.x, sk.s); sk.air = true; sk.vx = sk.sp * c * hx; sk.vs = sk.sp * c * hs; const deckLip = popNow && onRailRamp(sk.x, sk.s) === 2, lr = popNow && !deckLip ? lowRailAhead(sk.x, sk.s) : null, ra = popNow && !lr && !deckLip ? railAheadR(sk.x, sk.s) : null, need = ra ? railY(ra, Math.max(ra.s0, sk.s + 2)) - Math.max(yp, hn) + 0.3 : 0; sk.vy = sk.sp * sn + (deckLip ? 0.4 : lr ? Math.sqrt(2 * G * clamp(railY(lr, Math.max(lr.s0, sk.s + 2)) - Math.max(yp, hn) + 0.3, 0.25, 3.6)) : ra ? Math.sqrt(2 * G * clamp(need, 0.25, 3.6)) : (popNow ? (nearLip(sk.x, sk.s) ? 6.5 : 5.2) * pw : 0) + (!popNow && onRailRamp(sk.x, sk.s) ? (onRailRamp(sk.x, sk.s) === 2 ? 0 : 1.3) : 3.0));
         sk.x = nx; sk.s = ns; sk.y = popNow ? Math.max(yp, hn) + 0.02 : yp;
         sk.airT = 0; sk.flipAcc = 0; sk.spin = 0; sk.spinV = 0; sk.grabT = 0; sk.rotV = 0; sk.spinTarget = 0; if (popNow) sk.popT = 0.2;
       } else {
@@ -1272,11 +1280,11 @@ function step(dt) {
         if (rockHit(sk.x, sk.y, sk.s)) crash("Hit a rock");
         else { const tt = treeHit(sk.x, sk.y, sk.s); if (tt) stumble(tt); }
         if (boxAt(sk.x, sk.s)) sk.boxT += dt;
-        else { if (sk.boxT > 0.45) { payout(100 + sk.boxT * 110, "Box slide", false, true); sfx("chime", 1); } sk.boxT = 0; if (!sk.grind) sk.slideYaw = 0; }
+        else { if (sk.boxT > 0.45) { payout(250 + sk.boxT * 260, "Box slide", false, true); sfx("chime", 1); } sk.boxT = 0; if (!sk.grind) sk.slideYaw = 0; }
       }
     }
   } else {
-    if (sk.boxT > 0.45) { payout(100 + sk.boxT * 110, "Box slide", false, true); sfx("chime", 1); }
+    if (sk.boxT > 0.45) { payout(250 + sk.boxT * 260, "Box slide", false, true); sfx("chime", 1); }
     sk.boxT = 0;
     sk.airT += dt; if (sk.noRail > 0) sk.noRail -= dt;
     const flipIn = (K.down ? 1 : 0) - (K.up ? 1 : 0);   // +1 = back flip (nose up), -1 = front flip
@@ -1580,8 +1588,8 @@ function initRender() {
 function canvasTex(w, h, draw) { const c = document.createElement("canvas"); c.width = w; c.height = h; draw(c.getContext("2d"), w, h); return new THREE.CanvasTexture(c); }
 const OUTFIT_OPTS = {
   helmet: { frog: "Frog hat", beanie: "Beanie with ball", redbull: "Red Bull helmet", santa: "Santa hat" },
-  jacket: { trench: "Black trench coat", vest: "Grey vest, white long sleeve", santa: "Red Santa coat", black: "Black jacket" },
-  skis: { black: "Black wider skis", purple: "Purple skis", current: "Current skis", red: "Red skis", pink: "Pink skis" },
+  jacket: { trench: "Black trench coat", vest: "Grey vest, white long sleeve", santa: "Red Santa coat", black: "Black jacket", forest: "Forest green anorak", block: "Orange and navy jacket" },
+  skis: { black: "Black wider skis", purple: "Purple skis", current: "Current skis", red: "Red skis", pink: "Pink skis", stripes: "Retro stripes", camo: "Snow camo", flames: "Flames" },
   song: { off: "No music", hypa: "Hypa · Silva Bumpa", yosemite: "Yosemite · KETTAMA", think: "Think of You · KETTAMA & Prospa", fly: "Fly Away XTC · KETTAMA", nite: "On 2nite · Silva Bumpa", doin: "Doin' it ft. MC DT · Silva Bumpa", youtube: "My YouTube link" },
   style: { simple: "Simple mannequin", detailed: "Detailed" },
   gfx: { auto: "Auto", low: "Low", med: "Medium", high: "High" },
@@ -1593,7 +1601,7 @@ const OUTFIT_OPTS = {
   len: { short: "Short · 150 cm", mid: "Medium · 170 cm", long: "Long · 190 cm" },
   skibend: { flat: "Flat · no bend", slight: "Slight bend", medium: "Medium bend", full: "Full bend (old)" }
 };
-const JACKETS = { trench: { j: 0x15171b, t: 0x0c0d10, arm: 0x15171b, cuff: 0x0c0d10, sc: [0x7a1f26, 0x2a2a2e] }, vest: { j: 0x80868e, t: 0x5d636b, arm: 0xf2f3f5, cuff: 0xe4e6ea, sc: [0xf2f3f5, 0x80868e] }, santa: { j: 0xc4161c, t: 0xf6f6f2, arm: 0xc4161c, cuff: 0xf6f6f2, sc: [0xf6f6f2, 0xc4161c] }, black: { j: 0x16181c, t: 0x2a2d33, arm: 0x16181c, cuff: 0x0b0c0e, sc: [0x2a2d33, 0x16181c] } };
+const JACKETS = { trench: { j: 0x15171b, t: 0x0c0d10, arm: 0x15171b, cuff: 0x0c0d10, sc: [0x7a1f26, 0x2a2a2e] }, vest: { j: 0x80868e, t: 0x5d636b, arm: 0xf2f3f5, cuff: 0xe4e6ea, sc: [0xf2f3f5, 0x80868e] }, santa: { j: 0xc4161c, t: 0xf6f6f2, arm: 0xc4161c, cuff: 0xf6f6f2, sc: [0xf6f6f2, 0xc4161c] }, black: { j: 0x16181c, t: 0x2a2d33, arm: 0x16181c, cuff: 0x0b0c0e, sc: [0x2a2d33, 0x16181c] }, forest: { j: 0x2f5e3f, t: 0x1e3a28, arm: 0x2f5e3f, cuff: 0x16261b, sc: [0xd9b45a, 0x2f5e3f] }, block: { j: 0xe0702a, t: 0x1f2a44, arm: 0x1f2a44, cuff: 0x141c2e, sc: [0x1f2a44, 0xe0702a] } };
 const PANTS = { santa: [0xc4161c, 0xc4161c], suit: [0x17191e, 0x17191e], shorts: [0x7d838b, -1], blue: [0x2f5fa8, 0x2f5fa8], khaki: [0xb59f72, 0xb59f72], brown: [0x6b4a2f, 0x6b4a2f] };
 let outfit = { helmet: "redbull", jacket: "vest", pants: "blue", accessory: "scarf", skis: "current", poles: "metal", skibend: "slight", wax: "std", grip: "std", len: "mid", song: "off", yt: "", gfx: "auto", style: "simple" };
 try { const o = JSON.parse(localStorage.getItem("kickerOutfit") || "null"); if (o) { for (const k in outfit) if (OUTFIT_OPTS[k] && OUTFIT_OPTS[k][o[k]]) outfit[k] = o[k]; if (typeof o.yt === "string") outfit.yt = o.yt; } } catch (e) { }
@@ -1659,7 +1667,11 @@ function buildSkier() {
   const lensTex = canvasTex(64, 32, (x, w, h) => { const g = x.createLinearGradient(0, 0, w, h); g.addColorStop(0, "#ffb347"); g.addColorStop(0.5, "#ff5a8a"); g.addColorStop(1, "#5a6bff"); x.fillStyle = g; x.fillRect(0, 0, w, h); x.fillStyle = "rgba(255,255,255,.35)"; x.fillRect(0, 0, w, 6); });
   const mkSkiTex = (base) => canvasTex(8, 8, (x, w, h) => { x.fillStyle = base; x.fillRect(0, 0, w, h); });
   const skiTex = mkSkiTex("#ee5a2c", "#f6f7f9", "#14181f");
-  const skiTexes = { current: skiTex, black: mkSkiTex("#15171c", "#d9dde3", "#0a0b0e"), purple: mkSkiTex("#7b3fd0", "#f1e8ff", "#2a1450"), red: mkSkiTex("#d3202a", "#f6f7f9", "#14181f"), pink: mkSkiTex("#ff6fb5", "#ffffff", "#7a1f4d") };
+  const skiTexes = { current: skiTex, black: mkSkiTex("#15171c", "#d9dde3", "#0a0b0e"), purple: mkSkiTex("#7b3fd0", "#f1e8ff", "#2a1450"), red: mkSkiTex("#d3202a", "#f6f7f9", "#14181f"), pink: mkSkiTex("#ff6fb5", "#ffffff", "#7a1f4d"),
+    // patterned top sheets: across the texture, the left half wraps over the top of the ski and the right half is the base; down the texture runs tail to tip
+    stripes: canvasTex(64, 256, (x, w, h) => { x.fillStyle = "#14181f"; x.fillRect(0, 0, w, h); x.fillStyle = "#f2f0ea"; x.fillRect(0, 0, w, h); for (let i = -4; i < 20; i++) { x.fillStyle = i % 3 === 0 ? "#c8302c" : i % 3 === 1 ? "#1f3b6e" : "#f2b632"; x.fillRect(0, i * 16, w, 6); } }),
+    camo: canvasTex(64, 256, (x, w, h) => { x.fillStyle = "#14181f"; x.fillRect(0, 0, w, h); x.fillStyle = "#e9edf2"; x.fillRect(0, 0, w, h); const r = mulberry(91); for (let i = 0; i < 120; i++) { x.fillStyle = ["#8f9aa6", "#5d6875", "#c9d1da", "#3d4650"][i % 4]; x.beginPath(); x.ellipse(r() * w, r() * h, 3 + r() * 8, 6 + r() * 16, r() * 3, 0, 7); x.fill(); } }),
+    flames: canvasTex(64, 256, (x, w, h) => { x.fillStyle = "#101114"; x.fillRect(0, 0, w, h); const g = x.createLinearGradient(0, 0, 0, h * 0.55); g.addColorStop(0, "#ffe14a"); g.addColorStop(0.45, "#ff7a1a"); g.addColorStop(1, "rgba(200,30,20,0)"); x.fillStyle = g; x.beginPath(); x.moveTo(0, 0); x.lineTo(w, 0); for (let k = 0; k <= 16; k++) { const xx = w - k * (w / 16), yy = h * (0.32 + 0.22 * ((k % 2) ? 1 : 0.45)); x.lineTo(xx, yy); } x.lineTo(0, 0); x.closePath(); x.fill(); x.fillStyle = "#f6f7f9"; x.font = "bold 9px Arial"; x.save(); x.translate(w / 2, h * 0.75); x.rotate(-Math.PI / 2); x.textAlign = "center"; x.fillText("FUEGO", 0, 3); x.restore(); }) };
   const logoTex = canvasTex(128, 128, (x, w, h) => { x.fillStyle = "#14181f"; x.fillRect(0, 0, w, h); x.fillStyle = "#f08a3a"; x.beginPath(); x.moveTo(64, 14); x.lineTo(112, 108); x.lineTo(16, 108); x.closePath(); x.fill(); x.fillStyle = "#f4f6f9"; x.beginPath(); x.moveTo(64, 46); x.lineTo(84, 88); x.lineTo(44, 88); x.closePath(); x.fill(); });
   const foldTex = canvasTex(128, 128, (x, w, h) => { x.fillStyle = "#808080"; x.fillRect(0, 0, w, h); const rr = mulberry(77); for (let i = 0; i < 26; i++) { const y = rr() * h, a = (rr() - 0.5) * 0.6, len = 30 + rr() * 70, x0 = rr() * w; x.strokeStyle = rr() < 0.5 ? "rgba(255,255,255,.35)" : "rgba(0,0,0,.35)"; x.lineWidth = 2 + rr() * 4; x.beginPath(); x.moveTo(x0, y); x.quadraticCurveTo(x0 + len / 2, y + a * 40 + 8, x0 + len, y + a * 80); x.stroke(); } }); foldTex.wrapS = foldTex.wrapT = THREE.RepeatWrapping;
   const jacket = M(0x2f8f8c, { roughness: 0.62, bumpMap: foldTex, bumpScale: 0.025 }), jacket2 = M(0x2b3036, { roughness: 0.7 }), pants = M(0x2c3445, { roughness: 0.8, bumpMap: foldTex, bumpScale: 0.03 }), boot = M(0x1a1f29, { roughness: 0.5 }), helmet = M(0x15181d, { roughness: 0.22, metalness: 0.2 });
@@ -3441,7 +3453,7 @@ let pauseTab = "outfit";
 const PTABS = [["outfit", "Outfit", ["helmet", "jacket", "pants", "accessory"]], ["gear", "Gear", ["skis", "skibend", "poles"]], ["tune", "Tuning", ["wax", "grip", "len"]], ["music", "Music", ["song"]], ["game", "Game", ["style", "gfx"]], ["ctrl", "Controls", []]];
 const CAT_NAMES = { helmet: "Helmet", jacket: "Jacket", pants: "Pants", accessory: "Accessory", skis: "Skis", skibend: "Ski bend", poles: "Poles", wax: "Wax", grip: "Edge grip", len: "Ski length", song: "Song", style: "Character style", gfx: "Graphics quality" };
 const CAT_SUB = { wax: { slow: "More grip, lower top speed", std: "Balanced", fast: "Faster and floatier" }, grip: { loose: "Slidey, wide turns, keeps speed", std: "Balanced", sharp: "Bites hard, tight turns, scrubs speed" }, len: { short: "Quick turns and spins", mid: "Balanced", long: "Stable, fast, calmer landings" } };
-const SWATCH = { helmet: { frog: "#5fae4a", beanie: "#d9232d", redbull: "#0d2a5e", santa: "#c4161c" }, poles: { metal: "#a7b8c9", bamboo: "#d2bd72" }, skis: { current: "#ee5a2c", black: "#15171c", purple: "#7b3fd0", red: "#d3202a", pink: "#ff6fb5" } };
+const SWATCH = { helmet: { frog: "#5fae4a", beanie: "#d9232d", redbull: "#0d2a5e", santa: "#c4161c" }, poles: { metal: "#a7b8c9", bamboo: "#d2bd72" }, skis: { current: "#ee5a2c", black: "#15171c", purple: "#7b3fd0", red: "#d3202a", pink: "#ff6fb5", stripes: "#f2f0ea", camo: "#8f9aa6", flames: "#ff7a1a" } };
 const hex6 = n => "#" + (n >>> 0).toString(16).padStart(6, "0");
 function swatchFor(cat, key) { if (SWATCH[cat]) return SWATCH[cat][key]; if (cat === "jacket" && JACKETS[key]) return hex6(JACKETS[key].j); if (cat === "pants" && PANTS[key]) return hex6(PANTS[key][0]); return null; }
 function buildPauseUI() {
