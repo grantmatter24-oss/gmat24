@@ -1587,22 +1587,22 @@ function initRender() {
 
 function canvasTex(w, h, draw) { const c = document.createElement("canvas"); c.width = w; c.height = h; draw(c.getContext("2d"), w, h); return new THREE.CanvasTexture(c); }
 const OUTFIT_OPTS = {
-  helmet: { frog: "Frog hat", beanie: "Beanie with ball", redbull: "Red Bull helmet", santa: "Santa hat" },
-  jacket: { trench: "Black trench coat", vest: "Grey vest, white long sleeve", santa: "Red Santa coat", black: "Black jacket", forest: "Forest green anorak", block: "Orange and navy jacket" },
+  helmet: { frog: "Frog hat", beanie: "Beanie with ball", redbull: "Red Bull helmet", santa: "Santa hat", purple: "Purple beanie + shades", camo: "Camo beanie" },
+  jacket: { trench: "Black trench coat", vest: "Grey vest, white long sleeve", santa: "Red Santa coat", black: "Black jacket", forest: "Forest green anorak", block: "Orange and navy jacket", navy: "Navy shell, cream sleeves", piped: "Black piped jacket", greenc: "Green and cream shell" },
   skis: { black: "Black wider skis", purple: "Purple skis", current: "Current skis", red: "Red skis", pink: "Pink skis", stripes: "Retro stripes", camo: "Snow camo", flames: "Flames" },
   song: { off: "No music", hypa: "Hypa · Silva Bumpa", yosemite: "Yosemite · KETTAMA", think: "Think of You · KETTAMA & Prospa", fly: "Fly Away XTC · KETTAMA", nite: "On 2nite · Silva Bumpa", doin: "Doin' it ft. MC DT · Silva Bumpa", youtube: "My YouTube link" },
   style: { simple: "Simple mannequin", detailed: "Detailed" },
   gfx: { auto: "Auto", low: "Low", med: "Medium", high: "High" },
-  accessory: { scarf: "Scarf", ninja: "Ninja headband", cape: "Cape", phones: "Headphones" },
-  pants: { santa: "Red Santa pants", suit: "Black suit pants", shorts: "Grey shorts", blue: "Blue pants", khaki: "Khakis", brown: "Brown pants" },
+  accessory: { scarf: "Scarf", ninja: "Ninja headband", cape: "Cape", phones: "Headphones", wired: "Wired headphones" },
+  pants: { cream: "Cream pants", santa: "Red Santa pants", suit: "Black suit pants", shorts: "Grey shorts", blue: "Blue pants", khaki: "Khakis", brown: "Brown pants" },
   poles: { metal: "Metal poles", bamboo: "Bamboo poles" },
   wax: { slow: "Cold grip wax", std: "All-round wax", fast: "Hot speed wax" },
   grip: { loose: "Loose edges", std: "Standard edges", sharp: "Razor edges" },
   len: { short: "Short · 150 cm", mid: "Medium · 170 cm", long: "Long · 190 cm" },
   skibend: { flat: "Flat · no bend", slight: "Slight bend", medium: "Medium bend", full: "Full bend (old)" }
 };
-const JACKETS = { trench: { j: 0x15171b, t: 0x0c0d10, arm: 0x15171b, cuff: 0x0c0d10, sc: [0x7a1f26, 0x2a2a2e] }, vest: { j: 0x80868e, t: 0x5d636b, arm: 0xf2f3f5, cuff: 0xe4e6ea, sc: [0xf2f3f5, 0x80868e] }, santa: { j: 0xc4161c, t: 0xf6f6f2, arm: 0xc4161c, cuff: 0xf6f6f2, sc: [0xf6f6f2, 0xc4161c] }, black: { j: 0x16181c, t: 0x2a2d33, arm: 0x16181c, cuff: 0x0b0c0e, sc: [0x2a2d33, 0x16181c] }, forest: { j: 0x2f5e3f, t: 0x1e3a28, arm: 0x2f5e3f, cuff: 0x16261b, sc: [0xd9b45a, 0x2f5e3f] }, block: { j: 0xe0702a, t: 0x1f2a44, arm: 0x1f2a44, cuff: 0x141c2e, sc: [0x1f2a44, 0xe0702a] } };
-const PANTS = { santa: [0xc4161c, 0xc4161c], suit: [0x17191e, 0x17191e], shorts: [0x7d838b, -1], blue: [0x2f5fa8, 0x2f5fa8], khaki: [0xb59f72, 0xb59f72], brown: [0x6b4a2f, 0x6b4a2f] };
+const JACKETS = { trench: { j: 0x15171b, t: 0x0c0d10, arm: 0x15171b, cuff: 0x0c0d10, sc: [0x7a1f26, 0x2a2a2e] }, vest: { j: 0x80868e, t: 0x5d636b, arm: 0xf2f3f5, cuff: 0xe4e6ea, sc: [0xf2f3f5, 0x80868e] }, santa: { j: 0xc4161c, t: 0xf6f6f2, arm: 0xc4161c, cuff: 0xf6f6f2, sc: [0xf6f6f2, 0xc4161c] }, black: { j: 0x16181c, t: 0x2a2d33, arm: 0x16181c, cuff: 0x0b0c0e, sc: [0x2a2d33, 0x16181c] }, forest: { j: 0x2f5e3f, t: 0x1e3a28, arm: 0x2f5e3f, cuff: 0x16261b, sc: [0xd9b45a, 0x2f5e3f] }, block: { j: 0xe0702a, t: 0x1f2a44, arm: 0x1f2a44, cuff: 0x141c2e, sc: [0x1f2a44, 0xe0702a] }, navy: { j: 0x22305c, t: 0x18234a, arm: 0x22305c, cuff: 0x18234a, sc: [0xe3d9c3, 0x22305c], up: 0xe3d9c3, lo: 0x22305c, tex: "navy", baggy: true }, piped: { j: 0x121315, t: 0x0b0b0c, arm: 0x121315, cuff: 0x0b0b0c, sc: [0xf2f2f2, 0x121315], up: 0xffffff, lo: 0xffffff, armTex: true, tex: "piped", baggy: true }, greenc: { j: 0x24564a, t: 0x1b4038, arm: 0x24564a, cuff: 0xd8cdb5, sc: [0xe3d9c3, 0x24564a], up: 0x24564a, lo: 0xe3d9c3, tex: "greenc", baggy: true } };
+const PANTS = { santa: [0xc4161c, 0xc4161c], suit: [0x17191e, 0x17191e], shorts: [0x7d838b, -1], blue: [0x2f5fa8, 0x2f5fa8], khaki: [0xb59f72, 0xb59f72], brown: [0x6b4a2f, 0x6b4a2f], cream: [0xe3d9c3, 0xd8cdb5] };
 let outfit = { helmet: "redbull", jacket: "vest", pants: "blue", accessory: "scarf", skis: "current", poles: "metal", skibend: "slight", wax: "std", grip: "std", len: "mid", song: "off", yt: "", gfx: "auto", style: "simple" };
 try { const o = JSON.parse(localStorage.getItem("kickerOutfit") || "null"); if (o) { for (const k in outfit) if (OUTFIT_OPTS[k] && OUTFIT_OPTS[k][o[k]]) outfit[k] = o[k]; if (typeof o.yt === "string") outfit.yt = o.yt; } } catch (e) { }
 /* progress: unlockable outfit pieces */
@@ -1636,6 +1636,17 @@ function onFinish() {
   if (!prog.fin.includes(RES)) prog.fin.push(RES);
   prog.maxScore = Math.max(prog.maxScore, score); checkUnlocks();
 }
+/* the earbud cord: from each ear down to a Y under the chin, then down the chest to a pocket; it sags and flutters harder the faster you go */
+const _cv = new THREE.Vector3(), _cp = [];
+function updCord(R, w, t) {
+  const tor = R.torso; tor.updateMatrixWorld(true); const toT = v => tor.worldToLocal(R.head.localToWorld(v));
+  const eL = toT(_cv.set(-0.112, -0.05, -0.005).clone()), eR = toT(_cv.set(0.112, -0.05, -0.005).clone()), Y = new THREE.Vector3(0.02, 0.5, -0.2), P = new THREE.Vector3(0.16, 0.08, -0.215), pts = [];
+  const seg = (a, b, n, sag, ph) => { for (let i = 0; i <= n; i++) { const u = i / n, e = Math.sin(Math.PI * u), v = a.clone().lerp(b, u); v.y -= sag * e; v.x += e * w * 0.035 * Math.sin(t * 13 + u * 7 + ph); v.z -= e * (0.012 + w * 0.05 * (0.6 + 0.4 * Math.sin(t * 9 + u * 5 + ph))); pts.push(v); } };
+  const L = [], Rr = []; let cur = pts; seg(eL, Y, 8, 0.01, 0); L.push(...pts.splice(0)); seg(eR, Y, 8, 0.01, 2); Rr.push(...pts.splice(0)); seg(Y, P, 12, 0.04, 4); const D = pts.splice(0);
+  const tube = arr => new THREE.TubeGeometry(new THREE.CatmullRomCurve3(arr), arr.length * 2, 0.0045, 4, false), gs = [tube(L), tube(Rr), tube(D)];
+  const merged = new THREE.BufferGeometry(), pos = [], idx = []; let off = 0; for (const g of gs) { const p = g.attributes.position.array; for (let i = 0; i < p.length; i++) pos.push(p[i]); const ix = g.index.array; for (let i = 0; i < ix.length; i++) idx.push(ix[i] + off); off += p.length / 3; g.dispose(); }
+  merged.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); merged.setIndex(idx); merged.computeVertexNormals(); R.cord.geometry.dispose(); R.cord.geometry = merged;
+}
 function applyOutfit(R) {
   if (!R) return; const m = R.mats, J = JACKETS[outfit.jacket], P = PANTS[outfit.pants], h = outfit.helmet;
   m.jacket.color.setHex(J.j); m.jacket2.color.setHex(J.t); m.jacketArm.color.setHex(J.arm); m.cuffM.color.setHex(J.cuff);
@@ -1650,10 +1661,12 @@ function applyOutfit(R) {
   { const sm = outfit.style === "simple", k = sm ? 1 : 0, Sc = (m, x, y, z) => m.scale.set(sm ? x : 1, sm ? y : 1, sm ? z : 1);
     R.detail.forEach(m => { m.visible = !sm; }); R.simpleOnly.forEach(m => { m.visible = sm && (!m.userData.helmetOnly || h === "redbull"); });
     R.torsoM.scale.set(sm ? 1.62 : 1.2, 1, sm ? 1.12 : 0.82); R.hoodM.scale.set(sm ? 1.55 : 1.2, sm ? 1.05 : 0.85, sm ? 1.2 : 0.9); R.hoodM.position.set(0, sm ? 0.73 : 0.7, sm ? 0.14 : 0.115);
-    R.shape.shoulders.forEach(m => { m.visible = !sm; }); R.torsoM.visible = !sm; R.simpleBody.visible = sm; if (sm) m.jacketArm.color.setHex(J.j); R.shape.arms.forEach(m => Sc(m, 1.38, 1, 1.38)); R.shape.elbows.forEach(m => Sc(m, 1.38, 1.38, 1.38)); 
+    R.shape.shoulders.forEach(m => { m.visible = !sm; }); R.torsoM.visible = !sm; R.simpleBody.visible = sm; if (sm) m.jacketArm.color.setHex(J.j);
+    R.armUp.color.setHex(J.up !== undefined ? J.up : sm ? J.j : J.arm); R.armLo.color.setHex(J.lo !== undefined ? J.lo : sm ? J.j : J.arm); R.armUp.map = R.armLo.map = J.armTex ? R.pipeTex : null; R.armUp.needsUpdate = R.armLo.needsUpdate = true;
+    R.simpleBody.material = J.tex ? R.jTex[J.tex] : m.jacket; R.bag = J.baggy ? 1.16 : 1; R.simpleBody.scale.set(R.bag * (J.baggy ? 1 : 1), J.baggy ? 1.03 : 1, J.baggy ? 1.16 : 1); R.shape.arms.forEach(m => Sc(m, 1.38, 1, 1.38)); R.shape.elbows.forEach(m => Sc(m, 1.38, 1.38, 1.38)); 
     R.shape.calves.forEach(m => { m.visible = !sm; }); 
     m.boot.color.setHex(sm ? 0xe8ebef : 0x1a1f29); }
-  for (const k in R.acc) R.acc[k].visible = k === outfit.accessory;
+  for (const k in R.acc) R.acc[k].visible = k === outfit.accessory; R.buds.forEach(b => b.visible = outfit.accessory === "wired");
   R.skiM.map = R.skiTexes[outfit.skis === "current" ? "current" : outfit.skis]; R.skiM.needsUpdate = true; R.skiMeshes.forEach(m => m.scale.x = outfit.skis === "black" ? 1.4 : 1);
 }
 let skiRk = 0.35;
@@ -1700,7 +1713,17 @@ function buildSkier() {
       const sm = addS(sgeo, skiM, x, 0, 0.0); let lb = -1, ln = -1, lr = -1;
       bend.push({ upd: (bt, nb) => { if (Math.abs(bt - lb) < 0.01 && Math.abs(nb - ln) < 0.01 && lr === skiRk) return; lb = bt; ln = nb; lr = skiRk; for (let a = 0; a <= n; a++) { const z = zs[a], dy = (skiRk - 1) * (noseC(z) + tailC(z)) + (nb * noseC(z) * 2.4 + bt * tailC(z) * 4.5) * (0.4 + 0.6 * skiRk); for (let k = 0; k < ring; k++) { const o = a * ring + k; pos[o * 3 + 1] = baseY[o] + dy; } } sgeo.attributes.position.needsUpdate = true; sgeo.computeVertexNormals(); } });
     }
-    addS(new THREE.BoxGeometry(0.1, 0.05, 0.1), black, x, 0.07, -0.08); addS(new THREE.BoxGeometry(0.1, 0.06, 0.11), black, x, 0.075, 0.2);
+    { const bk = M(0x16181c, { roughness: 0.45, metalness: 0.3 }), al = M(0xb9c0c8, { roughness: 0.3, metalness: 0.85 }), acc2 = M(0xd3202a, { roughness: 0.5 });
+      addS(new THREE.BoxGeometry(0.075, 0.012, 0.5), bk, x, 0.068, 0.06); // track plate
+      addS(new THREE.BoxGeometry(0.07, 0.006, 0.06), al, x, 0.077, -0.06); // anti-friction plate under the toe
+      addS(new THREE.BoxGeometry(0.06, 0.04, 0.06), bk, x, 0.09, -0.145); // toe body
+      addS(new THREE.BoxGeometry(0.105, 0.025, 0.03), bk, x, 0.118, -0.115); // toe wings over the boot toe
+      addS(new THREE.CylinderGeometry(0.012, 0.012, 0.1, 8), al, x, 0.1, -0.168).rotation.z = Math.PI / 2; // DIN screw housing
+      addS(new THREE.BoxGeometry(0.025, 0.01, 0.02), acc2, x, 0.112, -0.17);
+      addS(new THREE.BoxGeometry(0.075, 0.075, 0.085), bk, x, 0.11, 0.27); // heel piece
+      addS(new THREE.BoxGeometry(0.08, 0.02, 0.07), al, x, 0.15, 0.235); // heel cup over the boot heel
+      const lev = addS(new THREE.BoxGeometry(0.05, 0.012, 0.11), acc2, x, 0.16, 0.32); lev.rotation.x = 0.55; // step-in lever
+      [-1, 1].forEach(sd2 => { const br = addS(new THREE.BoxGeometry(0.008, 0.008, 0.12), al, x + sd2 * 0.05, 0.075, 0.24); br.rotation.x = -0.25; br.rotation.y = sd2 * 0.12; addS(new THREE.BoxGeometry(0.014, 0.03, 0.02), bk, x + sd2 * 0.056, 0.06, 0.18); }); }
     addS(new THREE.BoxGeometry(0.118, 0.12, 0.32), boot, x, 0.135, 0.06);
     addS(new THREE.CylinderGeometry(0.062, 0.066, 0.15, 16), boot, x, 0.235, 0.05); // boot cuff, the shaft is hidden under the trousers
     addS(new THREE.TorusGeometry(0.07, 0.016, 8, 16), M(0x2a2f3a, { roughness: 0.6 }), x, 0.45, 0.05).rotation.x = Math.PI / 2;
@@ -1728,9 +1751,9 @@ function buildSkier() {
   add(new THREE.SphereGeometry(0.21, 16, 10), jacket, 0, 0.56, 0, torso).scale.set(1.22, 0.5, 0.82);
   const logo = add(new THREE.PlaneGeometry(0.2, 0.2), new THREE.MeshStandardMaterial({ map: logoTex, roughness: 0.8 }), 0, 0.3, 0.172, torso); logo.visible = false;
   { const nR = 26, nA = 28, pos = [], idx = [];
-    for (let i = 0; i <= nR; i++) { const y = -0.13 + 0.87 * i / nR, t = clamp((y + 0.13) / 0.87, 0, 1); let w = 0.288 + 0.016 * (1 - smooth(t / 0.12)) + 0.05 * Math.sin(Math.min(1, t / 0.78) * Math.PI * 0.5), d = 0.2 + 0.025 * t; const top = smooth((t - 0.86) / 0.14); w = lerp(w, 0.11, Math.pow(top, 1.4)); d = lerp(d, 0.1, Math.pow(top, 1.4)); const shl = smooth((t - 0.74) / 0.12) * (1 - smooth((t - 0.9) / 0.1)); w += 0.02 * shl; for (let k = 0; k < nA; k++) { const a = k / nA * Math.PI * 2, c = Math.cos(a), sn = Math.sin(a); pos.push(w * Math.sign(c) * Math.pow(Math.abs(c), 0.8), y, d * Math.sign(sn) * Math.pow(Math.abs(sn), 0.8)); } }
+    for (let i = 0; i <= nR; i++) { const y = -0.13 + 0.87 * i / nR, t = clamp((y + 0.13) / 0.87, 0, 1); let w = (0.288 + 0.016 * (1 - smooth(t / 0.12)) + 0.05 * Math.sin(Math.min(1, t / 0.78) * Math.PI * 0.5)) * (1 - 0.08 * smooth((t - 0.55) / 0.3)), d = 0.2 + 0.025 * t; const top = smooth((t - 0.86) / 0.14); w = lerp(w, 0.11, Math.pow(top, 1.4)); d = lerp(d, 0.1, Math.pow(top, 1.4)); const shl = smooth((t - 0.74) / 0.12) * (1 - smooth((t - 0.9) / 0.1)); w += 0.02 * shl; for (let k = 0; k < nA; k++) { const a = k / nA * Math.PI * 2, c = Math.cos(a), sn = Math.sin(a); pos.push(w * Math.sign(c) * Math.pow(Math.abs(c), 0.8), y, d * Math.sign(sn) * Math.pow(Math.abs(sn), 0.8)); } }
     for (let i = 0; i < nR; i++) for (let k = 0; k < nA; k++) { const p0 = i * nA + k, p1 = i * nA + (k + 1) % nA, q0 = p0 + nA, q1 = p1 + nA; idx.push(p0, p1, q0, p1, q1, q0); }
-    const tg = new THREE.BufferGeometry(); tg.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); tg.setIndex(idx); { const uv = []; for (let i = 0; i <= nR; i++) for (let k = 0; k < nA; k++) uv.push(k / nA * 2, i / nR * 1.5); tg.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2)); } tg.computeVertexNormals(); tg.userData.base = Float32Array.from(pos); tg.userData.nR = nR; tg.userData.nA = nA;
+    const tg = new THREE.BufferGeometry(); tg.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); tg.setIndex(idx); { const uv = []; for (let i = 0; i <= nR; i++) for (let k = 0; k < nA; k++) uv.push(k / nA, i / nR); tg.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2)); } tg.computeVertexNormals(); tg.userData.base = Float32Array.from(pos); tg.userData.nR = nR; tg.userData.nA = nA;
     const tm = new THREE.Mesh(tg, jacket); tm.position.set(0, 0.0, 0); torso.add(tm); tm.userData.simpleBody = true; simpleBody = tm; }
   [-0.255, 0.255].forEach(x => shape.shoulders.push(add(new THREE.SphereGeometry(0.1, 14, 10), jacketArm, x, 0.56, 0, torso)));
   const hoodM = add(new THREE.SphereGeometry(0.155, 14, 10), jacket, 0, 0.7, 0.115, torso); hoodM.scale.set(1.2, 0.85, 0.9); // hood
@@ -1761,7 +1784,7 @@ function buildSkier() {
   add(new THREE.TorusGeometry(0.105, 0.03, 8, 18), M(0xf2f3f5), 0, 0.64, 0, ex.vest).rotation.x = Math.PI / 2;
   add(new THREE.BoxGeometry(0.13, 0.24, 0.012), M(0xf2f3f5), 0, 0.5, 0.168, ex.vest);
   [0.3, 0.2, 0.1].forEach(y => add(new THREE.SphereGeometry(0.016, 8, 6), M(0x2b2e33), 0, y, 0.177, ex.vest));
-  const hats = { frog: new THREE.Group(), beanie: new THREE.Group(), santa: new THREE.Group() }; Object.values(hats).forEach(g => head.add(g));
+  const hats = { frog: new THREE.Group(), beanie: new THREE.Group(), santa: new THREE.Group(), purple: new THREE.Group(), camo: new THREE.Group() }; Object.values(hats).forEach(g => head.add(g));
   const frogM = M(0x4aa83a, { roughness: 0.55 }), frogD = M(0x2f7d2a, { roughness: 0.6 }), eyeW = M(0xffffff, { roughness: 0.3 });
   add(new THREE.SphereGeometry(0.15, 24, 14, 0, TAU, 0, Math.PI * 0.55), frogM, 0, 0.012, 0.012, hats.frog).scale.set(1.04, 0.9, 1.04);
   [-1, 1].forEach(sd => {
@@ -1775,6 +1798,15 @@ function buildSkier() {
   add(new THREE.SphereGeometry(0.15, 24, 14, 0, TAU, 0, Math.PI * 0.58), bnM, 0, 0.012, 0.012, hats.beanie);
   add(new THREE.TorusGeometry(0.146, 0.03, 8, 28), M(0x233a78, { roughness: 0.95 }), 0, -0.016, 0.012, hats.beanie).rotation.x = Math.PI / 2;
   add(new THREE.SphereGeometry(0.048, 14, 10), M(0xf2f3f5, { roughness: 1 }), 0, 0.185, 0.012, hats.beanie);
+  { // rolled-cuff beanies pulled low, one purple with wraparound shades, one in green camo
+    const camoT = canvasTex(128, 64, (x, w, h) => { x.fillStyle = "#6f7d4a"; x.fillRect(0, 0, w, h); const r = mulberry(17); for (let i = 0; i < 40; i++) { x.fillStyle = ["#4a5532", "#2e3522", "#9aa36f", "#c2b98f"][i % 4]; x.beginPath(); x.ellipse(r() * w, r() * h, 6 + r() * 10, 3 + r() * 6, r() * 3, 0, 7); x.fill(); } }); camoT.wrapS = camoT.wrapT = THREE.RepeatWrapping;
+    for (const [g, mat] of [[hats.purple, M(0x5b3aa8, { roughness: 0.95 })], [hats.camo, M(0xffffff, { roughness: 0.95, map: camoT })]]) {
+      add(new THREE.SphereGeometry(0.152, 24, 14, 0, TAU, 0, Math.PI * 0.62), mat, 0, 0.0, 0.012, g).scale.set(1, 1.08, 1);
+      add(new THREE.CylinderGeometry(0.156, 0.158, 0.06, 24, 1, true), mat, 0, -0.02, 0.012, g); }
+    const lensMat = M(0x0b0c10, { roughness: 0.08, metalness: 0.7 }), frameMat = M(0x101114, { roughness: 0.4 });
+    const shade = new THREE.Mesh(new THREE.CylinderGeometry(0.128, 0.122, 0.05, 24, 1, true, Math.PI - 1.15, 2.3), lensMat); shade.position.set(0, -0.008, 0.015); hats.purple.add(shade);
+    const fr = new THREE.Mesh(new THREE.CylinderGeometry(0.131, 0.131, 0.012, 24, 1, true, Math.PI - 1.2, 2.4), frameMat); fr.position.set(0, 0.018, 0.015); hats.purple.add(fr);
+    for (const sd of [-1, 1]) { const arm = add(new THREE.BoxGeometry(0.008, 0.01, 0.13), frameMat, sd * 0.118, 0.012, 0.06, hats.purple); arm.rotation.y = sd * 0.08; } }
   const sHat = new THREE.Group(); sHat.position.set(0, 0.0, 0.015); sHat.rotation.x = 0.55; hats.santa.add(sHat);
   add(new THREE.ConeGeometry(0.145, 0.34, 22), M(0xc4161c, { roughness: 0.85 }), 0, 0.17, 0, sHat);
   add(new THREE.TorusGeometry(0.14, 0.036, 8, 26), furM, 0, 0.012, 0, sHat).rotation.x = Math.PI / 2;
@@ -1797,16 +1829,29 @@ function buildSkier() {
   const phonesG = new THREE.Group(); head.add(phonesG); const phM = M(0x15181d, { roughness: 0.45, metalness: 0.2 });
   add(new THREE.TorusGeometry(0.162, 0.014, 8, 26, Math.PI), phM, 0, 0.0, 0.012, phonesG);
   [-1, 1].forEach(sd => { const cup = add(new THREE.CylinderGeometry(0.058, 0.058, 0.05, 16), phM, sd * 0.158, -0.01, 0.012, phonesG); cup.rotation.z = Math.PI / 2; const pad = add(new THREE.CylinderGeometry(0.048, 0.048, 0.056, 16), M(0xc4161c, { roughness: 0.6 }), sd * 0.158, -0.01, 0.012, phonesG); pad.rotation.z = Math.PI / 2; });
-  const acc = { scarf: scarfG, ninja: ninjaG, cape: capeG, phones: phonesG };
+  const wiredG = new THREE.Group(); torso.add(wiredG); const budM = M(0xf4f5f7, { roughness: 0.35 }), cordM = M(0xf0f1f3, { roughness: 0.5 }), buds = [];
+  [-1, 1].forEach(sd => { const b = add(new THREE.SphereGeometry(0.018, 10, 8), budM, sd * 0.112, -0.012, -0.005, head); const st = add(new THREE.CylinderGeometry(0.006, 0.006, 0.04, 6), budM, sd * 0.112, -0.042, -0.005, head); b.visible = st.visible = false; buds.push(b, st); });
+  const cord = new THREE.Mesh(new THREE.BufferGeometry(), cordM); cord.frustumCulled = false; wiredG.add(cord);
+  const acc = { scarf: scarfG, ninja: ninjaG, cape: capeG, phones: phonesG, wired: wiredG };
   // arms with elbows, gloves, poles
   const poleMat = M(0xa7b8c9, { metalness: 0.6, roughness: 0.35 }), bambooTex = canvasTex(16, 256, (x, w, h) => { x.fillStyle = "#d2bd72"; x.fillRect(0, 0, w, h); for (let i = 0; i < 6; i++) { const y = 20 + i * 42; x.fillStyle = "#8a7335"; x.fillRect(0, y, w, 5); x.fillStyle = "rgba(255,255,255,0.18)"; x.fillRect(0, y + 6, w, 2); } x.fillStyle = "rgba(90,120,50,0.25)"; x.fillRect(0, 0, 4, h); });
+  const armUp = M(0x2f8f8c, { roughness: 0.62 }), armLo = M(0x2f8f8c, { roughness: 0.62 });
+  const pipeTex = canvasTex(64, 64, (x, w, h) => { x.fillStyle = "#ffffff"; x.fillRect(0, 0, w, h); x.fillStyle = "#151618"; x.fillRect(0, 0, w, h); x.fillStyle = "#f4f4f4"; x.fillRect(w * 0.22, 0, 2.5, h); });
+  // jacket body prints: across = around the body (front centre at 3/4), down = top of the jacket
+  const JT = (draw) => { const t = canvasTex(512, 256, draw); t.wrapS = THREE.RepeatWrapping; return new THREE.MeshStandardMaterial({ map: t, roughness: 0.62, bumpMap: foldTex, bumpScale: 0.025 }); };
+  const zip = (x, w, h, col) => { x.fillStyle = col; x.fillRect(w * 0.75 - 2, 0, 4, h); };
+  const jTex = {
+    navy: JT((x, w, h) => { x.fillStyle = "#22305c"; x.fillRect(0, 0, w, h); zip(x, w, h, "#8a8f99"); x.fillStyle = "#e3d9c3"; x.fillRect(0, h * 0.86, w, h * 0.14); x.fillStyle = "#22305c"; x.fillRect(0, h * 0.94, w, h * 0.06); x.strokeStyle = "#8a8f99"; x.lineWidth = 3; for (const u of [0.63, 0.87]) { x.beginPath(); x.moveTo(w * u, h * 0.5); x.lineTo(w * (u + (u < 0.75 ? 0.02 : -0.02)), h * 0.78); x.stroke(); } x.fillStyle = "#f4f4f4"; x.font = "italic 13px Arial"; x.fillText("summit", w * 0.8, h * 0.3); }),
+    piped: JT((x, w, h) => { x.fillStyle = "#121315"; x.fillRect(0, 0, w, h); zip(x, w, h, "#2a2c30"); x.strokeStyle = "#f2f2f2"; x.lineWidth = 3; for (const c of [0.62, 0.88, 0.12, 0.38]) { const sgn = c < 0.5 ? (c < 0.25 ? 1 : -1) : (c < 0.75 ? 1 : -1); x.beginPath(); for (let i = 0; i <= 40; i++) { const v = i / 40, uu = c + sgn * 0.045 * Math.sin(v * Math.PI * 1.15 + 0.3); i ? x.lineTo(w * uu, h * v) : x.moveTo(w * uu, h * v); } x.stroke(); } x.fillStyle = "#f2f2f2"; x.beginPath(); x.moveTo(w * 0.82, h * 0.3); x.lineTo(w * 0.835, h * 0.27); x.lineTo(w * 0.85, h * 0.3); x.closePath(); x.fill(); x.fillStyle = "#0b0b0c"; x.fillRect(0, h * 0.95, w, h * 0.05); }),
+    greenc: JT((x, w, h) => { x.fillStyle = "#e3d9c3"; x.fillRect(0, 0, w, h); x.fillStyle = "#24564a"; x.fillRect(0, 0, w, h * 0.4); zip(x, w, h, "#24564a"); x.strokeStyle = "#1a1c1e"; x.lineWidth = 3; for (const [u0, u1, v0, v1] of [[0.66, 0.68, 0.12, 0.4], [0.84, 0.82, 0.12, 0.4], [0.64, 0.66, 0.5, 0.78], [0.86, 0.84, 0.5, 0.78]]) { x.beginPath(); x.moveTo(w * u0, h * v0); x.lineTo(w * u1, h * v1); x.stroke(); } })
+  };
   const arms = [];
   [-1, 1].forEach(sd => {
-    const sh = new THREE.Group(); sh.position.set(sd * 0.265, 0.56, 0); torso.add(sh);
-    { const m = limb(0.07, 0.06, 0.3, jacketArm); sh.add(m); shape.arms.push(m); }
+    const sh = new THREE.Group(); sh.position.set(sd * 0.245, 0.56, 0); torso.add(sh);
+    { const m = limb(0.07, 0.06, 0.3, armUp); sh.add(m); shape.arms.push(m); }
     const el = new THREE.Group(); el.position.y = -0.3; sh.add(el);
-    { const em = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 10), jacketArm); el.add(em); shape.elbows.push(em); }
-    { const m = limb(0.06, 0.052, 0.3, jacketArm); el.add(m); shape.arms.push(m); }
+    { const em = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 10), armLo); el.add(em); shape.elbows.push(em); }
+    { const m = limb(0.06, 0.052, 0.3, armLo); el.add(m); shape.arms.push(m); }
     const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.064, 0.064, 0.09, 12), cuffM); cuff.position.y = -0.24; el.add(cuff);
     const hand = new THREE.Mesh(new THREE.SphereGeometry(0.062, 12, 10), glove); hand.position.y = -0.335; hand.scale.set(0.95, 1.1, 1.1); el.add(hand);
     const thumb = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 6), glove); thumb.position.set(-sd * 0.045, -0.31, -0.03); el.add(thumb);
@@ -1832,7 +1877,7 @@ function buildSkier() {
   const inKeep = o => { for (let q = o.parent; q; q = q.parent) if (keep.has(q)) return true; return false; };
   root.traverse(o => { if (o.isMesh && detMats.includes(o.material) && !inKeep(o)) detail.push(o); });
   helmetG.children.forEach(m => { if (m.geometry.type !== "SphereGeometry") detail.push(m); });
-  return { simpleBody, poleMat, bambooTex, bend, simpleOnly, shape, torsoM, hoodM, detail, skiBack, noseM, midM, skiM, skiTexes, skiMeshes, acc, ninjaTails, capeGeo, capeBase, cuffs, skiG, tailM, mats: { boot, jacket, jacket2, jacketArm, cuffM, pants, pantsLow, helmet, stripeM, skin, scarfMat }, helmetG, hats, ex, root, pivot, rig, legs, hipG, torso, head, arms, scarf, pose: { c: 0.3, lean: 0.2, carve: 0, L: new THREE.Vector3(-0.36, 0.92, -0.3), Rh: new THREE.Vector3(0.36, 0.92, -0.3), headY: 0 }, a, b };
+  return { cord, buds, head, torso, armUp, armLo, pipeTex, jTex, simpleBody, poleMat, bambooTex, bend, simpleOnly, shape, torsoM, hoodM, detail, skiBack, noseM, midM, skiM, skiTexes, skiMeshes, acc, ninjaTails, capeGeo, capeBase, cuffs, skiG, tailM, mats: { boot, jacket, jacket2, jacketArm, cuffM, pants, pantsLow, helmet, stripeM, skin, scarfMat }, helmetG, hats, ex, root, pivot, rig, legs, hipG, torso, head, arms, scarf, pose: { c: 0.3, lean: 0.2, carve: 0, L: new THREE.Vector3(-0.36, 0.92, -0.3), Rh: new THREE.Vector3(0.36, 0.92, -0.3), headY: 0 }, a, b };
 }
 
 const _tv = typeof THREE !== "undefined" ? new THREE.Vector3() : null;
@@ -1931,7 +1976,8 @@ function poseSkier(dt, time) {
       const g = R.simpleBody.geometry, base = g.userData.base, pa = g.attributes.position.array, nR = g.userData.nR, nA = g.userData.nA, amp = 0.045 * w;
       for (let i = 0; i <= nR; i++) { const tt = i / nR, k = Math.pow(1 - tt, 1.4) * amp + 0.25 * amp * Math.sin(tt * Math.PI); for (let a = 0; a < nA; a++) { const o = (i * nA + a) * 3, bx = base[o], bz = base[o + 2], r = Math.hypot(bx, bz) || 1, ang = a / nA * Math.PI * 2, f = k * (Math.sin(t * 13 + ang * 3 + tt * 6) * 0.6 + Math.sin(t * 21 + ang * 5) * 0.4); pa[o] = bx + bx / r * f; pa[o + 2] = bz + bz / r * f + k * 0.5 * Math.sin(t * 9 + ang * 2); pa[o + 1] = base[o + 1] + 0.012 * amp * 10 * Math.sin(t * 17 + ang * 4) * (1 - tt); } }
       g.attributes.position.needsUpdate = true; g.computeVertexNormals(); }
-    R.shape.arms.forEach((m, i) => { const f = 1 + 0.04 * w * Math.sin(t * 11 + i * 1.7); m.scale.set((sm ? 1.38 : 1) * f, 1, (sm ? 1.38 : 1) * (1 + 0.04 * w * Math.sin(t * 9 + i))); });
+    R.shape.arms.forEach((m, i) => { const f = (1 + 0.04 * w * Math.sin(t * 11 + i * 1.7)) * (R.bag || 1); m.scale.set((sm ? 1.38 : 1) * f, 1, (sm ? 1.38 : 1) * (1 + 0.04 * w * Math.sin(t * 9 + i)) * (R.bag || 1));
+    if (R.acc.wired && R.acc.wired.visible) updCord(R, w, t); });
     R.shape.shins.forEach((m, i) => { const f = 1 + 0.05 * w * Math.sin(t * 17 + i * 1.3 + 1); m.scale.set((sm ? 1.58 : 1.35) * f, 1, (sm ? 1.58 : 1.35) * (1 + 0.05 * w * Math.sin(t * 14 + i * 2))); m.rotation.z = 0.04 * w * Math.sin(t * 11 + i * 2.4); m.rotation.x = 0.035 * w * Math.sin(t * 15 + i); });
     R.cuffs.forEach((m, i) => { const f = 1 + 0.07 * w * Math.sin(t * 21 + i * 1.9); m.scale.set((sm ? 1.78 : 1.5) * f, 1.2 + 0.1 * w * Math.sin(t * 19 + i), (sm ? 1.78 : 1.5) * (1 + 0.07 * w * Math.sin(t * 18 + i * 0.7))); m.rotation.z = 0.08 * w * Math.sin(t * 13 + i * 2.2); m.rotation.x = 0.07 * w * Math.sin(t * 17 + i); });
   }
@@ -3453,7 +3499,7 @@ let pauseTab = "outfit";
 const PTABS = [["outfit", "Outfit", ["helmet", "jacket", "pants", "accessory"]], ["gear", "Gear", ["skis", "skibend", "poles"]], ["tune", "Tuning", ["wax", "grip", "len"]], ["music", "Music", ["song"]], ["game", "Game", ["style", "gfx"]], ["ctrl", "Controls", []]];
 const CAT_NAMES = { helmet: "Helmet", jacket: "Jacket", pants: "Pants", accessory: "Accessory", skis: "Skis", skibend: "Ski bend", poles: "Poles", wax: "Wax", grip: "Edge grip", len: "Ski length", song: "Song", style: "Character style", gfx: "Graphics quality" };
 const CAT_SUB = { wax: { slow: "More grip, lower top speed", std: "Balanced", fast: "Faster and floatier" }, grip: { loose: "Slidey, wide turns, keeps speed", std: "Balanced", sharp: "Bites hard, tight turns, scrubs speed" }, len: { short: "Quick turns and spins", mid: "Balanced", long: "Stable, fast, calmer landings" } };
-const SWATCH = { helmet: { frog: "#5fae4a", beanie: "#d9232d", redbull: "#0d2a5e", santa: "#c4161c" }, poles: { metal: "#a7b8c9", bamboo: "#d2bd72" }, skis: { current: "#ee5a2c", black: "#15171c", purple: "#7b3fd0", red: "#d3202a", pink: "#ff6fb5", stripes: "#f2f0ea", camo: "#8f9aa6", flames: "#ff7a1a" } };
+const SWATCH = { helmet: { frog: "#5fae4a", beanie: "#d9232d", redbull: "#0d2a5e", santa: "#c4161c", purple: "#5b3aa8", camo: "#6f7d4a" }, poles: { metal: "#a7b8c9", bamboo: "#d2bd72" }, skis: { current: "#ee5a2c", black: "#15171c", purple: "#7b3fd0", red: "#d3202a", pink: "#ff6fb5", stripes: "#f2f0ea", camo: "#8f9aa6", flames: "#ff7a1a" } };
 const hex6 = n => "#" + (n >>> 0).toString(16).padStart(6, "0");
 function swatchFor(cat, key) { if (SWATCH[cat]) return SWATCH[cat][key]; if (cat === "jacket" && JACKETS[key]) return hex6(JACKETS[key].j); if (cat === "pants" && PANTS[key]) return hex6(PANTS[key][0]); return null; }
 function buildPauseUI() {
