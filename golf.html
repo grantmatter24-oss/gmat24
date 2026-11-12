@@ -88,6 +88,13 @@
     font: 500 12px/1.4 var(--body); color: rgba(244,241,232,.82); pointer-events: none; text-shadow: 0 1px 3px rgba(0,0,0,.6); }
   .help kbd { font: 600 11px/1 var(--display); letter-spacing: .06em; background: rgba(12,29,43,.75); border: 1px solid rgba(255,255,255,.18); border-radius: 3px; padding: 3px 6px; margin-right: 4px; }
 
+  /* Pin finder tag */
+  .pintag { position: absolute; transform: translate(-50%, -100%); display: flex; align-items: baseline; gap: 6px; padding: 4px 8px 3px; background: var(--gold); color: var(--navy);
+    font: 700 11px/1 var(--display); letter-spacing: .14em; text-transform: uppercase; pointer-events: none; box-shadow: 0 4px 14px rgba(0,0,0,.35); white-space: nowrap; }
+  .pintag[hidden] { display: none; }
+  .pintag b { font-size: 15px; letter-spacing: .02em; }
+  .pintag::after { content: ""; position: absolute; left: 50%; bottom: -6px; transform: translateX(-50%); border: 6px solid transparent; border-bottom: 0; border-top-color: var(--gold); }
+
   /* Callout */
   .callout { position: absolute; left: 50%; top: 21%; transform: translate(-50%, -8px); text-align: center; pointer-events: none; opacity: 0; transition: opacity .3s, transform .3s; }
   .callout.show { opacity: 1; transform: translate(-50%, 0); }
@@ -192,6 +199,7 @@
 <div class="help" id="help">
   <span><kbd>Hold · drag ↓ then ↑</kbd>Swing</span>
   <span><kbd>A</kbd><kbd>D</kbd>Aim</span>
+  <span><kbd>Shift</kbd>Find pin</span>
   <span><kbd>Q</kbd><kbd>E</kbd>Club</span>
   <span><kbd>Space</kbd>Fast-forward</span>
 </div>
@@ -217,6 +225,7 @@
   <dl id="stList"></dl>
 </div>
 
+<div class="pintag" id="pinTag" hidden><span>Pin</span><b id="pinTagD">—</b></div>
 <div class="callout" id="callout"><div class="main" id="coMain"></div><div class="sub" id="coSub"></div></div>
 <div class="fade" id="fade"></div>
 
@@ -235,7 +244,8 @@
       <p>A short par four that bends right around a stand of Monterey pines. Find the fairway off the tee, then play a short iron uphill to a small green guarded by sand on both sides. The green tilts from back to front.</p>
       <div class="keys">
         <kbd>Drag ↓ then ↑</kbd><span>Hold the left mouse button, pull down to take the club back, then push up through the start point. Backswing length sets power. Drift left or right and the ball goes with it.</span>
-        <kbd>A / D</kbd><span>Aim left or right (hold Shift for fine aim)</span>
+        <kbd>A / D</kbd><span>Aim left or right. Tap for small moves, hold to turn faster.</span>
+        <kbd>Shift</kbd><span>Hold to look up the hole and see where the pin is</span>
         <kbd>Q / E</kbd><span>Change club (mouse wheel works too)</span>
         <kbd>Z / X / C</kbd><span>Draw, straight or fade</span>
         <kbd>S / W</kbd><span>Lower or higher trajectory</span>
@@ -905,7 +915,7 @@ function clothTube(a, b, r0, r1, mat, parent, o){
 }
 const _cq = new THREE.Quaternion(), _cw = new THREE.Vector3();
 function animateCloth(t){
-  const ws = clamp(windSpeed / 5, 0.25, 2.2);
+  const ws = clamp(windSpeed / 6, 0.2, 1.3);
   const dir = windSpeed > 0.01 ? _cw.copy(windVec).normalize() : _cw.set(1, 0, 0);
   for (const c of CLOTH){
     c.m.getWorldQuaternion(_cq); _cq.invert(); const wl = dir.clone().applyQuaternion(_cq);
@@ -913,13 +923,13 @@ function animateCloth(t){
     for (let i = 0, k = 0; i < P.length; i += 3, k++){
       const w = c.w[k] * c.amp, nx = N[i], nz = N[i+2];
       const ph = B[i+1]*16 + Math.atan2(B[i+2], B[i])*2;
-      const flap = (Math.sin(t*(5.5 + ws*4) + ph) + 0.55*Math.sin(t*(12 + ws*6) + ph*1.7) + 0.3*Math.sin(t*(21 + ws*7) - ph*2.3)) * 0.0038 * ws * w;
+      const flap = (Math.sin(t*(5.5 + ws*4) + ph) + 0.55*Math.sin(t*(12 + ws*6) + ph*1.7) + 0.3*Math.sin(t*(21 + ws*7) - ph*2.3)) * 0.0011 * ws * w;
       const lee = Math.max(0, nx*wl.x + nz*wl.z);              // downwind side balloons out
       const gust = 0.75 + 0.25*Math.sin(t*1.7 + ph*0.2);
-      const push = 0.016 * ws * w * gust;
-      P[i]   = B[i]   + nx*(flap + lee*push*0.8) + wl.x*push;
+      const push = 0.0045 * ws * w * gust;
+      P[i]   = B[i]   + nx*(flap + lee*push*0.5) + wl.x*push;
       P[i+1] = B[i+1] + wl.y*push*0.4;
-      P[i+2] = B[i+2] + nz*(flap + lee*push*0.8) + wl.z*push;
+      P[i+2] = B[i+2] + nz*(flap + lee*push*0.5) + wl.z*push;
     }
     c.g.attributes.position.needsUpdate = true; c.g.computeVertexNormals();
   }
@@ -1027,7 +1037,13 @@ const aimRing = new THREE.Group(); scene.add(aimRing);
 { const r1 = new THREE.Mesh(new THREE.RingGeometry(2.6, 3.0, 64), ringMat); r1.rotation.x = -Math.PI/2; aimRing.add(r1);
   const r2 = new THREE.Mesh(new THREE.CircleGeometry(0.45, 24), ringMat); r2.rotation.x = -Math.PI/2; aimRing.add(r2); aimRing.renderOrder = 9; aimRing.children.forEach(c => c.renderOrder = 9); }
 const aimLineMat = new THREE.LineDashedMaterial({ color: 0xffffff, dashSize: 0.18, gapSize: 0.12, transparent: true, opacity: 0.85, depthTest: false, toneMapped: false, fog: false });
-const aimLineGeo = new THREE.BufferGeometry().setFromPoints(Array.from({ length: 60 }, () => new THREE.Vector3()));
+const PL_MAX = 500;
+const aimLineGeo = new THREE.BufferGeometry().setFromPoints(Array.from({ length: PL_MAX }, () => new THREE.Vector3()));
+const puttEnd = new THREE.Mesh(new THREE.RingGeometry(0.08, 0.11, 32), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, depthTest: false, toneMapped: false, fog: false }));
+puttEnd.rotation.x = -Math.PI / 2; puttEnd.renderOrder = 9; puttEnd.visible = false; scene.add(puttEnd);
+// pin finder (hold Shift): tall beam over the hole
+const pinBeam = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 70, 12, 1, true), new THREE.MeshBasicMaterial({ color: 0xffd34d, transparent: true, opacity: 0, depthTest: false, depthWrite: false, toneMapped: false, fog: false, side: THREE.DoubleSide }));
+pinBeam.renderOrder = 8; pinBeam.visible = false; scene.add(pinBeam);
 const aimLine = new THREE.Line(aimLineGeo, aimLineMat); aimLine.frustumCulled = false; aimLine.renderOrder = 9; scene.add(aimLine);
 let greenRead;
 function buildGreenRead(){
@@ -1349,6 +1365,33 @@ function stepRoll(dt){
   const n2 = groundN(ball.p.x, ball.p.z, _nrm), vn = v.dot(n2); v.addScaledVector(n2, -vn);
   if (ball.p.x < X0 - 50 || ball.p.x > X1 + 50 || ball.p.z < Z0 - 50 || ball.p.z > Z1 + 50) ball.mode = 'rest';
 }
+// predict the roll for a putt hit at this power along the current aim (same physics as stepRoll)
+const _pv = new THREE.Vector3(), _pg = new THREE.Vector3(), _pn = new THREE.Vector3(), _pb = new THREE.Vector3();
+const PRED = { pts: [], holed: false, key: '' };
+function predictPutt(power){
+  const key = power.toFixed(3) + '|' + aimYaw.toFixed(4) + '|' + ball.p.x.toFixed(3) + ball.p.z.toFixed(3);
+  if (key === PRED.key) return PRED; PRED.key = key;
+  const k0 = classAt(ball.p.x, ball.p.z), sp0 = power * PUTT_MAX * (k0 === C_FRINGE ? 1.08 : 1);
+  let px = ball.p.x, pz = ball.p.z; const v = _pv.set(Math.sin(aimYaw) * sp0, 0, -Math.cos(aimYaw) * sp0);
+  const pts = PRED.pts; pts.length = 0; pts.push(px, pz); PRED.holed = false;
+  const dt = 1/120; let t = 0, since = 0;
+  while (t < 25){
+    t += dt; since += dt;
+    const k = classAt(px, pz), mu = SURF[k].mu, n = groundN(px, pz, _pn);
+    const gt = _pg.set(0, -G, 0).addScaledVector(n, G * n.y), sp = v.length();
+    if (sp < 0.05){ if (gt.length() < mu * G * n.y * 1.3 + 0.03) break; v.addScaledVector(gt, dt); }
+    else { const b = _pb.copy(v).multiplyScalar(1 / sp); v.addScaledVector(gt, dt).addScaledVector(b, -mu * G * n.y * dt); if (v.dot(b) < 0 && gt.length() < mu * G * n.y * 1.3) break; }
+    const dx = PIN[0] - px, dz = PIN[1] - pz, d = Math.hypot(dx, dz), s2 = v.length();
+    if (d < 0.16 && s2 < 0.9 && d > 1e-4){ v.x += dx / d * 1.6 * dt; v.z += dz / d * 1.6 * dt; }
+    if (d < 0.062 && s2 < 1.65){ px = PIN[0]; pz = PIN[1]; PRED.holed = true; break; }
+    px += v.x * dt; pz += v.z * dt;
+    const n2 = groundN(px, pz, _pn); v.addScaledVector(n2, -v.dot(n2));
+    if (since >= 0.04 && pts.length < (PL_MAX - 2) * 2){ pts.push(px, pz); since = 0; }
+    if (px < X0 || px > X1 || pz < Z0 || pz > Z1) break;
+  }
+  pts.push(px, pz);
+  return PRED;
+}
 function holeOut(){
   shot.holed = true; ball.mode = 'holed'; ball.v.set(0, 0, 0);
   ball.p.set(PIN[0], groundH(PIN[0], PIN[1]) - 0.06, PIN[1]);
@@ -1413,8 +1456,8 @@ function addressCam(outPos, outLook){
   const base = _tmp.copy(ball.p); base.y = groundH(ball.p.x, ball.p.z);
   if (putt){
     const d = Math.min(distToPin(), 14);
-    outPos.copy(base).addScaledVector(a, -3.6).addScaledVector(r, 0.75); outPos.y = base.y + 1.55;
-    outLook.copy(base).addScaledVector(a, Math.max(2.5, d * 0.65)).addScaledVector(r, 0.25); outLook.y = groundH(outLook.x, outLook.z) + 0.15;
+    outPos.copy(base).addScaledVector(a, -3.9); outPos.y = base.y + 1.55;
+    outLook.copy(base).addScaledVector(a, Math.max(3, d * 0.6)); outLook.y = groundH(outLook.x, outLook.z) + 0.05;
   } else {
     outPos.copy(base).addScaledVector(a, -5.6).addScaledVector(r, 0.55); outPos.y = base.y + 1.85;
     outLook.copy(base).addScaledVector(a, 45).addScaledVector(r, 0.6); outLook.y = base.y + 2.6;
@@ -1446,7 +1489,7 @@ function followCam(dt){
 let sw = null;
 const swingPx = () => clamp(innerHeight * 0.28, 140, 260);
 glCanvas.addEventListener('pointerdown', e => {
-  if (e.button !== 0 || state !== 'address') return;
+  if (e.button !== 0 || state !== 'address' || keys.shift) return;
   glCanvas.setPointerCapture(e.pointerId);
   sw = { sx: e.clientX, sy: e.clientY, x: e.clientX, y: e.clientY, phase: 'back', maxDy: 0, topT: 0, t0: performance.now(), pts: [[e.clientX, e.clientY, performance.now()]] };
   state = 'swing'; glCanvas.classList.add('swinging');
@@ -1501,6 +1544,7 @@ addEventListener('keydown', e => {
   if (k === 'r' && (state === 'address' || state === 'end')){ $('endCard').classList.add('hidden'); startHole(); }
   if (k.startsWith('arrow')) e.preventDefault();
 });
+addEventListener('blur', () => { for (const k in keys) keys[k] = false; ffwd = false; });
 addEventListener('keyup', e => { const k = e.key.toLowerCase(); keys[k] = false; if (!e.shiftKey) keys.shift = false; if (k === ' ') ffwd = false; });
 glCanvas.addEventListener('wheel', e => { if (state === 'address'){ changeClub(e.deltaY > 0 ? 1 : -1); e.preventDefault(); } }, { passive: false });
 $('clubPrev').onclick = () => changeClub(-1); $('clubNext').onclick = () => changeClub(1);
@@ -1548,7 +1592,7 @@ function drawUI(){
 function updateAimMarkers(){
   const show = state === 'address' || state === 'swing';
   const putt = CLUBS[clubIdx].type === 'putter';
-  aimRing.visible = show && !putt; aimLine.visible = show && putt;
+  aimRing.visible = show && !putt && pinView < 0.5; aimLine.visible = show && putt; puttEnd.visible = show && putt;
   if (!show) return;
   const a = aimDir();
   if (!putt){
@@ -1558,10 +1602,33 @@ function updateAimMarkers(){
     const x = ball.p.x + a.x * ca, z = ball.p.z + a.z * ca; aimRing.position.set(x, groundH(x, z) + 0.15, z);
     const sc = clamp(camera.position.distanceTo(aimRing.position) / 75, 0.5, 3.5); aimRing.scale.setScalar(sc);
   } else {
-    const L = Math.min(distToPin() + 1.5, 20), arr = aimLineGeo.attributes.position.array;
-    for (let i = 0; i < 60; i++){ const t = i / 59 * L, x = ball.p.x + a.x * t, z = ball.p.z + a.z * t; arr[i*3] = x; arr[i*3+1] = groundH(x, z) + 0.012; arr[i*3+2] = z; }
-    aimLineGeo.attributes.position.needsUpdate = true; aimLine.computeLineDistances();
+    // before the stroke: preview at the pace that would roll the distance on flat ground; while dragging: live power
+    const live = !!sw;
+    const power = live ? clamp(sw.maxDy / swingPx(), 0, 1.05) : Math.sqrt(distToPin() * 2 * SURF[C_GREEN].mu * G) / PUTT_MAX;
+    const P = predictPutt(power), arr = aimLineGeo.attributes.position.array, n = P.pts.length / 2;
+    for (let i = 0; i < PL_MAX; i++){ const j = Math.min(i, n - 1), x = P.pts[j*2], z = P.pts[j*2+1]; arr[i*3] = x; arr[i*3+1] = groundH(x, z) + 0.012; arr[i*3+2] = z; }
+    aimLineGeo.attributes.position.needsUpdate = true; aimLine.computeLineDistances(); aimLineGeo.setDrawRange(0, Math.max(2, n));
+    aimLineMat.opacity = live ? 0.95 : 0.5;
+    const ex = P.pts[(n - 1) * 2], ez = P.pts[(n - 1) * 2 + 1];
+    puttEnd.position.set(ex, groundH(ex, ez) + 0.01, ez); puttEnd.material.color.set(P.holed ? 0x7dff8a : 0xffffff); puttEnd.material.opacity = live ? 0.95 : 0.5;
   }
+}
+
+/* ================= PIN FINDER ================= */
+let pinView = 0, aimHold = 0;
+const _pp = new THREE.Vector3();
+function updatePinFinder(){
+  const on = pinView > 0.02 && (state === 'address' || state === 'swing');
+  pinBeam.visible = on; pinBeam.material.opacity = 0.45 * pinView;
+  const ph = groundH(PIN[0], PIN[1]); pinBeam.position.set(PIN[0], ph + 35, PIN[1]);
+  const tag = $('pinTag');
+  if (!on){ tag.hidden = true; return; }
+  _pp.set(PIN[0], ph + 4, PIN[1]).project(camera);
+  if (_pp.z > 1){ tag.hidden = true; return; }
+  tag.hidden = false; tag.style.opacity = pinView.toFixed(2);
+  tag.style.left = ((_pp.x * 0.5 + 0.5) * innerWidth) + 'px'; tag.style.top = ((-_pp.y * 0.5 + 0.5) * innerHeight) + 'px';
+  const d = distToPin(), k = classAt(ball.p.x, ball.p.z);
+  $('pinTagD').textContent = (k === C_GREEN || (k === C_FRINGE && d < 16)) ? Math.round(d / FT) + ' ft' : Math.round(d / YD) + ' yds';
 }
 
 /* ================= MAIN LOOP ================= */
@@ -1574,7 +1641,9 @@ function frame(now){
   windSpeed = windBase * (1 + 0.12 * Math.sin(clock * 0.37) + 0.07 * Math.sin(clock * 1.13 + 2));
   windVec.set(Math.sin(windYaw), 0, -Math.cos(windYaw)).multiplyScalar(windSpeed);
   if (state === 'address'){
-    const rate = (keys.shift ? 0.06 : 0.45) * (CLUBS[clubIdx].type === 'putter' ? 0.4 : 1);
+    const turning = keys['a'] || keys['arrowleft'] || keys['d'] || keys['arrowright'];
+    aimHold = turning ? aimHold + dt : 0;
+    const rate = (0.05 + 0.45 * smooth(0.15, 1.2, aimHold)) * (CLUBS[clubIdx].type === 'putter' ? 0.4 : 1);
     if (keys['a'] || keys['arrowleft']) aimYaw -= rate * dt;
     if (keys['d'] || keys['arrowright']) aimYaw += rate * dt;
   }
@@ -1586,8 +1655,17 @@ function frame(now){
     if (sw){ const SP = swingPx(); target = sw.phase === 'back' ? clamp((sw.y - sw.sy) / SP, 0, 1.1) * 2.4 : clamp((sw.y - sw.sy) / Math.max(1, sw.maxDy), 0, 1) * (sw.maxDy / SP) * 2.4; }
     swingAlpha = lerp(swingAlpha, target, 1 - Math.exp(-dt * 30));
     poseGolfer(swingAlpha, putt);
-    addressCam(camPos, camLook); camera.position.copy(camPos); camera.lookAt(camLook);
+    addressCam(camPos, camLook);
+    pinView = lerp(pinView, keys.shift && state === 'address' ? 1 : 0, 1 - Math.exp(-dt * 5));
+    if (pinView > 0.001){
+      const d = distToPin(), dx = (PIN[0] - ball.p.x) / d, dz = (PIN[1] - ball.p.z) / d, ph = groundH(PIN[0], PIN[1]), bh = groundH(ball.p.x, ball.p.z);
+      const vp = _tmp2.set(ball.p.x - dx * (8 + d * 0.15), Math.max(bh, ph) + 10 + d * 0.22, ball.p.z - dz * (8 + d * 0.15));
+      const e = pinView * pinView * (3 - 2 * pinView);
+      camPos.lerp(vp, e); camLook.lerp(_tmp.set(PIN[0], ph + 1, PIN[1]), e);
+    }
+    camera.position.copy(camPos); camera.lookAt(camLook);
   }
+  updatePinFinder();
   if (state === 'flight' || state === 'result' || state === 'holed'){
     if (followT >= 0){ followT += dt; const putt = shot && shot.putt; const a = -2.5 * smooth(0, putt ? 0.35 : 0.42, followT); poseGolfer(lerp(0, a, 1), putt); }
     golfer.position.set(shot.start.x, groundH(shot.start.x, shot.start.z), shot.start.z);
