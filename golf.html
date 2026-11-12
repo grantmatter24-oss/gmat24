@@ -72,7 +72,7 @@
     background: linear-gradient(180deg, var(--navy-2), var(--navy)); border: 1px solid rgba(207,174,94,.35); padding: 7px; box-shadow: 0 4px 16px rgba(0,0,0,.3); }
   .clubrow { display: grid; grid-template-columns: 24px 1fr 24px; align-items: center; gap: 6px; }
   .club { text-align: center; }
-  .club .name { font: 700 18px/1 var(--display); letter-spacing: .04em; text-transform: uppercase; }
+  .club .name { white-space: nowrap; font: 700 17px/1 var(--display); letter-spacing: .04em; text-transform: uppercase; }
   .club .lbl { white-space: nowrap; letter-spacing: .05em; margin-top: 3px; color: var(--mist); }
   .bag button { font: 600 10px/1 var(--display); letter-spacing: .1em; text-transform: uppercase; color: var(--paper); background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); border-radius: 3px; cursor: pointer; padding: 6px 0; }
   .bag button:hover { background: rgba(255,255,255,.12); }
@@ -143,6 +143,17 @@
   .hidden { display: none !important; }
   .fade { position: absolute; inset: 0; background: #000; opacity: 0; pointer-events: none; transition: opacity .18s; z-index: 4; }
   .fade.on { opacity: 1; }
+  .fade { display: grid; place-items: center; background: #050b11; transition: opacity .45s; }
+  .holecard { display: flex; align-items: stretch; border: 1px solid rgba(207,174,94,.45); background: linear-gradient(180deg, var(--navy-2), var(--navy)); }
+  .hc-num { display: grid; place-items: center; width: 64px; background: var(--gold); color: var(--navy); font: 800 42px/1 var(--display); }
+  .holecard > div:last-child { padding: 12px 18px; display: flex; flex-direction: column; gap: 6px; justify-content: center; }
+  .holecard .eyebrow { font: 600 12px/1 var(--display); letter-spacing: .22em; text-transform: uppercase; color: var(--gold); }
+  .hc-title { font: 800 28px/1 var(--display); letter-spacing: .03em; text-transform: uppercase; }
+  .scorecard { width: 100%; border-collapse: collapse; font: 600 15px/1 var(--display); font-variant-numeric: tabular-nums; text-align: center; }
+  .scorecard th, .scorecard td { padding: 7px 6px; border: 1px solid rgba(255,255,255,.1); }
+  .scorecard th { font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--mist); font-weight: 600; }
+  .scorecard td:first-child, .scorecard th:first-child { text-align: left; color: var(--mist); font-size: 10px; letter-spacing: .16em; text-transform: uppercase; }
+  .scorecard .u { color: #ff8a73; } .scorecard .d { color: #9fe38a; } .scorecard .tot { color: var(--gold); }
 
   @media (max-width: 1199px) { .help { display: none; } }
   @media (max-width: 900px) {
@@ -168,10 +179,10 @@
 </div>
 
 <div class="bug" id="bug">
-  <div class="hole">1</div>
+  <div class="hole" id="bugHole">1</div>
   <div class="mid">
     <div class="course">Pebble Beach Golf Links</div>
-    <div class="facts"><span>Par 4</span><span id="bugYds" class="num">— yds</span></div>
+    <div class="facts"><span id="bugParTxt">Par 4</span><span id="bugYds" class="num">— yds</span></div>
   </div>
   <div class="cell"><div class="lbl">Shot</div><div class="big num" id="bugShot">1</div></div>
   <div class="cell"><div class="lbl">To par</div><div class="big num" id="bugPar">E</div></div>
@@ -227,21 +238,21 @@
 
 <div class="pintag" id="pinTag" hidden><span>Pin</span><b id="pinTagD">—</b></div>
 <div class="callout" id="callout"><div class="main" id="coMain"></div><div class="sub" id="coSub"></div></div>
-<div class="fade" id="fade"></div>
+<div class="fade" id="fade"><div class="holecard" id="holeCard"><div class="hc-num" id="hcNum">2</div><div><div class="eyebrow" id="hcPar">Par 5 · 502 yds</div><div class="hc-title" id="hcTitle">The Barranca</div></div></div></div>
 
 <div class="overlay" id="intro">
   <div class="panel">
     <div class="head">
-      <div class="hole">1</div>
-      <div class="t"><div class="eyebrow">Pebble Beach Golf Links</div><h1>The Opening Hole</h1></div>
+      <div class="hole" style="font-size:40px">1–3</div>
+      <div class="t"><div class="eyebrow">Pebble Beach Golf Links</div><h1>The Opening Stretch</h1></div>
     </div>
     <div class="body">
       <div class="facts3">
-        <div><span class="lbl">Par</span><b>4</b></div>
+        <div><span class="lbl">Holes · Par</span><b id="introPar">3 · 13</b></div>
         <div><span class="lbl">Yardage</span><b id="introYds">—</b></div>
         <div><span class="lbl">Conditions</span><b id="introCond" style="font-size:16px;line-height:1.25">—</b></div>
       </div>
-      <p>A short par four that bends right around a stand of Monterey pines. Find the fairway off the tee, then play a short iron uphill to a small green guarded by sand on both sides. The green tilts from back to front.</p>
+      <p>Play the first three holes in a row: a short par four that bends right around the pines, a par five with a barranca across the fairway, and a dogleg left that turns toward Carmel Bay. Your score carries from hole to hole.</p>
       <div class="keys">
         <kbd>Drag ↓ then ↑</kbd><span>Hold the left mouse button, pull down to take the club back, then push up through the start point. Backswing length sets power. Drift left or right and the ball goes with it.</span>
         <kbd>A / D</kbd><span>Aim left or right. Tap for small moves, hold to turn faster.</span>
@@ -262,8 +273,8 @@
 <div class="overlay hidden" id="endCard">
   <div class="panel">
     <div class="head">
-      <div class="hole">1</div>
-      <div class="t"><div class="eyebrow">Hole complete</div><h1 id="endTitle">Par</h1></div>
+      <div class="hole" id="endHole">1</div>
+      <div class="t"><div class="eyebrow" id="endEyebrow">Hole complete</div><h1 id="endTitle">Par</h1></div>
     </div>
     <div class="body">
       <div class="card-score"><span class="n num" id="endStrokes">4</span><span class="w" id="endWord">strokes</span></div>
@@ -272,9 +283,10 @@
         <div><span class="lbl">Fairway · GIR</span><b id="endFG">—</b></div>
         <div><span class="lbl">Putts</span><b id="endPutts">—</b></div>
       </div>
+      <table class="scorecard" id="scorecard"></table>
       <div class="row-btns">
-        <button class="btn" id="againBtn">Play again</button>
-        <span class="fine">New wind and weather each round.</span>
+        <button class="btn" id="againBtn">Next hole</button>
+        <span class="fine" id="endFine">The wind changes on every hole.</span>
       </div>
     </div>
   </div>
@@ -302,9 +314,42 @@ function vnoise(x, z){
 }
 function fbm(x, z, o){ let s = 0, a = 0.5, f = 1; for (let i = 0; i < o; i++){ s += a * vnoise(x * f, z * f); f *= 2.03; a *= 0.5; } return s; }
 
-/* ================= COURSE LAYOUT (meters; -Z is down the hole, +X is right) ================= */
-const CL = [[0,8],[0,-40],[2,-110],[8,-180],[18,-222],[40,-252],[70,-276],[96,-296],[118,-317]];
-const SEG = []; { let s = 0; for (let i = 0; i < CL.length - 1; i++){ const [x0,z0] = CL[i], [x1,z1] = CL[i+1]; const dx = x1-x0, dz = z1-z0, L = Math.hypot(dx,dz); SEG.push({x0, z0, dx: dx/L, dz: dz/L, L, s0: s}); s += L; } }
+/* ================= COURSE LAYOUT (meters; each hole has its tee at the origin, -Z is down the hole, +X is right) ================= */
+// Pebble Beach holes 1-3, approximated: routing, yardage, par, bunkering and the barranca on 2 follow the real holes.
+const HOLES = [
+  { num: 1, par: 4, title: 'The Opening Hole',
+    blurb: 'A short par four that bends right around a stand of Monterey pines. Find the fairway, then play a short iron uphill to a small green guarded by sand on both sides.',
+    cl: [[0,8],[0,-40],[2,-110],[8,-180],[18,-222],[40,-252],[70,-276],[96,-296],[118,-317]],
+    hwp: [[0,8],[50,8],[62,14],[120,16.5],[200,17],[240,15],[285,13.5],[318,11],[350,9]],
+    gc: [104,-304], gu: [86,-82], ga: 13.5, gb: 10.5, pin: [2.5, 2.2], fairStart: 62, obR: 58, obL: 62, rise: 6,
+    teeAim: [232, 2], noise: [0, 0], sea: { x: -170, z: 140, dx: -0.7071, dz: 0.7071 }, corner: { side: 1, s0: 120, s1: 270 },
+    special: [[176,27,'pine',21],[196,31,'pine',23],[212,27,'cypress',13],[158,33,'pine',19],[222,38,'pine',20]],
+    divots: [185, 275], hazards: [],
+    bunkers(){ fwBunker(258, -22, 10, 4.6, 0.75); grBunker(-6.5, -13, 8, 3.8, 1.0); grBunker(1.5, 13.5, 8.5, 3.6, 0.9); grBunker(13, -7.5, 5, 2.6, 0.8, 0.6); } },
+  { num: 2, par: 5, title: 'The Barranca',
+    blurb: 'A long, gently rising par five. Drive between the fairway bunkers, then lay up short of the barranca, the brushy ditch that cuts across the fairway about 100 yards from a small, well-bunkered green.',
+    cl: [[0,8],[0,-68],[-2,-170],[-7,-272],[-16,-350],[-28,-420],[-40,-465],[-48,-495]],
+    hwp: [[0,8],[60,8],[72,17],[200,19],[300,17],[350,15],[395,13],[440,12],[480,9]],
+    gc: [-38,-461], gu: [-22,-111], ga: 12, gb: 9.5, pin: [-2, -1.5], fairStart: 72, obR: 52, obL: 68, rise: 3,
+    teeAim: [250, 0], noise: [310, -170], sea: { x: -330, z: 220, dx: -0.7071, dz: 0.7071 }, corner: { side: 0 },
+    special: [[205,36,'pine',22],[330,-32,'cypress',13]],
+    divots: [215, 300], hazards: [{ s0: 368, s1: 377, depth: 2.6 }],
+    bunkers(){ fwBunker(245, 21, 11, 4.5, 0.8); fwBunker(300, -21, 9, 4, 0.7); grBunker(-6, -12, 7, 3.5, 1.0); grBunker(0, 12.5, 8, 3.4, 0.9); grBunker(12.5, 0, 6, 2.6, 0.8, 1.5708); } },
+  { num: 3, par: 4, title: 'Toward the Sea',
+    blurb: 'A dogleg left that turns toward Carmel Bay. Bunkers guard the inside of the corner, so the safe line is right-center. The green sits between two bunkers with the ocean behind.',
+    cl: [[0,8],[0,-55],[-2,-145],[-12,-218],[-34,-258],[-68,-286],[-102,-306],[-128,-320]],
+    hwp: [[0,8],[45,8],[58,15],[150,17.5],[215,16],[260,14],[300,12],[345,9]],
+    gc: [-107,-308], gu: [-95,-90], ga: 12.5, gb: 10, pin: [3, -2], fairStart: 58, obR: 60, obL: 56, rise: -3,
+    teeAim: [212, -3], noise: [-260, 420], sea: { x: -300, z: -300, dx: -0.8, dz: -0.6 }, corner: { side: -1, s0: 120, s1: 260 },
+    special: [[170,-30,'pine',22],[190,-33,'cypress',13],[205,-29,'pine',21],[155,-34,'pine',19]],
+    divots: [180, 250], hazards: [],
+    bunkers(){ fwBunker(198, -21, 9, 4, 0.75); fwBunker(222, -24, 7, 3.5, 0.7); fwBunker(252, 23, 10, 4.5, 0.75); grBunker(-5, 12, 7.5, 3.6, 1.0); grBunker(2, -12.5, 8, 3.5, 0.9); } }
+];
+const COURSE_PAR = HOLES.reduce((a, h) => a + h.par, 0);
+let HOLE, holeIdx = 0, SEG = [], HWP, GC, GU, GV, GA, GB, PIN, BUNK = [], HAZ = [], SEA, NOX = 0, NOZ = 0, RISE = 6;
+let GREEN_S, PIN_S, FAIR_START, FAIR_END, OB_R, OB_L, HOLE_YDS, PAR, TEE_H, GREEN_H;
+let X0, X1, Z0, Z1, NXI, NZI, HI, SI, LI, WI, TEXW, TEXH, CLS;
+const TEE_SPOT = [0, -3];
 const T = { s: 0, lat: 0 };
 function track(x, z){
   let best = 1e18, bs = 0, bl = 0;
@@ -320,56 +365,60 @@ function pointAt(s, lat){
   let g = SEG[SEG.length-1]; for (const q of SEG){ if (s <= q.s0 + q.L){ g = q; break; } }
   const t = s - g.s0; return [g.x0 + g.dx*t - g.dz*lat, g.z0 + g.dz*t + g.dx*lat, g.dx, g.dz];
 }
-const HWP = [[0,8],[50,8],[62,14],[120,16.5],[200,17],[240,15],[285,13.5],[318,11],[350,9]];
 function hwAt(s){
   let w = HWP[HWP.length-1][1];
   for (let i = 0; i < HWP.length - 1; i++){ if (s < HWP[i+1][0]){ const t = (s - HWP[i][0]) / (HWP[i+1][0] - HWP[i][0]); w = lerp(HWP[i][1], HWP[i+1][1], clamp(t,0,1)); break; } }
-  return w + vnoise(s * 0.035, 5.3) * 1.6;
+  return w + vnoise(s * 0.035 + NOX * 0.01, 5.3) * 1.6;
 }
-// green
-const GC = [104, -304];
-const GU = (() => { const x = 86, z = -82, L = Math.hypot(x, z); return [x/L, z/L]; })();
-const GV = [-GU[1], GU[0]];
-const GA = 13.5, GB = 10.5;
 function greenUV(x, z){ const dx = x - GC[0], dz = z - GC[1]; return [dx*GU[0] + dz*GU[1], dx*GV[0] + dz*GV[1]]; }
-function greenR(x, z){ const [du, dv] = greenUV(x, z); return Math.sqrt((du/GA)*(du/GA) + (dv/GB)*(dv/GB)) + vnoise(x*0.12 + 11, z*0.12) * 0.05; }
-const PIN = [GC[0] + GU[0]*2.5 + GV[0]*2.2, GC[1] + GU[1]*2.5 + GV[1]*2.2];
-// bunkers
-const BUNK = [];
+function greenR(x, z){ const [du, dv] = greenUV(x, z); return Math.sqrt((du/GA)*(du/GA) + (dv/GB)*(dv/GB)) + vnoise(x*0.12 + 11 + NOX, z*0.12) * 0.05; }
 function addBunker(cx, cz, ux, uz, a, b, depth){ BUNK.push({cx, cz, ux, uz, a, b, depth}); }
-{ const [x, z, dx, dz] = pointAt(258, -22); addBunker(x, z, dx, dz, 10, 4.6, 0.75); }
-addBunker(GC[0] - GU[0]*6.5 - GV[0]*13, GC[1] - GU[1]*6.5 - GV[1]*13, GU[0], GU[1], 8, 3.8, 1.0);
-addBunker(GC[0] + GU[0]*1.5 + GV[0]*13.5, GC[1] + GU[1]*1.5 + GV[1]*13.5, GU[0], GU[1], 8.5, 3.6, 0.9);
-{ const a = 0.6, ux = GU[0]*Math.cos(a) - GV[0]*Math.sin(a), uz = GU[1]*Math.cos(a) - GV[1]*Math.sin(a); addBunker(GC[0] + GU[0]*13 - GV[0]*7.5, GC[1] + GU[1]*13 - GV[1]*7.5, ux, uz, 5, 2.6, 0.8); }
+function fwBunker(s, lat, a, b, depth){ const [x, z, dx, dz] = pointAt(s, lat); addBunker(x, z, dx, dz, a, b, depth); }
+function grBunker(u, v, a, b, depth, rot){
+  const r = rot || 0, ux = GU[0]*Math.cos(r) - GV[0]*Math.sin(r), uz = GU[1]*Math.cos(r) - GV[1]*Math.sin(r);
+  addBunker(GC[0] + GU[0]*u + GV[0]*v, GC[1] + GU[1]*u + GV[1]*v, ux, uz, a, b, depth);
+}
 let lastBR = 9;
 function bunkR(b, x, z){ const dx = x - b.cx, dz = z - b.cz; const du = dx*b.ux + dz*b.uz, dv = -dx*b.uz + dz*b.ux; return Math.sqrt((du/b.a)*(du/b.a) + (dv/b.b)*(dv/b.b)) + vnoise(x*0.25 + b.cx, z*0.25) * 0.09; }
-
-const TEE_SPOT = [0, -3];
-const GREEN_S = track(GC[0], GC[1]).s;
-const PIN_S = track(PIN[0], PIN[1]).s;
-const FAIR_START = 62, FAIR_END = GREEN_S - 3;
-const OB_R = 58, OB_L = 62;
-const HOLE_YDS = Math.round((PIN_S - track(TEE_SPOT[0], TEE_SPOT[1]).s) / YD);
-const PAR = 4;
+function setHole(i){
+  holeIdx = i; HOLE = HOLES[i]; const h = HOLE;
+  SEG = []; { let s = 0; for (let k = 0; k < h.cl.length - 1; k++){ const [x0,z0] = h.cl[k], [x1,z1] = h.cl[k+1]; const dx = x1-x0, dz = z1-z0, L = Math.hypot(dx,dz); SEG.push({x0, z0, dx: dx/L, dz: dz/L, L, s0: s}); s += L; } }
+  HWP = h.hwp; NOX = h.noise[0]; NOZ = h.noise[1]; RISE = h.rise; SEA = h.sea; HAZ = h.hazards;
+  GC = h.gc; { const L = Math.hypot(h.gu[0], h.gu[1]); GU = [h.gu[0]/L, h.gu[1]/L]; } GV = [-GU[1], GU[0]]; GA = h.ga; GB = h.gb;
+  PIN = [GC[0] + GU[0]*h.pin[0] + GV[0]*h.pin[1], GC[1] + GU[1]*h.pin[0] + GV[1]*h.pin[1]];
+  BUNK = []; h.bunkers();
+  GREEN_S = track(GC[0], GC[1]).s; PIN_S = track(PIN[0], PIN[1]).s;
+  FAIR_START = h.fairStart; FAIR_END = GREEN_S - 3; OB_R = h.obR; OB_L = h.obL; PAR = h.par;
+  HOLE_YDS = Math.round((PIN_S - track(TEE_SPOT[0], TEE_SPOT[1]).s) / YD);
+  let mnx = 1e9, mxx = -1e9, mnz = 1e9; for (const [x, z] of h.cl){ mnx = Math.min(mnx, x); mxx = Math.max(mxx, x); mnz = Math.min(mnz, z); }
+  const m = Math.max(OB_R, OB_L) + 28;
+  X0 = Math.floor(mnx - m); X1 = Math.ceil(mxx + m); Z0 = Math.floor(mnz - 60); Z1 = 40;
+  NXI = X1 - X0 + 1; NZI = Z1 - Z0 + 1;
+  HI = new Float32Array(NXI*NZI); SI = new Float32Array(NXI*NZI); LI = new Float32Array(NXI*NZI); WI = new Float32Array(NXI*NZI);
+  TEXW = Math.round(Math.sqrt(4.4e6 * (X1 - X0) / (Z1 - Z0)) / 16) * 16; TEXH = Math.round(4.4e6 / TEXW / 16) * 16;
+  CLS = new Uint8Array(TEXW*TEXH);
+  TEE_H = baseH(0, 0) + 0.6; GREEN_H = baseH(GC[0], GC[1]) + 1.0;
+}
 
 /* ================= TERRAIN HEIGHT ================= */
 function baseH(x, z){
   track(x, z); const s = T.s, d = Math.abs(T.lat), hw = hwAt(s);
-  const rise = 6.0 * smooth(10, 330, s);
+  const nx = x + NOX, nz = z + NOZ;
+  const rise = RISE * smooth(10, Math.max(60, GREEN_S - 20), s);
   const ff = smooth(hw + 3, hw + 26, d);
-  const big = fbm(x*0.010 + 3.1, z*0.010 - 7.7, 3) * 4.2;
+  const big = fbm(nx*0.010 + 3.1, nz*0.010 - 7.7, 3) * 4.2;
   // links rollers: humps and swales that run across the fairway
-  const roll = fbm(x*0.02 + 7.3, z*0.02 - 2.1, 3) * 2.1 + Math.sin(s*0.085 + vnoise(x*0.015, z*0.015)*1.8) * 0.75 * smooth(40, 90, s);
-  const med = fbm(x*0.05 + 1.3, z*0.05 + 2.9, 2) * 0.55;
-  const sml = fbm(x*0.21, z*0.21, 2) * 0.12;
+  const roll = fbm(nx*0.02 + 7.3, nz*0.02 - 2.1, 3) * 2.1 + Math.sin(s*0.085 + vnoise(nx*0.015, nz*0.015)*1.8) * 0.75 * smooth(40, 90, s);
+  const med = fbm(nx*0.05 + 1.3, nz*0.05 + 2.9, 2) * 0.55;
+  const sml = fbm(nx*0.21, nz*0.21, 2) * 0.12;
   // grassy dunes and mounds framing the hole out in the rough
-  const mound = Math.pow(Math.max(0, fbm(x*0.032 - 4, z*0.032 + 9, 3)), 1.3) * 7.5 * ff;
-  return rise + big*(0.8 + 0.2*ff) + roll*(0.85 + 0.35*ff) + med*(0.7 + 0.6*ff) + sml*(0.45 + 0.55*ff) + mound + Math.min(Math.max(d - hw - 4, 0) * 0.045, 2.8);
+  const mound = Math.pow(Math.max(0, fbm(nx*0.032 - 4, nz*0.032 + 9, 3)), 1.3) * 7.5 * ff;
+  return 6 + rise + big*(0.8 + 0.2*ff) + roll*(0.85 + 0.35*ff) + med*(0.7 + 0.6*ff) + sml*(0.45 + 0.55*ff) + mound + Math.min(Math.max(d - hw - 4, 0) * 0.045, 2.8);
 }
-const TEE_H = baseH(0, 0) + 0.6;
-const GREEN_H = baseH(GC[0], GC[1]) + 1.0;
 function heightAt(x, z){
-  let h = baseH(x, z);
+  let h = baseH(x, z); const s = T.s;
+  // barranca: a steep-sided ditch across the hole
+  for (const hz of HAZ){ const half = (hz.s1 - hz.s0) / 2, q = Math.abs(s - (hz.s0 + half)); if (q < half + 7) h -= hz.depth * (1 - smooth(half - 1.5, half + 6, q)); }
   const tx = Math.max(Math.abs(x) - 5, 0), tz = Math.max(Math.abs(z) - 8, 0), td = Math.hypot(tx, tz);
   if (td < 4) h = lerp(h, TEE_H, 1 - smooth(0, 3.5, td));
   const gdx = x - GC[0], gdz = z - GC[1]; let gr = 9;
@@ -384,20 +433,17 @@ function heightAt(x, z){
   }
   return h;
 }
-function seaC(x, z){ return (-(x + 170) + (z - 140)) * 0.7071; }
+function seaC(x, z){ return (x - SEA.x) * SEA.dx + (z - SEA.z) * SEA.dz; }
 function macroH(x, z){
-  const inland = (x - z) * 0.7071;
-  let h = 7 + fbm(x*0.0025 + 5, z*0.0025 + 1, 4) * 16 + Math.max(0, inland - 300) * 0.07 + fbm(x*0.012, z*0.012, 2) * 3;
+  const inland = -seaC(x, z) - 219, nx = x + NOX, nz = z + NOZ;
+  let h = 7 + fbm(nx*0.0025 + 5, nz*0.0025 + 1, 4) * 16 + Math.max(0, inland - 300) * 0.07 + fbm(nx*0.012, nz*0.012, 2) * 3;
   h = Math.max(h, 2.5);
   return lerp(h, -12, smooth(-50, 15, seaC(x, z)));
 }
-const X0 = -90, X1 = 170, Z0 = -380, Z1 = 40;
 function edgeDist(x, z){ return Math.max(X0 - x, x - X1, Z0 - z, z - Z1, 0); }
 function outerH(x, z){ const w = smooth(0, 120, edgeDist(x, z)); return w <= 0 ? heightAt(x, z) : lerp(heightAt(x, z), macroH(x, z), w); }
 
 // inner grid at 1 m: heights + track fields (used for mesh, physics and texture painting)
-const NXI = X1 - X0 + 1, NZI = Z1 - Z0 + 1;
-const HI = new Float32Array(NXI*NZI), SI = new Float32Array(NXI*NZI), LI = new Float32Array(NXI*NZI), WI = new Float32Array(NXI*NZI);
 function buildInnerGrid(){
   for (let j = 0; j < NZI; j++) for (let i = 0; i < NXI; i++){
     const x = X0 + i, z = Z0 + j, k = j*NXI + i;
@@ -420,14 +466,14 @@ function groundN(x, z, out){
 }
 
 /* ================= SURFACE CLASSES ================= */
-const C_OB = 0, C_DEEP = 1, C_ROUGH = 2, C_CUT = 3, C_FAIR = 4, C_FRINGE = 5, C_GREEN = 6, C_SAND = 7, C_TEE = 8;
-const CLASS_NAME = ['Out of bounds', 'Deep rough', 'Rough', 'First cut', 'Fairway', 'Fringe', 'Green', 'Bunker', 'Tee'];
-const TEX = 2048;
-const CLS = new Uint8Array(TEX*TEX);
+const C_OB = 0, C_DEEP = 1, C_ROUGH = 2, C_CUT = 3, C_FAIR = 4, C_FRINGE = 5, C_GREEN = 6, C_SAND = 7, C_TEE = 8, C_HAZ = 9;
+const CLASS_NAME = ['Out of bounds', 'Deep rough', 'Rough', 'First cut', 'Fairway', 'Fringe', 'Green', 'Bunker', 'Tee', 'Penalty area'];
+let lastHazQ = 9;
 function classify(x, z, s, lat, hw){
-  lastBR = 9;
+  lastBR = 9; lastHazQ = 9;
   if (x < X0 + 0.5 || x > X1 - 0.5 || z < Z0 + 0.5 || z > Z1 - 0.5) return C_OB;
   if (lat > OB_R || lat < -OB_L || z > 34 || s > GREEN_S + 48) return C_OB;
+  for (const hz of HAZ){ if (s > hz.s0 && s < hz.s1){ lastHazQ = Math.abs(s - (hz.s0 + hz.s1) / 2) / ((hz.s1 - hz.s0) / 2); return C_HAZ; } }
   for (const b of BUNK){
     const dx = x - b.cx, dz = z - b.cz; if (dx*dx + dz*dz > (b.a + 1.5)*(b.a + 1.5)) continue;
     const br = bunkR(b, x, z); if (br < 1){ lastBR = br; return C_SAND; }
@@ -439,37 +485,38 @@ function classify(x, z, s, lat, hw){
   if (s > FAIR_START && s < FAIR_END && d < hw) return C_FAIR;
   if (gr < 1.42) return C_CUT;
   if (s > FAIR_START - 5 && s < FAIR_END + 6 && d < hw + 2.2) return C_CUT;
-  if (d < hw + 19 + vnoise(s*0.04, 9.1) * 5) return C_ROUGH;
+  if (d < hw + 19 + vnoise(s*0.04, 9.1 + NOZ) * 5) return C_ROUGH;
   return C_DEEP;
 }
 function classAt(x, z){
   if (x < X0 || x >= X1 || z < Z0 || z >= Z1) return C_OB;
-  const px = ((x - X0) / (X1 - X0) * TEX) | 0, pz = ((z - Z0) / (Z1 - Z0) * TEX) | 0;
-  return CLS[pz*TEX + px];
+  const px = ((x - X0) / (X1 - X0) * TEXW) | 0, pz = ((z - Z0) / (Z1 - Z0) * TEXH) | 0;
+  return CLS[pz*TEXW + px];
 }
 
 /* ================= TEXTURE PAINTING ================= */
 const COL = {
   fairA: [128,172,74], fairB: [109,153,61], cut: [104,146,58], rough: [86,126,50], deep: [70,101,42],
-  greenA: [114,172,76], greenB: [101,160,67], fringe: [102,154,63], sand: [212,198,166], teeA: [126,170,72], teeB: [110,154,62]
+  greenA: [114,172,76], greenB: [101,160,67], fringe: [102,154,63], sand: [212,198,166], teeA: [126,170,72], teeB: [110,154,62],
+  brush: [82,92,48], water: [58,74,74]
 };
 let courseCanvas, courseCtx;
-const BUMP = [255, 255, 230, 190, 165, 150, 140, 210, 165]; // texture alpha = how lumpy each surface looks
+const BUMP = [255, 255, 230, 190, 165, 150, 140, 210, 165, 255]; // texture alpha = how lumpy each surface looks
 function paintCourse(){
-  courseCanvas = document.createElement('canvas'); courseCanvas.width = courseCanvas.height = TEX;
+  courseCanvas = document.createElement('canvas'); courseCanvas.width = TEXW; courseCanvas.height = TEXH;
   courseCtx = courseCanvas.getContext('2d');
-  const img = courseCtx.createImageData(TEX, TEX), D = img.data;
-  const sx = (X1 - X0) / TEX, sz = (Z1 - Z0) / TEX;
-  for (let py = 0; py < TEX; py++){
+  const img = courseCtx.createImageData(TEXW, TEXH), D = img.data;
+  const sx = (X1 - X0) / TEXW, sz = (Z1 - Z0) / TEXH;
+  for (let py = 0; py < TEXH; py++){
     const z = Z0 + (py + 0.5) * sz, fz = z - Z0, j = Math.min(fz | 0, NZI - 2), v = fz - j;
-    for (let px = 0; px < TEX; px++){
+    for (let px = 0; px < TEXW; px++){
       const x = X0 + (px + 0.5) * sx, fx = x - X0, i = Math.min(fx | 0, NXI - 2), u = fx - i, k = j*NXI + i;
       const w00 = (1-u)*(1-v), w10 = u*(1-v), w01 = (1-u)*v, w11 = u*v;
       const s = SI[k]*w00 + SI[k+1]*w10 + SI[k+NXI]*w01 + SI[k+NXI+1]*w11;
       const lat = LI[k]*w00 + LI[k+1]*w10 + LI[k+NXI]*w01 + LI[k+NXI+1]*w11;
       const hw = WI[k]*w00 + WI[k+1]*w10 + WI[k+NXI]*w01 + WI[k+NXI+1]*w11;
       const c = classify(x, z, s, lat, hw);
-      const o = py*TEX + px; CLS[o] = c;
+      const o = py*TEXW + px; CLS[o] = c;
       let col, m = 1;
       switch (c){
         case C_FAIR: col = (Math.floor((lat + 300) / 6.2) & 1) ? COL.fairA : COL.fairB; break;
@@ -479,6 +526,7 @@ function paintCourse(){
         case C_CUT: col = COL.cut; break;
         case C_ROUGH: { const t = smooth(0, 4, Math.abs(lat) - hw - 2.2); col = [lerp(COL.cut[0], COL.rough[0], t), lerp(COL.cut[1], COL.rough[1], t), lerp(COL.cut[2], COL.rough[2], t)]; m = 1 + vnoise(x*0.9, z*0.9)*0.05; break; }
         case C_SAND: col = COL.sand; m = (lastBR > 0.86 ? lerp(1, 0.86, smooth(0.86, 1, lastBR)) : 1) * (1 + Math.sin((x*0.7071 + z*0.7071) * 18) * 0.012); break;
+        case C_HAZ: col = lastHazQ < 0.18 + vnoise(x*0.3, z*0.3)*0.08 ? COL.water : COL.brush; m = 1 + vnoise(x*0.8, z*0.8)*0.12; break;
         default: col = COL.deep; m = 1 + vnoise(x*0.6, z*0.6)*0.08;
       }
       m *= 1 + vnoise(x*0.07, z*0.07)*0.06 + vnoise(x*0.5 + 3, z*0.5)*0.03 + (hash2(px, py) - 0.5)*0.035;
@@ -489,7 +537,7 @@ function paintCourse(){
   // ball marks and divots in the landing zone
   const r = mulberry(31);
   for (let n = 0; n < 650; n++){
-    const [x, z] = pointAt(185 + r()*90, (r() - 0.5) * 26);
+    const [x, z] = pointAt(HOLE.divots[0] + r()*(HOLE.divots[1] - HOLE.divots[0]), (r() - 0.5) * 26);
     if (classAt(x, z) !== C_FAIR) continue;
     const px = (x - X0) / sx, pz = (z - Z0) / sz;
     courseCtx.fillStyle = r() < 0.5 ? 'rgba(150,128,82,0.55)' : 'rgba(84,112,48,0.5)';
@@ -497,10 +545,10 @@ function paintCourse(){
   }
 }
 function paintTreeShade(trees){
-  const sx = (X1 - X0) / TEX, sz = (Z1 - Z0) / TEX;
+  const sx = (X1 - X0) / TEXW, sz = (Z1 - Z0) / TEXH;
   for (const t of trees){
     const px = (t.x - X0) / sx, pz = (t.z - Z0) / sz, rx = t.R * 1.05 / sx, rz = t.R * 1.05 / sz;
-    if (px < -rx || pz < -rz || px > TEX + rx || pz > TEX + rz) continue;
+    if (px < -rx || pz < -rz || px > TEXW + rx || pz > TEXH + rz) continue;
     courseCtx.save(); courseCtx.translate(px, pz); courseCtx.scale(1, rz / rx);
     const g = courseCtx.createRadialGradient(0, 0, 0, 0, 0, rx);
     g.addColorStop(0, 'rgba(92,74,44,0.55)'); g.addColorStop(0.6, 'rgba(78,70,40,0.35)'); g.addColorStop(1, 'rgba(70,90,40,0)');
@@ -582,7 +630,13 @@ function applyWeather(w){
 }
 
 /* ================= TERRAIN MESH ================= */
-let terrainMat;
+let terrainMat, terrainMesh;
+const holeGroup = new THREE.Group(); scene.add(holeGroup);
+function clearHole(){
+  if (terrainMesh){ terrainMesh.geometry.dispose(); if (terrainMat.map) terrainMat.map.dispose(); terrainMat.dispose(); terrainMesh = null; }
+  while (holeGroup.children.length){ const o = holeGroup.children.pop(); o.traverse(c => { if (c.geometry && !c.userData.shared) c.geometry.dispose(); }); }
+  TREES.length = 0;
+}
 function axisList(a0, a1){
   const out = []; for (let v = a0; v <= a1; v++) out.push(v);
   let st = 1.5, v = a0; const left = []; while (v > a0 - 2600){ v -= st; st *= 1.22; left.push(v); }
@@ -653,9 +707,10 @@ function buildTerrain(){
         normal = normalize(normal + mat3(viewMatrix) * dn);
       }`);
   };
-  const mesh = new THREE.Mesh(geo, terrainMat); mesh.receiveShadow = true; mesh.castShadow = true; scene.add(mesh);
+  const mesh = new THREE.Mesh(geo, terrainMat); mesh.receiveShadow = true; mesh.castShadow = true; holeGroup.add(mesh); terrainMesh = mesh;
 
-  // ocean
+  // ocean (built once)
+  if (oceanTex) return;
   const nrm = noiseTex(256, (i, j) => { const a = pnoise(i/8, j/8, 32), b = pnoise(i/8 + 9, j/8 + 3, 32); return [128 + (a - 0.5)*120, 128 + (b - 0.5)*120, 255]; });
   nrm.repeat.set(600, 600);
   const ocean = new THREE.Mesh(new THREE.PlaneGeometry(14000, 14000), new THREE.MeshStandardMaterial({ color: lin('#1d4a5c'), roughness: 0.12, metalness: 0, normalMap: nrm, normalScale: new THREE.Vector2(0.35, 0.35), envMapIntensity: 1.2 }));
@@ -735,15 +790,16 @@ function treeOk(x, z, minGap){
   for (const t of TREES){ const dx = t.x - x, dz = t.z - z; if (dx*dx + dz*dz < minGap*minGap) return false; }
   return true;
 }
+let treeAssets = null;
 function buildTrees(){
-  const r = mulberry(7);
+  const r = mulberry(7 + holeIdx * 101);
   const near = [];
   const addTree = (x, z, kind, h) => {
     const t = { x, z, kind, h, rot: r()*Math.PI*2, v: (r()*(kind === 'pine' ? 3 : 2)) | 0, tint: 0.85 + r()*0.3 };
     near.push(t); TREES.push(t); return t;
   };
   // signature trees guarding the inside corner of the dogleg
-  for (const [s, lat, kind, h] of [[176, 27, 'pine', 21], [196, 31, 'pine', 23], [212, 27, 'cypress', 13], [158, 33, 'pine', 19], [222, 38, 'pine', 20]]){
+  for (const [s, lat, kind, h] of HOLE.special){
     const [x, z] = pointAt(s, lat); addTree(x, z, kind, h);
   }
   for (let i = 0; i < 26000 && near.length < 340; i++){
@@ -754,7 +810,8 @@ function buildTrees(){
     let bad = false; for (const b of BUNK){ if (Math.hypot(x - b.cx, z - b.cz) < b.a + 6) bad = true; } if (bad) continue;
     const margin = d - hw;
     let p = smooth(15, 34, margin) * 0.85;
-    if (lat > 0 && s > 120 && s < 270) p = Math.max(p, smooth(10, 20, margin));
+    const cn = HOLE.corner; if (cn.side && lat * cn.side > 0 && s > cn.s0 && s < cn.s1) p = Math.max(p, smooth(10, 20, margin));
+    if (HAZ.some(hz => s > hz.s0 - 4 && s < hz.s1 + 4)) continue;
     if (s < 30) p *= smooth(14, 26, d);
     if (s > GREEN_S + 8) p = Math.max(p, smooth(26, 40, Math.hypot(x - GC[0], z - GC[1])) * 0.9);
     if (r() > p * 0.42) continue;
@@ -765,18 +822,23 @@ function buildTrees(){
   // distant forest
   const far = [];
   for (let i = 0; i < 60000 && far.length < 2600; i++){
-    const x = 40 + (r() - 0.5) * 3000, z = -170 + (r() - 0.5) * 3000;
+    const x = (X0 + X1) / 2 + (r() - 0.5) * 3000, z = (Z0 + Z1) / 2 + (r() - 0.5) * 3000;
     const e = edgeDist(x, z); if (e < 6) continue;
     if (seaC(x, z) > -70) continue;
     if (r() > 0.85 - smooth(0, 1400, e) * 0.6) continue;
     const kind = r() < 0.7 ? 'pine' : 'cypress';
     far.push({ x, z, kind, h: kind === 'pine' ? 14 + r()*10 : 9 + r()*5, rot: r()*Math.PI*2, v: (r()*2) | 0, tint: 0.8 + r()*0.35 });
   }
-  const leaf = leafTexture(), bark = barkTexture();
-  const crownMat = new THREE.MeshStandardMaterial({ map: leaf, vertexColors: true, roughness: 0.92, metalness: 0, envMapIntensity: 0.4 });
-  const trunkMat = new THREE.MeshStandardMaterial({ map: bark, vertexColors: true, color: lin('#5a4634'), roughness: 0.95, envMapIntensity: 0.3 });
-  const variants = { pine: [makeVariant('pine', 11), makeVariant('pine', 23), makeVariant('pine', 37)], cypress: [makeVariant('cypress', 51), makeVariant('cypress', 67)] };
-  const farVariants = { pine: [makeVariant('pine', 81, true), makeVariant('pine', 93, true)], cypress: [makeVariant('cypress', 101, true), makeVariant('cypress', 117, true)] };
+  if (!treeAssets){
+    const leaf = leafTexture(), bark = barkTexture();
+    treeAssets = {
+      crownMat: new THREE.MeshStandardMaterial({ map: leaf, vertexColors: true, roughness: 0.92, metalness: 0, envMapIntensity: 0.4 }),
+      trunkMat: new THREE.MeshStandardMaterial({ map: bark, vertexColors: true, color: lin('#5a4634'), roughness: 0.95, envMapIntensity: 0.3 }),
+      variants: { pine: [makeVariant('pine', 11), makeVariant('pine', 23), makeVariant('pine', 37)], cypress: [makeVariant('cypress', 51), makeVariant('cypress', 67)] },
+      farVariants: { pine: [makeVariant('pine', 81, true), makeVariant('pine', 93, true)], cypress: [makeVariant('cypress', 101, true), makeVariant('cypress', 117, true)] }
+    };
+  }
+  const { crownMat, trunkMat, variants, farVariants } = treeAssets;
   const pineCol = lin('#3f5c30'), cypCol = lin('#2f4b2c');
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), ps = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0), cc = new THREE.Color();
   function instance(list, vars, shadows){
@@ -792,7 +854,7 @@ function buildTrees(){
       });
       cm.instanceMatrix.needsUpdate = true; if (cm.instanceColor) cm.instanceColor.needsUpdate = true;
       cm.castShadow = shadows; tm.castShadow = shadows; cm.receiveShadow = true; tm.receiveShadow = true;
-      scene.add(cm); scene.add(tm);
+      cm.userData.shared = tm.userData.shared = true; holeGroup.add(cm); holeGroup.add(tm);
     });
   }
   instance(near, variants, true);
@@ -804,12 +866,12 @@ function buildTrees(){
 let flag, flagGeo, flagBase, cup;
 function buildPin(){
   const gh = groundH(PIN[0], PIN[1]);
-  const g = new THREE.Group(); g.position.set(PIN[0], gh, PIN[1]); scene.add(g);
+  const g = new THREE.Group(); g.position.set(PIN[0], gh, PIN[1]); holeGroup.add(g);
   const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.0125, 0.0125, 2.3, 10), new THREE.MeshStandardMaterial({ color: lin('#f2f2ee'), roughness: 0.35 }));
   pole.position.y = 1.15; pole.castShadow = true; g.add(pole);
-  flagGeo = new THREE.PlaneGeometry(0.52, 0.36, 14, 6); flagGeo.translate(0.26, 0, 0); flagBase = flagGeo.attributes.position.array.slice();
-  flag = new THREE.Mesh(flagGeo, new THREE.MeshStandardMaterial({ color: lin('#f3c419'), roughness: 0.7, side: THREE.DoubleSide }));
-  flag.position.y = 2.3 - 0.19; flag.castShadow = true; g.add(flag);
+  flagGeo = new THREE.PlaneGeometry(FLAG_W, FLAG_H, 18, 8); flagGeo.translate(FLAG_W / 2, 0, 0); flagBase = flagGeo.attributes.position.array.slice();
+  flag = new THREE.Mesh(flagGeo, new THREE.MeshStandardMaterial({ map: usFlagTexture(), roughness: 0.75, side: THREE.DoubleSide }));
+  flag.position.y = 2.3 - FLAG_H / 2 - 0.01; flag.castShadow = true; g.add(flag);
   cup = new THREE.Mesh(new THREE.CircleGeometry(0.054, 32), new THREE.MeshBasicMaterial({ color: 0x050505, polygonOffset: true, polygonOffsetFactor: -4 }));
   cup.rotation.x = -Math.PI/2; cup.position.y = 0.006; g.add(cup);
   const liner = new THREE.Mesh(new THREE.RingGeometry(0.054, 0.059, 32), new THREE.MeshStandardMaterial({ color: lin('#d8d8d2'), polygonOffset: true, polygonOffsetFactor: -4 }));
@@ -818,9 +880,9 @@ function buildPin(){
   const mm = new THREE.MeshStandardMaterial({ color: lin('#1c1c1c'), roughness: 0.4, metalness: 0.2 });
   for (const sx of [-3.4, 3.4]){
     const m = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.16, 12), mm);
-    m.position.set(sx, groundH(sx, -4.2) + 0.08, -4.2); m.castShadow = true; scene.add(m);
+    m.position.set(sx, groundH(sx, -4.2) + 0.08, -4.2); m.castShadow = true; holeGroup.add(m);
     const cap = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 8, 0, Math.PI*2, 0, Math.PI/2), new THREE.MeshStandardMaterial({ color: lin('#c9a24a'), metalness: 0.6, roughness: 0.3 }));
-    cap.position.set(sx, groundH(sx, -4.2) + 0.16, -4.2); scene.add(cap);
+    cap.position.set(sx, groundH(sx, -4.2) + 0.16, -4.2); holeGroup.add(cap);
   }
   // OB stakes
   const sm = new THREE.MeshStandardMaterial({ color: lin('#f4f4f0'), roughness: 0.6 });
@@ -828,14 +890,35 @@ function buildPin(){
   for (let s = 20; s < GREEN_S + 45; s += 22){
     for (const lat of [OB_R, -OB_L]){
       const [x, z] = pointAt(s, lat); if (x < X0 || x > X1 || z < Z0 || z > Z1) continue;
-      const st = new THREE.Mesh(stakeG, sm); st.position.set(x, groundH(x, z) + 0.45, z); st.castShadow = true; scene.add(st);
+      const st = new THREE.Mesh(stakeG, sm); st.position.set(x, groundH(x, z) + 0.45, z); st.castShadow = true; holeGroup.add(st);
     }
   }
+  // red stakes along both banks of a penalty area
+  const rm = new THREE.MeshStandardMaterial({ color: lin('#c8322a'), roughness: 0.6 });
+  for (const hz of HAZ) for (const s of [hz.s0, hz.s1]) for (let lat = -OB_L + 4; lat < OB_R; lat += 9){
+    const [x, z] = pointAt(s, lat); const st = new THREE.Mesh(stakeG, rm); st.position.set(x, groundH(x, z) + 0.45, z); st.castShadow = true; holeGroup.add(st);
+  }
+}
+// American flag: 13 stripes, blue canton with 50 stars, 1.9:1
+const FLAG_W = 0.6, FLAG_H = 0.316;
+let usFlagTex = null;
+function usFlagTexture(){
+  if (usFlagTex) return usFlagTex;
+  const W = 760, H = 400, c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d');
+  const sh = H / 13;
+  for (let i = 0; i < 13; i++){ x.fillStyle = i % 2 ? '#ffffff' : '#b22234'; x.fillRect(0, Math.round(i * sh), W, Math.ceil(sh) + 1); }
+  const cw = W * 0.4, ch = sh * 7; x.fillStyle = '#3c3b6e'; x.fillRect(0, 0, cw, ch);
+  x.fillStyle = '#ffffff';
+  const star = (cx, cy, r) => { x.beginPath(); for (let k = 0; k < 10; k++){ const a = -Math.PI / 2 + k * Math.PI / 5, rr = k % 2 ? r * 0.382 : r; x.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr); } x.closePath(); x.fill(); };
+  const gx = cw / 12, gy = ch / 10, r = sh * 0.616 * 0.5 * 0.8;
+  for (let row = 0; row < 9; row++){ const n = row % 2 ? 5 : 6; for (let k = 0; k < n; k++) star(gx * (2 * k + 1 + (row % 2)), gy * (row + 1), r); }
+  usFlagTex = new THREE.CanvasTexture(c); usFlagTex.encoding = THREE.sRGBEncoding; usFlagTex.anisotropy = 4;
+  return usFlagTex;
 }
 function animateFlag(t){
   const p = flagGeo.attributes.position.array; const ws = clamp(windSpeed / 8, 0.15, 1.6);
   for (let i = 0; i < p.length; i += 3){
-    const x = flagBase[i], y = flagBase[i+1], f = x / 0.52;
+    const x = flagBase[i], y = flagBase[i+1], f = x / FLAG_W;
     p[i] = x * (0.55 + 0.45 * Math.min(ws, 1));
     p[i+1] = y - f * 0.17 * (1 - Math.min(ws, 1)) * (1 - Math.min(ws, 1)) - f * 0.02;
     p[i+2] = Math.sin(x * 11 - t * (3 + ws * 5) + y * 2) * 0.05 * f * (0.4 + ws * 0.6);
@@ -854,13 +937,15 @@ const GRASS_N = 5200;
 let grass;
 function buildGrass(){
   const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array([-0.0028, 0, 0, 0.0028, 0, 0, 0.0006, 1, 0.0015]), 3));
-  g.setAttribute('normal', new THREE.BufferAttribute(new Float32Array([0, 1, 0.2, 0, 1, 0.2, 0, 1, 0.2]), 3));
-  grass = new THREE.InstancedMesh(g, new THREE.MeshStandardMaterial({ roughness: 0.9, side: THREE.DoubleSide, envMapIntensity: 0.4 }), GRASS_N);
+  // two windings so each side renders front-facing with the same upward normal (no dark/white back faces)
+  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array([-0.0028, 0, 0, 0.0028, 0, 0, 0.0006, 1, 0.0015, -0.0028, 0, 0, 0.0006, 1, 0.0015, 0.0028, 0, 0]), 3));
+  g.setAttribute('normal', new THREE.BufferAttribute(new Float32Array([0, 1, 0.15, 0, 1, 0.15, 0, 1, 0.15, 0, 1, 0.15, 0, 1, 0.15, 0, 1, 0.15]), 3));
+  grass = new THREE.InstancedMesh(g, new THREE.MeshLambertMaterial(), GRASS_N);
+  { const c0 = new THREE.Color(0x4f7a2c); for (let i = 0; i < GRASS_N; i++) grass.setColorAt(i, c0); } // create the colour buffer before the first render
   grass.frustumCulled = false; grass.receiveShadow = true; scene.add(grass);
 }
-const GRASS_H = [0.11, 0.1, 0.065, 0.032, 0.014, 0.016, 0, 0, 0.012];
-const GRASS_COL = [COL.deep, COL.deep, COL.rough, COL.cut, COL.fairB, COL.fringe, COL.greenA, COL.sand, COL.teeB];
+const GRASS_H = [0.11, 0.1, 0.065, 0.032, 0.014, 0.016, 0, 0, 0.012, 0.14];
+const GRASS_COL = [COL.deep, COL.deep, COL.rough, COL.cut, COL.fairB, COL.fringe, COL.greenA, COL.sand, COL.teeB, COL.brush];
 function placeGrass(cx, cz){
   const r = mulberry((cx * 1000 + cz * 7) | 0), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), p = new THREE.Vector3(), s = new THREE.Vector3(), c = new THREE.Color();
   for (let i = 0; i < GRASS_N; i++){
@@ -869,7 +954,7 @@ function placeGrass(cx, cz){
     if (rad < 0.03) h *= 0.5;
     p.set(x, groundH(x, z) - 0.002, z); e.set((r() - 0.5)*0.7, r()*Math.PI*2, (r() - 0.5)*0.7); q.setFromEuler(e); s.set(1 + r(), h || 0.0001, 1);
     m4.compose(p, q, s); grass.setMatrixAt(i, m4);
-    const col = GRASS_COL[k], f = 0.78 + r()*0.4; c.setRGB(col[0]/255*f, col[1]/255*f, col[2]/255*f).convertSRGBToLinear(); grass.setColorAt(i, c);
+    const col = GRASS_COL[k], f = 0.58 + r()*0.3; c.setRGB(col[0]/255*f, col[1]/255*f, col[2]/255*f).convertSRGBToLinear(); grass.setColorAt(i, c);
   }
   grass.instanceMatrix.needsUpdate = true; if (grass.instanceColor) grass.instanceColor.needsUpdate = true;
 }
@@ -891,7 +976,7 @@ const M = {
   jacket: new THREE.MeshStandardMaterial({ color: lin('#5f6b5c'), roughness: 0.6, metalness: 0, side: THREE.DoubleSide }),
   trim: std('#2c3030', 0.6), jog: new THREE.MeshStandardMaterial({ color: lin('#2a2c30'), roughness: 0.92, side: THREE.DoubleSide }),
   skin: std('#c68d68', 0.55), lip: std('#9c5f4c', 0.6), hair: std('#3b2a20', 0.85), cap: std('#f4f3ef', 0.7), capBtn: std('#e8e6e0', 0.6),
-  shoe: std('#f3f3f0', 0.45), sole: std('#8e9296', 0.7), belt: std('#1d1d1d', 0.5), glove: std('#f7f7f4', 0.7),
+  shoe: std('#f4f4f1', 0.38), sole: std('#141414', 0.75), mid: std('#e2e2de', 0.6), accent: std('#121212', 0.4), belt: std('#1d1d1d', 0.5), glove: std('#f7f7f4', 0.7),
   shaft: std('#b9bec6', 0.25, 0.9), head: std('#30343b', 0.3, 0.85), wood: std('#17191d', 0.25, 0.4)
 };
 // loose fabric: an open tube whose vertices ripple and billow with the wind each frame
@@ -934,6 +1019,46 @@ function animateCloth(t){
     c.g.attributes.position.needsUpdate = true; c.g.computeVertexNormals();
   }
 }
+// golf shoe: footprint-shaped black outsole, white midsole, rounded white leather upper, black heel counter, stripe and laces
+function shoeOutline(side, k){
+  const P = [[-0.115,0],[-0.108,0.03],[-0.08,0.039],[-0.02,0.041],[0.04,0.049],[0.1,0.052],[0.145,0.042],[0.168,0.02],[0.172,0],[0.165,-0.022],[0.13,-0.042],[0.07,-0.047],[0,-0.036],[-0.06,-0.034],[-0.1,-0.028]];
+  const sh = new THREE.Shape(); const pts = P.map(([x, z]) => new THREE.Vector2(x * k + 0.03 * (1 - k), -z * side * k));
+  sh.moveTo(pts[0].x, pts[0].y); sh.splineThru(pts.slice(1).concat([pts[0]])); return sh;
+}
+function shoeLayer(side, k, depth, bevel, mat, y0){
+  const g = new THREE.ExtrudeGeometry(shoeOutline(side, k), { depth, bevelEnabled: bevel > 0, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 3, curveSegments: 10 });
+  g.rotateX(-Math.PI / 2); g.translate(0, y0 + bevel, 0);
+  return new THREE.Mesh(g, mat);
+}
+function buildShoe(side){
+  const s = new THREE.Group();
+  s.add(shoeLayer(side, 1.0, 0.012, 0.003, M.sole, 0));
+  s.add(shoeLayer(side, 0.985, 0.01, 0.002, M.mid, 0.015));
+  // upper: a sphere reshaped into a rounded leather shoe (low toe box, high instep and heel)
+  const ug = new THREE.SphereGeometry(1, 40, 24), p = ug.attributes.position;
+  for (let i = 0; i < p.count; i++){
+    const ux = p.getX(i), uy = p.getY(i), uz = p.getZ(i);
+    const x = 0.03 + ux * 0.141;
+    const H = lerp(0.082, 0.04, smooth(0.0, 0.17, x)) * (x < -0.08 ? lerp(0.9, 1, smooth(-0.115, -0.08, x)) : 1);
+    const W = 0.046 + 0.006 * smooth(-0.06, 0.1, x);
+    const y = uy > 0 ? 0.024 + Math.pow(uy, 0.8) * H : 0.024 + uy * 0.006;
+    p.setXYZ(i, x, y, uz * W * (uz * side > 0 ? 1.0 : 0.94) + side * 0.002 * smooth(0.05, 0.17, x));
+  }
+  ug.computeVertexNormals(); const up = new THREE.Mesh(ug, M.shoe); s.add(up);
+  const collar = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.007, 8, 20), M.accent); collar.rotation.x = Math.PI / 2; collar.scale.set(1.25, 1, 1); collar.position.set(-0.05, 0.1, 0); s.add(collar);
+  const heel = new THREE.Mesh(new THREE.SphereGeometry(0.05, 18, 12, Math.PI * 0.5, Math.PI, 0, Math.PI * 0.62), M.accent);
+  heel.scale.set(0.75, 1.15, 0.86); heel.position.set(-0.075, 0.03, 0); s.add(heel);
+  for (const sd of [-1, 1]){
+    const st = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.011, 0.004), M.accent);
+    st.position.set(0.0, 0.058, sd * 0.043); st.rotation.z = 0.32; st.rotation.y = sd * -0.1; s.add(st);
+  }
+  for (let i = 0; i < 4; i++){
+    const lx = 0.005 + i * 0.021, ly = 0.024 + lerp(0.082, 0.04, smooth(0.0, 0.17, lx)) * Math.pow(Math.max(0, Math.cos(Math.asin(clamp((lx - 0.03) / 0.141, -1, 1)))), 0.8) + 0.002;
+    const lace = new THREE.Mesh(new THREE.BoxGeometry(0.005, 0.004, 0.034), M.accent); lace.position.set(lx, ly, 0); lace.rotation.z = -0.25; s.add(lace);
+  }
+  s.traverse(o => { if (o.isMesh){ o.castShadow = true; o.receiveShadow = true; } });
+  return s;
+}
 function buildGolfer(){
   const g = golfer;
   ARM_AXIS.copy(V(0, 0, -1)).cross(V(0, 0.02, 0).sub(S_PT)).normalize();
@@ -945,8 +1070,7 @@ function buildGolfer(){
     clothTube(knee, ankle.clone().add(V(0, 0.05, 0)), 0.098, 0.082, M.jog, g, { seed: sz*5 + 1, weight: t => 0.45 + 0.45*t });
     ball3(knee, 0.096, M.jog, g, 1, 1, 1.02);
     limb(ankle.clone().add(V(0, -0.01, 0)), ankle.clone().add(V(0, 0.07, 0)), 0.055, 0.06, M.jog, g); // ribbed cuff
-    const shoe = ball3(V(-0.735, 0.05, 0.245*sz), 0.1, M.shoe, g, 1.45, 0.48, 0.6); shoe.rotation.y = -0.16*sz;
-    const sole = ball3(V(-0.735, 0.022, 0.245*sz), 0.1, M.sole, g, 1.47, 0.18, 0.62); sole.rotation.y = -0.16*sz;
+    const shoe = buildShoe(sz); shoe.position.set(-0.75, 0, 0.245*sz); shoe.rotation.y = -0.16*sz; g.add(shoe);
   }
   ball3(P_PT.clone().add(V(0, -0.02, 0)), 0.165, M.jog, g, 0.95, 0.72, 1.12);
   // torso: oversized half-zip windbreaker, hem flares and billows
@@ -1064,7 +1188,7 @@ function buildGreenRead(){
   }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
   greenRead = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.38, toneMapped: false, fog: false }));
-  greenRead.visible = false; scene.add(greenRead);
+  greenRead.visible = false; holeGroup.add(greenRead);
 }
 
 /* ================= CLUBS & BALL FLIGHT ================= */
@@ -1102,13 +1226,15 @@ const SURF = [
   { e: 0.24, fr: 0.45, sk: 0.85, mu: 0.11 }, // fringe
   { e: 0.22, fr: 0.46, sk: 1.05, mu: 0.055 }, // green
   { e: 0.04, fr: 0.92, sk: 0.1, mu: 2.2 },  // sand
-  { e: 0.34, fr: 0.34, sk: 0.45, mu: 0.21 }  // tee
+  { e: 0.34, fr: 0.34, sk: 0.45, mu: 0.21 }, // tee
+  { e: 0.08, fr: 0.85, sk: 0.1, mu: 1.2 }   // penalty area (brush, water)
 ];
 // how the lie changes the strike: speed, spin, launch (deg), random spread (deg)
 const LIE = [
   { sp: 0.85, spin: 0.6, la: 2, rnd: 2 }, { sp: 0.74, spin: 0.45, la: 3, rnd: 2.6 }, { sp: 0.89, spin: 0.55, la: 1.5, rnd: 1.3 },
   { sp: 0.97, spin: 0.85, la: 0.5, rnd: 0.5 }, { sp: 1, spin: 1, la: 0, rnd: 0 }, { sp: 0.99, spin: 0.92, la: 0, rnd: 0.2 },
-  { sp: 1, spin: 1, la: 0, rnd: 0 }, { sp: 0.8, spin: 0.6, la: 1, rnd: 1.8 }, { sp: 1, spin: 1, la: 0, rnd: 0 }
+  { sp: 1, spin: 1, la: 0, rnd: 0 }, { sp: 0.8, spin: 0.6, la: 1, rnd: 1.8 }, { sp: 1, spin: 1, la: 0, rnd: 0 },
+  { sp: 0.7, spin: 0.4, la: 3, rnd: 3 }
 ];
 const SHAPES = { draw: { start: 1.8, tilt: -7 }, straight: { start: 0, tilt: 0 }, fade: { start: -1.8, tilt: 7 } };
 const TRAJ = { low: { la: -2.8, spin: 0.86, sp: 0.99 }, mid: { la: 0, spin: 1, sp: 1 }, high: { la: 3, spin: 1.12, sp: 0.98 } };
@@ -1146,7 +1272,7 @@ const aimDir = () => new THREE.Vector3(Math.sin(aimYaw), 0, -Math.cos(aimYaw));
 const rightDir = () => new THREE.Vector3(Math.cos(aimYaw), 0, Math.sin(aimYaw));
 function distToPin(){ return Math.hypot(PIN[0] - ball.p.x, PIN[1] - ball.p.z); }
 function yawTo(x, z){ return Math.atan2(x - ball.p.x, -(z - ball.p.z)); }
-function lieOffset(k){ return [0, -0.024, -0.014, -0.006, 0.001, -0.003, 0, -0.01, 0.001][k]; }
+function lieOffset(k){ return [0, -0.024, -0.014, -0.006, 0.001, -0.003, 0, -0.01, 0.001, -0.03][k]; }
 function placeBallOnGround(){
   const k = classAt(ball.p.x, ball.p.z), gh = groundH(ball.p.x, ball.p.z);
   ball.p.y = gh + R_BALL + (ball.teed ? (CLUBS[clubIdx].type === 'wood' ? 0.03 : 0.006) : lieOffset(k));
@@ -1168,8 +1294,7 @@ function setLie(k){
 }
 function updateHUD(){
   $('bugShot').textContent = (state === 'address' || state === 'swing' || state === 'loading') ? strokes + 1 : Math.max(1, strokes);
-  const tp = strokes - (state === 'holed' || state === 'end' ? PAR : 0);
-  $('bugPar').textContent = state === 'holed' || state === 'end' ? (tp === 0 ? 'E' : (tp > 0 ? '+' + tp : tp)) : 'E';
+  $('bugPar').textContent = fmtPar(roundToPar(state === 'holed' || state === 'end'));
   const k = classAt(ball.p.x, ball.p.z); setLie(k);
   const d = distToPin(), dh = groundH(PIN[0], PIN[1]) - groundH(ball.p.x, ball.p.z);
   if (k === C_GREEN || (k === C_FRINGE && d < 16)){
@@ -1210,20 +1335,40 @@ function newWind(){
   const r = Math.random; windBase = (wx.wind[0] + r() * (wx.wind[1] - wx.wind[0])) * MPH; windYaw = r() * Math.PI * 2; windSpeed = windBase;
   windVec.set(Math.sin(windYaw), 0, -Math.cos(windYaw)).multiplyScalar(windSpeed);
 }
-function startHole(){
-  applyWeather(WEATHER[(Math.random() * WEATHER.length) | 0]);
+let scores = [], holeStats = [];
+function roundToPar(withCurrent){ let t = 0; scores.forEach((n, i) => { t += n - HOLES[i].par; }); if (withCurrent && scores[holeIdx] == null) t += strokes - PAR; return t; }
+function fmtPar(t){ return t === 0 ? 'E' : t > 0 ? '+' + t : '' + t; }
+function beginHole(){
   newWind();
   strokes = 0; roundStats = { drive: 0, fairway: null, gir: false, putts: 0 };
   ball.teed = true; ball.p.set(TEE_SPOT[0], 0, TEE_SPOT[1]); clubIdx = 0; shape = 'straight'; traj = 'mid';
   $('cond').textContent = `${wx.name} · ${wx.temp}°F`; $('introCond').textContent = wx.name;
+  $('bugHole').textContent = HOLE.num; $('bugParTxt').textContent = 'Par ' + PAR; $('bugYds').textContent = HOLE_YDS + ' yds';
   trPts.length = 0; updateTracer();
   prepareShot();
+}
+// rebuild the world for hole i behind a TV-style hole card, then tee off
+function loadHole(i, done){
+  const fade = $('fade');
+  setHole(i);
+  $('hcNum').textContent = HOLE.num; $('hcPar').textContent = `Par ${PAR} · ${HOLE_YDS} yds`; $('hcTitle').textContent = HOLE.title;
+  fade.classList.add('on'); hideStats();
+  const prev = state; state = 'loading';
+  const steps = [() => clearHole(), () => buildInnerGrid(), () => paintCourse(), () => buildTrees(), () => buildTerrain(), () => { buildPin(); buildGreenRead(); }];
+  let k = 0;
+  const run = () => { steps[k++](); if (k < steps.length) setTimeout(run, 16); else { beginHole(); state = done ? 'loading' : 'address'; if (done) done(); setTimeout(() => fade.classList.remove('on'), done ? 0 : 900); } };
+  setTimeout(run, 480);
+}
+function startRound(){
+  applyWeather(WEATHER[(Math.random() * WEATHER.length) | 0]);
+  scores = []; holeStats = [];
+  loadHole(0);
 }
 function prepareShot(){
   hideStats();
   const k = classAt(ball.p.x, ball.p.z); lastLie = k;
   clubIdx = suggestClub();
-  if (ball.teed){ const [fx, fz] = pointAt(232, 2); aimYaw = yawTo(fx, fz); }
+  if (ball.teed){ const [fx, fz] = pointAt(HOLE.teeAim[0], HOLE.teeAim[1]); aimYaw = yawTo(fx, fz); }
   else aimYaw = yawTo(PIN[0], PIN[1]);
   placeBallOnGround();
   ballMesh.position.copy(ball.p); ballMesh.scale.setScalar(1);
@@ -1403,15 +1548,23 @@ function onRest(){
   const total = Math.hypot(ball.p.x - shot.start.x, ball.p.z - shot.start.z);
   if (shot.putt || CLUBS.find(c => c.name === club).type === 'putter') roundStats.putts++;
   if (shot.holed){
+    scores[holeIdx] = strokes; holeStats[holeIdx] = Object.assign({}, roundStats);
     state = 'holed'; updateHUD();
-    callout(scoreName(strokes), strokes === 1 ? 'An ace on the opening hole' : `${strokes} strokes`, 4000);
-    if (k === C_GREEN || shot.putt) {}
+    callout(scoreName(strokes), strokes === 1 ? `An ace on No. ${HOLE.num}` : `${strokes} strokes · ${fmtPar(roundToPar(false))} for the round`, 4000);
     setTimeout(showEnd, 3200);
     return;
   }
   if (strokes === 1){ roundStats.drive = total; roundStats.fairway = k === C_FAIR; }
   if (k === C_GREEN && !roundStats.gir && strokes <= PAR - 2) roundStats.gir = true;
   state = 'result';
+  if (k === C_HAZ){
+    strokes++;
+    const hz = HAZ[0], sDrop = hz.s0 - 7; track(ball.p.x, ball.p.z); const w = hwAt(sDrop) - 2, [dx, dz] = pointAt(sDrop, clamp(T.lat, -w, w));
+    callout('Penalty area', 'One-stroke penalty · drop short of the barranca', 3000);
+    setTimeout(() => { ball.p.set(dx, 0, dz); ball.teed = false; prepareShot(); }, 3000);
+    showShotStats(total);
+    return;
+  }
   if (k === C_OB){
     strokes++;
     callout('Out of bounds', 'Stroke and distance · replay from the previous spot', 3000);
@@ -1442,6 +1595,15 @@ function showShotStats(total){
 }
 function showEnd(){
   state = 'end';
+  const last = holeIdx === HOLES.length - 1;
+  $('endHole').textContent = HOLE.num; $('endEyebrow').textContent = last ? `Round complete · ${fmtPar(roundToPar(false))}` : `Hole ${HOLE.num} complete`;
+  $('againBtn').textContent = last ? 'Play again' : `Tee off on ${HOLES[holeIdx + 1].num}`;
+  $('endFine').textContent = last ? 'New wind and weather each round.' : 'The wind changes on every hole.';
+  const cell = (n, par) => n == null ? '<td>–</td>' : `<td class="${n > par ? 'u' : n < par ? 'd' : ''}">${n}</td>`;
+  const tot = scores.reduce((a, n) => a + (n || 0), 0), parTot = HOLES.slice(0, scores.length).reduce((a, h) => a + h.par, 0);
+  $('scorecard').innerHTML = `<tr><th>Hole</th>${HOLES.map(h => `<th>${h.num}</th>`).join('')}<th>Tot</th></tr>`
+    + `<tr><td>Par</td>${HOLES.map(h => `<td>${h.par}</td>`).join('')}<td>${COURSE_PAR}</td></tr>`
+    + `<tr><td>Score</td>${HOLES.map((h, i) => cell(scores[i], h.par)).join('')}<td class="tot">${tot} <small>(${fmtPar(tot - parTot)})</small></td></tr>`;
   $('endTitle').textContent = scoreName(strokes); $('endStrokes').textContent = strokes; $('endWord').textContent = strokes === 1 ? 'stroke' : 'strokes';
   $('endDrive').textContent = roundStats.drive ? Math.round(roundStats.drive / YD) + ' yds' : '—';
   $('endFG').textContent = `${roundStats.fairway === null ? '—' : roundStats.fairway ? 'Hit' : 'Miss'} · ${roundStats.gir ? 'Yes' : 'No'}`;
@@ -1541,7 +1703,7 @@ addEventListener('keydown', e => {
     if (k === 'w'){ traj = traj === 'low' ? 'mid' : 'high'; updateClubHUD(); } if (k === 's'){ traj = traj === 'high' ? 'mid' : 'low'; updateClubHUD(); }
   }
   if (k === ' '){ ffwd = true; e.preventDefault(); }
-  if (k === 'r' && (state === 'address' || state === 'end')){ $('endCard').classList.add('hidden'); startHole(); }
+  if (k === 'r' && (state === 'address' || state === 'end')){ $('endCard').classList.add('hidden'); startRound(); }
   if (k.startsWith('arrow')) e.preventDefault();
 });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; ffwd = false; });
@@ -1550,7 +1712,7 @@ glCanvas.addEventListener('wheel', e => { if (state === 'address'){ changeClub(e
 $('clubPrev').onclick = () => changeClub(-1); $('clubNext').onclick = () => changeClub(1);
 document.querySelectorAll('#shapeSeg button').forEach(b => b.onclick = () => { shape = b.dataset.v; updateClubHUD(); });
 document.querySelectorAll('#trajSeg button').forEach(b => b.onclick = () => { traj = b.dataset.v; updateClubHUD(); });
-$('againBtn').onclick = () => { $('endCard').classList.add('hidden'); startHole(); };
+$('againBtn').onclick = () => { $('endCard').classList.add('hidden'); if (holeIdx === HOLES.length - 1) startRound(); else loadHole(holeIdx + 1); };
 $('startBtn').onclick = () => { $('intro').classList.add('hidden'); state = 'address'; };
 
 /* ================= SWING OVERLAY ================= */
@@ -1705,18 +1867,10 @@ function frame(now){
 /* ================= BOOT ================= */
 function boot(){
   resize();
-  const steps = [
-    () => buildInnerGrid(),
-    () => paintCourse(),
-    () => { buildChart(); applyWeather(WEATHER[0]); },
-    () => { buildTrees(); },
-    () => { buildTerrain(); buildPin(); buildGrass(); buildGolfer(); buildGreenRead(); },
-    () => { startHole(); state = 'loading'; $('introYds').textContent = HOLE_YDS; $('bugYds').textContent = HOLE_YDS + ' yds';
-            $('startBtn').disabled = false; $('startBtn').textContent = 'Tee off'; $('startBtn').focus(); }
-  ];
-  let i = 0;
-  const run = () => { steps[i++](); if (i < steps.length) setTimeout(run, 16); };
-  requestAnimationFrame(() => setTimeout(run, 30));
+  let yds = 0; for (let i = 0; i < HOLES.length; i++){ setHole(i); yds += HOLE_YDS; }
+  $('introYds').textContent = yds; $('introPar').textContent = `${HOLES.length} · ${COURSE_PAR}`;
+  buildChart(); applyWeather(WEATHER[(Math.random() * WEATHER.length) | 0]); buildGrass(); buildGolfer();
+  requestAnimationFrame(() => loadHole(0, () => { $('startBtn').disabled = false; $('startBtn').textContent = 'Tee off'; $('startBtn').focus(); }));
   requestAnimationFrame(frame);
 }
 $('startBtn').onclick = () => { $('intro').classList.add('hidden'); state = 'address'; placeAddressCam(); };
