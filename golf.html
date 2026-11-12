@@ -149,6 +149,15 @@
   .holecard > div:last-child { padding: 12px 18px; display: flex; flex-direction: column; gap: 6px; justify-content: center; }
   .holecard .eyebrow { font: 600 12px/1 var(--display); letter-spacing: .22em; text-transform: uppercase; color: var(--gold); }
   .hc-title { font: 800 28px/1 var(--display); letter-spacing: .03em; text-transform: uppercase; }
+  .picker { display: flex; flex-direction: column; gap: 7px; }
+  .holes { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+  .holes button { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 7px 0 6px; cursor: pointer; font: 700 18px/1 var(--display); color: var(--paper);
+    background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.16); }
+  .holes button small { font: 600 9px/1 var(--display); letter-spacing: .12em; text-transform: uppercase; color: var(--mist); }
+  .holes button:hover { background: rgba(255,255,255,.1); }
+  .holes button.on { background: var(--gold); border-color: var(--gold); color: var(--navy); }
+  .holes button.on small { color: var(--navy); }
+  .holes button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
   .scorecard { width: 100%; border-collapse: collapse; font: 600 15px/1 var(--display); font-variant-numeric: tabular-nums; text-align: center; }
   .scorecard th, .scorecard td { padding: 7px 6px; border: 1px solid rgba(255,255,255,.1); }
   .scorecard th { font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--mist); font-weight: 600; }
@@ -243,7 +252,7 @@
 <div class="overlay" id="intro">
   <div class="panel">
     <div class="head">
-      <div class="hole" style="font-size:40px">1–3</div>
+      <div class="hole" style="font-size:40px">1–7</div>
       <div class="t"><div class="eyebrow">Pebble Beach Golf Links</div><h1>The Opening Stretch</h1></div>
     </div>
     <div class="body">
@@ -252,7 +261,8 @@
         <div><span class="lbl">Yardage</span><b id="introYds">—</b></div>
         <div><span class="lbl">Conditions</span><b id="introCond" style="font-size:16px;line-height:1.25">—</b></div>
       </div>
-      <p>Play the first three holes in a row: a short par four that bends right around the pines, a par five with a barranca across the fairway, and a dogleg left that turns toward Carmel Bay. Your score carries from hole to hole.</p>
+      <p>The front stretch from the 1st tee to the little 7th on the water: pines and a barranca early, then the cliff-top run along the Pacific. Start on any hole and play on from there; your score carries from hole to hole.</p>
+      <div class="picker"><span class="lbl">Start on hole</span><div class="holes" id="holePick"></div></div>
       <div class="keys">
         <kbd>Drag ↓ then ↑</kbd><span>Hold the left mouse button, pull down to take the club back, then push up through the start point. Backswing length sets power. Drift left or right and the ball goes with it.</span>
         <kbd>A / D</kbd><span>Aim left or right. Tap for small moves, hold to turn faster.</span>
@@ -286,6 +296,7 @@
       <table class="scorecard" id="scorecard"></table>
       <div class="row-btns">
         <button class="btn" id="againBtn">Next hole</button>
+        <button class="btn ghost" id="pickBtn">Choose hole</button>
         <span class="fine" id="endFine">The wind changes on every hole.</span>
       </div>
     </div>
@@ -343,7 +354,45 @@ const HOLES = [
     teeAim: [212, -3], noise: [-260, 420], sea: { x: -300, z: -300, dx: -0.8, dz: -0.6 }, corner: { side: -1, s0: 120, s1: 260 },
     special: [[170,-30,'pine',22],[190,-33,'cypress',13],[205,-29,'pine',21],[155,-34,'pine',19]],
     divots: [180, 250], hazards: [],
-    bunkers(){ fwBunker(198, -21, 9, 4, 0.75); fwBunker(222, -24, 7, 3.5, 0.7); fwBunker(252, 23, 10, 4.5, 0.75); grBunker(-5, 12, 7.5, 3.6, 1.0); grBunker(2, -12.5, 8, 3.5, 0.9); } }
+    bunkers(){ fwBunker(198, -21, 9, 4, 0.75); fwBunker(222, -24, 7, 3.5, 0.7); fwBunker(252, 23, 10, 4.5, 0.75); grBunker(-5, 12, 7.5, 3.6, 1.0); grBunker(2, -12.5, 8, 3.5, 0.9); } },
+  { num: 4, par: 4, title: 'Along the Cliffs',
+    blurb: 'A short par four on the edge of the Pacific. The ocean and the cliff run all the way down the right; pot bunkers wait on the left. The small green is tucked against the bluff.',
+    cl: [[0,8],[0,-80],[2,-170],[6,-250],[9,-300],[11,-330]],
+    hwp: [[0,8],[45,8],[58,14],[180,15],[250,13],[290,11],[330,9]],
+    gc: [10,-304], gu: [3,-50], ga: 11.5, gb: 9.5, pin: [1, -1.5], fairStart: 58, obR: 90, obL: 55, rise: 1,
+    teeAim: [215, -3], noise: [140, 260], sea: { x: 75, z: 0, dx: 1, dz: 0 }, corner: { side: 0 },
+    cliff: { side: 1, lat: [[0,40],[150,36],[250,31],[340,30]] },
+    special: [], divots: [190, 260], hazards: [],
+    bunkers(){ fwBunker(188, -17, 4.5, 3, 0.9); fwBunker(212, -20, 5, 3.2, 0.9); fwBunker(238, -16, 4, 2.8, 0.9); grBunker(-12, -4, 6, 3, 1.0); grBunker(-4, -11, 5.5, 2.8, 0.9); } },
+  { num: 5, par: 3, title: 'The Bluff',
+    blurb: 'A long par three played along the ocean. Anything right finds the Pacific, bunkers guard the left, and the green falls toward the water.',
+    cl: [[0,8],[0,-60],[-4,-140],[-8,-180],[-10,-205]],
+    hwp: [[0,8],[100,8],[120,13],[160,13],[200,9]],
+    gc: [-8,-176], gu: [-4,-40], ga: 12, gb: 9, pin: [1, 1.5], fairStart: 118, obR: 90, obL: 50, rise: 1.5,
+    teeAim: null, noise: [-90, 610], sea: { x: 60, z: 0, dx: 1, dz: 0 }, corner: { side: 0 },
+    cliff: { side: 1, lat: [[0,34],[120,26],[210,23]] },
+    special: [[150,-38,'cypress',12]], divots: [125, 150], hazards: [],
+    bunkers(){ grBunker(-4, -12, 7, 3.4, 1.0); grBunker(6, -11, 6, 3, 0.9); grBunker(13, 2, 5, 2.4, 0.8, 1.5708); } },
+  { num: 6, par: 5, title: 'Up the Hill',
+    blurb: 'A par five that starts along the edge of a cove and then climbs a steep hill to a plateau green. Hug the left off the tee, then decide whether to go up the hill in two.',
+    cl: [[0,8],[0,-90],[-3,-200],[-6,-290],[-6,-360],[-2,-430],[4,-480],[8,-505]],
+    hwp: [[0,8],[60,8],[72,17],[250,18],[320,15],[380,14],[440,12],[500,9]],
+    gc: [5,-482], gu: [6,-50], ga: 12.5, gb: 10, pin: [-1.5, 1], fairStart: 72, obR: 95, obL: 60, rise: 0,
+    elev: [[0,0],[290,0],[325,5],[355,13],[380,15.5],[520,15.5]],
+    teeAim: [250, -4], noise: [520, -300], sea: { x: 80, z: 0, dx: 1, dz: 0 }, corner: { side: 0 },
+    cliff: { side: 1, lat: [[0,38],[150,31],[260,34],[340,48],[520,55]] },
+    special: [[360,-26,'pine',21]], divots: [230, 300], hazards: [],
+    bunkers(){ fwBunker(232, -20, 9, 4, 0.75); fwBunker(345, -17, 8, 3.6, 0.8); grBunker(-6, -12, 7, 3.4, 1.0); grBunker(2, 12, 7, 3.2, 0.9); } },
+  { num: 7, par: 3, title: 'The Little Gem',
+    blurb: 'The shortest hole in championship golf: a wedge straight downhill to a tiny green ringed by sand, with the ocean behind and to the right. Feel the wind and commit.',
+    cl: [[0,8],[0,-50],[-2,-100],[-3,-125]],
+    hwp: [[0,7],[50,7],[62,9],[90,8],[130,7]],
+    gc: [-2,-100], gu: [-2,-46], ga: 9, gb: 7, pin: [0.5, 1], fairStart: 60, obR: 90, obL: 45, rise: 0,
+    elev: [[0,12],[40,9],[85,0.5],[140,0]],
+    teeAim: null, noise: [-640, -80], sea: { x: 45, z: -60, dx: 0.7071, dz: -0.7071 }, corner: { side: 0 },
+    cliff: { side: 1, lat: [[0,30],[70,20],[140,15]] }, cliffEnd: 15,
+    special: [], divots: [70, 85], hazards: [],
+    bunkers(){ grBunker(-8, -6, 4.5, 2.4, 0.9, 0.4); grBunker(-1, -9.5, 5, 2.4, 0.9); grBunker(2, 9, 5, 2.4, 0.9); grBunker(8.5, -3, 4, 2, 0.8, 1.2); grBunker(7, 6, 4, 2, 0.8, -1.1); } }
 ];
 const COURSE_PAR = HOLES.reduce((a, h) => a + h.par, 0);
 let HOLE, holeIdx = 0, SEG = [], HWP, GC, GU, GV, GA, GB, PIN, BUNK = [], HAZ = [], SEA, NOX = 0, NOZ = 0, RISE = 6;
@@ -380,6 +429,14 @@ function grBunker(u, v, a, b, depth, rot){
 }
 let lastBR = 9;
 function bunkR(b, x, z){ const dx = x - b.cx, dz = z - b.cz; const du = dx*b.ux + dz*b.uz, dv = -dx*b.uz + dz*b.ux; return Math.sqrt((du/b.a)*(du/b.a) + (dv/b.b)*(dv/b.b)) + vnoise(x*0.25 + b.cx, z*0.25) * 0.09; }
+function profileAt(P, s){ if (s <= P[0][0]) return P[0][1]; for (let i = 0; i < P.length - 1; i++){ if (s < P[i+1][0]){ const t = (s - P[i][0]) / (P[i+1][0] - P[i][0]); return lerp(P[i][1], P[i+1][1], t*t*(3 - 2*t)); } } return P[P.length-1][1]; }
+// distance past the cliff edge (positive = over the bluff toward the Pacific)
+function cliffC(s, lat){
+  let c = -1e9;
+  if (HOLE.cliff) c = HOLE.cliff.side * lat - profileAt(HOLE.cliff.lat, s);
+  if (HOLE.cliffEnd != null) c = Math.max(c, s - (GREEN_S + HOLE.cliffEnd));
+  return c;
+}
 function setHole(i){
   holeIdx = i; HOLE = HOLES[i]; const h = HOLE;
   SEG = []; { let s = 0; for (let k = 0; k < h.cl.length - 1; k++){ const [x0,z0] = h.cl[k], [x1,z1] = h.cl[k+1]; const dx = x1-x0, dz = z1-z0, L = Math.hypot(dx,dz); SEG.push({x0, z0, dx: dx/L, dz: dz/L, L, s0: s}); s += L; } }
@@ -404,7 +461,7 @@ function setHole(i){
 function baseH(x, z){
   track(x, z); const s = T.s, d = Math.abs(T.lat), hw = hwAt(s);
   const nx = x + NOX, nz = z + NOZ;
-  const rise = RISE * smooth(10, Math.max(60, GREEN_S - 20), s);
+  const rise = HOLE.elev ? profileAt(HOLE.elev, s) : RISE * smooth(10, Math.max(60, GREEN_S - 20), s);
   const ff = smooth(hw + 3, hw + 26, d);
   const big = fbm(nx*0.010 + 3.1, nz*0.010 - 7.7, 3) * 4.2;
   // links rollers: humps and swales that run across the fairway
@@ -430,6 +487,11 @@ function heightAt(x, z){
     const ddx = x - b.cx, ddz = z - b.cz; if (ddx*ddx + ddz*ddz > (b.a + 4)*(b.a + 4)) continue;
     const br = bunkR(b, x, z);
     if (br < 1.6){ const keep = smooth(1.0, 1.25, gr); h -= b.depth * (1 - smooth(0.45, 1.0, br)) * keep; h += 0.28 * Math.exp(-((br - 1.08)/0.13)*((br - 1.08)/0.13)) * keep; }
+  }
+  // sea cliffs: the land falls away in a rocky bluff to the Pacific
+  if (HOLE.cliff || HOLE.cliffEnd != null){
+    track(x, z); const c = cliffC(T.s, T.lat) + vnoise(x*0.09 + NOX, z*0.09) * 2.5;
+    if (c > -2) h = lerp(h, -7 + fbm(x*0.15, z*0.15, 2) * 1.5, smooth(-1, 8, c));
   }
   return h;
 }
@@ -466,12 +528,13 @@ function groundN(x, z, out){
 }
 
 /* ================= SURFACE CLASSES ================= */
-const C_OB = 0, C_DEEP = 1, C_ROUGH = 2, C_CUT = 3, C_FAIR = 4, C_FRINGE = 5, C_GREEN = 6, C_SAND = 7, C_TEE = 8, C_HAZ = 9;
-const CLASS_NAME = ['Out of bounds', 'Deep rough', 'Rough', 'First cut', 'Fairway', 'Fringe', 'Green', 'Bunker', 'Tee', 'Penalty area'];
-let lastHazQ = 9;
+const C_OB = 0, C_DEEP = 1, C_ROUGH = 2, C_CUT = 3, C_FAIR = 4, C_FRINGE = 5, C_GREEN = 6, C_SAND = 7, C_TEE = 8, C_HAZ = 9, C_SEA = 10;
+const CLASS_NAME = ['Out of bounds', 'Deep rough', 'Rough', 'First cut', 'Fairway', 'Fringe', 'Green', 'Bunker', 'Tee', 'Penalty area', 'The Pacific'];
+let lastHazQ = 9, lastCliff = -9;
 function classify(x, z, s, lat, hw){
-  lastBR = 9; lastHazQ = 9;
+  lastBR = 9; lastHazQ = 9; lastCliff = -9;
   if (x < X0 + 0.5 || x > X1 - 0.5 || z < Z0 + 0.5 || z > Z1 - 0.5) return C_OB;
+  if (HOLE.cliff || HOLE.cliffEnd != null){ const c = cliffC(s, lat) + vnoise(x*0.09 + NOX, z*0.09) * 2.5; lastCliff = c; if (c > 0.5) return C_SEA; }
   if (lat > OB_R || lat < -OB_L || z > 34 || s > GREEN_S + 48) return C_OB;
   for (const hz of HAZ){ if (s > hz.s0 && s < hz.s1){ lastHazQ = Math.abs(s - (hz.s0 + hz.s1) / 2) / ((hz.s1 - hz.s0) / 2); return C_HAZ; } }
   for (const b of BUNK){
@@ -498,10 +561,10 @@ function classAt(x, z){
 const COL = {
   fairA: [128,172,74], fairB: [109,153,61], cut: [104,146,58], rough: [86,126,50], deep: [70,101,42],
   greenA: [114,172,76], greenB: [101,160,67], fringe: [102,154,63], sand: [212,198,166], teeA: [126,170,72], teeB: [110,154,62],
-  brush: [82,92,48], water: [58,74,74]
+  brush: [82,92,48], water: [58,74,74], rock: [132,120,102], rockDark: [96,88,78], seabed: [60,72,70]
 };
 let courseCanvas, courseCtx;
-const BUMP = [255, 255, 230, 190, 165, 150, 140, 210, 165, 255]; // texture alpha = how lumpy each surface looks
+const BUMP = [255, 255, 230, 190, 165, 150, 140, 210, 165, 255, 255]; // texture alpha = how lumpy each surface looks
 function paintCourse(){
   courseCanvas = document.createElement('canvas'); courseCanvas.width = TEXW; courseCanvas.height = TEXH;
   courseCtx = courseCanvas.getContext('2d');
@@ -526,6 +589,7 @@ function paintCourse(){
         case C_CUT: col = COL.cut; break;
         case C_ROUGH: { const t = smooth(0, 4, Math.abs(lat) - hw - 2.2); col = [lerp(COL.cut[0], COL.rough[0], t), lerp(COL.cut[1], COL.rough[1], t), lerp(COL.cut[2], COL.rough[2], t)]; m = 1 + vnoise(x*0.9, z*0.9)*0.05; break; }
         case C_SAND: col = COL.sand; m = (lastBR > 0.86 ? lerp(1, 0.86, smooth(0.86, 1, lastBR)) : 1) * (1 + Math.sin((x*0.7071 + z*0.7071) * 18) * 0.012); break;
+        case C_SEA: col = lastCliff < 4 ? COL.rock : lastCliff < 7 ? COL.rockDark : COL.seabed; m = 1 + vnoise(x*0.5, z*0.5)*0.15; break;
         case C_HAZ: col = lastHazQ < 0.18 + vnoise(x*0.3, z*0.3)*0.08 ? COL.water : COL.brush; m = 1 + vnoise(x*0.8, z*0.8)*0.12; break;
         default: col = COL.deep; m = 1 + vnoise(x*0.6, z*0.6)*0.08;
       }
@@ -812,6 +876,7 @@ function buildTrees(){
     let p = smooth(15, 34, margin) * 0.85;
     const cn = HOLE.corner; if (cn.side && lat * cn.side > 0 && s > cn.s0 && s < cn.s1) p = Math.max(p, smooth(10, 20, margin));
     if (HAZ.some(hz => s > hz.s0 - 4 && s < hz.s1 + 4)) continue;
+    if ((HOLE.cliff || HOLE.cliffEnd != null) && cliffC(s, lat) > -10) continue;
     if (s < 30) p *= smooth(14, 26, d);
     if (s > GREEN_S + 8) p = Math.max(p, smooth(26, 40, Math.hypot(x - GC[0], z - GC[1])) * 0.9);
     if (r() > p * 0.42) continue;
@@ -928,7 +993,7 @@ function animateFlag(t){
 }
 
 /* ================= BALL, TEE PEG, GRASS ================= */
-const R_BALL = 0.02134;
+const R_BALL = 0.02134, SEA_Y = -1.0;
 const ballMesh = new THREE.Mesh(new THREE.SphereGeometry(R_BALL, 28, 18), new THREE.MeshStandardMaterial({ color: lin('#fbfbf7'), roughness: 0.32, envMapIntensity: 0.9 }));
 ballMesh.castShadow = true; scene.add(ballMesh);
 const teePeg = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.003, 0.05, 8), new THREE.MeshStandardMaterial({ color: lin('#f2f0ea'), roughness: 0.5 }));
@@ -944,8 +1009,8 @@ function buildGrass(){
   { const c0 = new THREE.Color(0x4f7a2c); for (let i = 0; i < GRASS_N; i++) grass.setColorAt(i, c0); } // create the colour buffer before the first render
   grass.frustumCulled = false; grass.receiveShadow = true; scene.add(grass);
 }
-const GRASS_H = [0.11, 0.1, 0.065, 0.032, 0.014, 0.016, 0, 0, 0.012, 0.14];
-const GRASS_COL = [COL.deep, COL.deep, COL.rough, COL.cut, COL.fairB, COL.fringe, COL.greenA, COL.sand, COL.teeB, COL.brush];
+const GRASS_H = [0.11, 0.1, 0.065, 0.032, 0.014, 0.016, 0, 0, 0.012, 0.14, 0];
+const GRASS_COL = [COL.deep, COL.deep, COL.rough, COL.cut, COL.fairB, COL.fringe, COL.greenA, COL.sand, COL.teeB, COL.brush, COL.rock];
 function placeGrass(cx, cz){
   const r = mulberry((cx * 1000 + cz * 7) | 0), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), p = new THREE.Vector3(), s = new THREE.Vector3(), c = new THREE.Color();
   for (let i = 0; i < GRASS_N; i++){
@@ -1160,7 +1225,7 @@ const ringMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true
 const aimRing = new THREE.Group(); scene.add(aimRing);
 { const r1 = new THREE.Mesh(new THREE.RingGeometry(2.6, 3.0, 64), ringMat); r1.rotation.x = -Math.PI/2; aimRing.add(r1);
   const r2 = new THREE.Mesh(new THREE.CircleGeometry(0.45, 24), ringMat); r2.rotation.x = -Math.PI/2; aimRing.add(r2); aimRing.renderOrder = 9; aimRing.children.forEach(c => c.renderOrder = 9); }
-const aimLineMat = new THREE.LineDashedMaterial({ color: 0xffffff, dashSize: 0.18, gapSize: 0.12, transparent: true, opacity: 0.85, depthTest: false, toneMapped: false, fog: false });
+const aimLineMat = new THREE.LineDashedMaterial({ color: 0x0a0a0a, dashSize: 0.18, gapSize: 0.12, transparent: true, opacity: 0.85, depthTest: false, toneMapped: false, fog: false });
 const PL_MAX = 500;
 const aimLineGeo = new THREE.BufferGeometry().setFromPoints(Array.from({ length: PL_MAX }, () => new THREE.Vector3()));
 const puttEnd = new THREE.Mesh(new THREE.RingGeometry(0.08, 0.11, 32), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, depthTest: false, toneMapped: false, fog: false }));
@@ -1227,14 +1292,15 @@ const SURF = [
   { e: 0.22, fr: 0.46, sk: 1.05, mu: 0.055 }, // green
   { e: 0.04, fr: 0.92, sk: 0.1, mu: 2.2 },  // sand
   { e: 0.34, fr: 0.34, sk: 0.45, mu: 0.21 }, // tee
-  { e: 0.08, fr: 0.85, sk: 0.1, mu: 1.2 }   // penalty area (brush, water)
+  { e: 0.08, fr: 0.85, sk: 0.1, mu: 1.2 },  // penalty area (brush, water)
+  { e: 0.25, fr: 0.5, sk: 0.1, mu: 0.6 }    // cliff rocks / ocean
 ];
 // how the lie changes the strike: speed, spin, launch (deg), random spread (deg)
 const LIE = [
   { sp: 0.85, spin: 0.6, la: 2, rnd: 2 }, { sp: 0.74, spin: 0.45, la: 3, rnd: 2.6 }, { sp: 0.89, spin: 0.55, la: 1.5, rnd: 1.3 },
   { sp: 0.97, spin: 0.85, la: 0.5, rnd: 0.5 }, { sp: 1, spin: 1, la: 0, rnd: 0 }, { sp: 0.99, spin: 0.92, la: 0, rnd: 0.2 },
   { sp: 1, spin: 1, la: 0, rnd: 0 }, { sp: 0.8, spin: 0.6, la: 1, rnd: 1.8 }, { sp: 1, spin: 1, la: 0, rnd: 0 },
-  { sp: 0.7, spin: 0.4, la: 3, rnd: 3 }
+  { sp: 0.7, spin: 0.4, la: 3, rnd: 3 }, { sp: 0.7, spin: 0.4, la: 3, rnd: 3 }
 ];
 const SHAPES = { draw: { start: 1.8, tilt: -7 }, straight: { start: 0, tilt: 0 }, fade: { start: -1.8, tilt: 7 } };
 const TRAJ = { low: { la: -2.8, spin: 0.86, sp: 0.99 }, mid: { la: 0, spin: 1, sp: 1 }, high: { la: 3, spin: 1.12, sp: 0.98 } };
@@ -1272,7 +1338,7 @@ const aimDir = () => new THREE.Vector3(Math.sin(aimYaw), 0, -Math.cos(aimYaw));
 const rightDir = () => new THREE.Vector3(Math.cos(aimYaw), 0, Math.sin(aimYaw));
 function distToPin(){ return Math.hypot(PIN[0] - ball.p.x, PIN[1] - ball.p.z); }
 function yawTo(x, z){ return Math.atan2(x - ball.p.x, -(z - ball.p.z)); }
-function lieOffset(k){ return [0, -0.024, -0.014, -0.006, 0.001, -0.003, 0, -0.01, 0.001, -0.03][k]; }
+function lieOffset(k){ return [0, -0.024, -0.014, -0.006, 0.001, -0.003, 0, -0.01, 0.001, -0.03, 0][k]; }
 function placeBallOnGround(){
   const k = classAt(ball.p.x, ball.p.z), gh = groundH(ball.p.x, ball.p.z);
   ball.p.y = gh + R_BALL + (ball.teed ? (CLUBS[clubIdx].type === 'wood' ? 0.03 : 0.006) : lieOffset(k));
@@ -1280,7 +1346,7 @@ function placeBallOnGround(){
 function suggestClub(){
   const k = classAt(ball.p.x, ball.p.z), d = distToPin();
   if (k === C_GREEN || (k === C_FRINGE && d < 16)) return PUTTER;
-  if (ball.teed) return 0;
+  if (ball.teed && PAR > 3) return 0;
   const dh = groundH(PIN[0], PIN[1]) - groundH(ball.p.x, ball.p.z), plays = d + dh;
   const lsp = LIE[k].sp;
   for (let i = 12; i >= 1; i--){ const [c, t] = chartAt(i, lsp); if (c + (t - c) * 0.4 >= plays * 0.98) return i; }
@@ -1359,16 +1425,23 @@ function loadHole(i, done){
   const run = () => { steps[k++](); if (k < steps.length) setTimeout(run, 16); else { beginHole(); state = done ? 'loading' : 'address'; if (done) done(); setTimeout(() => fade.classList.remove('on'), done ? 0 : 900); } };
   setTimeout(run, 480);
 }
-function startRound(){
+let pickHole = 0, roundStart = 0;
+function startRound(i){
+  roundStart = i || 0;
   applyWeather(WEATHER[(Math.random() * WEATHER.length) | 0]);
   scores = []; holeStats = [];
-  loadHole(0);
+  loadHole(roundStart);
+}
+function buildPicker(){
+  const el = $('holePick');
+  el.innerHTML = HOLES.map((h, i) => `<button type="button" data-i="${i}" class="${i === pickHole ? 'on' : ''}" aria-pressed="${i === pickHole}">${h.num}<small>Par ${h.par}</small></button>`).join('');
+  el.querySelectorAll('button').forEach(b => b.onclick = () => { pickHole = +b.dataset.i; buildPicker(); if (!$('startBtn').disabled) $('startBtn').textContent = `Tee off on ${HOLES[pickHole].num}`; });
 }
 function prepareShot(){
-  hideStats();
+  hideStats(); ball.wet = false;
   const k = classAt(ball.p.x, ball.p.z); lastLie = k;
   clubIdx = suggestClub();
-  if (ball.teed){ const [fx, fz] = pointAt(HOLE.teeAim[0], HOLE.teeAim[1]); aimYaw = yawTo(fx, fz); }
+  if (ball.teed && HOLE.teeAim){ const [fx, fz] = pointAt(HOLE.teeAim[0], HOLE.teeAim[1]); aimYaw = yawTo(fx, fz); }
   else aimYaw = yawTo(PIN[0], PIN[1]);
   placeBallOnGround();
   ballMesh.position.copy(ball.p); ballMesh.scale.setScalar(1);
@@ -1464,6 +1537,7 @@ function stepAir(dt){
   }
   const gh = groundH(ball.p.x, ball.p.z);
   if (ball.p.y - R_BALL <= gh) impact(gh);
+  if (ball.p.y < SEA_Y && groundH(ball.p.x, ball.p.z) < SEA_Y){ ball.mode = 'rest'; ball.wet = true; ball.v.set(0, 0, 0); }
   if (ball.p.y < -50 || Math.abs(ball.p.x) > 4000 || Math.abs(ball.p.z) > 4000){ ball.mode = 'rest'; }
 }
 function impact(gh){
@@ -1509,6 +1583,7 @@ function stepRoll(dt){
   ball.p.y = gh + R_BALL + (ball.v.length() < 0.3 ? lieOffset(k2) : 0);
   const n2 = groundN(ball.p.x, ball.p.z, _nrm), vn = v.dot(n2); v.addScaledVector(n2, -vn);
   if (ball.p.x < X0 - 50 || ball.p.x > X1 + 50 || ball.p.z < Z0 - 50 || ball.p.z > Z1 + 50) ball.mode = 'rest';
+  if (ball.p.y < SEA_Y){ ball.mode = 'rest'; ball.wet = true; ball.v.set(0, 0, 0); }
 }
 // predict the roll for a putt hit at this power along the current aim (same physics as stepRoll)
 const _pv = new THREE.Vector3(), _pg = new THREE.Vector3(), _pn = new THREE.Vector3(), _pb = new THREE.Vector3();
@@ -1557,6 +1632,17 @@ function onRest(){
   if (strokes === 1){ roundStats.drive = total; roundStats.fairway = k === C_FAIR; }
   if (k === C_GREEN && !roundStats.gir && strokes <= PAR - 2) roundStats.gir = true;
   state = 'result';
+  if (k === C_SEA || ball.wet){
+    strokes++; ball.wet = false;
+    // drop on dry land: walk from where it went in toward the hole until we reach grass, then two more metres
+    let x = ball.p.x, z = ball.p.z; const L = Math.max(1, distToPin()), ux = (PIN[0] - x) / L, uz = (PIN[1] - z) / L;
+    for (let i = 0; i < 400; i++){ const c = classAt(x, z); if (c !== C_SEA && c !== C_OB && c !== C_SAND) break; x += ux; z += uz; }
+    x += ux * 2; z += uz * 2;
+    callout('In the Pacific', 'One-stroke penalty · drop on the bluff', 3000);
+    setTimeout(() => { ball.p.set(x, 0, z); ball.teed = false; prepareShot(); }, 3000);
+    showShotStats(total);
+    return;
+  }
   if (k === C_HAZ){
     strokes++;
     const hz = HAZ[0], sDrop = hz.s0 - 7; track(ball.p.x, ball.p.z); const w = hwAt(sDrop) - 2, [dx, dz] = pointAt(sDrop, clamp(T.lat, -w, w));
@@ -1600,7 +1686,7 @@ function showEnd(){
   $('againBtn').textContent = last ? 'Play again' : `Tee off on ${HOLES[holeIdx + 1].num}`;
   $('endFine').textContent = last ? 'New wind and weather each round.' : 'The wind changes on every hole.';
   const cell = (n, par) => n == null ? '<td>–</td>' : `<td class="${n > par ? 'u' : n < par ? 'd' : ''}">${n}</td>`;
-  const tot = scores.reduce((a, n) => a + (n || 0), 0), parTot = HOLES.slice(0, scores.length).reduce((a, h) => a + h.par, 0);
+  const tot = scores.reduce((a, n) => a + (n || 0), 0), parTot = HOLES.reduce((a, h, i) => a + (scores[i] != null ? h.par : 0), 0);
   $('scorecard').innerHTML = `<tr><th>Hole</th>${HOLES.map(h => `<th>${h.num}</th>`).join('')}<th>Tot</th></tr>`
     + `<tr><td>Par</td>${HOLES.map(h => `<td>${h.par}</td>`).join('')}<td>${COURSE_PAR}</td></tr>`
     + `<tr><td>Score</td>${HOLES.map((h, i) => cell(scores[i], h.par)).join('')}<td class="tot">${tot} <small>(${fmtPar(tot - parTot)})</small></td></tr>`;
@@ -1703,7 +1789,7 @@ addEventListener('keydown', e => {
     if (k === 'w'){ traj = traj === 'low' ? 'mid' : 'high'; updateClubHUD(); } if (k === 's'){ traj = traj === 'high' ? 'mid' : 'low'; updateClubHUD(); }
   }
   if (k === ' '){ ffwd = true; e.preventDefault(); }
-  if (k === 'r' && (state === 'address' || state === 'end')){ $('endCard').classList.add('hidden'); startRound(); }
+  if (k === 'r' && (state === 'address' || state === 'end')){ $('endCard').classList.add('hidden'); startRound(roundStart); }
   if (k.startsWith('arrow')) e.preventDefault();
 });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; ffwd = false; });
@@ -1712,8 +1798,8 @@ glCanvas.addEventListener('wheel', e => { if (state === 'address'){ changeClub(e
 $('clubPrev').onclick = () => changeClub(-1); $('clubNext').onclick = () => changeClub(1);
 document.querySelectorAll('#shapeSeg button').forEach(b => b.onclick = () => { shape = b.dataset.v; updateClubHUD(); });
 document.querySelectorAll('#trajSeg button').forEach(b => b.onclick = () => { traj = b.dataset.v; updateClubHUD(); });
-$('againBtn').onclick = () => { $('endCard').classList.add('hidden'); if (holeIdx === HOLES.length - 1) startRound(); else loadHole(holeIdx + 1); };
-$('startBtn').onclick = () => { $('intro').classList.add('hidden'); state = 'address'; };
+$('againBtn').onclick = () => { $('endCard').classList.add('hidden'); if (holeIdx === HOLES.length - 1) startRound(roundStart); else loadHole(holeIdx + 1); };
+$('pickBtn').onclick = () => { $('endCard').classList.add('hidden'); pickHole = roundStart; buildPicker(); $('startBtn').textContent = `Tee off on ${HOLES[pickHole].num}`; $('intro').classList.remove('hidden'); };
 
 /* ================= SWING OVERLAY ================= */
 function drawUI(){
@@ -1772,7 +1858,7 @@ function updateAimMarkers(){
     aimLineGeo.attributes.position.needsUpdate = true; aimLine.computeLineDistances(); aimLineGeo.setDrawRange(0, Math.max(2, n));
     aimLineMat.opacity = live ? 0.95 : 0.5;
     const ex = P.pts[(n - 1) * 2], ez = P.pts[(n - 1) * 2 + 1];
-    puttEnd.position.set(ex, groundH(ex, ez) + 0.01, ez); puttEnd.material.color.set(P.holed ? 0x7dff8a : 0xffffff); puttEnd.material.opacity = live ? 0.95 : 0.5;
+    puttEnd.position.set(ex, groundH(ex, ez) + 0.01, ez); puttEnd.material.color.set(P.holed ? 0x2fd04a : 0x0a0a0a); puttEnd.material.opacity = live ? 0.95 : 0.5;
   }
 }
 
@@ -1848,7 +1934,7 @@ function frame(now){
     if (dcam < 6) ballMesh.scale.setScalar(1);
   }
   if (state === 'result' || state === 'holed'){ camera.position.copy(camPos); camera.lookAt(camLook); }
-  ballMesh.position.copy(ball.p); ballMesh.visible = ball.mode !== 'holed';
+  ballMesh.position.copy(ball.p); ballMesh.visible = ball.mode !== 'holed' && !ball.wet;
   if (flightT > 0 && state !== 'address') trMat.opacity = 0.9;
   tracer.visible = state !== 'address' && state !== 'swing';
   updateTracer();
@@ -1868,12 +1954,16 @@ function frame(now){
 function boot(){
   resize();
   let yds = 0; for (let i = 0; i < HOLES.length; i++){ setHole(i); yds += HOLE_YDS; }
-  $('introYds').textContent = yds; $('introPar').textContent = `${HOLES.length} · ${COURSE_PAR}`;
+  $('introYds').textContent = yds; $('introPar').textContent = `${HOLES.length} · ${COURSE_PAR}`; buildPicker();
   buildChart(); applyWeather(WEATHER[(Math.random() * WEATHER.length) | 0]); buildGrass(); buildGolfer();
-  requestAnimationFrame(() => loadHole(0, () => { $('startBtn').disabled = false; $('startBtn').textContent = 'Tee off'; $('startBtn').focus(); }));
+  requestAnimationFrame(() => loadHole(0, () => { $('startBtn').disabled = false; $('startBtn').textContent = `Tee off on ${HOLES[pickHole].num}`; $('startBtn').focus(); }));
   requestAnimationFrame(frame);
 }
-$('startBtn').onclick = () => { $('intro').classList.add('hidden'); state = 'address'; placeAddressCam(); };
+$('startBtn').onclick = () => {
+  $('intro').classList.add('hidden');
+  if (pickHole !== holeIdx || state === 'end' || scores.length){ startRound(pickHole); return; }
+  roundStart = pickHole; state = 'address'; placeAddressCam();
+};
 boot();
 })();
 </script>
