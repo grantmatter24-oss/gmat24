@@ -27,9 +27,15 @@
   #score { font: 900 clamp(40px, 8vw, 72px)/0.9 var(--display); font-variant-numeric: tabular-nums; text-shadow: 0 2px 0 rgba(11,26,41,.45); }
   #mult { font: 800 clamp(20px, 3.4vw, 30px)/1 var(--display); color: var(--ink); background: var(--jacket); padding: 3px 9px 2px; border-radius: 4px; }
   #combolist { position: absolute; left: max(16px, env(safe-area-inset-left, 0px)); top: 86px; font: 700 13px/1.35 var(--display); letter-spacing: .05em; text-transform: uppercase; color: var(--text); text-shadow: 0 1px 3px rgba(0,0,0,.45); pointer-events: none; }
-  #mp { position: absolute; left: max(16px, env(safe-area-inset-left, 0px)); top: 200px; font: 700 12px/1.4 var(--display); letter-spacing: .05em; text-transform: uppercase; color: var(--text); text-shadow: 0 1px 3px rgba(0,0,0,.5); pointer-events: none; max-width: 46vw; }
-  #mp .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
-  #mp .me { opacity: .75; }
+  #mp { position: absolute; left: max(16px, env(safe-area-inset-left, 0px)); top: 200px; font: 700 12px/1.4 var(--display); letter-spacing: .05em; text-transform: uppercase; color: var(--text); text-shadow: 0 1px 3px rgba(0,0,0,.5); pointer-events: none; min-width: 200px; max-width: 46vw; }
+  #mp .dot { display: inline-block; flex: none; width: 8px; height: 8px; border-radius: 50%; }
+  #mp .h { margin: 8px 0 3px; font-size: 11px; opacity: .8; color: var(--jacket); }
+  #mp .row { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+  #mp .rk { width: 1.6em; opacity: .7; }
+  #mp .nm { overflow: hidden; text-overflow: ellipsis; max-width: 30vw; }
+  #mp .row b { margin-left: auto; padding-left: 12px; font-variant-numeric: tabular-nums; }
+  #mp .me { color: #bfe3ff; }
+  #mp .tip { opacity: .7; margin-top: 2px; }
   #combolist div::before { content: "+ "; color: var(--jacket); }
   #mult.bump { animation: bump .28s ease-out; }
   @keyframes bump { 0% { transform: scale(1.5); } 100% { transform: scale(1); } }
@@ -3684,17 +3690,28 @@ if (location.hash === "#peak" || location.hash === "#alpine" || location.hash ==
 if (!glOK) $("intro").hidden = false;
 if (location.hash === "#peak" || location.hash === "#alpine" || location.hash === "#park" || location.hash === "#drop" || location.hash === "#pipe" || location.hash === "#glade" || location.hash === "#gates" || location.hash === "#heli" || location.hash === "#build") { begin(); if (HELI) setTimeout(() => popup("Heli-Drop", "Jump out, pick a line, survive the face"), 500); if (BLD) setTimeout(() => popup("Snowpark Builder", "Place rails, boxes and kickers, then ride"), 500); if (GL) setTimeout(() => popup("Powder Glades", "Deep snow · trees · natural drops"), 500); if (GT) setTimeout(() => popup("Race Gates", "Hit every gate · miss = +3 s · 6 misses and you're out"), 500); if (HP) setTimeout(() => popup("Mega Pipe", "Huge walls · carve and launch"), 500); if (DROP) setTimeout(() => popup("Big Air", "Wide steep ramp · one huge kicker"), 500); if (PEAK && !HELI) setTimeout(() => popup("Couloir Peak", "Open faces · chutes · cliffs"), 500); if (PARK) setTimeout(() => popup("Village Park", "Main street · rails · kickers"), 500); }
 /* ---------- multiplayer: everyone signed in on the shared link rides the same map together ---------- */
-const MP = { room: null, user: null, remotes: new Map(), sendT: 0, names: {}, myId: null };
+const MP = { room: null, user: null, db: null, isOwner: false, remotes: new Map(), others: [], sendT: 0, myId: null, lb: {}, lbBusy: {}, boardT: 0, boardDirty: true, myBestSent: -1 };
 const MP_KEYS = ["up", "down", "grab", "grabN", "grabI", "grabQ", "grabS", "boost"];
 function mpPack() {
   let k = 0; MP_KEYS.forEach((n, i) => { if (K[n]) k |= 1 << i; });
   const r = v => Math.round(v * 100) / 100;
-  return { v: 1, res: RES, id: MP.myId, play: mode === "play", x: r(sk.x), y: r(sk.y), s: r(sk.s), psi: r(sk.psi), spin: r(sk.spin), sw: !!sk.sw, rot: r(sk.rot), rotV: r(sk.rotV || 0), air: !!sk.air, cr: !!sk.crashed, gr: !!sk.grind, bx: r(sk.boxT || 0), turn: r(sk.turn || 0), carve: r(sk.carve || 0), sp: r(sk.sp || 0), sy: r(sk.slideYaw || 0), k, sc: Math.round(score),
+  return { v: 1, res: RES, id: MP.myId, play: mode === "play", x: r(sk.x), y: r(sk.y), s: r(sk.s), psi: r(sk.psi), spin: r(sk.spin), sw: !!sk.sw, rot: r(sk.rot), rotV: r(sk.rotV || 0), air: !!sk.air, cr: !!sk.crashed, gr: !!sk.grind, bx: r(sk.boxT || 0), turn: r(sk.turn || 0), carve: r(sk.carve || 0), sp: r(sk.sp || 0), sy: r(sk.slideYaw || 0), k, sc: Math.round(score), best: Math.round(best),
     of: { helmet: outfit.helmet, jacket: outfit.jacket, pants: outfit.pants, accessory: outfit.accessory, skis: outfit.skis, poles: outfit.poles } };
 }
 function mpSend(dt) {
+  if (MP.lastSc !== Math.round(score)) { MP.lastSc = Math.round(score); MP.boardDirty = true; }
+  MP.boardT -= dt; if ((MP.room || MP.db) && MP.boardDirty && MP.boardT <= 0) { MP.boardT = 0.3; MP.boardDirty = false; mpNames(); }
+  if (MP.myId && MP.db && Math.round(best) > MP.myBestSent) { MP.myBestSent = Math.round(best); mpSaveBest(MP.myId, RES, MP.myBestSent); }
   if (!MP.room) return; MP.sendT -= dt; if (MP.sendT > 0) return; MP.sendT = 1 / 20;
   MP.room.presence({ st: mpPack() }).catch(() => {});
+}
+/* all-time bests live in db docs lb/<id> = { alpine: 12000, park: 9000, ... }; the owner's page records everyone it rides with */
+function mpSaveBest(id, res, v) {
+  if (!MP.db || !id || !Number.isFinite(v) || v <= 0 || !RESORT_NAMES[res]) return;
+  const old = MP.lb[id] || {}; if ((+old[res] || 0) >= v || MP.lbBusy[id]) return;
+  if (id !== MP.myId && !MP.isOwner) return;
+  MP.lbBusy[id] = true; const doc = Object.assign({}, old, { [res]: Math.round(v) }); MP.lb[id] = doc;
+  MP.db.doc("lb/" + id).set(doc).catch(() => {}).finally(() => { MP.lbBusy[id] = false; });
 }
 function mpRig(of) {
   const of0 = outfit; outfit = Object.assign({}, outfit, of || {});
@@ -3715,10 +3732,14 @@ function mpTagText(tag, txt, col) {
 }
 function mpOfKey(of) { return of ? [of.helmet, of.jacket, of.pants, of.accessory, of.skis, of.poles].join("|") : ""; }
 function mpSync(peers) {
-  const seen = new Set();
+  const seen = new Set(), others = [];
   for (const p of peers) {
     if (p.sameTab || p.kind !== "viewer") continue; const st = p.presence && p.presence.st;
-    if (!st || typeof st !== "object" || st.res !== RES || ![st.x, st.y, st.s].every(Number.isFinite)) continue;
+    if (!st || typeof st !== "object") continue;
+    const by = p.by || (typeof st.id === "string" ? st.id : null);
+    others.push({ peer: p.peer, by, guest: p.guest, isMe: p.isMe, st });
+    if (by && MP.isOwner && Number.isFinite(st.best)) mpSaveBest(by, st.res, st.best);
+    if (st.res !== RES || ![st.x, st.y, st.s].every(Number.isFinite)) continue;
     seen.add(p.peer); let r = MP.remotes.get(p.peer);
     const ofk = mpOfKey(st.of);
     if (r && r.ofk !== ofk) { mpDrop(r); r = null; }
@@ -3726,20 +3747,26 @@ function mpSync(peers) {
     r.st = st; r.by = p.by || (typeof st.id === "string" ? st.id : null); r.guest = p.guest; r.isMe = p.isMe;
   }
   for (const [peer, r] of MP.remotes) if (!seen.has(peer)) { mpDrop(r); MP.remotes.delete(peer); }
-  mpNames();
+  MP.others = others; MP.boardDirty = true;
 }
 async function mpNames() {
   const box = $("mp"); if (!box) return;
-  const ids = [...MP.remotes.values()].map(r => r.by).filter(Boolean); if (MP.myId) ids.push(MP.myId);
-  const ps = MP.user && ids.length ? await MP.user.profiles(ids) : {};
+  const ids = MP.others.map(o => o.by).filter(Boolean).concat(Object.keys(MP.lb)); if (MP.myId) ids.push(MP.myId);
+  const ps = MP.user && ids.length ? await MP.user.profiles([...new Set(ids)]) : {};
+  const nameOf = (id, fb) => (id && ps[id] && ps[id].name) || fb, colOf = id => (id && ps[id] && ps[id].color) || "#ffd27a";
   box.textContent = ""; box.hidden = false;
-  const line = (txt, col, cls) => { const d = document.createElement("div"); if (cls) d.className = cls; const dot = document.createElement("span"); dot.className = "dot"; dot.style.background = col; d.appendChild(dot); d.appendChild(document.createTextNode(txt)); box.appendChild(d); };
-  const meP = MP.myId && ps[MP.myId];
-  line(meP && meP.name ? meP.name + " (you)" : "You", meP ? meP.color : "#8cf", "me");
-  let n = 0;
-  for (const r of MP.remotes.values()) { n++; const pr = r.by && ps[r.by]; const nm = (pr && pr.name) || (r.isMe ? "You (other tab)" : "Rider " + n); r.name = nm; r.col = pr ? pr.color : "#ffd27a"; mpTagText(r.tag, nm, "#fff");
-    line(nm + (r.guest ? " (guest)" : "") + " · " + Math.round(r.st.sc || 0).toLocaleString(), r.col); }
-  if (!n) { const d = document.createElement("div"); d.textContent = "Share this link to ride together"; d.style.opacity = ".7"; box.appendChild(d); }
+  const h = (t) => { const d = document.createElement("div"); d.className = "h"; d.textContent = t; box.appendChild(d); };
+  const row = (rank, txt, pts, col, me) => { const d = document.createElement("div"); d.className = "row" + (me ? " me" : ""); const a = document.createElement("span"); a.className = "rk"; a.textContent = rank; const dot = document.createElement("span"); dot.className = "dot"; dot.style.background = col; const n = document.createElement("span"); n.className = "nm"; n.textContent = txt; const b = document.createElement("b"); b.textContent = pts; d.append(a, dot, n, b); box.appendChild(d); };
+  // riding now: everyone in the lobby, ranked by this run's score
+  const live = [{ by: MP.myId, me: true, res: RES, sc: Math.round(score), best: Math.round(best) }];
+  let n = 0; for (const o of MP.others) { n++; const rr = MP.remotes.get(o.peer); if (rr) mpTagText(rr.tag, nameOf(o.by, o.isMe ? "You (other tab)" : "Rider " + n), "#fff"); live.push({ by: o.by, me: false, res: o.st.res, sc: Math.round(+o.st.sc || 0), best: Math.round(+o.st.best || 0), guest: o.guest, other: o.isMe, fb: o.isMe ? "You (other tab)" : "Rider " + n }); }
+  live.sort((a, b) => b.sc - a.sc);
+  h("Riding now · this run");
+  live.forEach((o, i) => row(i + 1 + ".", (o.me ? nameOf(o.by, "You") + (nameOf(o.by, "") ? " (you)" : "") : nameOf(o.by, o.fb) + (o.guest ? " (guest)" : "")) + (o.res !== RES ? " · " + (RESORT_NAMES[o.res] || "") : ""), o.sc.toLocaleString(), o.me ? (MP.myId ? colOf(MP.myId) : "#8cf") : colOf(o.by), o.me));
+  if (!n) { const d = document.createElement("div"); d.className = "tip"; d.textContent = "Share this link to ride together"; box.appendChild(d); }
+  // all time on this map
+  const at = Object.entries(MP.lb).map(([id, d]) => ({ id, v: Math.round(+(d && d[RES]) || 0) })).filter(e => e.v > 0).sort((a, b) => b.v - a.v).slice(0, 5);
+  if (at.length) { h("All time · " + RESORT_NAMES[RES]); at.forEach((e, i) => row(i + 1 + ".", nameOf(e.id, "Rider") + (e.id === MP.myId ? " (you)" : ""), e.v.toLocaleString(), colOf(e.id), e.id === MP.myId)); }
 }
 function updateRemotes(dt, time) {
   if (!MP.remotes.size) return;
@@ -3768,10 +3795,11 @@ function updateRemotes(dt, time) {
   if (!window.claude || !window.claude.use) return;
   try {
     const [room, user] = await Promise.all([window.claude.use("room"), window.claude.use("user")]);
-    MP.user = user; if (user) MP.myId = await user.id();
-    if (!room) return;
-    const rm = await room.join("ride-" + RES).catch(() => null); if (!rm) return;
-    MP.room = rm; rm.onPeers(ch => mpSync(ch.peers), () => { MP.room = null; });
+    MP.user = user; if (user) { MP.myId = await user.id(); MP.isOwner = await user.isOwner(); }
+    const db = await window.claude.use("db");
+    if (db) { MP.db = db; db.collection("lb").onSnapshot(snap => { const o = {}; for (const d of snap.docs) if (d.exists) o[d.id] = d.data(); MP.lb = o; MP.boardDirty = true; }, () => { MP.db = null; }); }
+    if (!room) { if (db) MP.boardDirty = true; return; }
+    MP.room = room; room.onPeers(ch => mpSync(ch.peers), () => { MP.room = null; });
     mpNames();
   } catch (e) {}
 })();
