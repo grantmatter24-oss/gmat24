@@ -3690,7 +3690,7 @@ if (location.hash === "#peak" || location.hash === "#alpine" || location.hash ==
 if (!glOK) $("intro").hidden = false;
 if (location.hash === "#peak" || location.hash === "#alpine" || location.hash === "#park" || location.hash === "#drop" || location.hash === "#pipe" || location.hash === "#glade" || location.hash === "#gates" || location.hash === "#heli" || location.hash === "#build") { begin(); if (HELI) setTimeout(() => popup("Heli-Drop", "Jump out, pick a line, survive the face"), 500); if (BLD) setTimeout(() => popup("Snowpark Builder", "Place rails, boxes and kickers, then ride"), 500); if (GL) setTimeout(() => popup("Powder Glades", "Deep snow · trees · natural drops"), 500); if (GT) setTimeout(() => popup("Race Gates", "Hit every gate · miss = +3 s · 6 misses and you're out"), 500); if (HP) setTimeout(() => popup("Mega Pipe", "Huge walls · carve and launch"), 500); if (DROP) setTimeout(() => popup("Big Air", "Wide steep ramp · one huge kicker"), 500); if (PEAK && !HELI) setTimeout(() => popup("Couloir Peak", "Open faces · chutes · cliffs"), 500); if (PARK) setTimeout(() => popup("Village Park", "Main street · rails · kickers"), 500); }
 /* ---------- multiplayer: everyone signed in on the shared link rides the same map together ---------- */
-const MP = { room: null, user: null, db: null, isOwner: false, remotes: new Map(), others: [], sendT: 0, myId: null, lb: {}, lbBusy: {}, boardT: 0, boardDirty: true, myBestSent: -1 };
+const MP = { room: null, user: null, db: null, isOwner: false, remotes: new Map(), others: [], sendT: 0, myId: null, lb: {}, lbBusy: {}, boardT: 0, boardDirty: true, myBestSent: -1, status: "connecting…", peerN: 0, presErr: "" };
 const MP_KEYS = ["up", "down", "grab", "grabN", "grabI", "grabQ", "grabS", "boost"];
 function mpPack() {
   let k = 0; MP_KEYS.forEach((n, i) => { if (K[n]) k |= 1 << i; });
@@ -3700,10 +3700,10 @@ function mpPack() {
 }
 function mpSend(dt) {
   if (MP.lastSc !== Math.round(score)) { MP.lastSc = Math.round(score); MP.boardDirty = true; }
-  MP.boardT -= dt; if ((MP.room || MP.db) && MP.boardDirty && MP.boardT <= 0) { MP.boardT = 0.3; MP.boardDirty = false; mpNames(); }
+  MP.boardT -= dt; if (MP.boardDirty && MP.boardT <= 0) { MP.boardT = 0.3; MP.boardDirty = false; mpNames(); }
   if (MP.myId && MP.db && Math.round(best) > MP.myBestSent) { MP.myBestSent = Math.round(best); mpSaveBest(MP.myId, RES, MP.myBestSent); }
   if (!MP.room) return; MP.sendT -= dt; if (MP.sendT > 0) return; MP.sendT = 1 / 20;
-  MP.room.presence({ st: mpPack() }).catch(() => {});
+  MP.room.presence({ st: mpPack() }).then(() => { if (MP.presErr) { MP.presErr = ""; MP.boardDirty = true; } }).catch(e => { const c = (e && (e.code || e.message)) || "error"; if (MP.presErr !== c) { MP.presErr = c; MP.boardDirty = true; } });
 }
 /* all-time bests live in db docs lb/<id> = { alpine: 12000, park: 9000, ... }; the owner's page records everyone it rides with */
 function mpSaveBest(id, res, v) {
@@ -3732,7 +3732,7 @@ function mpTagText(tag, txt, col) {
 }
 function mpOfKey(of) { return of ? [of.helmet, of.jacket, of.pants, of.accessory, of.skis, of.poles].join("|") : ""; }
 function mpSync(peers) {
-  const seen = new Set(), others = [];
+  const seen = new Set(), others = []; MP.peerN = peers.length;
   for (const p of peers) {
     if (p.sameTab || p.kind !== "viewer") continue; const st = p.presence && p.presence.st;
     if (!st || typeof st !== "object") continue;
@@ -3755,6 +3755,8 @@ async function mpNames() {
   const ps = MP.user && ids.length ? await MP.user.profiles([...new Set(ids)]) : {};
   const nameOf = (id, fb) => (id && ps[id] && ps[id].name) || fb, colOf = id => (id && ps[id] && ps[id].color) || "#ffd27a";
   box.textContent = ""; box.hidden = false;
+  { const d = document.createElement("div"); d.className = "tip"; const live = MP.room && MP.room.connected && MP.room.connected();
+    d.textContent = "Lobby: " + (MP.room ? (live ? "connected · " + MP.peerN + " open" : "connecting…") : MP.status) + (MP.presErr ? " · send failed (" + MP.presErr + ")" : ""); box.appendChild(d); }
   const h = (t) => { const d = document.createElement("div"); d.className = "h"; d.textContent = t; box.appendChild(d); };
   const row = (rank, txt, pts, col, me) => { const d = document.createElement("div"); d.className = "row" + (me ? " me" : ""); const a = document.createElement("span"); a.className = "rk"; a.textContent = rank; const dot = document.createElement("span"); dot.className = "dot"; dot.style.background = col; const n = document.createElement("span"); n.className = "nm"; n.textContent = txt; const b = document.createElement("b"); b.textContent = pts; d.append(a, dot, n, b); box.appendChild(d); };
   // riding now: everyone in the lobby, ranked by this run's score
@@ -3792,15 +3794,16 @@ function updateRemotes(dt, time) {
   } finally { sk = sk0; skierRig = R0; outfit = of0; Object.assign(K, k0); }
 }
 (async () => {
-  if (!window.claude || !window.claude.use) return;
+  if (!window.claude || !window.claude.use) { MP.status = "not connected (open the link inside claude.ai)"; return; }
   try {
     const [room, user] = await Promise.all([window.claude.use("room"), window.claude.use("user")]);
     MP.user = user; if (user) { MP.myId = await user.id(); MP.isOwner = await user.isOwner(); }
     const db = await window.claude.use("db");
     if (db) { MP.db = db; db.collection("lb").onSnapshot(snap => { const o = {}; for (const d of snap.docs) if (d.exists) o[d.id] = d.data(); MP.lb = o; MP.boardDirty = true; }, () => { MP.db = null; }); }
-    if (!room) { if (db) MP.boardDirty = true; return; }
-    MP.room = room; room.onPeers(ch => mpSync(ch.peers), () => { MP.room = null; });
+    if (!room) { MP.status = user && !MP.myId ? "not connected (no identity on this page)" : "not connected (the platform did not let this page join)"; MP.boardDirty = true; return; }
+    MP.room = room; room.onPeers(ch => mpSync(ch.peers), e => { MP.room = null; MP.status = "not connected (" + ((e && e.code) || "error") + ")"; MP.boardDirty = true; });
+    room.onConnection(() => { MP.boardDirty = true; }, () => {});
     mpNames();
-  } catch (e) {}
+  } catch (e) { MP.status = "not connected (" + ((e && e.message) || "error") + ")"; MP.boardDirty = true; }
 })();
 </script>
