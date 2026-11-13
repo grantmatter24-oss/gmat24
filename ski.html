@@ -209,7 +209,7 @@
   <div id="combo"><i id="combofill"></i></div>
   <div id="next" hidden></div>
   <div id="prog"><i id="progbar"></i></div>
-  <div id="focuswrap"><span>Slow-mo</span><div class="bar"><i id="focus"></i></div><span>F</span></div>
+  <div id="focuswrap"><span>Slow-mo</span><div class="bar"><i id="focus"></i></div><span>G</span></div>
   <div id="pop"><div class="t"></div><div class="s"></div></div>
   <div id="toast"></div>
   <div id="bld" hidden>
@@ -220,14 +220,14 @@
     <p id="bldhint">Pick a tool and click the snow to place, or use Select and click a piece to resize or change it. W/S or arrows scroll, wheel zooms.</p>
   </div>
   <div id="chg" hidden><i></i></div>
-  <div id="hint">A D steer, spin in the air (flip + spin = cork) &nbsp;·&nbsp; ← → slide sideways in the air, or hop to the next rail off a rail &nbsp;·&nbsp; ↑ ↓ flip, W/S butter on the ground &nbsp;·&nbsp; Hold Space to charge a jump, release to pop · tail grab in the air &nbsp;·&nbsp; Q = japan &nbsp;·&nbsp; E = nose &nbsp;·&nbsp; C = indy &nbsp;·&nbsp; Shift = speed up &nbsp;·&nbsp; J = slow down &nbsp;·&nbsp; F = slow-mo &nbsp;·&nbsp; P = pause</div>
+  <div id="hint">A D steer, spin in the air (flip + spin = cork) &nbsp;·&nbsp; ← → slide sideways in the air, or hop to the next rail off a rail &nbsp;·&nbsp; ↑ ↓ flip, W/S butter on the ground &nbsp;·&nbsp; Hold Space to charge a jump, release to pop · tail grab in the air &nbsp;·&nbsp; Q = japan &nbsp;·&nbsp; E = nose &nbsp;·&nbsp; C = indy &nbsp;·&nbsp; Shift = speed up &nbsp;·&nbsp; J = slow down &nbsp;·&nbsp; F = safety grab &nbsp;·&nbsp; C on a rail = backslide &nbsp;·&nbsp; G = slow-mo &nbsp;·&nbsp; P = pause</div>
   <div id="touch">
     <div class="grp"><button data-k="left">Left</button><button data-k="right">Right</button></div>
-    <div class="grp"><button data-k="up">Front flip</button><button data-k="down">Back / butter</button><button data-k="spin">Spin</button><button data-k="grab">Pop / tail</button><button data-k="grabN">Nose</button><button data-k="grabQ">Japan</button><button data-k="grabI">Indy</button><button data-k="boost">Speed</button><button data-k="brake">Slow</button><button data-k="focus">Focus</button></div>
+    <div class="grp"><button data-k="up">Front flip</button><button data-k="down">Back / butter</button><button data-k="spin">Spin</button><button data-k="grab">Pop / tail</button><button data-k="grabN">Nose</button><button data-k="grabQ">Japan</button><button data-k="grabS">Safety</button><button data-k="grabI">Indy</button><button data-k="boost">Speed</button><button data-k="brake">Slow</button><button data-k="focus">Focus</button></div>
   </div>
   <div id="music" hidden></div>
   <div id="pause" hidden><div class="pcard"><header class="ph"><h2>Paused</h2><div class="pbtn"><button id="homebtn" type="button">Home</button><button id="resume" type="button">Resume ▶</button></div></header><nav id="ptabs" role="tablist" aria-label="Pause menu"></nav><div id="opts"></div><div id="ctrlsrc" hidden><dl>
-<dt>A D or arrows</dt><dd>Steer and carve on the ground</dd><dt>Up / Down</dt><dd>Front flip / back flip in the air. Hold S on the ground for a tail butter (tips up) or W for a nose butter (tails up). While buttering, A and D spin you smoothly instead of turning</dd><dt>A / D in the air</dt><dd>Spin in the air or on a rail. Spin plus flip makes a cork</dd><dt>Space</dt><dd>Jump anywhere. In the air, hold for a tail grab</dd><dt>Q / E / C</dt><dd>Japan grab (skis crossed, body twisted) / nose grab / indy grab. Hold in the air. X is also a nose grab</dd><dt>Shift / J</dt><dd>Speed up / slow down</dd><dt>F</dt><dd>Slow-motion in the air</dd><dt>P</dt><dd>Pause</dd><dt>Combo</dt><dd>Each trick adds ×1 to your multiplier. The bar under the score shows how long you have to land the next one before it resets</dd></dl></div></div></div>
+<dt>A D or arrows</dt><dd>Steer and carve on the ground</dd><dt>Up / Down</dt><dd>Front flip / back flip in the air. Hold S on the ground for a tail butter (tips up) or W for a nose butter (tails up). While buttering, A and D spin you smoothly instead of turning</dd><dt>A / D in the air</dt><dd>Spin in the air or on a rail. Spin plus flip makes a cork</dd><dt>Space</dt><dd>Jump anywhere. In the air, hold for a tail grab</dd><dt>Q / E / C</dt><dd>Japan grab (skis crossed, body twisted) / nose grab / indy grab. Hold in the air. X is also a nose grab</dd><dt>Shift / J</dt><dd>Speed up / slow down</dd><dt>F</dt><dd>Safety grab in the air</dd><dt>C on a rail</dt><dd>Backslide: lean back and kick one ski up while grinding</dd><dt>G</dt><dd>Slow-motion in the air</dd><dt>P</dt><dd>Pause</dd><dt>Combo</dt><dd>Every two tricks you land add ×1 to your multiplier. The bar under the score shows how long you have to land the next one before it resets</dd></dl></div></div></div>
   <div id="end" hidden>
     <div class="card">
       <h1>Run <span>complete</span></h1>
@@ -462,12 +462,10 @@ function flightD(L, Hh, v0, roof) { // where a nominal flight from the lip comes
 const WIDE_GAPF = 0.62;
 function wideGap(L, H, q) { const vin = 22.5 + 2.5 * q, vL = Math.sqrt(Math.max(vin * vin - 2 * G * H * 1.15, 64)); return WIDE_GAPF * flightD(L, H, vL).d; }
 function mkKicker(s0, kind, cx, hw, diff, sc, tall) {
-  sc = sc || 1; if (WIDE && tall) { tall = false; kind = 4; } const q = WIDE ? clamp(s0 / COURSE_END, 0, 1) : 0; // jumps grow toward the bottom of Evergreen Run
+  sc = sc || 1; if (WIDE && tall) { tall = false; kind = 2; } const q = WIDE ? clamp(s0 / COURSE_END, 0, 1) : 0; // jumps grow toward the bottom of Evergreen Run
   const T = [[8, 1.5, 0.15, 22, 0.5, 10, 32, "Small kicker"], [11, 2, 0.17, 26, 0.55, 18, 50, "Kicker"], [14, 2, 0.2, 30, 0.6, 28, 80, "Big air"], [14, 2, 0.22, 30, 0.33, 18, 55, "Gap jump"], [18, 2, 0.28, 36, 0.6, 50, 140, "Mega air"]][kind];
-  let L = (T[0] + rng() * T[1]) * (sc < 1 ? 0.8 : 1) * 1.1 * (1 + 0.45 * q) * (WIDE ? 1.25 : 1) * (WIDE && kind >= 2 ? 1.12 : 1); const ratio = (T[2] + rng() * 0.02) * (kind < 4 ? 1.55 : 1.25) * (tall ? 1.55 : 1) * (1 + 0.5 * q) * (WIDE ? 1.25 : 1) * (WIDE && kind >= 2 ? 1.05 : 1), v0 = T[3] + 2 - (tall ? 3 : 0) + 5 * q + (WIDE && kind >= 2 ? 4 : 0);
-  let Hh = L * ratio * (kind < 3 ? 1 + 0.1 * diff : 1);
-  if (WIDE && kind !== 3) { const cap = kind >= 2 ? 6.2 + 1.6 * q : 4.4 + q; if (Hh > cap) Hh = cap; L = Math.min(L, Hh * 3.5); } // Evergreen: sized to the speed you arrive with, steep enough to pop
-  const fd = flightD(L, Hh, v0);
+  const L = (T[0] + rng() * T[1]) * (sc < 1 ? 0.8 : 1) * 1.1 * (1 + 0.45 * q) * (WIDE ? 1.25 : 1), ratio = (T[2] + rng() * 0.02) * (kind < 4 ? 1.55 : 1.25) * (tall ? 1.55 : 1) * (1 + 0.5 * q) * (WIDE ? 1.25 : 1), v0 = T[3] + 2 - (tall ? 3 : 0) + 5 * q;
+  const Hh = Math.min(L * ratio * (kind < 3 ? 1 + 0.1 * diff : 1), WIDE ? 6 + 4 * q : 1e9), fd = flightD(L, Hh, v0); // Evergreen: normal park-sized jumps
   const gap = kind === 3 ? clamp(T[4] * fd.d * sc, T[5] * sc, T[6] * sc * 1.3) : clamp(WIDE ? wideGap(L, Hh, q) * sc : 0.35 * fd.d * sc, 6, 48 * (1 + q)), Ll = kind === 3 ? clamp(gap * 0.8 + 10, 18, 60) : clamp((0.9 + 0.35 * q) * fd.d * sc, 24, 70 * (1 + 1.3 * q));
   const Hl = clamp((fd.tanA - BASE) * 0.5 * Ll / 1.5, 0.8, 7 + 4 * q), pit = kind === 3 ? 3.6 : 0;
   const hwK = (kind < 4 ? hw * (PEAK ? 1.7 : 1.3) : hw) * (1 + 0.8 * q);
@@ -513,7 +511,7 @@ function partOff(p, x, s) {
   // table landing: the deck beside the kicker rolls up smoothly from the approach and its sides slope away, no flat walls
   const SE = clamp(p.H * 0.55, 1.4, 4); // side wall run-out of kicker and table
   const tabB = !p.up && !p.pit && !p.whale && !GL && !PEAK && !p.lin && p.Ll > 8 && s > lip ? (() => { const Hd = p.H * 0.88, kn = lip + p.gap, LW = Math.max(p.hw, Math.min(p.lhw, p.hw * 1.55)), dw = s < kn ? p.hw : lerp(p.hw, LW, smooth((s - kn) / (0.35 * p.Ll))), wallSide = p.qp && (x - p.cx) * p.qp > 0;
-    const ax = Math.abs(x - p.cx), lat = wallSide ? 1 : 1 - smooth((ax - dw) / SE); if (lat <= 0 || s > kn + p.Ll) return 0; const u3 = (s - kn) / p.Ll;
+    const ax = Math.abs(x - p.cx), lat = wallSide && ax < p.lhw ? 1 : 1 - smooth((ax - dw) / SE); if (lat <= 0 || s > kn + p.Ll) return 0; const u3 = (s - kn) / p.Ll;
     let y = Hd * lat * (u3 < 0 ? 1 : 1 - landProf(u3 / 0.62));
     if (wallSide) { const R = 5.5, u = (x - p.cx) * p.qp - (p.lhw - 1.5), env = smooth((s - lip - p.gap * 0.2) / 10) * (1 - smooth((s - (kn + p.Ll - 10)) / 10)); if (u > 0 && env > 0) y += env * (u < R * 0.985 ? R - Math.sqrt(R * R - u * u) : R + (u - R) * 0.04); }
     return y; })() : 0;
@@ -585,7 +583,7 @@ function addMicro() {
     if (i % 2 === 1) { const rs0 = k.s0 + k.L + k.gap + k.Ll * 0.1; f.rail = { s0: rs0, s1: rs0 + Math.min(k.Ll * 0.72, 36), x: (rng() - 0.5) * 1.2 }; f.label += " + rail"; } }
   if (PK) f.rail = null;
   upgradeRails(f);
-  if (!PK && !PARK && t !== 2 && rng() < 0.75) sideHouse(f, rng() < 0.5 ? -1 : 1, genS + 4 + rng() * 6, 0);
+  if (!PK && !PARK && !WIDE && t !== 2 && rng() < 0.75) sideHouse(f, rng() < 0.5 ? -1 : 1, genS + 4 + rng() * 6, 0);
   fixLandings(f);
   f.end = Math.max(...f.parts.map(p => p.end), ...railsOf(f).map(r => r.s1), f.rail ? f.rail.s1 : 0);
   const last = pcs[pcs.length - 1], a = f.s0 - 14, px = clamp(last.x + (rng() - 0.5) * 2 * Math.min(8, 0.35 * Math.max(8, a - last.b)), -30, 30);
@@ -616,8 +614,8 @@ function sideHouse(f, sd, sBase, x0) { // lodge beside the piste: kicker up to t
 function qpWallAt(x, s) { for (const f of sectionsAt(s, 0)) for (const p of f.parts) if (p.qp) { const lip = p.s0 + p.L; if (s > lip + p.gap * 0.2 && s < lip + p.gap + p.Ll && (x - p.cx) * p.qp > p.lhw - 4.5) return p.qp; } return 0; }
 function fixLandings(f) { // a wide landing must not run into side kickers or cabins
   for (const p of f.parts) if (p.type === "kicker" && !p.side) for (const q of f.parts) if (q !== p && (q.type === "kicker" || q.type === "box") && q.hw) { const l2 = Math.max(p.hw, Math.abs(q.cx - p.cx) - q.hw - 1); if (l2 < p.lhw) { p.lhw = l2; p.squeeze = Math.sign(q.cx - p.cx) || 1; } }
-  if (WIDE) for (const p of f.parts) if (p.type === "kicker" && !p.side && !p.up && !p.pit && !p.whale && p.squeeze) { // squeezed landing: bigger jump, quarterpipe wall on the open side
-    const end0 = p.end; p.L *= 1.15; p.H = Math.min(p.H * 1.12, 7.5); p.L = Math.min(p.L, p.H * 3.5); const fd = flightD(p.L, p.H, 20); p.gap = clamp(wideGap(p.L, p.H, clamp(p.s0 / COURSE_END, 0, 1)), 6, 52); p.Ll = clamp(1.6 * fd.d, 60, 110); p.end = p.s0 + p.L + p.gap + p.Ll; p.qp = -p.squeeze; p.label = "Kicker · quarterpipe landing"; }
+  if (false && WIDE) for (const p of f.parts) if (p.type === "kicker" && !p.side && !p.up && !p.pit && !p.whale && p.squeeze) { // squeezed landing: bigger jump, quarterpipe wall on the open side
+    const end0 = p.end; p.L *= 1.2; p.H *= 1.3; const fd = flightD(p.L, p.H, Math.sqrt(Math.max(p.v0 * p.v0 - 2 * G * p.H * 0.85, p.v0 * p.v0 * 0.25))); p.gap = clamp(0.42 * clamp(1 - (p.H - 9) * 0.065, 0.32, 1) * fd.d, 6, 52); p.Ll = clamp(1.05 * fd.d, 30, 110); p.end = p.s0 + p.L + p.gap + p.Ll; p.qp = -p.squeeze; p.label = "Kicker · quarterpipe landing"; }
 }
 function houseSection(f, diff) {
   const B = 4.2 + rng() * 1.4, hw = 5.6 + rng() * 0.8, cx = 0, ramp = Math.floor(secCount / 6) % 2 === 1, walls = WALLS;
@@ -705,29 +703,29 @@ function addSection() {
     cliffs.push({ s: cs, D, w, pre: last ? last.pre + last.D : 0 });
     f.cliff = { s: cs, D, w }; f.label = (HELI ? ["TITAN DROP", "WIDOWMAKER", "THE ANVIL", "RAVEN FACE", "BLACK TOOTH", "THE GUILLOTINE"][cliffs.length % 6] : "GIANT CLIFF") + " · " + Math.round(D); f.boost = { s0: genS - 24, s1: genS - 18, cx: 0, hw: 1.5, amt: 9 }; f.cliffEnd = cs + w + 44;
   } else if (!PK && !PARK && i % 6 === 5) {
-    f.parts.push(mkKicker(genS, 4, 0, 8.5, diff)); f.label = "MEGA AIR · commit to it";
+    f.parts.push(mkKicker(genS, WIDE ? 2 : 4, 0, WIDE ? 6.5 : 8.5, diff)); f.label = WIDE ? "Big air" : "MEGA AIR · commit to it";
     f.boost = { s0: genS - 30, s1: genS - 23, cx: 0, hw: 1.7, amt: 18 };
     f.mainCx = 0;
-  } else if (!PK && !PARK && i % 6 === 2) {
+  } else if (!PK && !PARK && !WIDE && i % 6 === 2) {
     houseSection(f, diff);
   } else if (pick < 0.012) {
     f.parts.push(mkKicker(genS, 3, 0, PISTE - 1.5, diff)); f.label = "Gap jump · hold Shift for speed";
     f.boost = { s0: genS - 26, s1: genS - 20, cx: 0, hw: 1.6, amt: 12 };
-  } else if (pick < 0.2) {
+  } else if (pick < (WIDE ? 0.07 : 0.2)) {
     let n = 4 + Math.floor(rng() * 3), sp = 7 + rng() * 2;
     if (WIDE) { n = 2 + Math.floor(rng() * 2); sp = 24 + rng() * 10; } f.parts.push({ type: "rollers", s0: genS, n, sp, amp: 0.5 + rng() * 0.35 + diff * 0.15, cx: 0, hw: WIDE ? 12 : 80, end: genS + n * sp }); f.label = "Rollers";
   } else {
     const kp = (pick - 0.2) / 0.8, pS = 0.36 - 0.22 * diff, kind = kp < 0.4 ? 1 : 2;
     const cx = (rng() - 0.5) * 3, hw = 3.8 + rng() * 1.8;
     const k = mkKicker(genS, kind, cx, hw, diff, 1, kind > 0 && secCount > 2 && rng() < 0.2); f.parts.push(k); f.label = k.label; f.mainCx = cx;
-    if (WIDE && kind > 0 && !k.pit && secCount > 3 && rng() < 0.3) { k.up = k.H + 1.2 + 1.5 * (genS / COURSE_END); k.Hl = 0; k.gap = clamp(k.gap * 0.35, 5, 10); k.end = k.s0 + k.L + k.gap + k.Ll; k.label = f.label = "Step-up"; }
+    if (false && WIDE && kind > 0 && !k.pit && secCount > 3 && rng() < 0.3) { k.up = k.H + 1.2 + 1.5 * (genS / COURSE_END); k.Hl = 0; k.gap = clamp(k.gap * 0.35, 5, 10); k.end = k.s0 + k.L + k.gap + k.Ll; k.label = f.label = "Step-up"; }
     if (kind > 0 && rng() < 0.28) { const rs0 = k.s0 + k.L + k.gap + k.Ll * 0.1; f.rail = { s0: rs0, s1: rs0 + Math.min(k.Ll * 0.72, 36), x: cx + (rng() - 0.5) * 1.2 }; f.label += " + rail"; }
     if (kind > 0 && rng() < 0.7) f.boost = { s0: genS - 22, s1: genS - 16, cx, hw: 1.4 };
     const nSide = rng() < 0.9 ? (rng() < 0.45 ? 2 : 1) : 0, sides = rng() < 0.5 ? [-1, 1] : [1, -1];
     let houseDone = false;
     for (let q = 0; q < nSide; q++) {
       const sd = sides[q], scx = sd * (10.8 + rng() * 0.8) * (PEAK ? 1.7 : 1.3);
-      if (!PK && !houseDone && rng() < (WIDE ? 0.3 : 0.85)) { houseDone = true; sideHouse(f, sd, genS + rng() * 8, 0); }
+      if (!PK && !houseDone && !WIDE && rng() < 0.85) { houseDone = true; sideHouse(f, sd, genS + rng() * 8, 0); }
       else if (WIDE) continue;
       else if (PK || rng() < 0.6) { const sp2 = mkKicker(genS + rng() * 14, 1, scx, 3.0 + rng() * 0.5, diff); sp2.side = true; sp2.rocky = rng() < 0.55; f.parts.push(sp2); f.label += sp2.rocky ? " + rock kicker" : " + side kicker"; }
       else { const s0b = genS + rng() * 12, len = 9 + rng() * 5; f.parts.push({ type: "box", s0: s0b, len, end: s0b + len, B: 0.7, cx: scx, hw: 2.1 }); f.label += " + jib box"; }
@@ -750,31 +748,15 @@ function addSection() {
     };
     const free = (cx, hwid, s0, s1) => { const x0 = cx - hwid, x1 = cx + hwid; for (const q of f.parts) { if (q.type === "rollers") continue; const a = fp(q); if (x1 > a[0] - 3 && x0 < a[1] + 3 && s1 > a[2] - 6 && s0 < a[3] + 6) return false; } for (const r of railsOf(f)) if (x1 > r.x - 5 && x0 < r.x + 5 && s1 > r.s0 - 20 && s0 < r.s1 + 6) return false; return true; };
     const cand = [-1, 1].sort(() => rng() - 0.5);
-    if ((f.parts.length || f.rail) && !f.parts.some(p => p.side || p.house || p.type === "hip") && rng() < 0.95) { // wide, straight whale-tail jumps on the open sides, never crossing another jump
+    if ((f.parts.length || f.rail) && !f.parts.some(p => p.side || p.house || p.type === "hip") && rng() < 0.95) { // normal side kickers on the open sides, never crossing another jump
       for (const sd of cand) {
-        const ss = f.s0 + 4 + rng() * 20, sp2 = mkKicker(ss, rng() < 0.75 ? 4 : 2, px + sd * 27, 7.5, diff);
-        sp2.hw = Math.min(sp2.hw, 12); sp2.lhw = Math.min(Math.max(sp2.lhw, sp2.hw * 1.1), 13.5); sp2.H *= 1.15; sp2.cx = px + sd * 27; sp2.side = true; sp2.whale = true; sp2.label = "Whale tail";
-        if (free(sp2.cx, sp2.lhw, sp2.s0, sp2.end)) { f.parts.push(sp2); f.end = Math.max(f.end, sp2.end); f.label += " + Whale tail";
+        const ss = f.s0 + 4 + rng() * 20, sp2 = mkKicker(ss, rng() < 0.5 ? 2 : 1, px + sd * 27, 4.5 + rng(), diff);
+        sp2.lhw = Math.min(Math.max(sp2.lhw, sp2.hw * 1.6), 13.5); sp2.cx = px + sd * 27; sp2.side = true; sp2.label = "Side kicker";
+        if (free(sp2.cx, sp2.lhw, sp2.s0, sp2.end)) { f.parts.push(sp2); f.end = Math.max(f.end, sp2.end); f.label += " + side kicker";
           const sd2 = -sd, o2 = rng();
-          if (o2 < 0.6) { const k2 = mkKicker(f.s0 + 6 + rng() * 26, 2, px + sd2 * 27, 6, diff); k2.hw = Math.min(k2.hw, 10); k2.lhw = Math.min(Math.max(k2.lhw, k2.hw * 1.1), 12.5); k2.cx = px + sd2 * 27; k2.side = true; k2.whale = true; if (free(k2.cx, k2.lhw, k2.s0, k2.end)) { f.parts.push(k2); f.end = Math.max(f.end, k2.end); } }
+          if (o2 < 0.6) { const k2 = mkKicker(f.s0 + 6 + rng() * 26, 1, px + sd2 * 27, 4.5 + rng(), diff); k2.lhw = Math.min(Math.max(k2.lhw, k2.hw * 1.6), 12.5); k2.cx = px + sd2 * 27; k2.side = true; if (free(k2.cx, k2.lhw, k2.s0, k2.end)) { f.parts.push(k2); f.end = Math.max(f.end, k2.end); } }
           else { const bs = f.s0 + 10 + rng() * 40; if (free(px + sd2 * 27, 3, bs, bs + 16)) { f.parts.push({ type: "box", s0: bs, len: 16, end: bs + 16, B: 0.75, cx: px + sd2 * 27, hw: 1.9 }); f.end = Math.max(f.end, bs + 16); } }
           break; }
-      }
-    }
-    // more to do: free-standing rails, boxes and small kickers in the empty space beside the big jumps, never touching them
-    const lipFor = r => { const h = r.h, L = clamp(h * 5.5, 8, 22); return { type: "railramp", deck: true, s0: r.s0 - 0.9 - L, L, H: h + 0.15 - BASE * 0.9, cx: r.x, hw: 2.7, end: r.s0 }; };
-    const s0f = f.s0 - 10, s1f = Math.max(f.end, f.s0 + 90), want = 2 + (rng() < 0.5 ? 1 : 0); let got = 0;
-    for (let tries = 0; tries < 40 && got < want; tries++) {
-      const x = px + (rng() - 0.5) * 2 * (PISTE - 6), ss = s0f + rng() * (s1f - s0f - 30), t = rng();
-      if (t < 0.45) { // rail with its own lip
-        const len = 22 + rng() * 12, down = rng() < 0.4, r = { s0: ss + 20, s1: ss + 20 + len, x, h: down ? 2.4 : 1.6, h1: down ? 1.0 : undefined, fixedLen: true, noRamp: true }, lp = lipFor(r);
-        if (!free(x, 3, lp.s0 - 2, r.s1 + 4)) continue; f.rail2 = [...(f.rail2 || []), r]; f.parts.push(lp); f.end = Math.max(f.end, r.s1 + 3); got++; f.label += down ? " + down rail" : " + rail";
-      } else if (t < 0.7) { // box
-        const len = 14 + rng() * 6, b = { type: "box", s0: ss + 6, len, end: ss + 6 + len, B: 0.75, cx: x, hw: 1.9 };
-        if (!free(x, 3, b.s0 - 6, b.end + 4)) continue; f.parts.push(b); f.end = Math.max(f.end, b.end); got++; f.label += " + box";
-      } else { // small kicker with its own landing
-        const k2 = mkKicker(ss, 1, x, 3.2 + rng() * 0.6, diff); k2.side = true; k2.lhw = Math.min(Math.max(k2.lhw, k2.hw * 1.3), 7);
-        if (!free(x, k2.lhw, k2.s0 - 4, k2.end + 4)) continue; f.parts.push(k2); f.end = Math.max(f.end, k2.end); got++; f.label += " + small kicker";
       }
     }
   }
@@ -783,8 +765,7 @@ function addSection() {
   else flankRocks(f);
   feats.push(f); regRocks(f);
   const a = f.s0 - 34, prevEnd = knots[knots.length - 1].s, gapLen = a - prevEnd;
-  const bigIn = WIDE && f.parts[0] && f.parts[0].type === "kicker" && /Big|Mega/.test(f.parts[0].label);
-  if (i > 0 && gapLen > 20) { const v = bigIn ? 0.56 : HELI ? [1.0, 1.1, 1.25, 1.05, 1.15][Math.floor(rng() * 5)] : (PARK && (i % 7 === 3 || i % 7 === 6)) ? 0.5 : (i % 6 === 3 || i % 6 === 5) ? 0.44 : [0.14, 0.2, 0.2, 0.36, 0.44, 0.5][Math.floor(rng() * 6)]; addKnot(prevEnd + gapLen * 0.3, v); addKnot(prevEnd + gapLen * 0.7, v); }
+  if (i > 0 && gapLen > 20) { const v = HELI ? [1.0, 1.1, 1.25, 1.05, 1.15][Math.floor(rng() * 5)] : (PARK && (i % 7 === 3 || i % 7 === 6)) ? 0.5 : (i % 6 === 3 || i % 6 === 5) ? 0.44 : [0.14, 0.2, 0.2, 0.36, 0.44, 0.5][Math.floor(rng() * 6)]; addKnot(prevEnd + gapLen * 0.3, v); addKnot(prevEnd + gapLen * 0.7, v); }
   if (DROP) { const ls = DLIP + 50, kk = f.parts[0]; addKnot(a, BASE); addKnot(ls - 8, BASE); addKnot(ls + 8, BASE + 0.3); addKnot(ls + kk.Ll, BASE + 0.3); addKnot(ls + kk.Ll + kk.Tr, 0.04); } else { addKnot(a, BASE); if (PARK && f.railLine) { const k = f.end + 2; f.drop = { k, L: DROP_L }; addKnot(k, BASE); addKnot(k + 5, DROP_G); addKnot(k + DROP_L, DROP_G); addKnot(k + DROP_L + 10, BASE); } else addKnot(f.end + 10, BASE); } // Village Park: a knuckle and a steep landing after every rail line
   pcs.push({ a, b: f.end + 10, x: px, jump: !f.cliff || DROP });
   if (DROP) { genS = 1e9; return f; }
@@ -865,7 +846,7 @@ function stumble(t) {
   sk.sp *= 0.7; sk.vx *= 0.6; sk.vs *= 0.7;
   const dx = sk.x - t.x, ds = sk.s - t.s, d = Math.hypot(dx, ds) || 1, r = (t.rr || 0.3 * t.sc + 0.2) + 0.05; sk.x = t.x + dx / d * r; sk.s = Math.max(sk.s, t.s + ds / d * r);
   if (!sk.air) sk.psi += (dx >= 0 ? 1 : -1) * 0.45;
-  mult = 1; comboList = []; showCombo();
+  mult = 1; trickN = 0; comboList = []; showCombo();
   popup(t.name || "Clipped a tree", "Lost your balance", true); sfx("crash"); shake = 0.45;
   if (!t.name) spray(t.x, t.y + 2.5 * t.sc, t.s, 26, 2);
 }
@@ -1051,13 +1032,13 @@ function boxAt(x, s) {
 /* =====================================================================
    PHYSICS
    ===================================================================== */
-const K = { left: 0, right: 0, up: 0, down: 0, spinL: 0, spinR: 0, grab: 0, grabN: 0, grabI: 0, grabQ: 0, grabE: 0, focus: 0, boost: 0, brake: 0 };
+const K = { left: 0, right: 0, up: 0, down: 0, spinL: 0, spinR: 0, grab: 0, grabN: 0, grabI: 0, grabQ: 0, grabS: 0, grabE: 0, focus: 0, boost: 0, brake: 0 };
 let popReq = false, popPow = 1, charging = false, chargeT = 0;
 const chgEl = () => $("chg");
 function gDown() { if (!charging && sk && mode === "play" && !paused && !sk.air && !(sk.stumT > 0) && !sk.crashed && !sk.finished && !sk.bike) { charging = true; chargeT = 0; } }
 function gUp() { if (charging) { charging = false; popPow = Math.max(0.3, Math.min(1, chargeT / 0.5)); popReq = true; chargeT = 0; } }
 const GRABS = ["Mute", "Indy", "Tail", "Melon", "Nose", "Stalefish"];
-let scoreMarks = [], runBest0 = 0;
+let scoreMarks = [], runBest0 = 0, trickN = 0;
 let comboT = 0, focus = 1, timeScale = 1, mode = "title", score = 0, mult = 1, best = 0, rings = 0, boostPulse = 0, shake = 0, lastCheck = null;
 best = store.get("kb-score-" + RES, 0);
 let bestTime = store.get("kb-time-" + RES, 0), endNewBest = false;
@@ -1080,7 +1061,8 @@ function toast(text) { const el = $("toast"); el.textContent = text; el.classLis
 
 const SPIN_NAMES = { 1: "180", 2: "360", 3: "540", 4: "720", 5: "900", 6: "1080", 7: "1260", 8: "1440" };
 function trickInfo() {
-  const flips = Math.floor((Math.abs(sk.flipAcc) + 1.0) / TAU), names = [], back = sk.flipAcc >= 0;
+  const nB = Math.floor(((sk.flipB || 0) + 1.0) / TAU), nF = Math.floor(((sk.flipF || 0) + 1.0) / TAU), flips = nB && nF ? nB + nF : Math.floor((Math.abs(sk.flipAcc) + 1.0) / TAU), names = [], back = sk.flipAcc >= 0;
+  if (nB && nF) { const cnt = n => (["", "", "Double ", "Triple "][Math.min(n, 3)]); names.push(cnt(nB) + "Backflip + " + cnt(nF) + "Frontflip"); const halves2 = Math.round(Math.abs(sk.spin) / Math.PI); if (halves2) names.push(halves2 * 180 + ""); const grab2 = sk.grabT > 0.3; if (grab2) names.push((sk.grabKind || "Tail") + " grab"); return { flips, halves: halves2, grab: grab2, label: names.join(" + ") }; }
   const halves = Math.round(Math.abs(sk.spin) / Math.PI), deg = halves * 180;
   if (flips > 0 && halves > 0) { // off-axis spins get proper names
     const pre = flips >= 3 ? "Triple Cork " : flips === 2 ? "Double Cork " : halves % 2 === 1 ? (back ? "Rodeo " : "Misty ") : "Cork ";
@@ -1099,7 +1081,7 @@ function payout(pts, label, perfect, isTrick, cork) {
   pts = Math.round(pts / 10) * 10; if (typeof prog !== "undefined") { prog.maxScore = Math.max(prog.maxScore, score + pts * mult); }
   const gain = pts * mult; score += gain;
   if (label) popup(label, "+" + gain.toLocaleString() + (mult > 1 ? "  ×" + mult : "") + (perfect ? "  · perfect landing" : "") + (cork ? "  · cork bonus" : ""));
-  if (isTrick) { if (label) { comboList.push(label.replace(/ → /g, " · ")); showCombo(); } comboT = 7; mult = Math.min(mult + 1, 8); const m = $("mult"); m.classList.remove("bump"); void m.offsetWidth; m.classList.add("bump"); }
+  if (isTrick) { if (label) { comboList.push(label.replace(/ → /g, " · ")); showCombo(); } comboT = 7; trickN++; mult = Math.min(1 + Math.floor(trickN / 2), 8); const m = $("mult"); m.classList.remove("bump"); void m.offsetWidth; m.classList.add("bump"); }
   if (score > best) { best = score; store.set("kb-score-" + RES, best); }
 }
 const craters = { list: [], i: 0 };
@@ -1152,14 +1134,14 @@ function landing(surfaceType, rail) {
     spray(sk.x, sk.y, sk.s, 22, 5);
   } else { sk.rot = sA; if (sk.airT > 0.15) { sfx("thud", 0.35); spray(sk.x, sk.y, sk.s, 6, 3); } }
   sk.spin -= kHalf * Math.PI; sk.spinTarget = 0; if (odd) sk.sw = !sk.sw;
-  sk.rotV = 0; sk.flipAcc = 0; sk.spinV = 0; sk.grabT = 0; sk.airT = 0; sk.jumpNo++;
+  sk.rotV = 0; sk.flipAcc = 0; sk.flipB = 0; sk.flipF = 0; sk.spinV = 0; sk.grabT = 0; sk.airT = 0; sk.jumpNo++;
   if (surfaceType === "rail") { sk.yOff = 0; sk.grind = rail; sk.grindT = 0; sk.psi = 0; sk.spinTarget = 0; sk.railNet = 0; sk.railOn = false; sk.spinHeld = !!(K.spinL || K.spinR); }
 }
 function crash(why) {
   sk.crashed = true; sk.crashT = 0; sk.air = false; sk.xfer = null; sk.why = why; sk.grind = null;
   sk.sp = Math.max(Math.hypot(sk.vx, sk.vs) * 0.5, 5); sk.psi = Math.atan2(sk.vx, sk.vs) || 0;
   sk.rotV = (sk.flipAcc >= 0 ? 1 : -1) * 6; sk.tumZ = (Math.random() - 0.5) * 7;
-  mult = 1; comboList = []; showCombo(); stats.wipes++;
+  mult = 1; trickN = 0; comboList = []; showCombo(); stats.wipes++;
   popup("Wipeout", why, true); sfx("crash"); spray(sk.x, sk.y, sk.s, 36, 8); shake = 0.7;
 }
 function wallClamp() {
@@ -1184,7 +1166,7 @@ function respawn() {
   sk = newSkier(inT ? trailXc(T, rs) : f ? f.mainCx : 0, rs, 13); snapCam = true;
 }
 function startIntro() { if ((PEAK && !HELI) || DROP || HP || GT || BLD) return; if (PARK) startBike(); else startHeli(); }
-function restart() { scoreMarks = []; runBest0 = best; if (GT) gateReset(); comboList = []; try { showCombo(); } catch (e) { } endNewBest = false; score = 0; mult = 1; rings = 0; focus = 1; runT = 0; endShown = false; stats = { tricks: 0, biggest: 0, wipes: 0, jumps: 0 }; $("end").hidden = true; for (const f of feats) f.coins.forEach(c => c.got = false); for (const t of trails) for (const f of t.sec) f.coins.forEach(c => c.got = false); sk = newSkier(0, PEAK ? 3 : 10, PEAK ? 4 : 9); startIntro(); snapCam = true; $("pop").className = ""; }
+function restart() { scoreMarks = []; runBest0 = best; if (GT) gateReset(); comboList = []; try { showCombo(); } catch (e) { } endNewBest = false; score = 0; mult = 1; trickN = 0; rings = 0; focus = 1; runT = 0; endShown = false; stats = { tricks: 0, biggest: 0, wipes: 0, jumps: 0 }; $("end").hidden = true; for (const f of feats) f.coins.forEach(c => c.got = false); for (const t of trails) for (const f of t.sec) f.coins.forEach(c => c.got = false); sk = newSkier(0, PEAK ? 3 : 10, PEAK ? 4 : 9); startIntro(); snapCam = true; $("pop").className = ""; }
 
 const DT = 1 / 120;
 function step(dt) {
@@ -1197,7 +1179,7 @@ function step(dt) {
   sk.chg = charging ? Math.min(1, chargeT / 0.5) : 0;
   if (!sk.air && !sk.grind && !sk.bike && !sk.crashed && (K.down || K.up) && sk.sp > 3) { sk.butterT = (sk.butterT || 0) + dt; sk.butterKind = K.up && !K.down ? "Nose butter" : "Tail butter"; if (Math.random() < 0.4) spray(sk.x, sk.y, sk.s - 0.7, 1, 2); }
   else { if (!sk.crashed) { const k = sk.butterKind || "Tail butter"; if (sk.air && sk.featLaunch && sk.butterT > 0.25) payout(350 + sk.butterT * 380, k + " off the lip", false, true); else if (!sk.air && sk.butterT > 0.8) payout(sk.butterT * 55, k, false, true); } sk.butterT = 0; }
-  if (mult > 1 && !sk.air && !sk.grind) { comboT -= dt; if (comboT <= 0) { mult = 1; comboT = 0; comboList = []; showCombo(); } }
+  if (mult > 1 && !sk.air && !sk.grind) { comboT -= dt; if (comboT <= 0) { mult = 1; trickN = 0; comboT = 0; comboList = []; showCombo(); } }
   sk.boostCd = Math.max(0, sk.boostCd - dt); sk.pumpT = Math.max(0, sk.pumpT - dt); sk.landT = Math.max(0, sk.landT - dt); sk.popT = Math.max(0, sk.popT - dt);
   if (sk.crashed) {
     sk.crashT += dt;
@@ -1229,17 +1211,17 @@ function step(dt) {
       const sA = Math.atan2(railY(r, sk.s) - railY(r, sk.s - 0.4), 0.4);
       sk.sp = clamp(sk.sp + (-G * Math.sin(sA) - 0.1 * sk.sp - 0.0025 * sk.sp * sk.sp) * dt, 6, MAXV);
       sk.s += sk.sp * Math.cos(sA) * dt; sk.y = railY(r, sk.s) + (sk.yOff || 0); if (sk.yOff) { sk.yOff *= Math.exp(-13 * dt); if (sk.yOff < 0.01) sk.yOff = 0; } if (r.amp || r.x1 !== undefined) sk.x = railX(r, sk.s);
-      sk.rot += (sA - sk.rot) * Math.min(1, 14 * dt);
+      sk.rot += (sA - sk.rot) * Math.min(1, 14 * dt); if (K.grabI) sk.bsT = (sk.bsT || 0) + dt;
       if (sk.grindT > 0.2 && Math.random() < 0.6) spray(sk.x, sk.y, sk.s, 1, 3);
       if (!popReq && r.next && sk.s >= r.s1) { sk.yOff = sk.y - railY(r.next, sk.s); sk.grind = r.next; sk.grindT += 0; sk.noRail = 0; }
       else if (popReq || sk.s >= r.s1) {
         const pop = popReq ? 10.5 * (0.35 + 0.65 * popPow) : 1; sk.noRail = 0.5; sk.railNet = Math.round(sk.spin / Math.PI);
         sk.air = true; sk.featLaunch = true; sk.vx = 0; sk.vs = sk.sp * Math.cos(sA); sk.vy = sk.sp * Math.sin(sA) + pop;
         { const dirX = popReq ? (K.right ? 1 : 0) - (K.left ? 1 : 0) : 0; sk.xfer = null; if (dirX) { const tr = xferTarget(r, dirX); if (tr) { sk.vx = tr.vx; sk.xfer = tr; sk.noRail = 0.12; } else sk.vx = dirX * 4; } }
-        sk.airT = 0; sk.flipAcc = 0; sk.spin = 0; sk.spinV = 0; sk.grabT = 0; sk.rotV = 0; sk.jumpNo++;
-        const railSpins = Math.abs(sk.railNet || 0), pts = sk.grindT * 280 + 300 + railSpins * 400, wasGood = sk.grindT > 0.5 || railSpins > 0;
+        sk.airT = 0; sk.flipAcc = 0; sk.flipB = 0; sk.flipF = 0; sk.spin = 0; sk.spinV = 0; sk.grabT = 0; sk.rotV = 0; sk.jumpNo++;
+        const railSpins = Math.abs(sk.railNet || 0), wasBs = (sk.bsT || 0) > 0.3, bsT = sk.bsT || 0, pts = sk.grindT * 420 + 450 + railSpins * 550 + (bsT > 0.3 ? 400 + bsT * 600 : 0), wasGood = sk.grindT > 0.5 || railSpins > 0 || wasBs;
         if (railSpins % 2 === 1) sk.sw = !sk.sw;
-        const base = sk.carry ? Math.round(sk.carry.pts * 1.5) : 0, lab = (sk.carry && sk.carry.label ? sk.carry.label + " → " : "") + (railSpins ? "Rail " + railSpins * 180 : "Rail grind");
+        const base = sk.carry ? Math.round(sk.carry.pts * 1.5) : 0, lab = (sk.carry && sk.carry.label ? sk.carry.label + " → " : "") + (railSpins ? "Rail " + railSpins * 180 : bsT > 0.3 ? "Backslide" : "Rail grind") + (railSpins && bsT > 0.3 ? " backslide" : ""); sk.bsT = 0;
         payout(pts + base, lab, false, wasGood || (sk.carry && sk.carry.trick));
         if (wasGood) sfx("chime", 2);
         prog.rails++; checkUnlocks();
@@ -1291,7 +1273,7 @@ function step(dt) {
       if (popNow || yp > hn + (hpm ? 0.04 : 0.12)) {
         sk.featLaunch = featLaunch(sk.x, sk.s); sk.air = true; sk.vx = sk.sp * c * hx; sk.vs = sk.sp * c * hs; const deckLip = popNow && onRailRamp(sk.x, sk.s) === 2, lr = popNow && !deckLip ? lowRailAhead(sk.x, sk.s) : null, ra = popNow && !lr && !deckLip ? railAheadR(sk.x, sk.s) : null, need = ra ? railY(ra, Math.max(ra.s0, sk.s + 2)) - Math.max(yp, hn) + 0.3 : 0; sk.vy = sk.sp * sn + (deckLip ? 0.4 : lr ? Math.sqrt(2 * G * clamp(railY(lr, Math.max(lr.s0, sk.s + 2)) - Math.max(yp, hn) + 0.3, 0.25, 3.6)) : ra ? Math.sqrt(2 * G * clamp(need, 0.25, 3.6)) : (popNow ? (nearLip(sk.x, sk.s) ? 6.5 : 5.2) * pw : 0) + (!popNow && onRailRamp(sk.x, sk.s) ? (onRailRamp(sk.x, sk.s) === 2 ? 0 : 1.3) : 3.0));
         sk.x = nx; sk.s = ns; sk.y = popNow ? Math.max(yp, hn) + 0.02 : yp;
-        sk.airT = 0; sk.flipAcc = 0; sk.spin = 0; sk.spinV = 0; sk.grabT = 0; sk.rotV = 0; sk.spinTarget = 0; if (popNow) sk.popT = 0.2;
+        sk.airT = 0; sk.flipAcc = 0; sk.flipB = 0; sk.flipF = 0; sk.spin = 0; sk.spinV = 0; sk.grabT = 0; sk.rotV = 0; sk.spinTarget = 0; if (popNow) sk.popT = 0.2;
       } else {
         sk.x = nx; sk.s = ns; sk.y = hn;
         sk.rot += wrap(sA - sk.rot) * Math.min(1, 10 * dt);
@@ -1313,6 +1295,7 @@ function step(dt) {
     const spinIn = (K.spinR ? 1 : 0) - (K.spinL ? 1 : 0);
     const before = sk.rot;
     sk.flipHold = flipIn && Math.sign(flipIn) === sk.flipDir ? sk.flipHold + dt : 0; sk.flipDir = Math.sign(flipIn);
+    if (flipIn && sk.rotV * flipIn < 0) { sk.rotV *= Math.exp(-12 * dt); sk.flipHold = 0.5; } // reversing a flip: kill the old rotation quickly so back + front can link
     if (flipIn) sk.rotV += clamp(flipIn * (2.2 + 4.4 * Math.min(1, sk.flipHold / 1.1)) - sk.rotV, -8 * dt, 8 * dt); // starts slow, builds momentum the longer you hold
     else sk.rotV *= Math.exp(-2.4 * dt);
     sk.rot += sk.rotV * dt;
@@ -1320,12 +1303,12 @@ function step(dt) {
       const vh = Math.hypot(sk.vx, sk.vs), want = sk.rot + wrap(Math.atan2(sk.vy, vh) - sk.rot);
       sk.rot += (want - sk.rot) * Math.min(1, 5.5 * dt);
     }
-    sk.flipAcc += sk.rot - before;
+    { const dr = sk.rot - before; sk.flipAcc += dr; if (dr > 0) sk.flipB = (sk.flipB || 0) + dr; else sk.flipF = (sk.flipF || 0) - dr; }
     sk.spinHold = spinIn && Math.sign(spinIn) === sk.spinDir ? sk.spinHold + dt : 0; sk.spinDir = Math.sign(spinIn);
     if (spinIn) sk.spinV += clamp(spinIn * PHYS.spin * (3.0 + 6.5 * Math.min(1, sk.spinHold / 1.0)) - sk.spinV, -14 * dt * PHYS.spin, 14 * dt * PHYS.spin);
     else { sk.spinV *= Math.exp(-2.6 * dt); const tgt = Math.round(sk.spin / Math.PI) * Math.PI; sk.spin += (tgt - sk.spin) * Math.min(1, 4 * dt); }
     sk.spin += sk.spinV * dt;
-    if (K.grab || K.grabN || K.grabI || K.grabQ) { sk.grabT += dt; sk.grabKind = K.grab ? "Tail" : K.grabN ? "Nose" : K.grabI ? "Indy" : "Japan"; }
+    if (K.grab || K.grabN || K.grabI || K.grabQ || K.grabS) { sk.grabT += dt; sk.grabKind = K.grabS ? "Safety" : K.grab ? "Tail" : K.grabN ? "Nose" : K.grabI ? "Indy" : "Japan"; }
     // air steering rotates the velocity a little
     if (sk.xfer) { // hopping rail to rail: steer the arc onto the target rail so it lands smoothly
       const X = sk.xfer, rem = Math.max(0.06, (X.s - sk.s) / Math.max(1, sk.vs)), want = (railX(X.rl, clamp(X.s, X.rl.s0, X.rl.s1)) - sk.x) / rem; sk.vx += (want - sk.vx) * Math.min(1, 7 * dt); if (sk.s > X.s + 3) sk.xfer = null;
@@ -1920,15 +1903,15 @@ function ikArm(arm, tgt) { // two-bone arm IK in torso space, hand reaches tgt
 // where each grab puts a hand, in rig space (x right, y up, z back); arm = which hand
 const GRAB_POSE = [{ arm: 0, t: [0.12, 0.12, -0.3] }, { arm: 1, t: [0.1, 0.12, -0.12] }, { arm: 1, t: [0.16, 0.12, 0.5] }, { arm: 0, t: [-0.26, 0.12, 0.15] }, { arm: 0, t: [-0.14, 0.16, -0.6] }, { arm: 1, t: [-0.1, 0.12, 0.32] }];
 
-const GRAB_P = { method: { ay: 0.72, az: 0.2, hy: 0.88, pitch: -0.5, cross: 0.1, roll: 1.0, lean: -0.5, twist: 0 }, japan: { ay: 0.95, az: 0.0, hy: 1.0, pitch: 0.05, cross: 0.25, xp: 0.62, roll: 0.1, lean: 0.5, twist: 0.55 }, bike: { ay: 0.5, az: -0.14, hy: 0.9, pitch: 0, cross: 0 }, tail: { ay: 0.64, az: 0.3, hy: 0.9, pitch: -1.15, cross: 0.5 }, nose: { ay: 0.6, az: -0.22, hy: 0.92, pitch: 1.0, cross: 0.4 }, indy: { ay: 0.42, az: 0.04, hy: 0.8, pitch: -0.05, cross: 0 } };
+const GRAB_P = { method: { ay: 0.72, az: 0.2, hy: 0.88, pitch: -0.5, cross: 0.1, roll: 1.0, lean: -0.5, twist: 0 }, japan: { ay: 0.95, az: 0.0, hy: 1.0, pitch: 0.05, cross: 0.25, xp: 0.62, roll: 0.1, lean: 0.5, twist: 0.55 }, bike: { ay: 0.5, az: -0.14, hy: 0.9, pitch: 0, cross: 0 }, tail: { ay: 0.64, az: 0.3, hy: 0.9, pitch: -1.15, cross: 0.5 }, nose: { ay: 0.6, az: -0.22, hy: 0.92, pitch: 1.0, cross: 0.4 }, indy: { ay: 0.42, az: 0.04, hy: 0.8, pitch: -0.05, cross: 0 }, safety: { ay: 0.6, az: 0.02, hy: 0.86, pitch: -0.12, cross: 0.05, roll: 0.12, lean: 0.4, twist: -0.2 } };
 window.__pose = (dt, t) => poseSkier(dt, t);
 function poseSkier(dt, time) {
   const R = skierRig, p = R.pose, air = sk.air;
-  const flipping = air && Math.abs(sk.rotV) > 2.5, gk = air && !sk.crashed ? (K.grab ? "tail" : K.grabN ? "nose" : K.grabI ? "indy" : K.grabQ ? "japan" : null) : null, grab = !!gk, bikeOn = !!sk.bike, tuck = !air && K.boost && !sk.grind && !sk.crashed;
+  const flipping = air && Math.abs(sk.rotV) > 2.5, gk = air && !sk.crashed ? (K.grabS ? "safety" : K.grab ? "tail" : K.grabN ? "nose" : K.grabI ? "indy" : K.grabQ ? "japan" : null) : null, grab = !!gk, bikeOn = !!sk.bike, tuck = !air && K.boost && !sk.grind && !sk.crashed;
   const sliding = (sk.grind || sk.boxT > 0.15) && !(K.up || K.down), nbutter = !air && K.up && !K.down && !sk.crashed && !sk.bike && sk.sp > 2, butter = !air && K.down && !K.up && !sk.crashed && !sk.bike && sk.sp > 2;
   const tailT = [0.3, 1.1, 0.55];
   if (gk) p.kind = gk;
-  if (grab) { R.rig.updateMatrixWorld(true); (p.kind === "nose" ? R.noseM[1] : (p.kind === "indy" || p.kind === "japan") ? R.midM[0] : R.tailM[0]).getWorldPosition(_tv); R.rig.worldToLocal(_tv); tailT[0] = _tv.x; tailT[1] = _tv.y + 0.02; tailT[2] = _tv.z; }
+  if (grab) { R.rig.updateMatrixWorld(true); (p.kind === "nose" ? R.noseM[1] : p.kind === "safety" ? R.midM[1] : (p.kind === "indy" || p.kind === "japan") ? R.midM[0] : R.tailM[0]).getWorldPosition(_tv); R.rig.worldToLocal(_tv); if (p.kind === "safety") _tv.x += 0.07; tailT[0] = _tv.x; tailT[1] = _tv.y + 0.02; tailT[2] = _tv.z; }
   let c = 0.3, lean = 0.2, L = [-0.36, 0.92, -0.3], Rt = [0.36, 0.92, -0.3], poleThrust = 0;
   p.vt = (p.vt || 0) + (sk.turn - (p.vt || 0)) * (1 - Math.exp(-4.5 * dt)); // the body eases into and out of turns instead of snapping
   const vt = clamp(p.vt, -1, 1), carve = sk.carve * Math.abs(vt), tn = vt;
@@ -1936,6 +1919,7 @@ function poseSkier(dt, time) {
   else if (sk.crashed) { c = 0.4; lean = 0.2; const w = Math.sin(time * 16); L = [-0.75, 1.45 + w * 0.2, 0.1]; Rt = [0.75, 1.45 - w * 0.2, 0.1]; }
   else if (sk.stumT > 0 && !air) { const w = Math.sin(time * 14); c = 0.55; lean = 0.05; L = [-0.85, 1.25 + w * 0.35, 0.2]; Rt = [0.85, 1.25 - w * 0.35, 0.2]; }
   else if (sk.chg > 0.02 && !air) { const q = sk.chg; c = 0.3 + 0.62 * q; lean = 0.2 + 0.55 * q; L = [-0.45 - 0.1 * q, 0.9 - 0.4 * q, -0.1 + 0.45 * q]; Rt = [0.45 + 0.1 * q, 0.9 - 0.4 * q, -0.1 + 0.45 * q]; poleThrust = 0; }
+  else if (sk.grind && K.grabI && !sk.crashed) { c = 0.35; lean = -0.42; L = [-0.85, 1.55, 0.35]; Rt = [0.9, 1.3, -0.25]; } // backslide: lean back, arms flung out
   else if (sliding) { c = 0.55; lean = 0.3; L = [-0.7, 1.0, -0.2]; Rt = [0.7, 1.0, -0.2]; }
   else if (grab) {
     c = 0.93; lean = 0.62; L = [-0.82, 1.2, -0.1]; Rt = [0.82, 1.2, -0.1];
@@ -1978,7 +1962,7 @@ function poseSkier(dt, time) {
     const dc = nk * (0.08 * Math.sin(time * 2.1 + i * 2.6) + 0.012 * spdN * Math.sin(time * 5.3 + i * 4.1) + lerp(-0.04, 0.17, wIn) * cvA);
     const lift = nk * (0.035 * Math.max(0, Math.sin(time * 1.7 + i * 3.1)) + 0.04 * wIn * cvA);
     const dz = nk * (0.07 * Math.sin(time * 1.45 + i * 2.2) + lerp(0.04, -0.12, wIn) * cvA);
-    const hY = hipY - dc * 0.3 - nk * 0.012 * Math.sin(time * 2.6 + i * Math.PI), aY = ankY + lift, aZ = ankZ + dz;
+    const bsLeg = i === 0 ? (p.bsl || 0) : 0, hY = hipY - dc * 0.3 - nk * 0.012 * Math.sin(time * 2.6 + i * Math.PI), aY = ankY + lift + 0.38 * bsLeg, aZ = ankZ + dz - 0.28 * bsLeg;
     const ddy = hY - aY, dist = Math.min(Math.hypot(ddy, aZ), R.a + R.b - 0.005), phi = Math.atan2(aZ, ddy);
     const cosA = clamp((R.a * R.a + dist * dist - R.b * R.b) / (2 * R.a * dist), -1, 1), th = Math.acos(cosA), t1 = th - phi;
     const kf = R.a * Math.sin(t1), t2 = Math.atan2(-aZ - kf, ddy - R.a * Math.cos(t1));
@@ -1986,6 +1970,7 @@ function poseSkier(dt, time) {
   });
   R.legs.forEach((l, i) => { const P = LP[i]; l.hip.position.set(l.x - inside + (i ? 1 : -1) * P.w, P.hY, 0.04); l.hip.rotation.x = P.t1; l.hip.rotation.z = -tn * p.carve * 0.12 + -tn * 0.06 * cvA * (i === 0 ? clamp(tn * 2.5, 0, 1) : clamp(-tn * 2.5, 0, 1)) + (i ? 1 : -1) * 0.03 * nk * Math.sin(time * 1.9 + i); l.knee.rotation.x = P.t2 - P.t1; });
   p.gs = (p.gs || 0) + ((sk.grind && !sk.crashed ? 1 : 0) - (p.gs || 0)) * (1 - Math.exp(-9 * dt)); const gs = p.gs;
+  p.bsl = (p.bsl || 0) + ((sk.grind && K.grabI && !sk.crashed ? 1 : 0) - (p.bsl || 0)) * (1 - Math.exp(-10 * dt)); const bsl = p.bsl;
   const swp = sk.bikeJump ? clamp(sk.airT / 0.45, 0, 1) : 1, ease = 1 + 2.7 * Math.pow(swp - 1, 3) + 1.7 * Math.pow(swp - 1, 2);
   if (sk.bikeJump && !sk.swapDone && swp > 0.05) { sk.swapDone = true; spray(sk.x, sk.y + 0.2, sk.s, 16, 6); }
   if (sk.bikeJump && swp >= 1) sk.bikeJump = false;
@@ -2004,7 +1989,7 @@ function poseSkier(dt, time) {
     R.cuffs.forEach((m, i) => { const f = 1 + 0.07 * w * Math.sin(t * 21 + i * 1.9); m.scale.set((sm ? 1.78 : 1.5) * f, 1.2 + 0.1 * w * Math.sin(t * 19 + i), (sm ? 1.78 : 1.5) * (1 + 0.07 * w * Math.sin(t * 18 + i * 0.7))); m.rotation.z = 0.08 * w * Math.sin(t * 13 + i * 2.2); m.rotation.x = 0.07 * w * Math.sin(t * 17 + i); });
   }
   R.skiBack.visible = bikeOn || (sk.bikeJump && swp < 0.3); R.skiBack.scale.setScalar(bikeOn ? 1 : Math.max(0.01, 1 - swp / 0.3));
-  R.skiG.forEach((sg, i) => { const P = LP[i]; sg.visible = !bikeOn && swp > 0.05; sg.scale.setScalar(bikeOn ? 0.01 : Math.max(0.01, ease)); sg.position.set((i ? 0.13 : -0.13) + (i ? 1 : -1) * P.w, 0.2 + (P.aY - foot), 0.06 + P.aZ); sg.rotation.x = GP.pitch * tg + (i ? -1 : 1) * (GP.xp || 0) * tg + 0.5 * bt - 0.5 * nb + 0.05 * (P.aY - ankY); sg.rotation.y = (i ? -1 : 1) * GP.cross * tg + P.yaw + gs * (i ? -0.16 : 0.1); sg.rotation.z = (i ? 1 : -1) * (GP.roll || 0) * tg + P.roll + gs * (i ? 0.08 : -0.05); sg.rotation.x += gs * (i ? 0.2 : -0.17); sg.position.z += gs * (i ? -0.09 : 0.09); });
+  R.skiG.forEach((sg, i) => { const P = LP[i]; sg.visible = !bikeOn && swp > 0.05; sg.scale.setScalar(bikeOn ? 0.01 : Math.max(0.01, ease)); sg.position.set((i ? 0.13 : -0.13) + (i ? 1 : -1) * P.w, 0.2 + (P.aY - foot), 0.06 + P.aZ); sg.rotation.x = GP.pitch * tg + (i ? -1 : 1) * (GP.xp || 0) * tg + 0.5 * bt - 0.5 * nb + 0.05 * (P.aY - ankY); sg.rotation.y = (i ? -1 : 1) * GP.cross * tg + P.yaw + gs * (i ? -0.16 : 0.1); sg.rotation.z = (i ? 1 : -1) * (GP.roll || 0) * tg + P.roll + gs * (i ? 0.08 : -0.05); sg.rotation.x += gs * (i ? 0.2 : -0.17) + (i ? 0 : 0.6 * (p.bsl || 0)); sg.position.z += gs * (i ? -0.09 : 0.09); });
   R.hipG.position.set(-inside, hipY + 0.02 - 0.15 * (LP[0].hY + LP[1].hY - 2 * hipY) * -1, 0.04 + 0.04 * p.c); R.hipG.rotation.set(0, nk * (0.05 * Math.sin(time * 1.1) - tn * p.carve * 0.12), nk * 0.6 * (LP[1].hY - LP[0].hY)); R.hipG.updateMatrix();
   R.torso.rotation.y = air ? (GP.twist || 0) * tg : -tn * p.carve * 0.28 - vt * 0.06 + 0.025 * Math.sin(time * 0.9); R.torso.rotation.x = -p.lean; R.torso.rotation.z = tn * p.carve * 0.16 + (air ? 0 : 0); R.torso.scale.y = 1 + 0.006 * Math.sin(time * 3.2);
   R.torso.updateMatrix();
@@ -3283,7 +3268,7 @@ function startBike() {
 function bikeStep(dt) {
   sk.sp = 12; sk.psi = 0; sk.s += sk.sp * dt; sk.y = H(sk.x, sk.s); sk.grind = null; sk.sw = false;
   sk.rot += (sA_(sk.x, sk.s, 0) - sk.rot) * Math.min(1, 10 * dt);
-  if (sk.s >= sk.jumpS) { sk.bike = false; sk.air = true; sk.vx = 0; sk.vs = 12; sk.vy = 6.5; sk.bikeJump = true; sk.swapDone = false; sk.airT = 0; sk.flipAcc = 0; sk.spin = 0; sk.spinV = 0; sk.grabT = 0; sk.rotV = 0; sk.jumpNo++; bikeFree = true; bikeFreeT = 0; }
+  if (sk.s >= sk.jumpS) { sk.bike = false; sk.air = true; sk.vx = 0; sk.vs = 12; sk.vy = 6.5; sk.bikeJump = true; sk.swapDone = false; sk.airT = 0; sk.flipAcc = 0; sk.flipB = 0; sk.flipF = 0; sk.spin = 0; sk.spinV = 0; sk.grabT = 0; sk.rotV = 0; sk.jumpNo++; bikeFree = true; bikeFreeT = 0; }
 }
 function buildBike() {
   const g = new THREE.Group(), blk = new THREE.MeshStandardMaterial({ color: 0x1b1d22, roughness: 0.6 }), org = new THREE.MeshStandardMaterial({ color: 0xff6a1f, roughness: 0.5 }), met = new THREE.MeshStandardMaterial({ color: 0x9aa3ad, roughness: 0.3, metalness: 0.7 });
@@ -3590,7 +3575,7 @@ $("blzbtn").onclick = () => { blizzOn = !blizzOn; if (blizzOn) snowOn = true; st
 applySnow();
 document.querySelectorAll("#resorts button").forEach(b => { if (b.dataset.r === RES) b.classList.add("on"); b.onclick = () => { if (b.dataset.r === RES) return; b.blur(); location.hash = "#" + b.dataset.r; location.reload(); }; });
 function begin() { audioInit(); $("intro").hidden = true; $("home").hidden = true; stopHome(); if (mode !== "play") { mode = "play"; restart(); } }
-const MAP = { ArrowLeft: "left", ArrowRight: "right", ArrowUp: "up", w: "up", W: "up", ArrowDown: "down", s: "down", S: "down", a: "spinL", A: "spinL", d: "spinR", D: "spinR", q: "grabQ", Q: "grabQ", e: "grabN", E: "grabN", " ": "grab", Shift: "boost", f: "focus", F: "focus", j: "brake", J: "brake", x: "grabN", X: "grabN", c: "grabI", C: "grabI" };
+const MAP = { ArrowLeft: "left", ArrowRight: "right", ArrowUp: "up", w: "up", W: "up", ArrowDown: "down", s: "down", S: "down", a: "spinL", A: "spinL", d: "spinR", D: "spinR", q: "grabQ", Q: "grabQ", e: "grabN", E: "grabN", " ": "grab", Shift: "boost", f: "grabS", F: "grabS", g: "focus", G: "focus", j: "brake", J: "brake", x: "grabN", X: "grabN", c: "grabI", C: "grabI" };
 addEventListener("keydown", e => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   if (mode === "play" && (e.key === "p" || e.key === "P" || e.key === "Escape")) { e.preventDefault(); setPaused(!paused); return; }
