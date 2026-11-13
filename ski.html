@@ -458,12 +458,17 @@ function flightD(L, Hh, v0, roof) { // where a nominal flight from the lip comes
   for (let k = 0; k < 9000; k++) { vy -= G / 120; d += vh / 120; y += vy / 120; if (y <= -Hh + (roof || 0) - BASE * d) { tanA = Math.abs(vy) / vh; break; } }
   return { d, tanA };
 }
+/* Evergreen deck length: how far you fly from the lip at the speed you really arrive with, minus a margin so you clear the knuckle */
+const WIDE_GAPF = 0.62;
+function wideGap(L, H, q) { const vin = 22.5 + 2.5 * q, vL = Math.sqrt(Math.max(vin * vin - 2 * G * H * 1.15, 64)); return WIDE_GAPF * flightD(L, H, vL).d; }
 function mkKicker(s0, kind, cx, hw, diff, sc, tall) {
   sc = sc || 1; if (WIDE && tall) { tall = false; kind = 4; } const q = WIDE ? clamp(s0 / COURSE_END, 0, 1) : 0; // jumps grow toward the bottom of Evergreen Run
   const T = [[8, 1.5, 0.15, 22, 0.5, 10, 32, "Small kicker"], [11, 2, 0.17, 26, 0.55, 18, 50, "Kicker"], [14, 2, 0.2, 30, 0.6, 28, 80, "Big air"], [14, 2, 0.22, 30, 0.33, 18, 55, "Gap jump"], [18, 2, 0.28, 36, 0.6, 50, 140, "Mega air"]][kind];
-  const L = (T[0] + rng() * T[1]) * (sc < 1 ? 0.8 : 1) * 1.1 * (1 + 0.45 * q) * (WIDE ? 1.25 : 1), ratio = (T[2] + rng() * 0.02) * (kind < 4 ? 1.55 : 1.25) * (tall ? 1.55 : 1) * (1 + 0.5 * q) * (WIDE ? 1.25 : 1), v0 = T[3] + 2 - (tall ? 3 : 0) + 5 * q;
-  const Hh = L * ratio * (kind < 3 ? 1 + 0.1 * diff : 1), fd = flightD(L, Hh, v0);
-  const gap = kind === 3 ? clamp(T[4] * fd.d * sc, T[5] * sc, T[6] * sc * 1.3) : clamp(WIDE ? 0.42 * clamp(1 - (Hh - 9) * 0.065, 0.32, 1) * flightD(L, Hh, Math.sqrt(Math.max(v0 * v0 - 2 * G * Hh * 0.85, v0 * v0 * 0.25))).d * sc : 0.35 * fd.d * sc, 6, 48 * (1 + q)), Ll = kind === 3 ? clamp(gap * 0.8 + 10, 18, 60) : clamp((0.9 + 0.35 * q) * fd.d * sc, 24, 70 * (1 + 1.3 * q));
+  let L = (T[0] + rng() * T[1]) * (sc < 1 ? 0.8 : 1) * 1.1 * (1 + 0.45 * q) * (WIDE ? 1.25 : 1) * (WIDE && kind >= 2 ? 1.12 : 1); const ratio = (T[2] + rng() * 0.02) * (kind < 4 ? 1.55 : 1.25) * (tall ? 1.55 : 1) * (1 + 0.5 * q) * (WIDE ? 1.25 : 1) * (WIDE && kind >= 2 ? 1.05 : 1), v0 = T[3] + 2 - (tall ? 3 : 0) + 5 * q + (WIDE && kind >= 2 ? 4 : 0);
+  let Hh = L * ratio * (kind < 3 ? 1 + 0.1 * diff : 1);
+  if (WIDE && kind !== 3) { const cap = kind >= 2 ? 6.2 + 1.6 * q : 4.4 + q; if (Hh > cap) Hh = cap; L = Math.min(L, Hh * 3.5); } // Evergreen: sized to the speed you arrive with, steep enough to pop
+  const fd = flightD(L, Hh, v0);
+  const gap = kind === 3 ? clamp(T[4] * fd.d * sc, T[5] * sc, T[6] * sc * 1.3) : clamp(WIDE ? wideGap(L, Hh, q) * sc : 0.35 * fd.d * sc, 6, 48 * (1 + q)), Ll = kind === 3 ? clamp(gap * 0.8 + 10, 18, 60) : clamp((0.9 + 0.35 * q) * fd.d * sc, 24, 70 * (1 + 1.3 * q));
   const Hl = clamp((fd.tanA - BASE) * 0.5 * Ll / 1.5, 0.8, 7 + 4 * q), pit = kind === 3 ? 3.6 : 0;
   const hwK = (kind < 4 ? hw * (PEAK ? 1.7 : 1.3) : hw) * (1 + 0.8 * q);
   const p = { type: "kicker", label: T[7], s0, L, H: Hh, gap, Ll, Hl, cx, hw: hwK, lhw: Math.min(hwK * 2.7, WIDE ? 25 : PISTE + 5), v0, pit };
@@ -508,7 +513,7 @@ function partOff(p, x, s) {
   // table landing: the deck beside the kicker rolls up smoothly from the approach and its sides slope away, no flat walls
   const SE = clamp(p.H * 0.55, 1.4, 4); // side wall run-out of kicker and table
   const tabB = !p.up && !p.pit && !p.whale && !GL && !PEAK && !p.lin && p.Ll > 8 && s > lip ? (() => { const Hd = p.H * 0.88, kn = lip + p.gap, LW = Math.max(p.hw, Math.min(p.lhw, p.hw * 1.55)), dw = s < kn ? p.hw : lerp(p.hw, LW, smooth((s - kn) / (0.35 * p.Ll))), wallSide = p.qp && (x - p.cx) * p.qp > 0;
-    const ax = Math.abs(x - p.cx), lat = wallSide && ax < p.lhw ? 1 : 1 - smooth((ax - dw) / SE); if (lat <= 0 || s > kn + p.Ll) return 0; const u3 = (s - kn) / p.Ll;
+    const ax = Math.abs(x - p.cx), lat = wallSide ? 1 : 1 - smooth((ax - dw) / SE); if (lat <= 0 || s > kn + p.Ll) return 0; const u3 = (s - kn) / p.Ll;
     let y = Hd * lat * (u3 < 0 ? 1 : 1 - landProf(u3 / 0.62));
     if (wallSide) { const R = 5.5, u = (x - p.cx) * p.qp - (p.lhw - 1.5), env = smooth((s - lip - p.gap * 0.2) / 10) * (1 - smooth((s - (kn + p.Ll - 10)) / 10)); if (u > 0 && env > 0) y += env * (u < R * 0.985 ? R - Math.sqrt(R * R - u * u) : R + (u - R) * 0.04); }
     return y; })() : 0;
@@ -612,7 +617,7 @@ function qpWallAt(x, s) { for (const f of sectionsAt(s, 0)) for (const p of f.pa
 function fixLandings(f) { // a wide landing must not run into side kickers or cabins
   for (const p of f.parts) if (p.type === "kicker" && !p.side) for (const q of f.parts) if (q !== p && (q.type === "kicker" || q.type === "box") && q.hw) { const l2 = Math.max(p.hw, Math.abs(q.cx - p.cx) - q.hw - 1); if (l2 < p.lhw) { p.lhw = l2; p.squeeze = Math.sign(q.cx - p.cx) || 1; } }
   if (WIDE) for (const p of f.parts) if (p.type === "kicker" && !p.side && !p.up && !p.pit && !p.whale && p.squeeze) { // squeezed landing: bigger jump, quarterpipe wall on the open side
-    const end0 = p.end; p.L *= 1.2; p.H *= 1.3; const fd = flightD(p.L, p.H, Math.sqrt(Math.max(p.v0 * p.v0 - 2 * G * p.H * 0.85, p.v0 * p.v0 * 0.25))); p.gap = clamp(0.42 * clamp(1 - (p.H - 9) * 0.065, 0.32, 1) * fd.d, 6, 52); p.Ll = clamp(1.05 * fd.d, 30, 110); p.end = p.s0 + p.L + p.gap + p.Ll; p.qp = -p.squeeze; p.label = "Kicker · quarterpipe landing"; }
+    const end0 = p.end; p.L *= 1.15; p.H = Math.min(p.H * 1.12, 7.5); p.L = Math.min(p.L, p.H * 3.5); const fd = flightD(p.L, p.H, 20); p.gap = clamp(wideGap(p.L, p.H, clamp(p.s0 / COURSE_END, 0, 1)), 6, 52); p.Ll = clamp(1.6 * fd.d, 60, 110); p.end = p.s0 + p.L + p.gap + p.Ll; p.qp = -p.squeeze; p.label = "Kicker · quarterpipe landing"; }
 }
 function houseSection(f, diff) {
   const B = 4.2 + rng() * 1.4, hw = 5.6 + rng() * 0.8, cx = 0, ramp = Math.floor(secCount / 6) % 2 === 1, walls = WALLS;
@@ -756,13 +761,30 @@ function addSection() {
           break; }
       }
     }
+    // more to do: free-standing rails, boxes and small kickers in the empty space beside the big jumps, never touching them
+    const lipFor = r => { const h = r.h, L = clamp(h * 5.5, 8, 22); return { type: "railramp", deck: true, s0: r.s0 - 0.9 - L, L, H: h + 0.15 - BASE * 0.9, cx: r.x, hw: 2.7, end: r.s0 }; };
+    const s0f = f.s0 - 10, s1f = Math.max(f.end, f.s0 + 90), want = 2 + (rng() < 0.5 ? 1 : 0); let got = 0;
+    for (let tries = 0; tries < 40 && got < want; tries++) {
+      const x = px + (rng() - 0.5) * 2 * (PISTE - 6), ss = s0f + rng() * (s1f - s0f - 30), t = rng();
+      if (t < 0.45) { // rail with its own lip
+        const len = 22 + rng() * 12, down = rng() < 0.4, r = { s0: ss + 20, s1: ss + 20 + len, x, h: down ? 2.4 : 1.6, h1: down ? 1.0 : undefined, fixedLen: true, noRamp: true }, lp = lipFor(r);
+        if (!free(x, 3, lp.s0 - 2, r.s1 + 4)) continue; f.rail2 = [...(f.rail2 || []), r]; f.parts.push(lp); f.end = Math.max(f.end, r.s1 + 3); got++; f.label += down ? " + down rail" : " + rail";
+      } else if (t < 0.7) { // box
+        const len = 14 + rng() * 6, b = { type: "box", s0: ss + 6, len, end: ss + 6 + len, B: 0.75, cx: x, hw: 1.9 };
+        if (!free(x, 3, b.s0 - 6, b.end + 4)) continue; f.parts.push(b); f.end = Math.max(f.end, b.end); got++; f.label += " + box";
+      } else { // small kicker with its own landing
+        const k2 = mkKicker(ss, 1, x, 3.2 + rng() * 0.6, diff); k2.side = true; k2.lhw = Math.min(Math.max(k2.lhw, k2.hw * 1.3), 7);
+        if (!free(x, k2.lhw, k2.s0 - 4, k2.end + 4)) continue; f.parts.push(k2); f.end = Math.max(f.end, k2.end); got++; f.label += " + small kicker";
+      }
+    }
   }
   if (f.cliff && (PEAK || DROP)) f.rocks = [];
   else if (f.cliff) { f.rocks = []; for (const sd of [-1, 1]) for (let q = 0; q < 5; q++) f.rocks.push({ x: px + sd * (PISTE + (PEAK ? 15 : 1.2) + q * 2.6 + rng()), s: f.cliff.s - 2.5 + rng() * 5, r: 1.6 + rng() * 1.8 }); [-1, 1].forEach(sd => f.rocks.push({ x: px + sd * (PISTE + (PEAK ? 14 : -0.5)), s: f.cliff.s - 1.5, r: 2.4 })); }
   else flankRocks(f);
   feats.push(f); regRocks(f);
   const a = f.s0 - 34, prevEnd = knots[knots.length - 1].s, gapLen = a - prevEnd;
-  if (i > 0 && gapLen > 20) { const v = HELI ? [1.0, 1.1, 1.25, 1.05, 1.15][Math.floor(rng() * 5)] : (PARK && (i % 7 === 3 || i % 7 === 6)) ? 0.5 : (i % 6 === 3 || i % 6 === 5) ? 0.44 : [0.14, 0.2, 0.2, 0.36, 0.44, 0.5][Math.floor(rng() * 6)]; addKnot(prevEnd + gapLen * 0.3, v); addKnot(prevEnd + gapLen * 0.7, v); }
+  const bigIn = WIDE && f.parts[0] && f.parts[0].type === "kicker" && /Big|Mega/.test(f.parts[0].label);
+  if (i > 0 && gapLen > 20) { const v = bigIn ? 0.56 : HELI ? [1.0, 1.1, 1.25, 1.05, 1.15][Math.floor(rng() * 5)] : (PARK && (i % 7 === 3 || i % 7 === 6)) ? 0.5 : (i % 6 === 3 || i % 6 === 5) ? 0.44 : [0.14, 0.2, 0.2, 0.36, 0.44, 0.5][Math.floor(rng() * 6)]; addKnot(prevEnd + gapLen * 0.3, v); addKnot(prevEnd + gapLen * 0.7, v); }
   if (DROP) { const ls = DLIP + 50, kk = f.parts[0]; addKnot(a, BASE); addKnot(ls - 8, BASE); addKnot(ls + 8, BASE + 0.3); addKnot(ls + kk.Ll, BASE + 0.3); addKnot(ls + kk.Ll + kk.Tr, 0.04); } else { addKnot(a, BASE); if (PARK && f.railLine) { const k = f.end + 2; f.drop = { k, L: DROP_L }; addKnot(k, BASE); addKnot(k + 5, DROP_G); addKnot(k + DROP_L, DROP_G); addKnot(k + DROP_L + 10, BASE); } else addKnot(f.end + 10, BASE); } // Village Park: a knuckle and a steep landing after every rail line
   pcs.push({ a, b: f.end + 10, x: px, jump: !f.cliff || DROP });
   if (DROP) { genS = 1e9; return f; }
