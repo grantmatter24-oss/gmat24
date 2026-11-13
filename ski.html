@@ -36,6 +36,7 @@
   #mp .row b { margin-left: auto; padding-left: 12px; font-variant-numeric: tabular-nums; }
   #mp .me { color: #bfe3ff; }
   #mp .tip { opacity: .7; margin-top: 2px; }
+  #mpsign { position: absolute; z-index: 30; left: max(16px, env(safe-area-inset-left, 0px)); top: 160px; font: 700 13px/1 var(--display); letter-spacing: .04em; padding: 10px 14px; border-radius: 10px; border: 0; background: var(--jacket); color: #fff; cursor: pointer; box-shadow: 0 4px 14px rgba(0,0,0,.35); }
   #combolist div::before { content: "+ "; color: var(--jacket); }
   #mult.bump { animation: bump .28s ease-out; }
   @keyframes bump { 0% { transform: scale(1.5); } 100% { transform: scale(1); } }
@@ -3700,7 +3701,7 @@ function mpPack() {
 }
 function mpSend(dt) {
   if (MP.lastSc !== Math.round(score)) { MP.lastSc = Math.round(score); MP.boardDirty = true; }
-  MP.boardT -= dt; if (MP.boardDirty && MP.boardT <= 0) { MP.boardT = 0.3; MP.boardDirty = false; mpNames(); }
+  const nowMs = performance.now(); if (MP.boardDirty && nowMs >= MP.boardT) { MP.boardT = nowMs + 300; MP.boardDirty = false; mpNames().catch(() => {}); }
   if (MP.myId && MP.db && Math.round(best) > MP.myBestSent) { MP.myBestSent = Math.round(best); mpSaveBest(MP.myId, RES, MP.myBestSent); }
   if (!MP.room) return; MP.sendT -= dt; if (MP.sendT > 0) return; MP.sendT = 1 / 20;
   MP.room.presence({ st: mpPack() }).then(() => { if (MP.presErr) { MP.presErr = ""; MP.boardDirty = true; } }).catch(e => { const c = (e && (e.code || e.message)) || "error"; if (MP.presErr !== c) { MP.presErr = c; MP.boardDirty = true; } });
@@ -3793,8 +3794,49 @@ function updateRemotes(dt, time) {
     }
   } finally { sk = sk0; skierRig = R0; outfit = of0; Object.assign(K, k0); }
 }
+
+/* ---------- Firebase game server (used when the page is opened outside claude.ai, e.g. on GitHub Pages) ----------
+   Paste the web app config from console.firebase.google.com > Project settings > Your apps. It is not a secret. */
+const FIREBASE_CONFIG = null;
+function fbLoad(src) { return new Promise((ok, no) => { const e = document.createElement("script"); e.src = src; e.onload = ok; e.onerror = no; document.head.appendChild(e); }); }
+function fbColor(id) { let h = 0; for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return "hsl(" + (h % 360) + ",70%,62%)"; }
+async function fbInit() {
+  if (!FIREBASE_CONFIG) { MP.status = "game server not set up yet"; MP.boardDirty = true; return; }
+  MP.status = "loading…"; MP.boardDirty = true;
+  const V = "https://www.gstatic.com/firebasejs/10.12.2/";
+  await fbLoad(V + "firebase-app-compat.js"); await Promise.all([fbLoad(V + "firebase-auth-compat.js"), fbLoad(V + "firebase-database-compat.js")]);
+  firebase.initializeApp(FIREBASE_CONFIG); const auth = firebase.auth(), rt = firebase.database(); MP.fb = { auth, rt };
+  const names = {}; let online = false, myName = "";
+  const emailName = u => (u.email && u.email.indexOf("@") > 0 ? u.email.slice(0, u.email.indexOf("@")) : u.displayName || "Rider").slice(0, 24);
+  MP.user = { profiles: async ids => { const o = {}; for (const id of [].concat(ids)) o[id] = { id, name: names[id] || "", email: null, color: fbColor(id) }; return o; } };
+  rt.ref(".info/connected").on("value", v => { online = !!v.val(); MP.boardDirty = true; });
+  // all-time bests: lb/<uid> = { nm, alpine: 12000, park: 9000, ... }; anyone can read, each player writes only their own
+  MP.db = { doc: path => ({ set: d => rt.ref(path).set(Object.assign({}, d, { nm: myName })) }),
+    collection: () => ({ onSnapshot: (cb, err) => rt.ref("lb").on("value", v => { const all = v.val() || {}; for (const id in all) if (all[id] && all[id].nm) names[id] = String(all[id].nm).slice(0, 24); cb({ docs: Object.entries(all).map(([id, d]) => ({ id, exists: true, data: () => d })) }); }, e => err && err(e)) }) };
+  MP.db.collection("lb").onSnapshot(snap => { const o = {}; for (const d of snap.docs) o[d.id] = d.data(); MP.lb = o; MP.boardDirty = true; }, () => {});
+  let presRef = null, peersOff = null;
+  auth.onAuthStateChanged(u => {
+    if (presRef) { presRef.remove().catch(() => {}); presRef = null; }
+    if (peersOff) { peersOff(); peersOff = null; }
+    MP.room = null; MP.remotes.forEach(r => mpDrop(r)); MP.remotes.clear(); MP.others = [];
+    if (!u) { MP.myId = null; MP.status = "sign in to ride together"; fbButton(true); MP.boardDirty = true; return; }
+    fbButton(false); MP.myId = u.uid; myName = emailName(u); names[u.uid] = myName; MP.myBestSent = -1;
+    presRef = rt.ref("presence/" + u.uid); presRef.onDisconnect().remove();
+    MP.room = { connected: () => online, presence: patch => presRef.set({ st: patch.st, nm: myName, t: firebase.database.ServerValue.TIMESTAMP }) };
+    const pref = rt.ref("presence"), fn = v => { const all = v.val() || {}, peers = [];
+      for (const id in all) { const e = all[id]; if (!e || !e.st) continue; if (e.nm) names[id] = String(e.nm).slice(0, 24); peers.push({ peer: id, by: id, sameTab: id === u.uid, isMe: id === u.uid, kind: "viewer", guest: false, presence: { st: e.st } }); }
+      mpSync(peers); };
+    pref.on("value", fn, () => { MP.room = null; MP.status = "not connected (server refused: check the database rules)"; MP.boardDirty = true; }); peersOff = () => pref.off("value", fn);
+    MP.boardDirty = true;
+  });
+}
+function fbButton(show) {
+  let b = $("mpsign");
+  if (!b) { b = document.createElement("button"); b.id = "mpsign"; b.textContent = "Sign in with Google to ride together"; b.addEventListener("click", () => { const P = new firebase.auth.GoogleAuthProvider(); MP.fb.auth.signInWithPopup(P).catch(e => { MP.status = "sign-in failed (" + ((e && e.code) || "error") + ")"; MP.boardDirty = true; }); }); document.body.appendChild(b); }
+  b.hidden = !show;
+}
 (async () => {
-  if (!window.claude || !window.claude.use) { MP.status = "not connected (open the link inside claude.ai)"; return; }
+  if (!window.claude || !window.claude.use) { fbInit().catch(e => { MP.status = "not connected (" + ((e && e.message) || "server unreachable") + ")"; MP.boardDirty = true; }); return; }
   try {
     const [room, user] = await Promise.all([window.claude.use("room"), window.claude.use("user")]);
     MP.user = user; if (user) { MP.myId = await user.id(); MP.isOwner = await user.isOwner(); }

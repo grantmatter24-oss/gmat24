@@ -1,0 +1,21 @@
+{
+  "rules": {
+    "presence": {
+      ".read": "auth != null",
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "!newData.exists() || (newData.hasChildren(['st', 'nm']) && newData.child('nm').isString() && newData.child('nm').val().length <= 24)"
+      }
+    },
+    "lb": {
+      ".read": true,
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "newData.child('nm').isString() && newData.child('nm').val().length <= 24",
+        "$map": {
+          ".validate": "$map === 'nm' || (newData.isNumber() && newData.val() >= 0 && newData.val() < 100000000)"
+        }
+      }
+    }
+  }
+}
