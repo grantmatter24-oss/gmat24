@@ -27,6 +27,9 @@
   #score { font: 900 clamp(40px, 8vw, 72px)/0.9 var(--display); font-variant-numeric: tabular-nums; text-shadow: 0 2px 0 rgba(11,26,41,.45); }
   #mult { font: 800 clamp(20px, 3.4vw, 30px)/1 var(--display); color: var(--ink); background: var(--jacket); padding: 3px 9px 2px; border-radius: 4px; }
   #combolist { position: absolute; left: max(16px, env(safe-area-inset-left, 0px)); top: 86px; font: 700 13px/1.35 var(--display); letter-spacing: .05em; text-transform: uppercase; color: var(--text); text-shadow: 0 1px 3px rgba(0,0,0,.45); pointer-events: none; }
+  #mp { position: absolute; left: max(16px, env(safe-area-inset-left, 0px)); top: 200px; font: 700 12px/1.4 var(--display); letter-spacing: .05em; text-transform: uppercase; color: var(--text); text-shadow: 0 1px 3px rgba(0,0,0,.5); pointer-events: none; max-width: 46vw; }
+  #mp .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
+  #mp .me { opacity: .75; }
   #combolist div::before { content: "+ "; color: var(--jacket); }
   #mult.bump { animation: bump .28s ease-out; }
   @keyframes bump { 0% { transform: scale(1.5); } 100% { transform: scale(1); } }
@@ -182,6 +185,7 @@
   <div class="hud">
     <div class="score"><span id="score">0</span><b id="mult">×1</b></div>
     <div id="combolist" hidden></div>
+    <div id="mp" hidden></div>
     <div class="side">
       <div>Speed <b id="spd">0</b> km/h</div>
       <div>Time <b id="clock">0:00</b></div>
@@ -3379,6 +3383,7 @@ function render(dt, time) {
   _n.set(-gx, 1, gs).normalize(); _q.setFromUnitVectors(_z, _n);
   R.shadow.position.set(sk.x, gy, -sk.s).addScaledVector(_n, 0.04); R.shadow.quaternion.copy(_q);
   const hgt = Math.max(0, sk.y - gy); R.shadow.scale.setScalar(clamp(1.1 - hgt * 0.06, 0.45, 1.1)); R.shadow.material.opacity = clamp(0.2 - hgt * 0.02, 0.0, 0.2);
+  updateRemotes(dt, time);
   const T = scene.userData.trail;
   if (!(PARK && inMall(sk.s)) && !sk.air && !sk.crashed && !sk.grind && sk.sp > 3 && Math.hypot(sk.x - T.lx, sk.s - T.ls) > 0.55) {
     const dx = Math.sin(sk.psi), dz = -Math.cos(sk.psi), rx = Math.cos(sk.psi), rz = Math.sin(sk.psi);
@@ -3474,6 +3479,7 @@ function frame(now) {
   if (mode === "play" && !paused) { acc += dt * timeScale; while (acc >= DT) { step(DT); acc -= DT; } }
   shake *= Math.exp(-6 * dt); boostPulse *= Math.exp(-3 * dt);
   if (renderer) render(dt, now / 1000);
+  mpSend(dt);
   audioUpdate();
   const sp = Math.round((sk.air ? Math.hypot(sk.vx, sk.vs) : sk.sp) * 3.6);
   const fe = $("focus"), fw = Math.round(focus * 100) + "%"; if (shown.focusw !== fw) { shown.focusw = fw; fe.style.width = fw; }
@@ -3677,4 +3683,96 @@ if (BLD) {
 if (location.hash === "#peak" || location.hash === "#alpine" || location.hash === "#park" || location.hash === "#drop" || location.hash === "#pipe" || location.hash === "#glade" || location.hash === "#gates" || location.hash === "#heli" || location.hash === "#build" || !glOK) { $("home").hidden = true; } else startHome();
 if (!glOK) $("intro").hidden = false;
 if (location.hash === "#peak" || location.hash === "#alpine" || location.hash === "#park" || location.hash === "#drop" || location.hash === "#pipe" || location.hash === "#glade" || location.hash === "#gates" || location.hash === "#heli" || location.hash === "#build") { begin(); if (HELI) setTimeout(() => popup("Heli-Drop", "Jump out, pick a line, survive the face"), 500); if (BLD) setTimeout(() => popup("Snowpark Builder", "Place rails, boxes and kickers, then ride"), 500); if (GL) setTimeout(() => popup("Powder Glades", "Deep snow · trees · natural drops"), 500); if (GT) setTimeout(() => popup("Race Gates", "Hit every gate · miss = +3 s · 6 misses and you're out"), 500); if (HP) setTimeout(() => popup("Mega Pipe", "Huge walls · carve and launch"), 500); if (DROP) setTimeout(() => popup("Big Air", "Wide steep ramp · one huge kicker"), 500); if (PEAK && !HELI) setTimeout(() => popup("Couloir Peak", "Open faces · chutes · cliffs"), 500); if (PARK) setTimeout(() => popup("Village Park", "Main street · rails · kickers"), 500); }
+/* ---------- multiplayer: everyone signed in on the shared link rides the same map together ---------- */
+const MP = { room: null, user: null, remotes: new Map(), sendT: 0, names: {}, myId: null };
+const MP_KEYS = ["up", "down", "grab", "grabN", "grabI", "grabQ", "grabS", "boost"];
+function mpPack() {
+  let k = 0; MP_KEYS.forEach((n, i) => { if (K[n]) k |= 1 << i; });
+  const r = v => Math.round(v * 100) / 100;
+  return { v: 1, res: RES, id: MP.myId, play: mode === "play", x: r(sk.x), y: r(sk.y), s: r(sk.s), psi: r(sk.psi), spin: r(sk.spin), sw: !!sk.sw, rot: r(sk.rot), rotV: r(sk.rotV || 0), air: !!sk.air, cr: !!sk.crashed, gr: !!sk.grind, bx: r(sk.boxT || 0), turn: r(sk.turn || 0), carve: r(sk.carve || 0), sp: r(sk.sp || 0), sy: r(sk.slideYaw || 0), k, sc: Math.round(score),
+    of: { helmet: outfit.helmet, jacket: outfit.jacket, pants: outfit.pants, accessory: outfit.accessory, skis: outfit.skis, poles: outfit.poles } };
+}
+function mpSend(dt) {
+  if (!MP.room) return; MP.sendT -= dt; if (MP.sendT > 0) return; MP.sendT = 1 / 20;
+  MP.room.presence({ st: mpPack() }).catch(() => {});
+}
+function mpRig(of) {
+  const of0 = outfit; outfit = Object.assign({}, outfit, of || {});
+  const R = buildSkier(); try { applyOutfit(R); } catch (e) {} outfit = of0; scene.add(R.root);
+  R.shadow = new THREE.Mesh(new THREE.CircleGeometry(0.85, 20), skierRig.shadow.material.clone()); R.shadow.rotation.x = -Math.PI / 2; R.root.userData.shadow = R.shadow; scene.add(R.shadow); return R;
+}
+function mpDrop(r) { scene.remove(r.R.root); scene.remove(r.R.shadow); }
+function mpTag(R) {
+  const c = document.createElement("canvas"); c.width = 256; c.height = 64; const tex = new THREE.CanvasTexture(c);
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false })); sp.scale.set(2.2, 0.55, 1); sp.position.set(0, 2.45, 0); sp.renderOrder = 999; R.root.add(sp);
+  return { c, tex, sp, txt: "" };
+}
+function mpTagText(tag, txt, col) {
+  if (tag.txt === txt) return; tag.txt = txt; const g = tag.c.getContext("2d"); g.clearRect(0, 0, 256, 64);
+  g.font = "700 30px system-ui, sans-serif"; const w = Math.min(248, g.measureText(txt).width + 28);
+  g.fillStyle = "rgba(10,14,24,.62)"; g.beginPath(); g.roundRect ? g.roundRect(128 - w / 2, 8, w, 46, 23) : g.rect(128 - w / 2, 8, w, 46); g.fill();
+  g.fillStyle = col || "#fff"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(txt, 128, 32); tag.tex.needsUpdate = true;
+}
+function mpOfKey(of) { return of ? [of.helmet, of.jacket, of.pants, of.accessory, of.skis, of.poles].join("|") : ""; }
+function mpSync(peers) {
+  const seen = new Set();
+  for (const p of peers) {
+    if (p.sameTab || p.kind !== "viewer") continue; const st = p.presence && p.presence.st;
+    if (!st || typeof st !== "object" || st.res !== RES || ![st.x, st.y, st.s].every(Number.isFinite)) continue;
+    seen.add(p.peer); let r = MP.remotes.get(p.peer);
+    const ofk = mpOfKey(st.of);
+    if (r && r.ofk !== ofk) { mpDrop(r); r = null; }
+    if (!r) { const R = mpRig(st.of); r = { R, tag: mpTag(R), ofk, sk: Object.assign({}, sk, { heli: false, bike: false, water: false, finished: false, stumT: 0, chg: 0, tumZ: 0 }), keys: {}, cur: null }; MP.remotes.set(p.peer, r); }
+    r.st = st; r.by = p.by || (typeof st.id === "string" ? st.id : null); r.guest = p.guest; r.isMe = p.isMe;
+  }
+  for (const [peer, r] of MP.remotes) if (!seen.has(peer)) { mpDrop(r); MP.remotes.delete(peer); }
+  mpNames();
+}
+async function mpNames() {
+  const box = $("mp"); if (!box) return;
+  const ids = [...MP.remotes.values()].map(r => r.by).filter(Boolean); if (MP.myId) ids.push(MP.myId);
+  const ps = MP.user && ids.length ? await MP.user.profiles(ids) : {};
+  box.textContent = ""; box.hidden = false;
+  const line = (txt, col, cls) => { const d = document.createElement("div"); if (cls) d.className = cls; const dot = document.createElement("span"); dot.className = "dot"; dot.style.background = col; d.appendChild(dot); d.appendChild(document.createTextNode(txt)); box.appendChild(d); };
+  const meP = MP.myId && ps[MP.myId];
+  line(meP && meP.name ? meP.name + " (you)" : "You", meP ? meP.color : "#8cf", "me");
+  let n = 0;
+  for (const r of MP.remotes.values()) { n++; const pr = r.by && ps[r.by]; const nm = (pr && pr.name) || (r.isMe ? "You (other tab)" : "Rider " + n); r.name = nm; r.col = pr ? pr.color : "#ffd27a"; mpTagText(r.tag, nm, "#fff");
+    line(nm + (r.guest ? " (guest)" : "") + " · " + Math.round(r.st.sc || 0).toLocaleString(), r.col); }
+  if (!n) { const d = document.createElement("div"); d.textContent = "Share this link to ride together"; d.style.opacity = ".7"; box.appendChild(d); }
+}
+function updateRemotes(dt, time) {
+  if (!MP.remotes.size) return;
+  const sk0 = sk, R0 = skierRig, of0 = outfit, k0 = Object.assign({}, K), a = 1 - Math.exp(-14 * dt);
+  try {
+    for (const r of MP.remotes.values()) {
+      const st = r.st, q = r.sk, R = r.R; if (!st) continue;
+      R.root.visible = R.shadow.visible = st.play !== false && Math.abs(st.s - sk0.s) < 450;
+      if (!R.root.visible) continue;
+      const jump = !r.cur || Math.abs(st.s - q.s) > 25 || Math.abs(st.x - q.x) > 25; r.cur = true;
+      const L = (o, t) => jump ? t : o + (t - o) * a;
+      q.x = L(q.x, st.x); q.y = L(q.y, st.y); q.s = L(q.s, st.s); q.psi = L(q.psi, st.psi); q.spin = L(q.spin, st.spin); q.rot = L(q.rot, st.rot);
+      q.rotV = st.rotV; q.sw = st.sw; q.air = st.air; q.crashed = st.cr; q.grind = st.gr; q.boxT = st.bx; q.turn = st.turn; q.carve = st.carve; q.sp = st.sp; q.slideYaw = st.sy; q.vx = 0; q.vs = st.sp; q.vy = 0;
+      for (const n in K) K[n] = 0; MP_KEYS.forEach((n, i) => { K[n] = st.k & (1 << i) ? 1 : 0; });
+      sk = q; skierRig = R; outfit = Object.assign({}, of0, st.of || {});
+      poseSkier(dt, time);
+      R.root.position.set(q.x, q.y + 0.025, -q.s);
+      const gyaw = q.grind || q.boxT > 0.15 ? (q.slideYaw || 0) : 0; R.grindYaw = lerp(R.grindYaw || 0, gyaw, Math.min(1, 12 * dt));
+      R.root.rotation.y = -(q.psi + R.grindYaw); R.rig.rotation.y = -(q.spin + (q.sw ? Math.PI : 0));
+      R.pivot.rotation.x = q.rot; R.pivot.rotation.z = q.crashed ? 0 : -(R.pose.vt !== undefined ? R.pose.vt : q.turn) * (0.3 + 0.32 * q.carve) * (q.air ? 0.3 : 1);
+      const gy = H(q.x, q.s); R.shadow.position.set(q.x, gy + 0.04, -q.s); const hgt = Math.max(0, q.y - gy); R.shadow.scale.setScalar(clamp(1.1 - hgt * 0.06, 0.45, 1.1)); R.shadow.material.opacity = clamp(0.2 - hgt * 0.02, 0, 0.2);
+    }
+  } finally { sk = sk0; skierRig = R0; outfit = of0; Object.assign(K, k0); }
+}
+(async () => {
+  if (!window.claude || !window.claude.use) return;
+  try {
+    const [room, user] = await Promise.all([window.claude.use("room"), window.claude.use("user")]);
+    MP.user = user; if (user) MP.myId = await user.id();
+    if (!room) return;
+    const rm = await room.join("ride-" + RES).catch(() => null); if (!rm) return;
+    MP.room = rm; rm.onPeers(ch => mpSync(ch.peers), () => { MP.room = null; });
+    mpNames();
+  } catch (e) {}
+})();
 </script>
