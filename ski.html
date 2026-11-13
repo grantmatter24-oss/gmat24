@@ -3753,7 +3753,7 @@ async function mpNames() {
   const box = $("mp"); if (!box) return;
   const ids = MP.others.map(o => o.by).filter(Boolean).concat(Object.keys(MP.lb)); if (MP.myId) ids.push(MP.myId);
   const ps = MP.user && ids.length ? await MP.user.profiles([...new Set(ids)]) : {};
-  const nameOf = (id, fb) => (id && ps[id] && ps[id].name) || fb, colOf = id => (id && ps[id] && ps[id].color) || "#ffd27a";
+  const nameOf = (id, fb) => { const q = id && ps[id]; if (!q) return fb; const em = typeof q.email === "string" && q.email.indexOf("@") > 0 ? q.email.slice(0, q.email.indexOf("@")) : ""; return em || q.name || fb; }, colOf = id => (id && ps[id] && ps[id].color) || "#ffd27a";
   box.textContent = ""; box.hidden = false;
   { const d = document.createElement("div"); d.className = "tip"; const live = MP.room && MP.room.connected && MP.room.connected();
     d.textContent = "Lobby: " + (MP.room ? (live ? "connected · " + MP.peerN + " open" : "connecting…") : MP.status) + (MP.presErr ? " · send failed (" + MP.presErr + ")" : ""); box.appendChild(d); }
