@@ -1443,6 +1443,7 @@ function prepareShot(){
   clubIdx = suggestClub();
   if (ball.teed && HOLE.teeAim){ const [fx, fz] = pointAt(HOLE.teeAim[0], HOLE.teeAim[1]); aimYaw = yawTo(fx, fz); }
   else aimYaw = yawTo(PIN[0], PIN[1]);
+  puttCamYaw = yawTo(PIN[0], PIN[1]);
   placeBallOnGround();
   ballMesh.position.copy(ball.p); ballMesh.scale.setScalar(1);
   teePeg.visible = ball.teed; teePeg.position.set(ball.p.x, ball.p.y - R_BALL - 0.02, ball.p.z);
@@ -1699,8 +1700,10 @@ function showEnd(){
 
 /* ================= CAMERA ================= */
 const camPos = new THREE.Vector3(), camLook = new THREE.Vector3();
+let puttCamYaw = 0; // putting camera stays put on the line to the hole while A/D turn only the golfer and putt line
 function addressCam(outPos, outLook){
-  const a = aimDir(), r = rightDir(), putt = CLUBS[clubIdx].type === 'putter';
+  const putt = CLUBS[clubIdx].type === 'putter';
+  const a = putt ? new THREE.Vector3(Math.sin(puttCamYaw), 0, -Math.cos(puttCamYaw)) : aimDir(), r = rightDir();
   const base = _tmp.copy(ball.p); base.y = groundH(ball.p.x, ball.p.z);
   if (putt){
     const d = Math.min(distToPin(), 14);
