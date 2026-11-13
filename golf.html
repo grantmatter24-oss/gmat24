@@ -79,6 +79,9 @@
   .bag button:focus-visible, .btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
   .clubrow button { font-size: 16px; padding: 2px 0 4px; }
   .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; }
+  .seg4 { grid-template-columns: repeat(4, 1fr); }
+  .shotrow { display: flex; flex-direction: column; gap: 5px; }
+  .shotrow[hidden] { display: none; }
   .seg button.on { background: var(--gold); color: var(--navy); border-color: var(--gold); }
   .seg-lbl { display: flex; justify-content: space-between; }
   .bag.locked { opacity: .55; pointer-events: none; }
@@ -238,6 +241,12 @@
   <div class="seg" id="trajSeg">
     <button data-v="low">Low</button><button data-v="mid" class="on">Mid</button><button data-v="high">High</button>
   </div>
+  <div class="shotrow" id="shotRow">
+    <div class="seg-lbl"><span class="lbl">Shot</span><span class="lbl">1 · 2 · 3 · 4</span></div>
+    <div class="seg seg4" id="typeSeg">
+      <button data-v="full" class="on">Full</button><button data-v="pitch">Pitch</button><button data-v="chip">Chip</button><button data-v="flop">Flop</button>
+    </div>
+  </div>
 </div>
 
 <div class="stats" id="stats">
@@ -270,6 +279,7 @@
         <kbd>Q / E</kbd><span>Change club (mouse wheel works too)</span>
         <kbd>Z / X / C</kbd><span>Draw, straight or fade</span>
         <kbd>S / W</kbd><span>Lower or higher trajectory</span>
+        <kbd>1 – 4</kbd><span>Wedges and 9 iron: full, pitch, chip (low, runs out) or flop (high, stops fast)</span>
         <kbd>Space</kbd><span>Fast-forward the ball</span>
       </div>
       <div class="row-btns">
@@ -1306,9 +1316,20 @@ const SHAPES = { draw: { start: 1.8, tilt: -7 }, straight: { start: 0, tilt: 0 }
 const TRAJ = { low: { la: -2.8, spin: 0.86, sp: 0.99 }, mid: { la: 0, spin: 1, sp: 1 }, high: { la: 3, spin: 1.12, sp: 0.98 } };
 
 // quick flat-ground simulation to build the carry chart
-function simFlat(club, p){
-  const sp = club.mph * MPH * p, la = club.la * Math.PI / 180, S = SURF[C_FAIR];
-  let y = 0, z = 0, vy = sp * Math.sin(la), vz = sp * Math.cos(la), spin = club.rpm * (0.5 + 0.5 * p), dt = 1/120, carry = 0, b = 0, mode = 0, t = 0;
+// short-game shot types (wedges and 9 iron): change launch, spin and speed of the strike
+const SHOT_TYPES = {
+  full:  { laMul: 1,    la: 0,  spin: 1,    sp: 1,    name: 'Full' },
+  pitch: { laMul: 0.85, la: -1, spin: 1.12, sp: 0.96, name: 'Pitch' },     // a touch lower, more check
+  chip:  { laMul: 0.4,  la: 0,  spin: 0.32, sp: 0.78, name: 'Chip' },      // bump-and-run: low, little spin, rolls out
+  flop:  { laMul: 1,    la: 15, spin: 1.2,  sp: 0.8,  name: 'Flop' }       // high and soft, stops quickly
+};
+let shotType = 'full';
+const typeAllowed = () => CLUBS[clubIdx].type === 'wedge' || CLUBS[clubIdx].id === '9I';
+const curType = () => typeAllowed() ? shotType : 'full';
+function simFlat(club, p, tk){
+  const st = SHOT_TYPES[tk || 'full'];
+  const sp = club.mph * MPH * p * st.sp, la = clamp(club.la * st.laMul + st.la, 2, 60) * Math.PI / 180, S = SURF[C_FAIR];
+  let y = 0, z = 0, vy = sp * Math.sin(la), vz = sp * Math.cos(la), spin = club.rpm * (0.5 + 0.5 * p) * st.spin, dt = 1/120, carry = 0, b = 0, mode = 0, t = 0;
   while (t < 40){
     t += dt;
     if (mode === 0){
@@ -1322,9 +1343,11 @@ function simFlat(club, p){
   }
   return [carry, z];
 }
-const CHART = [];
-function buildChart(){ CLUBS.forEach((c, i) => { if (c.type === 'putter') return; CHART[i] = []; for (let k = 0; k <= 11; k++){ CHART[i].push(simFlat(c, 0.05 + k * 0.1)); } }); }
-function chartAt(ci, p){ const t = clamp((p - 0.05) / 0.1, 0, 10.999), k = Math.floor(t), f = t - k, A = CHART[ci][k], B = CHART[ci][k + 1]; return [lerp(A[0], B[0], f), lerp(A[1], B[1], f)]; }
+const CHART = {};
+function buildChart(){
+  for (const tk of Object.keys(SHOT_TYPES)){ CHART[tk] = []; CLUBS.forEach((c, i) => { if (c.type === 'putter' || (tk !== 'full' && c.type !== 'wedge' && c.id !== '9I')) return; CHART[tk][i] = []; for (let k = 0; k <= 11; k++) CHART[tk][i].push(simFlat(c, 0.05 + k * 0.1, tk)); }); }
+}
+function chartAt(ci, p, tk){ const C = CHART[tk || 'full'][ci] || CHART.full[ci]; const t = clamp((p - 0.05) / 0.1, 0, 10.999), k = Math.floor(t), f = t - k, A = C[k], B = C[k + 1]; return [lerp(A[0], B[0], f), lerp(A[1], B[1], f)]; }
 const PUTT_MAX = 6.2;
 function puttRoll(p){ const v = p * PUTT_MAX; return v * v / (2 * SURF[C_GREEN].mu * G); }
 
@@ -1378,9 +1401,11 @@ function updateHUD(){
 function updateClubHUD(){
   const c = CLUBS[clubIdx]; $('clubName').textContent = c.name;
   if (c.type === 'putter') $('clubCarry').textContent = `Max roll ${Math.round(puttRoll(1) / FT)} ft`;
-  else { const k = ball.teed ? C_TEE : classAt(ball.p.x, ball.p.z); const [ca, to] = chartAt(clubIdx, LIE[k].sp * TRAJ[traj].sp); $('clubCarry').textContent = `${Math.round(ca / YD)} carry · ${Math.round(to / YD)} total`; }
+  else { const k = ball.teed ? C_TEE : classAt(ball.p.x, ball.p.z); const [ca, to] = chartAt(clubIdx, LIE[k].sp * TRAJ[traj].sp, curType()); $('clubCarry').textContent = `${Math.round(ca / YD)} carry · ${Math.round(to / YD)} total`; }
   document.querySelectorAll('#shapeSeg button').forEach(b => b.classList.toggle('on', b.dataset.v === shape));
   document.querySelectorAll('#trajSeg button').forEach(b => b.classList.toggle('on', b.dataset.v === traj));
+  $('shotRow').hidden = !typeAllowed();
+  document.querySelectorAll('#typeSeg button').forEach(b => { const on = b.dataset.v === shotType; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
 }
 function updateWindHUD(){
   const dir = new THREE.Vector3(); camera.getWorldDirection(dir); const camYaw = Math.atan2(dir.x, -dir.z);
@@ -1441,6 +1466,7 @@ function prepareShot(){
   hideStats(); ball.wet = false;
   const k = classAt(ball.p.x, ball.p.z); lastLie = k;
   clubIdx = suggestClub();
+  { const d = distToPin() / YD; shotType = d < 30 ? 'chip' : d < 60 ? 'pitch' : 'full'; }
   if (ball.teed && HOLE.teeAim){ const [fx, fz] = pointAt(HOLE.teeAim[0], HOLE.teeAim[1]); aimYaw = yawTo(fx, fz); }
   else aimYaw = yawTo(PIN[0], PIN[1]);
   puttCamYaw = yawTo(PIN[0], PIN[1]);
@@ -1484,9 +1510,11 @@ function hitBall(power, faceDeg, pathDeg, tempo){
     let spMul = lie.sp; if (k === C_SAND && club.type === 'wedge') spMul = 0.9;
     if (club.id === 'DR' && !ball.teed) spMul *= 0.9;
     if (club.type === 'wood' && (k === C_ROUGH || k === C_DEEP || k === C_SAND)) spMul *= 0.9;
-    const sp = club.mph * MPH * power * spMul * TJ.sp * tempo * (1 + rnd() * 0.008);
-    const la = clamp(club.la + TJ.la + lie.la + sl.up * 0.6 + rnd() * 0.4, 2, 60) * Math.PI / 180;
-    const spin = club.rpm * (0.5 + 0.5 * Math.min(power, 1)) * lie.spin * TJ.spin;
+    const ST = SHOT_TYPES[curType()];
+    const sp = club.mph * MPH * power * spMul * TJ.sp * ST.sp * tempo * (1 + rnd() * 0.008);
+    const la = clamp(club.la * ST.laMul + ST.la + TJ.la + lie.la + sl.up * 0.6 + rnd() * 0.4, 2, 62) * Math.PI / 180;
+    const spin = club.rpm * (0.5 + 0.5 * Math.min(power, 1)) * lie.spin * TJ.spin * ST.spin;
+    shot.type = curType();
     const startDeg = 0.75 * faceDeg + 0.25 * pathDeg + S.start - sl.side * 0.35 + rnd() * lie.rnd;
     const tiltDeg = clamp((faceDeg - pathDeg) * 2.0 + S.tilt - sl.side * 0.5 + rnd() * lie.rnd * 1.5, -28, 28);
     const dir = aimYaw + startDeg * Math.PI / 180;
@@ -1669,8 +1697,9 @@ function onRest(){
   if (!shot.putt) showShotStats(total);
   setTimeout(() => { if (state === 'result') prepareShot(); }, shot.putt ? 1800 : 2900);
 }
+function shotLabel(){ return shot.club + (shot.type && shot.type !== 'full' ? ' · ' + SHOT_TYPES[shot.type].name : ''); }
 function showShotStats(total){
-  if (shot.putt){ showStats([['Distance', Math.round(total / FT), 'ft'], ['Left', Math.round(distToPin() / FT), 'ft']], `Shot ${strokes}`, shot.club); return; }
+  if (shot.putt){ showStats([['Distance', Math.round(total / FT), 'ft'], ['Left', Math.round(distToPin() / FT), 'ft']], `Shot ${strokes}`, shotLabel()); return; }
   const start = shot.start, aim = shot.aim, lp = shot.landP || ball.p;
   const lat = ((lp.x - start.x) * Math.cos(aimYaw) + (lp.z - start.z) * Math.sin(aimYaw));
   showStats([
@@ -1678,7 +1707,7 @@ function showShotStats(total){
     ['Ball speed', Math.round(shot.speed / MPH), 'mph'], ['Launch', shot.launch.toFixed(1), '°'],
     ['Spin', Math.round(shot.spinRpm / 10) * 10, 'rpm'], ['Apex', Math.round((shot.apex - start.y) / FT), 'ft'],
     ['Offline', `${Math.abs(lat / YD).toFixed(0)} ${lat > 0.5 ? 'R' : lat < -0.5 ? 'L' : ''}`, 'yds', true]
-  ], `Shot ${strokes}`, shot.club);
+  ], `Shot ${strokes}`, shotLabel());
 }
 function showEnd(){
   state = 'end';
@@ -1789,6 +1818,7 @@ addEventListener('keydown', e => {
     if (k === 'q' || k === 'arrowup') changeClub(-1);
     if (k === 'e' || k === 'arrowdown') changeClub(1);
     if (k === 'z'){ shape = 'draw'; updateClubHUD(); } if (k === 'x'){ shape = 'straight'; updateClubHUD(); } if (k === 'c'){ shape = 'fade'; updateClubHUD(); }
+    if (k === '1' || k === '2' || k === '3' || k === '4'){ shotType = ['full', 'pitch', 'chip', 'flop'][+k - 1]; updateClubHUD(); }
     if (k === 'w'){ traj = traj === 'low' ? 'mid' : 'high'; updateClubHUD(); } if (k === 's'){ traj = traj === 'high' ? 'mid' : 'low'; updateClubHUD(); }
   }
   if (k === ' '){ ffwd = true; e.preventDefault(); }
@@ -1801,6 +1831,7 @@ glCanvas.addEventListener('wheel', e => { if (state === 'address'){ changeClub(e
 $('clubPrev').onclick = () => changeClub(-1); $('clubNext').onclick = () => changeClub(1);
 document.querySelectorAll('#shapeSeg button').forEach(b => b.onclick = () => { shape = b.dataset.v; updateClubHUD(); });
 document.querySelectorAll('#trajSeg button').forEach(b => b.onclick = () => { traj = b.dataset.v; updateClubHUD(); });
+document.querySelectorAll('#typeSeg button').forEach(b => b.onclick = () => { shotType = b.dataset.v; updateClubHUD(); });
 $('againBtn').onclick = () => { $('endCard').classList.add('hidden'); if (holeIdx === HOLES.length - 1) startRound(roundStart); else loadHole(holeIdx + 1); };
 $('pickBtn').onclick = () => { $('endCard').classList.add('hidden'); pickHole = roundStart; buildPicker(); $('startBtn').textContent = `Tee off on ${HOLES[pickHole].num}`; $('intro').classList.remove('hidden'); };
 
@@ -1833,7 +1864,7 @@ function drawUI(){
   const p = Math.min(b, 1) + Math.max(0, b - 1) * 0.5;
   let txt;
   if (putt) txt = `${Math.round(p * 100)}% · rolls ≈ ${Math.round(puttRoll(Math.min(b, 1.05)) / FT)} ft`;
-  else { const k = classAt(ball.p.x, ball.p.z); const [ca] = chartAt(clubIdx, p * LIE[k].sp * TRAJ[traj].sp); txt = `${Math.round(p * 100)}% · carry ≈ ${Math.round(ca / YD)} yds`; }
+  else { const k = classAt(ball.p.x, ball.p.z); const [ca, to] = chartAt(clubIdx, p * LIE[k].sp * TRAJ[traj].sp, curType()); txt = `${Math.round(p * 100)}% · carry ≈ ${Math.round(ca / YD)} · total ≈ ${Math.round(to / YD)} yds`; }
   ui.font = '700 20px "Saira Condensed", "Arial Narrow", sans-serif'; ui.textAlign = 'right'; ui.fillStyle = '#f4f1e8'; ui.shadowColor = 'rgba(0,0,0,.7)'; ui.shadowBlur = 6;
   ui.fillText(txt, bx - 16, sy + SP * Math.min(b, 1.1) + 6);
   ui.restore();
@@ -1843,7 +1874,7 @@ function drawUI(){
 function updateAimMarkers(){
   const show = state === 'address' || state === 'swing';
   const putt = CLUBS[clubIdx].type === 'putter';
-  aimRing.visible = show && !putt && pinView < 0.5; aimLine.visible = show && putt; puttEnd.visible = show && putt;
+  aimRing.visible = false; aimLine.visible = show && putt; puttEnd.visible = false;
   if (!show) return;
   const a = aimDir();
   if (!putt){
@@ -1856,12 +1887,12 @@ function updateAimMarkers(){
     // before the stroke: preview at the pace that would roll the distance on flat ground; while dragging: live power
     const live = !!sw;
     const power = live ? clamp(sw.maxDy / swingPx(), 0, 1.05) : Math.sqrt(distToPin() * 2 * SURF[C_GREEN].mu * G) / PUTT_MAX;
-    const P = predictPutt(power), arr = aimLineGeo.attributes.position.array, n = P.pts.length / 2;
+    const P = predictPutt(power), arr = aimLineGeo.attributes.position.array, nAll = P.pts.length / 2;
+    const n = Math.max(2, Math.min(nAll, Math.round(nAll * 0.33)));   // only the first third: read the rest yourself
     for (let i = 0; i < PL_MAX; i++){ const j = Math.min(i, n - 1), x = P.pts[j*2], z = P.pts[j*2+1]; arr[i*3] = x; arr[i*3+1] = groundH(x, z) + 0.012; arr[i*3+2] = z; }
     aimLineGeo.attributes.position.needsUpdate = true; aimLine.computeLineDistances(); aimLineGeo.setDrawRange(0, Math.max(2, n));
     aimLineMat.opacity = live ? 0.95 : 0.5;
-    const ex = P.pts[(n - 1) * 2], ez = P.pts[(n - 1) * 2 + 1];
-    puttEnd.position.set(ex, groundH(ex, ez) + 0.01, ez); puttEnd.material.color.set(P.holed ? 0x2fd04a : 0x0a0a0a); puttEnd.material.opacity = live ? 0.95 : 0.5;
+
   }
 }
 
