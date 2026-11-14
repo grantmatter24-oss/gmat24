@@ -1051,6 +1051,9 @@ function gUp() { if (charging) { charging = false; popPow = Math.max(0.3, Math.m
 const GRABS = ["Mute", "Indy", "Tail", "Melon", "Nose", "Stalefish"];
 let scoreMarks = [], runBest0 = 0, trickN = 0;
 let comboT = 0, focus = 1, timeScale = 1, mode = "title", score = 0, mult = 1, best = 0, rings = 0, boostPulse = 0, shake = 0, lastCheck = null;
+/* bump SCORE_SEASON to wipe every high score: local bests reset on next load, older leaderboard entries are ignored */
+const SCORE_SEASON = 2;
+if (store.get("kb-season", 1) !== SCORE_SEASON) { for (const r in RESORT_NAMES) store.set("kb-score-" + r, 0); store.set("kb-season", SCORE_SEASON); }
 best = store.get("kb-score-" + RES, 0);
 let bestTime = store.get("kb-time-" + RES, 0), endNewBest = false;
 let sk, runT = 0, endShown = false, stats = { tricks: 0, biggest: 0, wipes: 0, jumps: 0 };
@@ -3711,7 +3714,7 @@ function mpSaveBest(id, res, v) {
   if (!MP.db || !id || !Number.isFinite(v) || v <= 0 || !RESORT_NAMES[res]) return;
   const old = MP.lb[id] || {}; if ((+old[res] || 0) >= v || MP.lbBusy[id]) return;
   if (id !== MP.myId && !MP.isOwner) return;
-  MP.lbBusy[id] = true; const doc = Object.assign({}, old, { [res]: Math.round(v) }); MP.lb[id] = doc;
+  MP.lbBusy[id] = true; const doc = Object.assign({}, old, { [res]: Math.round(v), season: SCORE_SEASON }); MP.lb[id] = doc;
   MP.db.doc("lb/" + id).set(doc).catch(() => {}).finally(() => { MP.lbBusy[id] = false; });
 }
 function mpRig(of) {
@@ -3821,7 +3824,7 @@ async function fbInit() {
   // all-time bests: lb/<uid> = { nm, alpine: 12000, park: 9000, ... }; anyone can read, each player writes only their own
   MP.db = { doc: path => ({ set: d => rt.ref(path).set(Object.assign({}, d, { nm: myName })) }),
     collection: () => ({ onSnapshot: (cb, err) => rt.ref("lb").on("value", v => { const all = v.val() || {}; for (const id in all) if (all[id] && all[id].nm) names[id] = String(all[id].nm).slice(0, 24); cb({ docs: Object.entries(all).map(([id, d]) => ({ id, exists: true, data: () => d })) }); }, e => err && err(e)) }) };
-  MP.db.collection("lb").onSnapshot(snap => { const o = {}; for (const d of snap.docs) o[d.id] = d.data(); MP.lb = o; MP.boardDirty = true; }, () => {});
+  MP.db.collection("lb").onSnapshot(snap => { const o = {}; for (const d of snap.docs) { const v = d.data(); if (v && v.season === SCORE_SEASON) o[d.id] = v; } MP.lb = o; MP.boardDirty = true; }, () => {});
   let presRef = null, peersOff = null;
   auth.onAuthStateChanged(u => {
     if (presRef) { presRef.remove().catch(() => {}); presRef = null; }
@@ -3849,7 +3852,7 @@ function fbButton(show) {
     const [room, user] = await Promise.all([window.claude.use("room"), window.claude.use("user")]);
     MP.user = user; if (user) { MP.myId = await user.id(); MP.isOwner = await user.isOwner(); }
     const db = await window.claude.use("db");
-    if (db) { MP.db = db; db.collection("lb").onSnapshot(snap => { const o = {}; for (const d of snap.docs) if (d.exists) o[d.id] = d.data(); MP.lb = o; MP.boardDirty = true; }, () => { MP.db = null; }); }
+    if (db) { MP.db = db; db.collection("lb").onSnapshot(snap => { const o = {}; for (const d of snap.docs) if (d.exists && d.data() && d.data().season === SCORE_SEASON) o[d.id] = d.data(); MP.lb = o; MP.boardDirty = true; }, () => { MP.db = null; }); }
     if (!room) { MP.status = user && !MP.myId ? "not connected (no identity on this page)" : "not connected (the platform did not let this page join)"; MP.boardDirty = true; return; }
     MP.room = room; room.onPeers(ch => mpSync(ch.peers), e => { MP.room = null; MP.status = "not connected (" + ((e && e.code) || "error") + ")"; MP.boardDirty = true; });
     room.onConnection(() => { MP.boardDirty = true; }, () => {});
