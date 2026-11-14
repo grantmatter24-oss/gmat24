@@ -3797,7 +3797,15 @@ function updateRemotes(dt, time) {
 
 /* ---------- Firebase game server (used when the page is opened outside claude.ai, e.g. on GitHub Pages) ----------
    Paste the web app config from console.firebase.google.com > Project settings > Your apps. It is not a secret. */
-const FIREBASE_CONFIG = null;
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDP_rgi4dWZqVax_c5Ob5Hg4dilLS9Bchc",
+  authDomain: "kicker-run.firebaseapp.com",
+  databaseURL: "https://kicker-run-default-rtdb.firebaseio.com",
+  projectId: "kicker-run",
+  storageBucket: "kicker-run.firebasestorage.app",
+  messagingSenderId: "149808173020",
+  appId: "1:149808173020:web:744be18f442c535fe54919"
+};
 function fbLoad(src) { return new Promise((ok, no) => { const e = document.createElement("script"); e.src = src; e.onload = ok; e.onerror = no; document.head.appendChild(e); }); }
 function fbColor(id) { let h = 0; for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return "hsl(" + (h % 360) + ",70%,62%)"; }
 async function fbInit() {
