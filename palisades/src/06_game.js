@@ -392,7 +392,7 @@ function updateCamera(dt) {
     if (camSnap) camPos.copy(tmp); else camPos.lerp(tmp, 1 - Math.exp(-6 * dt)); camera.position.copy(camPos); camera.up.set(0, 1, 0);
     tmp.set(p.x + dx * 14, p.y + 1.2 + sl * 14, p.z + dz * 14); if (camSnap) camTgt.copy(tmp); else camTgt.lerp(tmp, 1 - Math.exp(-8 * dt)); camera.lookAt(camTgt); camSnap = false; return;
   }
-  const dist = (onLift ? (cabin ? 15 : 8.5) : 6.4 + sp * 0.07) * (sk.crashed ? 1.3 : 1), hgtC = (onLift ? 3.4 : 2.5 + sp * 0.012) + look.pit * -6;
+  const dist = (onLift ? (cabin ? 15 : 8.5) : 5.2 + sp * 0.06) * (sk.crashed ? 1.3 : 1), hgtC = (onLift ? 3.4 : 3.2 + sp * 0.012) + look.pit * -6;   // a little above and close behind
   if (sk.ground && sk.mode === "ski") camSlope += (clamp(-fw.y, -0.5, 0.8) - camSlope) * Math.min(1, 4 * dt);   // held through the air, so leaving a lip never drops the view
   camAir += ((!sk.ground && sk.mode === "ski" ? clamp(0.9 + (p.y - H(p.x, p.z)) * 0.14, 0.9, 3) : 0) - camAir) * Math.min(1, (sk.ground ? 2.5 : 5) * dt);
   const slopeY = camSlope * dist * 0.55 + camAir / 0.6;

@@ -1,4 +1,11 @@
 /* ---------- boot and main loop ---------- */
+/* If the machine cannot hold 30 fps the graphics level steps down by itself, once per level, unless you picked a level yourself. */
+let aqT = 0, aqN = 0, aqSlow = 0, gfxPicked = false;
+function autoQuality(dt) {
+  if (gfxPicked || sk.mode === "menu" || paused || QS.has("test")) return; aqT += dt; aqN++;
+  if (aqT < 4) return; const fps = aqN / aqT; aqT = 0; aqN = 0; aqSlow = fps < 31 ? aqSlow + 1 : 0;
+  if (aqSlow >= 2) { const order = ["ultra", "high", "med", "low"], i = order.indexOf(qName); if (i >= 0 && i < 3) { setGfx(order[i + 1]); toast("Graphics lowered to " + order[i + 1] + " to keep it smooth", 4); } aqSlow = 0; }
+}
 const progress = (msg, f) => { $("loadMsg").textContent = msg; $("loadFill").style.width = Math.round(f * 100) + "%"; return new Promise(r => setTimeout(r, 16)); };
 let frame = 0, lastT = 0, acc = 0, menuA = 0, camFix = null;
 function tick(t) {
@@ -21,7 +28,8 @@ function tick(t) {
   }
   rig.hold.visible = sk.mode !== "menu" && rig.hold.visible;
   updateSun(); skyMesh.position.copy(camera.position); skyMesh.scale.setScalar(40000);
-  updateTerrain(camera.position, 5); updateTrees(camera.position); updateRocks(camera.position);
+  updateTerrain(camera.position, 5); updateTrees(camera.position); updateRocks(camera.position); if (frame % 20 === 0) thinBillboards(camera.position);
+  autoQuality(dt);
   if (snowFall.visible) { snowFall.material.uniforms.uCam.value.copy(camera.position); snowFall.material.uniforms.uPx.value = renderer.domElement.height * 0.5 / Math.tan(camera.fov * DEG / 2); }
   gradePass.uniforms.uSpeed.value = sk.mode === "ski" && !paused ? smooth((sk.sp - 14) / 26) : 0;
   updateHUD(dt); if (sk.mode !== "menu") drawMini(dt); updateAudio();
@@ -47,7 +55,7 @@ async function boot() {
   for (let i = 0; i < 300; i++) if (!updateTerrain(camera.position, 40)) break;
   for (let i = 0; i < 40; i++) { updateTrees(camera.position); updateRocks(camera.position); }
   $("load").hidden = true; renderer.info.autoReset = false; requestAnimationFrame(tick);
-  window.__pal = { cliffAt, hBase, PARK, REW, stepRewind, recordRewind, toggleWalk, stepWalk, clearTracks, goHome, toggleMap, runAt, npcs, KR, gDown, gUp, landing, stepSki, stepLift, updateLifts, findNearLift, nrm, sk, K, LIFTS, WORLD, H, camera, scene, renderer, setWeather, placeSkier, boardLift, unloadAt, spawnAt, MP, chunks, nearTiles, treeTiles, Q };
+  window.__pal = { cliffK, hBase, PARK, REW, stepRewind, recordRewind, toggleWalk, stepWalk, clearTracks, goHome, toggleMap, runAt, npcs, KR, gDown, gUp, landing, stepSki, stepLift, updateLifts, findNearLift, nrm, sk, K, LIFTS, WORLD, H, camera, scene, renderer, setWeather, placeSkier, boardLift, unloadAt, spawnAt, MP, chunks, nearTiles, treeTiles, Q };
   window.__info = () => ({ mode: sk.mode, p: [Math.round(sk.p.x), Math.round(sk.p.y), Math.round(sk.p.z)], sp: +sk.sp.toFixed(1), ground: sk.ground, crashed: sk.crashed, trees: treeCount, calls: renderer.info.render.calls, tris: renderer.info.render.triangles, lift: sk.lift && sk.lift.name, liftS: Math.round(sk.liftS) });
 }
 boot().catch(e => { const d = document.createElement("div"); d.id = "err"; d.textContent = String(e && e.stack || e); document.body.appendChild(d); console.error(e); });

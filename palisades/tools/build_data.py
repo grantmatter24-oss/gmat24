@@ -11,7 +11,7 @@ RAW = sys.argv[1].rstrip("/") + "/"  # folder with the raw downloads (dem.py, ov
 OUT = sys.argv[2]
 LON0, LAT0 = -120.255, 39.192
 MLAT, MLON = 111019.1, 86403.0
-CELL = 10.0
+CELL = 5.0; HQ = 0.08   # metres per height step: 8 cm keeps the file small and is far below what the snow surface shows
 X0, X1, Z0, Z1 = -3750.0, 3750.0, -2250.0, 6000.0  # Olympic Valley and Alpine Meadows;  # multiples of the 250 m backdrop grid so the two meshes share an edge
 NX = int((X1 - X0) / CELL) + 1; NZ = int((Z1 - Z0) / CELL) + 1
 def toXZ(lon, lat): return ((lon - LON0) * MLON, -(lat - LAT0) * MLAT)
@@ -28,6 +28,19 @@ def sample_dem(arr, z, tx0, ty0, xs, zs):
     return ndimage.map_coordinates(arr, [py, px], order=3, mode="nearest")
 gx, gz = np.meshgrid(X0 + np.arange(NX) * CELL, Z0 + np.arange(NZ) * CELL)
 Hm = sample_dem(dem, Zm, tx0, ty0, gx, gz).astype(np.float32)
+# 1 m lidar (tools/lidar.py): the height grid is point-sampled from it so cliffs keep their full height, and the cliff map is
+# wherever the 1 m surface is steeper than about 56 degrees
+lid = np.load(RAW + "lidar1m.npy"); LE0, LN1 = [float(v) for v in open(RAW + "lidar_meta.txt").read().split()[:2]]
+from rasterio.warp import transform as _tf
+_lon, _lat = toLL(gx, gz); _e, _n = _tf("EPSG:4326", "EPSG:26910", _lon.ravel(), _lat.ravel())
+lcol = np.array(_e).reshape(gx.shape) - LE0 - 0.5; lrow = LN1 - np.array(_n).reshape(gx.shape) - 0.5
+Hl = ndimage.map_coordinates(lid, [lrow, lcol], order=1, mode="nearest").astype(np.float32)
+print("lidar vs 10 m survey: mean diff %.2f m, rms %.2f m" % (float(np.mean(Hl - Hm)), float(np.sqrt(np.mean((Hl - Hm) ** 2)))))
+Hm = Hl
+steep = np.zeros(lid.shape, np.float32); dx = np.abs(np.diff(lid, axis=1)) > 1.5; dy = np.abs(np.diff(lid, axis=0)) > 1.5
+steep[:, 1:] += dx; steep[:, :-1] += dx; steep[1:, :] += dy; steep[:-1, :] += dy; del dx, dy
+steep = ndimage.uniform_filter((steep > 0).astype(np.float32), 5)
+cliffRaw = ndimage.map_coordinates(steep, [lrow, lcol], order=1, mode="nearest"); del steep, lid
 print("height", Hm.min(), Hm.max())
 def Hat(x, z):
     i = np.clip((np.asarray(x) - X0) / CELL, 0, NX - 1); j = np.clip((np.asarray(z) - Z0) / CELL, 0, NZ - 1)
@@ -120,7 +133,7 @@ for pk in peaks: x, z = toXZ(*pk.pop("ll")); pk["p"] = [round(x), round(z)]
 peaks = [pk for pk in peaks if inb(pk["p"][0], pk["p"][1])]
 
 # ---------- masks at 5 m ----------
-MC = 5.0; MW = (NX - 1) * 2 + 1; MH = (NZ - 1) * 2 + 1
+MC = CELL; MW = NX; MH = NZ
 def mpx(pts): return [((x - X0) / MC, (z - Z0) / MC) for x, z in pts]
 groom = Image.new("L", (MW, MH), 0); mogul = Image.new("L", (MW, MH), 0); clear = Image.new("L", (MW, MH), 0); road = Image.new("L", (MW, MH), 0)
 dcos = Image.new("L", (MW, MH), 128); dsin = Image.new("L", (MW, MH), 128)
@@ -210,7 +223,9 @@ mogA = blur(mogul, 2.5) * (1 - groomA) * ss(slope, 14, 20) * (1 - ss(slope, 36, 
 roadA = blur(road, 0.6)
 print("tree cover %.3f groom %.3f mogul %.3f road %.4f" % (tree.mean(), groomA.mean(), mogA.mean(), roadA.mean()))
 u8 = lambda a: np.clip(a * 255 + 0.5, 0, 255).astype(np.uint8)
-mA = np.stack([u8(groomA), (u8(tree) // 8) * 8, u8(roadA)], -1)
+cliffA = ss(cliffRaw, 0.10, 0.42) * (1 - groomA) * (1 - np.clip(roadA * 2, 0, 1)); tree *= 1 - cliffA
+print('cliff cover %.4f' % cliffA.mean())
+mA = np.stack([u8(groomA), (u8(tree) // 8) * 8, u8(roadA)], -1); mC = np.stack([u8(cliffA)] * 3, -1)
 mB = np.stack([u8(np.clip(clearA * 1.3, 0, 1)), np.asarray(dcos.filter(ImageFilter.GaussianBlur(2.5))), np.asarray(dsin.filter(ImageFilter.GaussianBlur(2.5)))], -1)
 def png(a):
     b = io.BytesIO(); Image.fromarray(a).save(b, "PNG", optimize=True); return "data:image/png;base64," + base64.b64encode(b.getvalue()).decode()
@@ -219,9 +234,9 @@ def pack16(a, base, q):
     v = np.round((a - base) / q).astype(np.int32); assert v.min() >= 0 and v.max() < 65536
     d = v.copy(); d[:, 1:] = v[:, 1:] - v[:, :-1]; d[1:, 0] = v[1:, 0] - v[:-1, 0]
     return base64.b64encode(gzip.compress(d.astype("<i2").tobytes(), 9)).decode()
-out = {"meta": {"lon0": LON0, "lat0": LAT0, "mlon": MLON, "mlat": MLAT, "x0": X0, "z0": Z0, "nx": NX, "nz": NZ, "cell": CELL, "hbase": 1800, "hq": 0.02, "mw": MW, "mh": MH, "mcell": MC,
+out = {"meta": {"lon0": LON0, "lat0": LAT0, "mlon": MLON, "mlat": MLAT, "x0": X0, "z0": Z0, "nx": NX, "nz": NZ, "cell": CELL, "hbase": 1800, "hq": HQ, "mw": MW, "mh": MH, "mcell": MC,
                  "ox0": ox0, "oz0": oz0, "on": ON, "ocell": OC, "obase": 600, "oq": 0.05},
-       "h": pack16(Hm, 1800, 0.02), "ho": pack16(Ho, 600, 0.05), "maskA": png(mA), "maskB": png(mB),
+       "h": pack16(Hm, 1800, HQ), "ho": pack16(Ho, 600, 0.05), "maskA": png(mA), "maskB": png(mB), "maskC": png(mC),
        "lifts": lifts, "runs": runs, "areas": areas, "peaks": peaks, "blds": blds, "parks": parks}
 js = json.dumps(out, separators=(",", ":")); open(OUT, "w").write(js)
 print("world.json", len(js) / 1e6, "MB;", {k: round(len(json.dumps(v)) / 1e3) for k, v in out.items()})

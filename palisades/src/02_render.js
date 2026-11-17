@@ -1,9 +1,9 @@
 /* ---------- renderer, sky, light, weather ---------- */
 const QUAL = {
-  low: { pr: 0.8, shadow: 1024, shadowR: 70, msaa: 0, bloom: false, treeNear: 110, lod: 0.55, far: 1 },
-  med: { pr: 1, shadow: 2048, shadowR: 110, msaa: 2, bloom: true, treeNear: 180, lod: 0.8, far: 1 },
-  high: { pr: 1.5, shadow: 4096, shadowR: 160, msaa: 4, bloom: true, treeNear: 260, lod: 1, far: 1 },
-  ultra: { pr: 2, shadow: 4096, shadowR: 210, msaa: 4, bloom: true, treeNear: 380, lod: 1.5, far: 1 }
+  low: { pr: 0.8, shadow: 1024, shadowR: 70, msaa: 0, bloom: false, treeNear: 110, lod: 0.55, bbFull: 700, rockR: 260 },
+  med: { pr: 1, shadow: 2048, shadowR: 110, msaa: 2, bloom: true, treeNear: 170, lod: 0.8, bbFull: 1300, rockR: 480 },
+  high: { pr: 1.5, shadow: 4096, shadowR: 150, msaa: 4, bloom: true, treeNear: 230, lod: 1, bbFull: 2200, rockR: 650 },
+  ultra: { pr: 2, shadow: 4096, shadowR: 210, msaa: 4, bloom: true, treeNear: 360, lod: 1.5, bbFull: 6000, rockR: 900 }
 };
 let qName = QS.get("q") || store.get("pal-gfx", "high"); if (!QUAL[qName]) qName = "high";
 let Q = QUAL[qName];
@@ -43,7 +43,7 @@ const U = { // uniforms shared by every material that reads the world
 };
 const GLSL_WORLD = `
 uniform sampler2D uTT, uMA, uMB, uNoise; uniform vec3 uSunDir, uSunCol, uSkyAmb; uniform float uTime, uShadowR, uTreeNear;
-vec2 ttUV(vec3 p) { return ((p.xz - vec2(${X0.toFixed(1)}, ${Z0.toFixed(1)})) / ${CELL.toFixed(1)} + 0.5) / vec2(${NX}.0, ${NZ}.0); }
+vec2 ttUV(vec3 p) { return ((p.xz - vec2(${X0.toFixed(1)}, ${Z0.toFixed(1)})) / ${LCELL.toFixed(1)} + 0.5) / vec2(${TNX}.0, ${TNZ}.0); }
 vec2 mkUV(vec3 p) { return ((p.xz - vec2(${X0.toFixed(1)}, ${Z0.toFixed(1)})) / ${MCELL.toFixed(1)} + 0.5) / vec2(${MW}.0, ${MH}.0); }
 float ign(vec2 p) { return fract(52.9829189 * fract(dot(p, vec2(0.06711056, 0.00583715)))); }
 `;
@@ -132,46 +132,41 @@ addEventListener("resize", () => buildComposer());
 let TT = null, ttTex = null;
 const hf = v => THREE.DataUtils.toHalfFloat(v);
 function buildTerrainTex() {
-  TT = new Uint16Array(NX * NZ * 4);
-  for (let j = 0; j < NZ; j++) for (let i = 0; i < NX; i++) {
-    const x = X0 + i * CELL, z = Z0 + j * CELL, w = edgeW(x, z), e = CELL;
-    const hx = Hsmooth(x + e, z) - Hsmooth(x - e, z), hz = Hsmooth(x, z + e) - Hsmooth(x, z - e), il = 1 / Math.hypot(hx, 2 * e, hz), k = (j * NX + i) * 4;
+  TT = new Uint16Array(TNX * TNZ * 4);
+  for (let j = 0; j < TNZ; j++) for (let i = 0; i < TNX; i++) {
+    const x = X0 + i * LCELL, z = Z0 + j * LCELL, e = LCELL;
+    const hx = Hsmooth(x + e, z) - Hsmooth(x - e, z), hz = Hsmooth(x, z + e) - Hsmooth(x, z - e), il = 1 / Math.hypot(hx, 2 * e, hz), k = (j * TNX + i) * 4;
     TT[k] = hf(-hx * il); TT[k + 1] = hf(-hz * il); TT[k + 2] = hf(1); TT[k + 3] = hf(1);
   }
-  ttTex = new THREE.DataTexture(TT, NX, NZ, THREE.RGBAFormat, THREE.HalfFloatType); ttTex.magFilter = ttTex.minFilter = THREE.LinearFilter; ttTex.wrapS = ttTex.wrapT = THREE.ClampToEdgeWrapping; ttTex.needsUpdate = true; U.uTT.value = ttTex;
+  ttTex = new THREE.DataTexture(TT, TNX, TNZ, THREE.RGBAFormat, THREE.HalfFloatType); ttTex.magFilter = ttTex.minFilter = THREE.LinearFilter; ttTex.wrapS = ttTex.wrapT = THREE.ClampToEdgeWrapping; ttTex.needsUpdate = true; U.uTT.value = ttTex;
   // ambient occlusion from how sunk a point is below its surroundings, kept in the alpha of the second mask
+  const R = Math.round(30 / CELL), D = Math.round(20 / CELL);
   for (let j = 0; j < MH; j++) for (let i = 0; i < MW; i++) {
-    const gi = clamp(i >> 1, 3, NX - 4), gj = clamp(j >> 1, 3, NZ - 4), c = HM[gj * NX + gi];
-    const av = (HM[gj * NX + gi - 3] + HM[gj * NX + gi + 3] + HM[(gj - 3) * NX + gi] + HM[(gj + 3) * NX + gi] + HM[(gj - 2) * NX + gi - 2] + HM[(gj - 2) * NX + gi + 2] + HM[(gj + 2) * NX + gi - 2] + HM[(gj + 2) * NX + gi + 2]) / 8;
+    const gi = clamp(i, R, NX - R - 1), gj = clamp(j, R, NZ - R - 1), c = HM[gj * NX + gi];
+    const av = (HM[gj * NX + gi - R] + HM[gj * NX + gi + R] + HM[(gj - R) * NX + gi] + HM[(gj + R) * NX + gi] + HM[(gj - D) * NX + gi - D] + HM[(gj - D) * NX + gi + D] + HM[(gj + D) * NX + gi - D] + HM[(gj + D) * NX + gi + D]) / 8;
     MB[(j * MW + i) * 4 + 3] = Math.round(255 * (1 - clamp((av - c) / 16, 0, 0.42)));
-  }
-  // where the cliff faces are, for shading them from a distance (up close the geometry itself says)
-  for (let j = 0; j < MH; j++) for (let i = 0; i < MW; i++) {
-    const k = (j * MW + i) * 4, x = X0 + i * MCELL, z = Z0 + j * MCELL; if (ROCK[clamp(j >> 1, 0, NZ - 1) * NX + clamp(i >> 1, 0, NX - 1)] < 0.08 || edgeW(x, z) > 0.5) { MA[k + 3] = 0; continue; }
-    let a = 0; for (let q = 0; q < 4; q++) { const sx = x + (q & 1 ? 1.25 : -1.25), sz = z + (q & 2 ? 1.25 : -1.25), c = cliffAt(sx, sz, hBase(sx, sz)); a += c[0] * sstep(0.79, 0.84, c[1]) * (1 - sstep(0.97, 1.0, c[1])); }
-    MA[k + 3] = Math.round(255 * clamp(a / 4 * 1.6, 0, 1));
   }
   const mk = d => { const t = new THREE.DataTexture(d, MW, MH, THREE.RGBAFormat); t.magFilter = THREE.LinearFilter; t.minFilter = THREE.LinearMipmapLinearFilter; t.generateMipmaps = true; t.needsUpdate = true; return t; };
   U.uMA.value = mk(MA); U.uMB.value = mk(MB);
 }
 function bakeSunShadow() {
-  const el = Math.atan2(sunDir.y, Math.hypot(sunDir.x, sunDir.z)), hl = Math.hypot(sunDir.x, sunDir.z), ux = sunDir.x / hl, uz = sunDir.z / hl, rise = Math.tan(el) * CELL, lit = wx.sunI > 0.5;
-  let hmax = 0; for (let i = 0; i < HM.length; i++) if (HM[i] > hmax) hmax = HM[i];
-  for (let j = 0; j < NZ; j++) for (let i = 0; i < NX; i++) {
+  const el = Math.atan2(sunDir.y, Math.hypot(sunDir.x, sunDir.z)), hl = Math.hypot(sunDir.x, sunDir.z), ux = sunDir.x / hl, uz = sunDir.z / hl, rise = Math.tan(el) * LCELL, lit = wx.sunI > 0.5, q = Math.round(LCELL / CELL);
+  let hmax = 0; for (let i = 0; i < HM.length; i += 7) if (HM[i] > hmax) hmax = HM[i];
+  for (let j = 0; j < TNZ; j++) for (let i = 0; i < TNX; i++) {
     let vt = 1, vc = 1;
     if (lit) {
-      const y0 = HM[j * NX + i] + 1.2; let d = 1.2;
+      const y0 = HM[j * q * NX + i * q] + 1.2; let d = 1.2;
       while (vt > 0.001) {
-        const px = i + ux * d, pz = j + uz * d; if (px < 0 || pz < 0 || px > NX - 1 || pz > NZ - 1) break;
+        const px = i + ux * d, pz = j + uz * d; if (px < 0 || pz < 0 || px > TNX - 1 || pz > TNZ - 1) break;
         const y = y0 + rise * d; if (y > hmax + 20) break;
-        const pi = px + 0.5 | 0, pj = pz + 0.5 | 0, hh = HM[pj * NX + pi], g = y - hh;
-        vt = Math.min(vt, g / (d * CELL) * 14);
-        if (d < 14) { const can = MA[((pj * 2) * MW + pi * 2) * 4 + 1] / 255 * 15; vc = Math.min(vc, (g - can) / (d * CELL) * 5 + 0.35); }
+        const pi = px + 0.5 | 0, pj = pz + 0.5 | 0, k = pj * q * NX + pi * q, g = y - HM[k];
+        vt = Math.min(vt, g / (d * LCELL) * 14);
+        if (d < 14) { const can = MA[k * 4 + 1] / 255 * 15; vc = Math.min(vc, (g - can) / (d * LCELL) * 5 + 0.35); }
         d += Math.max(0.7, d * 0.045);
       }
       vt = clamp(vt, 0, 1); vc = clamp(Math.min(vc, vt), 0, 1) * (0.55 + 0.45 * vt);
     }
-    const k = (j * NX + i) * 4; TT[k + 2] = hf(Math.min(vc, vt)); TT[k + 3] = hf(vt);
+    const k = (j * TNX + i) * 4; TT[k + 2] = hf(Math.min(vc, vt)); TT[k + 3] = hf(vt);
   }
   ttTex.needsUpdate = true;
 }
@@ -223,7 +218,7 @@ const TERRAIN_FRAG_COLOR = `
   #elif defined(FAR_N)
     float rock = cliffM;
   #else
-    float rock = max(smoothstep(0.36, 0.5, 1.0 - normalize(vWn).y), cliffM * smoothstep(240.0, 520.0, tDist));
+    float rock = max(smoothstep(0.36, 0.5, 1.0 - normalize(vWn).y), smoothstep(0.4, 0.62, mA.a + (nC - 0.5) * 0.2) * mix(0.75, 1.0, smoothstep(240.0, 520.0, tDist)));   // the surveyed cliff faces, plus anything this steep
   #endif
   #ifdef OUTER
     float forest = smoothstep(0.42, 0.62, nB * 0.6 + nA * 0.5 + texture2D(uNoise, vWp.xz * 0.0009).g * 0.3) * smoothstep(2650.0, 2350.0, vWp.y + nA * 200.0) * smoothstep(0.30, 0.16, slope);
@@ -241,9 +236,12 @@ const TERRAIN_FRAG_COLOR = `
   vec2 d2 = mB.gb * 2.0 - 1.0; d2 /= max(length(d2), 0.05);
   vec4 wk = vec4(max(d2.x, 0.0), max(d2.y, 0.0), max(-d2.x, 0.0), max(-d2.y, 0.0)); wk *= wk;
   vec2 cordG = vec2(0.0); float bandV = 0.0, bandE = 0.0;
-  #define CORD(PK, W) { float a = dot(vWp.xz, PK); float ph = a * 125.66; float vis = clamp(1.0 - fwidth(ph) * 0.45, 0.0, 1.0); cordG += PK * cos(ph) * W * vis; float b = a / 4.4, fb = fract(b); bandV += W * (texture2D(uNoise, vec2(floor(b) * 0.0391, 0.3), -8.0).r - 0.5); bandE += W * smoothstep(0.05, 0.0, min(fb, 1.0 - fb)); }
+  float scr = 0.0;
+  #define CORD(PK, W) { float a = dot(vWp.xz, PK); scr += W * texture2D(uNoise, vec2(a * 0.55, dot(vWp.xz, vec2(-PK.y, PK.x)) * 0.012)).r; float ph = a * 125.66; float vis = clamp(1.0 - fwidth(ph) * 0.45, 0.0, 1.0); cordG += PK * cos(ph) * W * vis; float b = a / 4.4, fb = fract(b); bandV += W * (texture2D(uNoise, vec2(floor(b) * 0.0391, 0.3), -8.0).r - 0.5); bandE += W * smoothstep(0.05, 0.0, min(fb, 1.0 - fb)); }
   CORD(vec2(0.0, 1.0), wk.x) CORD(vec2(-0.7071, 0.7071), wk.y) CORD(vec2(-1.0, 0.0), wk.z) CORD(vec2(-0.7071, -0.7071), wk.w)
-  Nw.xz += cordG * 0.30 * groom; snow *= 1.0 + groom * (bandV * 0.05 - bandE * 0.035 * smoothstep(900.0, 60.0, tDist));
+  float groomK = smoothstep(0.25, 0.6, groom);   // a groomed surface has a definite edge
+  Nw.xz += cordG * 0.30 * groomK; snow *= 1.0 + groomK * (bandV * 0.05 - bandE * 0.035 * smoothstep(900.0, 60.0, tDist));
+  snow *= 1.0 - groomK * (0.07 + (scr - 0.5) * 0.18 * smoothstep(260.0, 8.0, tDist));   // packed and scored by skis, against the untouched snow beside it
   Nw = normalize(Nw);
   // forest floor: litter up close, canopy shade from afar
   snow = mix(snow, vec3(0.50, 0.47, 0.40), tree * 0.16 * nC * nearK);
@@ -272,7 +270,7 @@ const TERRAIN_FRAG_COLOR = `
     Nw = normalize(Nw + bp * rock); }                                                              // broken, faceted faces
   vec3 alb = mix(snow, rk, rock);
   alb = mix(alb, mix(vec3(0.075, 0.078, 0.085), vec3(0.42, 0.43, 0.45), nC * nC * 0.7), road * 0.92);
-  float tRough = mix(mix(0.74, 0.60, groom), 0.93, max(rock, road));
+  float tRough = mix(mix(0.76, 0.52, groomK), 0.93, max(rock, road));
   float snowAmt = (1.0 - rock) * (1.0 - road);
   #ifdef OUTER
     alb = mix(alb, vec3(0.012, 0.045, 0.10), vLake); tRough = mix(tRough, 0.12, vLake); snowAmt *= 1.0 - vLake;

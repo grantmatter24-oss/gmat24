@@ -30,6 +30,8 @@ const FT = 3.28084, MPH = 2.23694, KMH = 3.6;
 const WORLD = JSON.parse($("world").textContent);
 const M = WORLD.meta, X0 = M.x0, Z0 = M.z0, NX = M.nx, NZ = M.nz, CELL = M.cell, X1 = X0 + (NX - 1) * CELL, Z1 = Z0 + (NZ - 1) * CELL;
 const MW = M.mw, MH = M.mh, MCELL = M.mcell;
+const LCELL = 10, TNX = Math.round((X1 - X0) / LCELL) + 1, TNZ = Math.round((Z1 - Z0) / LCELL) + 1;   // light and far-normal texture grid
+let CL = null;   // cliff map from the 1 m lidar, on the height grid
 let HM, HO, MA, MB, ROCK;   // heights, backdrop heights, masks (groom, tree, road) and (mogul, cos2t, sin2t), rock factor from slope
 async function inflate16(b64, n, base, q) {
   const bin = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
@@ -43,13 +45,14 @@ function loadMask(url) {
   return new Promise((ok, no) => { const im = new Image(); im.onload = () => { const c = document.createElement("canvas"); c.width = im.width; c.height = im.height; const g = c.getContext("2d", { willReadFrequently: true }); g.drawImage(im, 0, 0); ok(g.getImageData(0, 0, im.width, im.height).data); }; im.onerror = no; im.src = url; });
 }
 async function loadWorld() {
-  [HM, HO, MA, MB] = await Promise.all([inflate16(WORLD.h, [NX, NZ], M.hbase, M.hq), inflate16(WORLD.ho, [M.on, M.on], M.obase, M.oq), loadMask(WORLD.maskA), loadMask(WORLD.maskB)]);
-  WORLD.h = WORLD.ho = null;
+  let MC; [HM, HO, MA, MB, MC] = await Promise.all([inflate16(WORLD.h, [NX, NZ], M.hbase, M.hq), inflate16(WORLD.ho, [M.on, M.on], M.obase, M.oq), loadMask(WORLD.maskA), loadMask(WORLD.maskB), loadMask(WORLD.maskC)]);
+  WORLD.h = WORLD.ho = null; CL = new Float32Array(NX * NZ);
+  for (let k = 0; k < NX * NZ; k++) { MA[k * 4 + 3] = MC[k * 4]; CL[k] = MC[k * 4] / 255; }   // mask grid and height grid are the same 5 m grid
   // rock shows where the ground is too steep to hold snow
   ROCK = new Float32Array(NX * NZ);
   for (let j = 0; j < NZ; j++) for (let i = 0; i < NX; i++) {
     const a = HM[j * NX + Math.min(NX - 1, i + 1)] - HM[j * NX + Math.max(0, i - 1)], b = HM[Math.min(NZ - 1, j + 1) * NX + i] - HM[Math.max(0, j - 1) * NX + i];
-    ROCK[j * NX + i] = sstep(0.62, 1.02, Math.hypot(a, b) / (2 * CELL));   // the 10 m survey rounds cliffs off, so rock starts near 32 degrees
+    ROCK[j * NX + i] = sstep(0.7, 1.15, Math.hypot(a, b) / (2 * CELL));
   }
 }
 const inWorld = (x, z, m = 0) => x >= X0 + m && x <= X1 - m && z >= Z0 + m && z <= Z1 - m;
@@ -59,11 +62,18 @@ function bil(A, w, h, fx, fz) {
 }
 function hOuter(x, z) { return bil(HO, M.on, M.on, (x - M.ox0) / M.ocell, (z - M.oz0) / M.ocell); }
 const cr = (a, b, c, d, t) => b + 0.5 * t * (c - a + t * (2 * a - 5 * b + 4 * c - d + t * (3 * (b - c) + d - a)));
-function hBase(x, z) { // Catmull-Rom bicubic over the 10 m grid
+const sCurve = t => { const a = t * t, b = (1 - t) * (1 - t); return a * a / (a * a + b * b); };
+/* Survey height. Smooth (Catmull-Rom) on ordinary ground. Where the 1 m lidar says there is a cliff, the cell is interpolated
+   so the whole drop happens in a metre or two instead of being smeared across 5 m: real cliffs at their real height, standing up. */
+function hBase(x, z) {
   const fx = clamp((x - X0) / CELL, 0, NX - 1.0001), fz = clamp((z - Z0) / CELL, 0, NZ - 1.0001), i = fx | 0, j = fz | 0, u = fx - i, v = fz - j;
   const i0 = i > 0 ? i - 1 : 0, i2 = i + 1, i3 = i + 2 < NX ? i + 2 : NX - 1, r = [0, 0, 0, 0];
   for (let k = 0; k < 4; k++) { const jj = clamp(j - 1 + k, 0, NZ - 1) * NX; r[k] = cr(HM[jj + i0], HM[jj + i], HM[jj + i2], HM[jj + i3], u); }
-  return cr(r[0], r[1], r[2], r[3], v);
+  const sm = cr(r[0], r[1], r[2], r[3], v), k0 = j * NX + i, c00 = CL[k0], c10 = CL[k0 + 1], c01 = CL[k0 + NX], c11 = CL[k0 + NX + 1];
+  if (c00 + c10 + c01 + c11 < 0.02) return sm;
+  const uw = lerp(u, sCurve(u), lerp(c00 + c10, c01 + c11, v) * 0.5), vw = lerp(v, sCurve(v), lerp(c00 + c01, c10 + c11, u) * 0.5);
+  const wall = lerp(lerp(HM[k0], HM[k0 + 1], uw), lerp(HM[k0 + NX], HM[k0 + NX + 1], uw), vw);
+  return lerp(sm, wall, lerp(lerp(c00, c10, u), lerp(c01, c11, u), v));
 }
 const _mk = [0, 0, 0, 0, 0, 0];
 function maskAt(x, z) { // -> [groom, tree, road, mogul, cos2t, sin2t], each 0..1
@@ -75,24 +85,11 @@ function maskAt(x, z) { // -> [groom, tree, road, mogul, cos2t, sin2t], each 0..
 const clearMask = (x, z) => { const fx = clamp(Math.round((x - X0) / MCELL), 0, MW - 1), fz = clamp(Math.round((z - Z0) / MCELL), 0, MH - 1); return Math.max(MB[(fz * MW + fx) * 4], MA[(fz * MW + fx) * 4], MA[(fz * MW + fx) * 4 + 2]) / 255; };
 const treeMask = (x, z) => { const fx = clamp(Math.round((x - X0) / MCELL), 0, MW - 1), fz = clamp(Math.round((z - Z0) / MCELL), 0, MH - 1); return MA[(fz * MW + fx) * 4 + 1] / 255; };
 const rockAt = (x, z) => bil(ROCK, NX, NZ, (x - X0) / CELL, (z - Z0) / CELL);
-/* Snow surface on top of the survey data. Skiable ground stays smooth (long, gentle powder rolls off the groomed runs).
-   Rock is only ever cliff: on steep ground the hillside is stepped into near-vertical bands that follow the contours, like the
-   real cliff lines, with snow benches between them and clean chutes where the bands break. Physics and rendering share it. */
-const CLIFF_H = 14, CLIFF_P = 46;   // a 14 m wall once in every 46 m of height, where the band is present
-function cliffAt(x, z, hb) { // -> [strength 0..1, position within the step 0..1 (the face is the last fifth)]
-  const rk = sstep(0.25, 0.8, rockAt(x, z)); if (rk < 0.02) { _cl[0] = 0; return _cl; }
-  const band = sstep(0.42, 0.56, vnoise(x * 0.0085, z * 0.0085, 31)) * (1 - maskAt(x, z)[0]);   // cliff bands come and go along a face: chutes between
-  const t = hb / CLIFF_P + vnoise(x * 0.011, z * 0.011, 23) * 2.4 + vnoise(x * 0.06, z * 0.06, 24) * 0.16, ft = Math.floor(t);   // bands wander across the face rather than following one contour
-  _cl[0] = hash2(ft, 3, 77) > 0.35 ? rk * band : 0; _cl[1] = t - ft; return _cl;   // and only some steps stand up as cliffs
-}
-const _cl = [0, 0];
-function detailH(x, z, hb) {
-  const m = maskAt(x, z), open = (1 - m[0]) * (1 - m[2]);
-  let d = 0;
-  if (open > 0.01) d += open * 0.32 * (vnoise(x * 0.019, z * 0.019, 11) * 2 - 1);
-  const c = cliffAt(x, z, hb);
-  if (c[0] > 0.01) { const ft = c[1]; d += c[0] * (CLIFF_H * (smooth((ft - 0.8) / 0.2) - smooth(ft / 0.8)) + (ft > 0.78 ? 1.4 * (vnoise(x * 0.35, z * 0.35, 22) - 0.5) * Math.sin((ft - 0.78) / 0.22 * Math.PI) : 0)); }   // the slope eases onto a bench, then the wall stands up   // bench levels off, then the face stands up
-  return d;
+/* Snow surface on top of the survey data: long, gentle powder rolls off the groomed runs. Skiable ground stays smooth; the cliffs
+   are the real ones, already in the survey. Physics and rendering share it. */
+function detailH(x, z) {
+  const m = maskAt(x, z), open = (1 - m[0]) * (1 - m[2]) * (1 - cliffK(x, z));
+  return open > 0.01 ? open * 0.3 * (vnoise(x * 0.019, z * 0.019, 11) * 2 - 1) : 0;
 }
 /* Groomed runs are cut into the hillside the way the cats and the summer earthworks leave them: cat tracks dead level across,
    the wider runs with most of the side-slope taken out. */
@@ -101,7 +98,7 @@ function gridAdd(G, x0, z0, x1, z1, item) { for (let cz = Math.max(0, Math.floor
 function initCat() {
   const G = new Array(CATW * CATH);
   for (const r of WORLD.runs) {
-    if (!r.g) continue; const W = [46, 42, 30, 18][r.d], core = r.c ? 4 : 0.26 * W, outer = r.c ? 12 : 0.5 * W + 9, str = r.c ? 1 : 0.72, P = [];
+    if (!r.g) continue; const W = [46, 42, 30, 18][r.d], core = r.c ? 5.5 : 0.26 * W, outer = r.c ? 9.5 : 0.5 * W + 9, str = r.c ? 1 : 0.35, P = [];
     for (let i = 0; i < r.pts.length - 1; i++) { const a = r.pts[i], b = r.pts[i + 1], n = Math.max(1, Math.round(Math.hypot(b[0] - a[0], b[1] - a[1]) / 14)); for (let k = 0; k < n; k++) P.push([lerp(a[0], b[0], k / n), lerp(a[1], b[1], k / n)]); }
     P.push(r.pts[r.pts.length - 1].slice()); let hs = P.map(q => hBase(q[0], q[1]));
     for (let it = 0; it < (r.c ? 6 : 3); it++) hs = hs.map((h, i) => i === 0 || i === hs.length - 1 ? h : (hs[i - 1] + 2 * h + hs[i + 1]) / 4);   // even out the grade along the run
@@ -110,10 +107,11 @@ function initCat() {
   CATG = G; initPark();
 }
 function catBench(x, z, h) {
-  const c = CATG && CATG[((z - Z0) / CATC | 0) * CATW + ((x - X0) / CATC | 0)]; if (!c) return h; let sw = 0, st = 0, mw = 0;
+  const c = CATG && CATG[((z - Z0) / CATC | 0) * CATW + ((x - X0) / CATC | 0)]; if (!c) return h; let sw = 0, st = 0, mw = 0, berm = 0;
   for (const s of c) { const ex = s[2] - s[0], ez = s[3] - s[1], t = clamp(((x - s[0]) * ex + (z - s[1]) * ez) / (ex * ex + ez * ez || 1), 0, 1), dx = x - s[0] - ex * t, dz = z - s[1] - ez * t, d2 = dx * dx + dz * dz; if (d2 >= s[7] * s[7]) continue;
-    const w = s[8] * (1 - sstep(s[6], s[7], Math.sqrt(d2))); if (w <= 0) continue; sw += w; st += w * (s[4] + (s[5] - s[4]) * t); if (w > mw) mw = w; }
-  return mw > 0 ? lerp(h, st / sw, mw) : h;
+    const d = Math.sqrt(d2), w = s[8] * (1 - sstep(s[6], s[7], d)); if (w <= 0) continue; sw += w; st += w * (s[4] + (s[5] - s[4]) * t); if (w > mw) mw = w;
+    if (s[8] === 1 && d > s[6] - 0.4 && d < s[6] + 2.2) berm = Math.max(berm, 0.38 * Math.sin((d - s[6] + 0.4) / 2.6 * Math.PI)); }   // the windrow the cat leaves along each edge
+  return mw > 0 ? lerp(h, st / sw, mw) + berm : h;
 }
 /* Terrain parks where the resort builds them: Belmont, and the Gold Coast line. Table-top kickers are shaped into the snow here;
    the rails that go with them are in PARK for the renderer and the grind physics. */
@@ -150,13 +148,14 @@ function edgeW(x, z) { return smooth(1 - Math.min(x - X0, X1 - x, z - Z0, Z1 - z
 function H(x, z) {
   if (!(x > X0 && x < X1 && z > Z0 && z < Z1)) return hOuter(x, z);
   const w = edgeW(x, z); if (w >= 1) return hOuter(x, z);
-  const hb = hBase(x, z), h = catBench(x, z, hb + detailH(x, z, hb)) + parkH(x, z); return w > 0 ? lerp(h, hOuter(x, z), w) : h;
+  const h = catBench(x, z, hBase(x, z) + detailH(x, z)) + parkH(x, z); return w > 0 ? lerp(h, hOuter(x, z), w) : h;
 }
 function Hsmooth(x, z) { // no cliffs or drifts: far terrain, lift profiles, building pads
   if (!(x > X0 && x < X1 && z > Z0 && z < Z1)) return hOuter(x, z);
   const w = edgeW(x, z); if (w >= 1) return hOuter(x, z); const h = catBench(x, z, hBase(x, z)); return w > 0 ? lerp(h, hOuter(x, z), w) : h;
 }
 const _n = new THREE.Vector3();
+const cliffK = (x, z) => bil(CL, NX, NZ, (x - X0) / CELL, (z - Z0) / CELL);
 function normalAt(x, z, e = 1.2, out = _n) { return out.set(H(x - e, z) - H(x + e, z), 2 * e, H(x, z - e) - H(x, z + e)).normalize(); }
 /* lon/lat for the HUD */
 const toLL = (x, z) => [M.lon0 + x / M.mlon, M.lat0 - z / M.mlat];

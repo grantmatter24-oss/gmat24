@@ -13,6 +13,7 @@ function tileTrees(cx, cz) { // -> Float32Array of [x, y, z, height, width, rot,
       const clump = vnoise(x * 0.012, z * 0.012, 91); if (hr > 0.004 + 0.05 * sstep(0.62, 0.85, clump) + 0.02 * tm) continue;
       if (clearMask(x, z) > 0.06 || rockAt(x, z) > 0.75) continue; lone = true;
     }
+    if (cliffK(x, z) > 0.25) continue;
     if (!inWorld(x, z, 30)) continue;
     const y = H(x, z), hi = sstep(2330, 2640, y), big = hash2(gx, gz, 4); if (lone && y > 2640 + 60 * (hr * 200 % 1)) continue;
     const h = Math.max(9.5, (9 + 19 * big * big + 6 * tm) * lerp(1.1, 0.62, hi)), v = hash2(gx, gz, 5) < lerp(0.35, 0.75, hi) ? 1 : 0;
@@ -35,15 +36,15 @@ function boughTexture() {
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
 }
 /* unit-height conifer built from boughs: whorls of drooping branches up a bare lower trunk. v=0 a narrow fir, v=1 a broader pine. */
-function treeGeometry(v) {
-  const pos = [], nor = [], col = [], uv = [], tiers = v ? 12 : 16, y0 = v ? 0.44 : 0.33;
+function treeGeometry(v, lo) {
+  const pos = [], nor = [], col = [], uv = [], tiers = lo ? (v ? 6 : 8) : (v ? 12 : 16), y0 = v ? 0.44 : 0.33;
   const vert = (p, n, c, u, w) => { pos.push(p[0], p[1], p[2]); nor.push(n[0], n[1], n[2]); col.push(c, c, c); uv.push(u, w); };
   for (let i = 0; i < 6; i++) { const a0 = i / 6 * TAU, a1 = (i + 1) / 6 * TAU, r0 = 0.05, r1 = 0.012, yt = 0.96, P = (a, r, y) => [Math.cos(a) * r, y, Math.sin(a) * r], N = a => [Math.cos(a), 0.1, Math.sin(a)];
     vert(P(a0, r0, 0), N(a0), 1, 0.02, 0.02); vert(P(a0, r1, yt), N(a0), 1, 0.02, 0.02); vert(P(a1, r0, 0), N(a1), 1, 0.02, 0.02); vert(P(a1, r0, 0), N(a1), 1, 0.02, 0.02); vert(P(a0, r1, yt), N(a0), 1, 0.02, 0.02); vert(P(a1, r1, yt), N(a1), 1, 0.02, 0.02); }
   for (let t = 0; t < tiers; t++) {
-    const f = t / (tiers - 1), y = lerp(y0, 0.95, Math.pow(f, 0.92)), r = lerp(0.5, 0.07, Math.pow(f, v ? 0.75 : 0.85)) * (0.86 + 0.28 * hash2(t, 3, 50 + v)), n = f < 0.6 ? 8 : 6, droop = lerp(0.42, 0.12, f), shade = lerp(0.7, 1.12, f);
+    const f = t / (tiers - 1), y = lerp(y0, 0.95, Math.pow(f, 0.92)), r = lerp(0.5, 0.07, Math.pow(f, v ? 0.75 : 0.85)) * (0.86 + 0.28 * hash2(t, 3, 50 + v)), n = lo ? 5 : f < 0.6 ? 8 : 6, droop = lerp(0.42, 0.12, f), shade = lerp(0.7, 1.12, f);
     for (let k = 0; k < n; k++) {
-      const a = (k + 0.5 * (t % 2) + 0.3 * (hash2(t, k, 51 + v) - 0.5)) / n * TAU, ca = Math.cos(a), sa = Math.sin(a), rr = r * (0.78 + 0.44 * hash2(t, k, 52 + v)), w = rr * 0.5, px = -sa, pz = ca, oy = y - droop * rr + 0.03 * (hash2(t, k, 53) - 0.5);
+      const a = (k + 0.5 * (t % 2) + 0.3 * (hash2(t, k, 51 + v) - 0.5)) / n * TAU, ca = Math.cos(a), sa = Math.sin(a), rr = r * (0.78 + 0.44 * hash2(t, k, 52 + v)), w = rr * (lo ? 0.8 : 0.5), px = -sa, pz = ca, oy = y - droop * rr + 0.03 * (hash2(t, k, 53) - 0.5);
       const nrm = [ca * 0.45, 0.85, sa * 0.45], A = [px * w * 0.22, y + 0.012, pz * w * 0.22], B = [-px * w * 0.22, y + 0.012, -pz * w * 0.22], C = [ca * rr + px * w, oy, sa * rr + pz * w], D = [ca * rr - px * w, oy, sa * rr - pz * w];
       vert(A, nrm, shade, 0.36, 0.0); vert(C, nrm, shade, 0.0, 1.0); vert(B, nrm, shade, 0.64, 0.0); vert(B, nrm, shade, 0.64, 0.0); vert(C, nrm, shade, 0.0, 1.0); vert(D, nrm, shade, 1.0, 1.0);
     }
@@ -52,9 +53,9 @@ function treeGeometry(v) {
     vert([-ca, 0.9, -sa], n, 1.1, 0.25, 0.55); vert([ca, 0.9, sa], n, 1.1, 0.75, 0.55); vert([0, 1.0, 0], n, 1.1, 0.5, 0.98); }
   const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute("normal", new THREE.Float32BufferAttribute(nor, 3)); g.setAttribute("color", new THREE.Float32BufferAttribute(col, 3)); g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2)); return g;
 }
-let treeGeo = null, treeMat = null, impTex = null, bbMat = null, rockGeo = null, rockMat = null;
+let treeGeo = null, treeGeoLo = null, treeMat = null, impTex = null, bbMat = null, rockGeo = null, rockMat = null;
 function initTrees() {
-  const bough = boughTexture(); treeGeo = [treeGeometry(0), treeGeometry(1)];
+  const bough = boughTexture(); treeGeo = [treeGeometry(0), treeGeometry(1)]; treeGeoLo = [treeGeometry(0, true), treeGeometry(1, true)];
   treeMat = worldShade(new THREE.MeshStandardMaterial({ map: bough, alphaTest: 0.4, vertexColors: true, roughness: 0.9, side: THREE.DoubleSide }), {
     patch(sh) {
       sh.vertexShader = "varying vec3 vOp;\n" + sh.vertexShader.replace("#include <begin_vertex>", "#include <begin_vertex>\n vOp = position;");
@@ -100,7 +101,8 @@ function initTrees() {
   });
 }
 /* far cards, grouped in blocks of tiles so the frustum can drop most of them */
-const BB_BLOCK = 4; let treeCount = 0;
+const BB_BLOCK = 4, bbBlocks = []; let treeCount = 0;
+function thinBillboards(cam) { for (const b of bbBlocks) { const d = Math.hypot(b.x - cam.x, b.z - cam.z); b.g.instanceCount = Math.ceil(b.n * (d < Q.bbFull ? 1 : d < Q.bbFull * 2 ? 0.6 : 0.34)); } }
 function buildBillboards(progress) {
   const quad = new THREE.BufferGeometry();
   quad.setAttribute("position", new THREE.Float32BufferAttribute([-0.5, 0, 0, 0.5, 0, 0, 0.5, 1, 0, -0.5, 1, 0], 3)); quad.setAttribute("uv", new THREE.Float32BufferAttribute([0, 0, 1, 0, 1, 1, 0, 1], 2)); quad.setIndex([0, 1, 2, 0, 2, 3]);
@@ -110,10 +112,11 @@ function buildBillboards(progress) {
       const t = tileTrees(cx, cz); for (let k = 0; k < t.length; k += 8) { A.push(t[k], t[k + 1], t[k + 2], t[k + 3]); B.push(t[k + 4] * 1.02, t[k + 5], t[k + 6], t[k + 7]); if (t[k + 1] < lo) lo = t[k + 1]; if (t[k + 1] + t[k + 3] > hi) hi = t[k + 1] + t[k + 3]; }
     }
     if (!A.length) continue; treeCount += A.length / 4;
+    for (let i = A.length / 4 - 1; i > 0; i--) { const j = Math.floor(hash2(i, bx * 131 + bz, 95) * (i + 1)); for (let c = 0; c < 4; c++) { const a = i * 4 + c, b = j * 4 + c, t = A[a]; A[a] = A[b]; A[b] = t; const u = B[a]; B[a] = B[b]; B[b] = u; } }
     const g = new THREE.InstancedBufferGeometry(); g.index = quad.index; g.setAttribute("position", quad.attributes.position); g.setAttribute("uv", quad.attributes.uv);
     g.setAttribute("iA", new THREE.InstancedBufferAttribute(new Float32Array(A), 4)); g.setAttribute("iB", new THREE.InstancedBufferAttribute(new Float32Array(B), 4)); g.instanceCount = A.length / 4;
     const w = BB_BLOCK * CH; g.boundingSphere = new THREE.Sphere(new THREE.Vector3(X0 + bx * CH + w / 2, (lo + hi) / 2, Z0 + bz * CH + w / 2), Math.hypot(w * 0.71, (hi - lo) / 2) + 20);
-    const m = new THREE.Mesh(g, bbMat); m.matrixAutoUpdate = false; scene.add(m);
+    const m = new THREE.Mesh(g, bbMat); m.matrixAutoUpdate = false; scene.add(m); bbBlocks.push({ g, n: A.length / 4, x: X0 + bx * CH + w / 2, z: Z0 + bz * CH + w / 2 });
   }
 }
 /* near meshes, one pair of instanced meshes per tile, built as the skier approaches */
@@ -129,14 +132,14 @@ function updateTrees(cam) {
       const t = tileTrees(cx, cz), cnt = [0, 0]; for (let k = 0; k < t.length; k += 8) cnt[t[k + 6]]++;
       nt = [];
       for (let v = 0; v < 2; v++) {
-        if (!cnt[v]) continue; const m = new THREE.InstancedMesh(treeGeo[v], treeMat, cnt[v]); let n = 0;
+        if (!cnt[v]) continue; const m = new THREE.InstancedMesh(treeGeo[v], treeMat, cnt[v]); m.userData.v = v; let n = 0;
         for (let k = 0; k < t.length; k += 8) if (t[k + 6] === v) { _tq.setFromAxisAngle(_up, t[k + 5]); _tm.compose(_tp.set(t[k], t[k + 1], t[k + 2]), _tq, _ts.set(t[k + 4], t[k + 3], t[k + 4])); m.setMatrixAt(n, _tm); const s = t[k + 7]; m.setColorAt(n++, _tc.setRGB(s, s, s)); }
         m.instanceMatrix.needsUpdate = true; m.receiveShadow = true; m.frustumCulled = false; scene.add(m); nt.push(m);
       }
       nearTiles.set(key, nt);
     }
     const dx = Math.max(X0 + cx * CH - cam.x, 0, cam.x - X0 - (cx + 1) * CH), dz = Math.max(Z0 + cz * CH - cam.z, 0, cam.z - Z0 - (cz + 1) * CH), d = Math.hypot(dx, dz);
-    for (const m of nt) { m.castShadow = d < Q.shadowR + 30; m.visible = d < R; }
+    for (const m of nt) { m.castShadow = d < Q.shadowR + 30; m.visible = d < R; const want = d > 110 ? treeGeoLo[m.userData.v] : treeGeo[m.userData.v]; if (m.geometry !== want) m.geometry = want; }
   }
 }
 /* trunk the skier would hit at (x, z), or null */
@@ -163,25 +166,25 @@ function initRocks() {
 }
 const rockTiles = new Map(), nearRocks = new Map();
 function tileRocks(cx, cz) {
-  const key = cz * 1000 + cx; let t = rockTiles.get(key); if (t) return t; const out = [], x0 = X0 + cx * CH, z0 = Z0 + cz * CH, st = 3.2, n = Math.round(CH / st);
-  let any = false; for (let j = 0; j <= 3 && !any; j++) for (let i = 0; i <= 3; i++) if (rockAt(x0 + i * CH / 3, z0 + j * CH / 3) > 0.15) { any = true; break; }
+  const key = cz * 1000 + cx; let t = rockTiles.get(key); if (t) return t; const out = [], x0 = X0 + cx * CH, z0 = Z0 + cz * CH, st = 5, n = Math.round(CH / st);
+  let any = false; for (let j = 0; j <= 10 && !any; j++) for (let i = 0; i <= 10; i++) if (cliffK(x0 + i * CH / 10, z0 + j * CH / 10) > 0.15) { any = true; break; }
   if (any) for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
     const gx = Math.round(x0 / st) + i, gz = Math.round(z0 / st) + j, x = (gx + hash2(gx, gz, 81)) * st, z = (gz + hash2(gx, gz, 82)) * st; if (!inWorld(x, z, 240)) continue;
-    const c = cliffAt(x, z, hBase(x, z)); if (c[0] < 0.35 || c[1] < 0.8 || hash2(gx, gz, 83) > 0.7) continue;
-    const sc = (1.5 + 3.2 * hash2(gx, gz, 84) * hash2(gx, gz, 85)) * (0.6 + 0.6 * c[0]); out.push(x, H(x, z) - sc * 0.15, z, sc, hash2(gx, gz, 86) * TAU, 0.75 + 0.6 * hash2(gx, gz, 87), 0.7 + 0.6 * hash2(gx, gz, 88));
+    const c = cliffK(x, z); if (c < 0.4 || hash2(gx, gz, 83) > 0.8) continue;
+    const sc = (2.4 + 4.6 * hash2(gx, gz, 84) * hash2(gx, gz, 85)) * (0.6 + 0.6 * c);   // outcrops the size of a truck, not rubble out.push(x, H(x, z) - sc * 0.15, z, sc, hash2(gx, gz, 86) * TAU, 0.75 + 0.6 * hash2(gx, gz, 87), 0.7 + 0.6 * hash2(gx, gz, 88));
   }
   t = new Float32Array(out); rockTiles.set(key, t); return t;
 }
 const _re = new THREE.Euler();
 function updateRocks(cam) {
-  const R = Math.min(420, Q.treeNear + 160), c0x = Math.floor((cam.x - R - X0) / CH), c1x = Math.floor((cam.x + R - X0) / CH), c0z = Math.floor((cam.z - R - Z0) / CH), c1z = Math.floor((cam.z + R - Z0) / CH);
+  const R = Q.rockR, c0x = Math.floor((cam.x - R - X0) / CH), c1x = Math.floor((cam.x + R - X0) / CH), c0z = Math.floor((cam.z - R - Z0) / CH), c1z = Math.floor((cam.z + R - Z0) / CH);
   for (const [key, m] of nearRocks) { const cx = key % 1000, cz = (key / 1000) | 0; if (cx < c0x - 1 || cx > c1x + 1 || cz < c0z - 1 || cz > c1z + 1) { if (m) { scene.remove(m); m.dispose(); } nearRocks.delete(key); } }
   let made = 0;
   for (let cz = Math.max(0, c0z); cz <= Math.min(CNZ - 1, c1z); cz++) for (let cx = Math.max(0, c0x); cx <= Math.min(CNX - 1, c1x); cx++) {
     const key = cz * 1000 + cx; if (nearRocks.has(key)) { const m = nearRocks.get(key); if (m) m.castShadow = Math.hypot(X0 + (cx + 0.5) * CH - cam.x, Z0 + (cz + 0.5) * CH - cam.z) < Q.shadowR + 110; continue; } if (made > 1) continue; made++;
     const t = tileRocks(cx, cz), cnt = t.length / 7; if (!cnt) { nearRocks.set(key, null); continue; }
     const m = new THREE.InstancedMesh(rockGeo, rockMat, cnt);
-    for (let k = 0; k < cnt; k++) { const o = k * 7, sc = t[o + 3]; _tq.setFromEuler(_re.set(t[o + 4] * 0.3, t[o + 4], t[o + 4] * 0.17)); _tm.compose(_tp.set(t[o], t[o + 1], t[o + 2]), _tq, _ts.set(sc * t[o + 5], sc * 1.25, sc * t[o + 6])); m.setMatrixAt(k, _tm); m.setColorAt(k, _tc.setRGB(t[o + 5] - 0.4, 0, 0)); }
+    for (let k = 0; k < cnt; k++) { const o = k * 7, sc = t[o + 3]; _tq.setFromEuler(_re.set(t[o + 4] * 0.3, t[o + 4], t[o + 4] * 0.17)); _tm.compose(_tp.set(t[o], t[o + 1], t[o + 2]), _tq, _ts.set(sc * t[o + 5], sc * 1.5, sc * t[o + 6])); m.setMatrixAt(k, _tm); m.setColorAt(k, _tc.setRGB(t[o + 5] - 0.4, 0, 0)); }
     m.receiveShadow = true; m.frustumCulled = false; scene.add(m); nearRocks.set(key, m);
   }
 }

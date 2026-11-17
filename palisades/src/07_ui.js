@@ -45,7 +45,7 @@ function buildMap() {
   const c = document.createElement("canvas"); c.width = MAPW; c.height = MAPH; const g = c.getContext("2d"), im = g.createImageData(MAPW, MAPH), d = im.data;
   for (let j = 0; j < MAPH; j++) for (let i = 0; i < MAPW; i++) { // hillshade lit from the north-west, tinted by tree cover
     const fx = i / MAPW * (NX - 1), fz = j / MAPH * (NZ - 1), gi = clamp(fx | 0, 1, NX - 2), gj = clamp(fz | 0, 1, NZ - 2), k = gj * NX + gi;
-    const sx = (HM[k + 1] - HM[k - 1]) / 20, sz = (HM[k + NX] - HM[k - NX]) / 20, sh = clamp(0.72 + (sx * 0.55 + sz * 0.45) * 0.9, 0.25, 1.15), t = MA[((clamp(Math.round(fz * 2), 0, MH - 1)) * MW + clamp(Math.round(fx * 2), 0, MW - 1)) * 4 + 1] / 255, rk = ROCK[k];
+    const sx = (HM[k + 1] - HM[k - 1]) / (2 * CELL), sz = (HM[k + NX] - HM[k - NX]) / (2 * CELL), sh = clamp(0.72 + (sx * 0.55 + sz * 0.45) * 0.9, 0.25, 1.15), t = MA[k * 4 + 1] / 255, rk = CL[k];
     let r = 236 * sh, gg = 241 * sh, b = 248 * sh; r = lerp(r, 148 * sh, rk * 0.8); gg = lerp(gg, 140 * sh, rk * 0.8); b = lerp(b, 132 * sh, rk * 0.8); r = lerp(r, 62 * sh, t * 0.85); gg = lerp(gg, 104 * sh, t * 0.85); b = lerp(b, 74 * sh, t * 0.85);
     const o = (j * MAPW + i) * 4; d[o] = r; d[o + 1] = gg; d[o + 2] = b; d[o + 3] = 255;
   }
@@ -139,7 +139,7 @@ function initInput() {
   canvas.addEventListener("pointermove", ev => { if (!look.drag) return; look.yaw -= ev.movementX * 0.005; look.pit = clamp(look.pit - ev.movementY * 0.004, -1.1, 1.1); look.idle = 0; });
   const end = () => { look.drag = false; }; canvas.addEventListener("pointerup", end); canvas.addEventListener("pointercancel", end);
   document.querySelectorAll("[data-w]").forEach(b => b.addEventListener("click", () => setWeather(b.dataset.w)));
-  document.querySelectorAll("[data-q]").forEach(b => b.addEventListener("click", () => setGfx(b.dataset.q)));
+  document.querySelectorAll("[data-q]").forEach(b => b.addEventListener("click", () => { gfxPicked = true; setGfx(b.dataset.q); }));
   document.querySelectorAll("[data-u]").forEach(b => b.addEventListener("click", () => setUnits(b.dataset.u)));
   $("howBtn").addEventListener("click", () => setOverlay("how", true)); $("howOk").addEventListener("click", () => setOverlay("how", false)); $("pHow").addEventListener("click", () => setOverlay("how", true));
   $("resume").addEventListener("click", () => setPaused(false)); $("pMap").addEventListener("click", () => toggleMap(true));
