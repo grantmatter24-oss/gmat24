@@ -8,13 +8,16 @@ function tick(t) {
     menuA += dt * 0.012; camera.position.set(2350 + Math.cos(menuA) * 260, 2105 + Math.sin(menuA * 0.7) * 25, -820 + Math.sin(menuA) * 260); camera.up.set(0, 1, 0); camera.lookAt(700, 2230, 760); if (camFix) { camera.position.set(camFix[0], camFix[1], camFix[2]); camera.lookAt(camFix[3], camFix[4], camFix[5]); }
     camDir.set(-0.7, 0, 0.7); sk.p.set(1500, 2000, 0); updateLifts(dt, camera.position, frame);
   } else if (!paused) {
-    const riding = sk.mode === "wait" || sk.mode === "lift", ff = riding && K.ff ? 10 : 1;
-    if (sk.mode === "ski") { acc += dt; let n = 0; while (acc >= 1 / 120 && n < 8) { stepSki(1 / 120); acc -= 1 / 120; n++; } if (n === 8) acc = 0; }
+    const riding = sk.mode === "wait" || sk.mode === "lift", ff = riding && K.grabS ? 10 : 1;
+    // G in the air: Kicker Run's slow-motion, on a meter that drains in 3.4 s and refills on snow
+    const wantSlow = sk.mode === "ski" && K.focus && !sk.ground && !sk.crashed && focusM > 0.01; timeScale += ((wantSlow ? 0.38 : 1) - timeScale) * Math.min(1, 10 * dt);
+    if (wantSlow) focusM = Math.max(0, focusM - dt / 3.4); else if (sk.ground) focusM = Math.min(1, focusM + dt * 0.04);
+    if (sk.mode === "ski") { acc += dt * timeScale; let n = 0; while (acc >= 1 / 120 && n < 8) { stepSki(1 / 120); acc -= 1 / 120; n++; } if (n === 8) acc = 0; }
     updateLifts(dt * ff, camera.position, frame);
     if (sk.mode === "wait" || sk.mode === "lift") stepLift(dt * ff);
     findNearLift(); emitSpray(dt); layTracks(); updateParticles(dt); updateRig(dt, now); updateCamera(dt); updateRemotes(dt, now); mpSend(dt);
   }
-  rig.root.visible = sk.mode !== "menu" && rig.root.visible;
+  rig.hold.visible = sk.mode !== "menu" && rig.hold.visible;
   updateSun(); skyMesh.position.copy(camera.position); skyMesh.scale.setScalar(40000);
   updateTerrain(camera.position, 5); updateTrees(camera.position);
   if (snowFall.visible) { snowFall.material.uniforms.uCam.value.copy(camera.position); snowFall.material.uniforms.uPx.value = renderer.domElement.height * 0.5 / Math.tan(camera.fov * DEG / 2); }
@@ -30,7 +33,7 @@ async function boot() {
   await progress("Laying snow", 0.45); initChunks(); buildOuter();
   await progress("Stringing the lifts", 0.6); initLifts(); initBuildings(); initRuns();
   await progress("Planting the forest", 0.72); buildBillboards();
-  await progress("Drawing the trail map", 0.88); rig = buildSkier(sk.jacket); scene.add(rig.root); initParticles(); initTracks(); initSnowfall(); buildMap(); initInput(); mpInit();
+  await progress("Drawing the trail map", 0.88); rig = makeRider(outfit); initParticles(); initTracks(); initSnowfall(); buildMap(); initInput(); mpInit();
   await progress("Ready", 1);
   const go = QS.get("go");
   if (go) { spawnAt(go); $("hud").hidden = false; if (QS.has("at")) { const a = QS.get("at").split(",").map(Number); placeSkier(a[0], a[1], (a[2] || 0) * DEG, a[3] || 0); } }
@@ -42,7 +45,7 @@ async function boot() {
   for (let i = 0; i < 300; i++) if (!updateTerrain(camera.position, 40)) break;
   for (let i = 0; i < 40; i++) updateTrees(camera.position);
   $("load").hidden = true; renderer.info.autoReset = false; requestAnimationFrame(tick);
-  window.__pal = { stepSki, stepLift, updateLifts, findNearLift, nrm, sk, K, LIFTS, WORLD, H, camera, scene, renderer, setWeather, placeSkier, boardLift, unloadAt, spawnAt, MP, chunks, nearTiles, treeTiles, Q };
+  window.__pal = { KR, gDown, gUp, landing, stepSki, stepLift, updateLifts, findNearLift, nrm, sk, K, LIFTS, WORLD, H, camera, scene, renderer, setWeather, placeSkier, boardLift, unloadAt, spawnAt, MP, chunks, nearTiles, treeTiles, Q };
   window.__info = () => ({ mode: sk.mode, p: [Math.round(sk.p.x), Math.round(sk.p.y), Math.round(sk.p.z)], sp: +sk.sp.toFixed(1), ground: sk.ground, crashed: sk.crashed, trees: treeCount, calls: renderer.info.render.calls, tris: renderer.info.render.triangles, lift: sk.lift && sk.lift.name, liftS: Math.round(sk.liftS) });
 }
 boot().catch(e => { const d = document.createElement("div"); d.id = "err"; d.textContent = String(e && e.stack || e); document.body.appendChild(d); console.error(e); });

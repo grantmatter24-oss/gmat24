@@ -70,7 +70,7 @@ function drawMini(dt) {
   g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, S, S);
   g.translate(S / 2, S / 2); g.rotate(yaw - Math.PI);   // heading up
   const k = MAPW / (X1 - X0); g.save(); g.scale(sc / k, sc / k); g.translate(-mx(sk.p.x), -mz(sk.p.z)); g.imageSmoothingEnabled = true; g.drawImage(mapBase, 0, 0); g.restore();
-  for (const r of MP.remotes.values()) if (r.st) { g.fillStyle = r.col || "#ffd24a"; g.beginPath(); g.arc((r.st.x - sk.p.x) * sc, (r.st.z - sk.p.z) * sc, 7, 0, TAU); g.fill(); }
+  for (const r of MP.remotes.values()) if (r.st && r.st.res === "palisades") { g.fillStyle = r.col || "#ffd24a"; g.beginPath(); g.arc((r.st.x - sk.p.x) * sc, (r.st.z - sk.p.z) * sc, 7, 0, TAU); g.fill(); }
   g.setTransform(1, 0, 0, 1, S / 2, S / 2); const a = wrap(Math.atan2(camDir.x, camDir.z) - (sk.yaw + (sk.sw ? Math.PI : 0))); g.rotate(a);
   g.fillStyle = "#ff5a36"; g.strokeStyle = "#fff"; g.lineWidth = 4; g.beginPath(); g.moveTo(0, -17); g.lineTo(12, 13); g.lineTo(0, 6); g.lineTo(-12, 13); g.closePath(); g.stroke(); g.fill();
 }
@@ -96,7 +96,8 @@ function sfx(kind, k = 1) {
   else if (kind === "land") { o.type = "sine"; o.frequency.setValueAtTime(660, t); o.frequency.setValueAtTime(880, t + 0.09); g.gain.setValueAtTime(0.1, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.3); o.start(t); o.stop(t + 0.32); }
 }
 /* ---------- input ---------- */
-const KEYMAP = { ArrowLeft: "left", a: "left", ArrowRight: "right", d: "right", ArrowUp: "up", w: "up", ArrowDown: "down", s: "down", " ": "jump", Shift: "push", q: "gQ", e: "gE", c: "gC", f: "gF" };
+/* Kicker Run's key map */
+const KEYMAP = { ArrowLeft: "left", ArrowRight: "right", ArrowUp: "up", w: "up", ArrowDown: "down", s: "down", a: "spinL", d: "spinR", q: "grabQ", e: "grabN", " ": "grab", Shift: "boost", f: "grabS", g: "focus", j: "brake", x: "grabN", c: "grabI" };
 function setOverlay(id, on) { $(id).hidden = !on; }
 const anyOverlay = () => ["menu", "how", "pause", "map"].some(id => !$(id).hidden);
 function setPaused(v) { paused = v; setOverlay("pause", v); }
@@ -109,20 +110,20 @@ function initInput() {
     const key = ev.key.length === 1 ? ev.key.toLowerCase() : ev.key, n = KEYMAP[key]; initAudio(); if (ac && ac.state === "suspended") ac.resume();
     if (n) { K[n] = 1; ev.preventDefault(); }
     if (ev.repeat) return;
-    if (key === "f") K.ff = 1;
+    if (key === " ") gDown();
     if (sk.mode === "menu") { if (key === "Enter") $("go").click(); return; }
     if (key === "Escape") { if (!$("map").hidden) toggleMap(false); else if (!$("how").hidden) setOverlay("how", false); else setPaused(!paused); }
     else if (key === "p") setPaused(!paused);
     else if (key === "m") toggleMap();
     else if (key === "v") { fpv = !fpv; store.set("pal-fpv", fpv); camSnap = true; }
     else if (key === "n") { muted = !muted; store.set("pal-mute", muted); toast(muted ? "Sound off" : "Sound on", 1.2); }
-    else if (key === "r" && sk.mode === "ski") { if (sk.crashed || sk.sp < 3) standUp(); }
+    else if (key === "r" && sk.mode === "ski") { if (sk.crashed || sk.sp < 6) standUp(); }
     else if (key === "e" && sk.mode === "ski" && nearLift && sk.ground) boardLift(nearLift);
     else if (key === "Enter" && (sk.mode === "wait" || sk.mode === "lift")) { const L = sk.lift; unloadAt(L); toast("Top of " + L.name + " · " + fmtAlt(sk.p.y)); }
     else if ("1234".includes(key) && key.length === 1) setWeather(["bluebird", "golden", "overcast", "storm"][+key - 1]);
   });
-  addEventListener("keyup", ev => { const key = ev.key.length === 1 ? ev.key.toLowerCase() : ev.key, n = KEYMAP[key]; if (n) K[n] = 0; if (key === "f") K.ff = 0; });
-  addEventListener("blur", () => { for (const k in K) K[k] = 0; });
+  addEventListener("keyup", ev => { const key = ev.key.length === 1 ? ev.key.toLowerCase() : ev.key, n = KEYMAP[key]; if (n) K[n] = 0; if (key === " ") gUp(); });
+  addEventListener("blur", () => { for (const k in K) K[k] = 0; charging = false; });
   canvas.addEventListener("pointerdown", ev => { look.drag = true; look.idle = 0; canvas.setPointerCapture(ev.pointerId); initAudio(); });
   canvas.addEventListener("pointermove", ev => { if (!look.drag) return; look.yaw -= ev.movementX * 0.005; look.pit = clamp(look.pit - ev.movementY * 0.004, -1.1, 1.1); look.idle = 0; });
   const end = () => { look.drag = false; }; canvas.addEventListener("pointerup", end); canvas.addEventListener("pointercancel", end);
@@ -138,7 +139,7 @@ function initInput() {
   opt("village", "The Village · base area, 6,200 ft");
   LIFTS.map((L, i) => [L, i]).filter(([L]) => !L.carpet && L.len > 400).sort((a, b) => b[0].top.g - a[0].top.g).forEach(([L, i]) => opt(i, "Top of " + L.name + " · " + Math.round(L.top.g * FT).toLocaleString() + " ft"));
   sel.value = store.get("pal-start", "village"); if (!sel.value) sel.value = "village";
-  JACKETS.forEach((c, i) => { const b = document.createElement("button"); b.className = "sw" + (i === sk.jacket ? " on" : ""); b.style.background = "#" + c.toString(16).padStart(6, "0"); b.addEventListener("click", () => { sk.jacket = i; store.set("pal-jacket", i); rig.mats.jacket.color.setHex(c); document.querySelectorAll(".sw").forEach((s, k) => s.classList.toggle("on", k === i)); }); $("jackets").appendChild(b); });
+  Object.keys(KR.JACKETS).forEach(key => { const b = document.createElement("button"); b.className = "sw" + (key === outfit.jacket ? " on" : ""); b.dataset.j = key; b.title = key; b.style.background = "#" + KR.JACKETS[key].j.toString(16).padStart(6, "0"); b.addEventListener("click", () => { outfit.jacket = key; store.set("pal-outfit", outfit); KR.dress(rig, outfit); document.querySelectorAll(".sw").forEach(sw => sw.classList.toggle("on", sw.dataset.j === key)); }); $("jackets").appendChild(b); });
   $("go").addEventListener("click", () => { initAudio(); store.set("pal-start", sel.value); spawnAt(sel.value); setOverlay("menu", false); $("hud").hidden = false; });
   setGfxButtons(); setUnits(units);
 }
@@ -148,11 +149,12 @@ function setGfxButtons() { document.querySelectorAll("[data-q]").forEach(b => b.
 const MP = { room: null, user: null, myId: null, remotes: new Map(), others: [], sendT: 0, status: "connecting…", names: {}, dirty: true, listT: 0 };
 const r2 = v => Math.round(v * 100) / 100;
 function mpPack() {
-  let k = 0; if (K.up && sk.ground && !K.down) k |= 1; if (K.push) k |= 2;
-  return { v: 1, res: "palisades", id: MP.myId, play: sk.mode !== "menu", x: r2(sk.p.x), y: r2(sk.p.y), z: r2(sk.p.z), yaw: r2(sk.yaw), spin: r2(sk.spin), rot: r2(sk.rot), sw: !!sk.sw, gr: !!sk.ground, air: !!sk.air, cr: !!sk.crashed, tum: r2(sk.tum), turn: r2(sk.turn), carve: r2(sk.carve), br: r2(sk.brakeK), sy: r2(sk.slideYaw), sp: r2(sk.sp), k, gb: sk.grabNow || "", md: sk.mode, li: sk.lift ? sk.lift.id : -1, jk: sk.jacket, sc: sk.pts, vt: Math.round(sk.vert) };
+  let k = 0; MP_KEYS.forEach((n, i) => { if (K[n]) k |= 1 << i; });
+  return { v: 2, res: "palisades", id: MP.myId, play: sk.mode !== "menu", x: r2(sk.p.x), y: r2(sk.p.y), z: r2(sk.p.z), yaw: r2(sk.yaw), spin: r2(sk.spin), rot: r2(sk.rot), rotV: r2(sk.rotV), sw: !!sk.sw, gr: !!sk.ground, cr: !!sk.crashed, tz: r2(sk.tumZ), turn: r2(sk.turn), carve: r2(sk.carve), sp: r2(sk.sp), chg: r2(sk.chg), st: r2(Math.max(0, sk.stumT)), k, md: sk.mode, li: sk.lift ? sk.lift.id : -1, sl: r2(sk.slope), sc: sk.pts, vt: Math.round(sk.vert),
+    of: { helmet: outfit.helmet, jacket: outfit.jacket, pants: outfit.pants, accessory: outfit.accessory, skis: outfit.skis, poles: outfit.poles, style: outfit.style } };
 }
 function mpSend(dt) { if (!MP.room) return; MP.sendT -= dt; if (MP.sendT > 0) return; MP.sendT = 1 / 12; try { const r = MP.room.presence({ st: mpPack() }); if (r && r.catch) r.catch(() => { }); } catch (e) { } }
-function mpTag(R) { const c = document.createElement("canvas"); c.width = 256; c.height = 64; const tex = new THREE.CanvasTexture(c), sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, fog: false })); sp.scale.set(2.4, 0.6, 1); sp.position.set(0, 2.5, 0); sp.renderOrder = 999; R.root.add(sp); return { c, tex, txt: "" }; }
+function mpTag(R) { const c = document.createElement("canvas"); c.width = 256; c.height = 64; const tex = new THREE.CanvasTexture(c), sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, fog: false })); sp.scale.set(2.4, 0.6, 1); sp.position.set(0, 2.5, 0); sp.renderOrder = 999; R.hold.add(sp); return { c, tex, txt: "" }; }
 function mpTagText(tag, txt) { if (tag.txt === txt) return; tag.txt = txt; const g = tag.c.getContext("2d"); g.clearRect(0, 0, 256, 64); g.font = "700 30px system-ui, sans-serif"; const w = Math.min(248, g.measureText(txt).width + 28); g.fillStyle = "rgba(10,14,24,.62)"; g.beginPath(); g.roundRect ? g.roundRect(128 - w / 2, 8, w, 46, 23) : g.rect(128 - w / 2, 8, w, 46); g.fill(); g.fillStyle = "#fff"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(txt, 128, 32); tag.tex.needsUpdate = true; }
 function mpColor(id) { let h = 0; for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return "hsl(" + (h % 360) + ",70%,62%)"; }
 function mpSync(peers) {
@@ -161,12 +163,12 @@ function mpSync(peers) {
     if (p.sameTab || (p.kind && p.kind !== "viewer")) continue; const st = p.presence && p.presence.st; if (!st || typeof st !== "object") continue;
     const by = p.by || (typeof st.id === "string" ? st.id : null); others.push({ peer: p.peer, by, st, isMe: p.isMe });
     if (st.res !== "palisades" || ![st.x, st.y, st.z].every(Number.isFinite)) continue;
-    seen.add(p.peer); let r = MP.remotes.get(p.peer);
-    if (!r) { const R = buildSkier(st.jk | 0); scene.add(R.root); r = { R, tag: mpTag(R), q: null, jk: st.jk | 0, col: mpColor(by || p.peer) }; MP.remotes.set(p.peer, r); }
-    if (r.jk !== (st.jk | 0)) { r.jk = st.jk | 0; r.R.mats.jacket.color.setHex(JACKETS[r.jk % JACKETS.length]); }
+    seen.add(p.peer); let r = MP.remotes.get(p.peer); const ofk = st.of ? JSON.stringify(st.of) : "";
+    if (!r) { const R = makeRider(st.of); r = { R, tag: mpTag(R), q: null, ofk, col: mpColor(by || p.peer), keys: Object.assign({}, NOKEYS) }; MP.remotes.set(p.peer, r); }
+    if (r.ofk !== ofk) { r.ofk = ofk; KR.dress(r.R, st.of); }
     r.st = st; r.by = by; r.isMe = p.isMe;
   }
-  for (const [peer, r] of MP.remotes) if (!seen.has(peer)) { scene.remove(r.R.root); MP.remotes.delete(peer); }
+  for (const [peer, r] of MP.remotes) if (!seen.has(peer)) { scene.remove(r.R.hold); MP.remotes.delete(peer); }
   MP.others = others; MP.dirty = true;
 }
 async function mpList() {
@@ -185,15 +187,13 @@ function updateRemotes(dt, time) {
   for (const r of MP.remotes.values()) {
     const st = r.st, R = r.R; if (!st) continue; const far = Math.hypot(st.x - sk.p.x, st.z - sk.p.z);
     const L = st.md === "lift" ? LIFTS[st.li] : null, cabin = L && !L.carpet && !L.type.startsWith("chair");
-    R.root.visible = st.play !== false && far < 2500 && !cabin; if (!R.root.visible) continue;
-    if (!r.q || Math.hypot(st.x - r.q.x, st.z - r.q.z) > 30) r.q = { x: st.x, y: st.y, z: st.z, yaw: st.yaw, spin: st.spin, rot: st.rot };
-    const q = r.q; q.x += (st.x - q.x) * a; q.y += (st.y - q.y) * a; q.z += (st.z - q.z) * a; q.yaw += wrap(st.yaw - q.yaw) * a; q.spin += (st.spin - q.spin) * a; q.rot += (st.rot - q.rot) * a;
-    R.root.position.set(q.x, q.y, q.z);
-    const face = q.yaw + (st.sw ? Math.PI : 0) - (st.gr ? 0 : q.spin) - (st.sy || 0), onSnow = st.gr && st.md === "ski" && !st.cr;
-    const up = onSnow ? normalAt(q.x, q.z, 0.8, _y) : _y.set(0, 1, 0); fwdOf(face, _z); _x.crossVectors(up, _z).normalize(); _z.crossVectors(_x, up).normalize(); R.root.quaternion.setFromRotationMatrix(_m4.makeBasis(_x, up, _z));
-    R.flip.rotation.x = st.cr ? st.tum : st.gr ? 0 : -q.rot * (st.sw ? -1 : 1); R.flip.rotation.z = st.cr ? st.tum * 0.37 : 0;
-    R.lean.rotation.z = onSnow ? st.turn * (0.30 + 0.32 * st.carve) * clamp(st.sp / 9, 0.15, 1) * (st.sw ? -1 : 1) - (st.br || 0) * 0.35 * Math.sign(st.sy || 1) : 0;
-    poseSkier(R, { turn: -st.turn * (st.sw ? -1 : 1), carve: st.md === "ski" ? st.carve * clamp(st.sp / 8, 0, 1) : 0, tuck: !!(st.k & 1), crouch: 0, air: !st.gr && st.air, grab: st.gb || null, brake: st.br || 0, sp: st.sp, seated: !!(L && L.type.startsWith("chair")), push: !!(st.k & 2) && st.sp < 8 }, dt, time);
+    R.hold.visible = st.play !== false && far < 2500 && !cabin; if (!R.hold.visible) continue;
+    const jump = !r.q || Math.hypot(st.x - r.q.p.x, st.z - r.q.p.z) > 30;
+    if (jump) r.q = { p: new THREE.Vector3(st.x, st.y, st.z), yaw: st.yaw, spin: st.spin, rot: st.rot, grind: null, boxT: 0, bike: false, finished: false, bikeJump: false, pumpT: 0, landT: 0, popT: 0, airT: 1, vx: 0, vs: 0 };
+    const q = r.q; q.p.x += (st.x - q.p.x) * a; q.p.y += (st.y - q.p.y) * a; q.p.z += (st.z - q.p.z) * a; q.yaw += wrap(st.yaw - q.yaw) * a; q.spin += (st.spin - q.spin) * a; q.rot += (st.rot - q.rot) * a;
+    q.rotV = st.rotV || 0; q.sw = st.sw; q.ground = st.gr; q.air = !st.gr && st.md === "ski"; q.crashed = st.cr; q.tumZ = st.tz || 0; q.turn = st.turn; q.carve = st.carve; q.sp = st.sp; q.vs = st.sp; q.chg = L && L.type.startsWith("chair") ? 0.85 : st.chg || 0; q.stumT = st.st || 0; q.stumD = 1; q.mode = st.md;
+    MP_KEYS.forEach((n, i) => { r.keys[n] = st.k & (1 << i) ? 1 : 0; });
+    poseRider(R, q, st.md === "ski" ? r.keys : NOKEYS, st.sl || 0, dt, time, jump); if (L && L.type.startsWith("chair")) R.hold.position.y += 0.2;
   }
 }
 const FIREBASE_CONFIG = { apiKey: "AIzaSyDP_rgi4dWZqVax_c5Ob5Hg4dilLS9Bchc", authDomain: "kicker-run.firebaseapp.com", databaseURL: "https://kicker-run-default-rtdb.firebaseio.com", projectId: "kicker-run", storageBucket: "kicker-run.firebasestorage.app", messagingSenderId: "149808173020", appId: "1:149808173020:web:744be18f442c535fe54919" };
@@ -205,7 +205,7 @@ async function fbInit() {
   const signBtn = show => { let b = $("mpsign"); if (!b) { b = document.createElement("button"); b.id = "mpsign"; b.textContent = "Sign in with Google to ride together"; b.addEventListener("click", () => auth.signInWithPopup(new fb.auth.GoogleAuthProvider()).catch(e => { MP.status = "Sign-in failed (" + ((e && e.code) || "error") + ")"; MP.dirty = true; })); $("topRight").insertBefore(b, $("riders")); } b.hidden = !show; };
   auth.onAuthStateChanged(u => {
     if (presRef) { presRef.remove().catch(() => { }); presRef = null; } if (off) { off(); off = null; }
-    MP.room = null; MP.remotes.forEach(r => scene.remove(r.R.root)); MP.remotes.clear(); MP.others = [];
+    MP.room = null; MP.remotes.forEach(r => scene.remove(r.R.hold)); MP.remotes.clear(); MP.others = [];
     if (!u) { MP.myId = null; MP.status = "Solo · sign in to ride with others"; signBtn(true); MP.dirty = true; return; }
     signBtn(false); MP.myId = u.uid; myName = (u.email && u.email.indexOf("@") > 0 ? u.email.slice(0, u.email.indexOf("@")) : u.displayName || "Rider").slice(0, 24);
     presRef = db.ref("presence/" + u.uid); presRef.onDisconnect().remove();

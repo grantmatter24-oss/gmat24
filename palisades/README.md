@@ -5,6 +5,10 @@
 - `shell.html`: page, HUD and menus. `src/*.js`: the game, concatenated in name order. `data/world.json`: the baked world.
 - `python3 build.py` assembles `../palisades.html`.
 
+## Rider
+
+`src/05_skier.js` is generated: `python3 tools/extract_kr.py` copies Kicker Run's skier model, outfits and pose code out of `../ski.html`. The ride physics and key map in `src/06_game.js` follow Kicker Run's.
+
 ## World data
 
 `tools/` rebuilds `data/world.json` from public sources:
