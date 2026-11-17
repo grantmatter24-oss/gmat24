@@ -74,12 +74,12 @@ function maskAt(x, z) { // -> [groom, tree, road, mogul, cos2t, sin2t], each 0..
 }
 const treeMask = (x, z) => { const fx = clamp(Math.round((x - X0) / MCELL), 0, MW - 1), fz = clamp(Math.round((z - Z0) / MCELL), 0, MH - 1); return MA[(fz * MW + fx) * 4 + 1] / 255; };
 const rockAt = (x, z) => bil(ROCK, NX, NZ, (x - X0) / CELL, (z - Z0) / CELL);
-/* Snow surface on top of the survey data: wind drifts off-piste, mogul fields, and stepped rock bands on the steeps. Physics and rendering share it. */
+/* Snow surface on top of the survey data. Skiable ground stays smooth (long, gentle powder rolls off the groomed runs);
+   only true cliffs get stepped rock bands. Physics and rendering share it. */
 function detailH(x, z) {
-  const m = maskAt(x, z), open = (1 - m[0]) * (1 - m[2]), mg = m[3], rk = rockAt(x, z);
+  const m = maskAt(x, z), open = (1 - m[0]) * (1 - m[2]), rk = sstep(0.4, 0.95, rockAt(x, z));
   let d = 0;
-  if (open > 0.01) d += open * (0.42 * (vnoise(x * 0.041, z * 0.041, 11) * 2 - 1) + 0.13 * (vnoise(x * 0.14, z * 0.14, 12) * 2 - 1));
-  if (mg > 0.01) { const wv = vnoise(x * 0.05, z * 0.05, 3) * TAU; d += mg * 0.36 * Math.sin(x * 1.37 + wv) * Math.sin(z * 1.16 + wv * 0.7) * (0.7 + 0.6 * vnoise(x * 0.3, z * 0.3, 4)); }
+  if (open > 0.01) d += open * 0.32 * (vnoise(x * 0.019, z * 0.019, 11) * 2 - 1);
   if (rk > 0.01) {
     const t = vnoise(x * 0.033, z * 0.033, 23) * 4.5 + vnoise(x * 0.11, z * 0.11, 24) * 0.8, ft = t - Math.floor(t), r1 = 1 - Math.abs(2 * vnoise(x * 0.075, z * 0.075, 21) - 1);
     d += rk * ((Math.floor(t) + smooth((ft - 0.72) / 0.28)) * 2.4 - 5 + 1.5 * r1 * r1 * r1 + 0.35 * vnoise(x * 0.4, z * 0.4, 22));
@@ -99,6 +99,6 @@ function Hsmooth(x, z) { // no detail: far terrain, lift profiles, building pads
   const w = edgeW(x, z); if (w >= 1) return hOuter(x, z); const h = hBase(x, z); return w > 0 ? lerp(h, hOuter(x, z), w) : h;
 }
 const _n = new THREE.Vector3();
-function normalAt(x, z, e = 0.7, out = _n) { return out.set(H(x - e, z) - H(x + e, z), 2 * e, H(x, z - e) - H(x, z + e)).normalize(); }
+function normalAt(x, z, e = 1.2, out = _n) { return out.set(H(x - e, z) - H(x + e, z), 2 * e, H(x, z - e) - H(x, z + e)).normalize(); }
 /* lon/lat for the HUD */
 const toLL = (x, z) => [M.lon0 + x / M.mlon, M.lat0 - z / M.mlat];

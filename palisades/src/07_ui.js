@@ -6,8 +6,10 @@ function initRuns() {
 function runAt(x, z) {
   const gx = Math.floor(x / 120), gz = Math.floor(z / 120); let best = null, bd = 1e9;
   for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { const s = RUN_GRID.get((gx + a) + "," + (gz + b)); if (!s) continue; for (const ri of s) { const r = WORLD.runs[ri]; if (!r.n) continue; for (let i = 0; i < r.pts.length - 1; i++) { const p = r.pts[i], q = r.pts[i + 1], ex = q[0] - p[0], ez = q[1] - p[1], t = clamp(((x - p[0]) * ex + (z - p[1]) * ez) / (ex * ex + ez * ez || 1), 0, 1), d = Math.hypot(x - p[0] - ex * t, z - p[1] - ez * t) / (RUN_W[r.d] * 0.5 + 8); if (d < bd) { bd = d; best = r; } } } }
-  return bd < 1 ? best : null;
+  _runNear = best; _runK = bd; return bd < 1 ? best : null;
 }
+let _runK = 9, _runNear = null;
+function areaAt(x, z) { for (const a of WORLD.areas) if (a.p && inPoly(a.p, x, z)) return a; return null; }
 /* ---------- HUD ---------- */
 let curRun = null, runShow = 0, hudT = 0, fpsAcc = 0, fpsN = 0;
 function updateHUD(dt) {
@@ -19,9 +21,13 @@ function updateHUD(dt) {
   $("sAlt").textContent = fmtAlt(sk.p.y); $("sVert").textContent = imp ? Math.round(sk.vert * FT).toLocaleString() + " ft" : Math.round(sk.vert).toLocaleString() + " m";
   $("sMax").textContent = Math.round(sk.maxSp * (imp ? MPH : KMH)) + (imp ? " mph" : " km/h"); $("sPts").textContent = sk.pts.toLocaleString();
   if (fpsAcc > 0.5) { $("fps").textContent = QS.has("fps") || QS.has("test") ? Math.round(fpsN / fpsAcc) + " fps · " + treeCount.toLocaleString() + " trees" : ""; fpsAcc = 0; fpsN = 0; }
-  // trail name
-  if (sk.mode === "ski" && sk.ground) { const r = runAt(sk.p.x, sk.p.z); if (r && r !== curRun && (!curRun || r.n !== curRun.n)) { curRun = r; runShow = 5; $("runName").innerHTML = ""; const d = document.createElement("span"); d.className = "dia d" + r.d; $("runName").append(d, document.createTextNode(r.n)); $("runSub").textContent = DIFF_NAME[r.d] + (r.g ? " · groomed" : r.m ? " · moguls" : " · ungroomed"); } else if (!r && runShow <= 0) curRun = null; }
-  if (runShow > 0) runShow -= 0.1; $("runBox").style.opacity = runShow > 0 ? 1 : 0;
+  // the run you are on stays named at the top of the screen
+  { const rb = $("runBox"), set = (cls, name, sub) => { const key = cls + name + sub; if (rb.dataset.k !== key) { rb.dataset.k = key; $("runName").textContent = ""; if (cls) { const d = document.createElement("span"); d.className = "dia " + cls; $("runName").append(d); } $("runName").append(document.createTextNode(name)); $("runSub").textContent = sub; } rb.hidden = false; };
+    if (sk.mode === "wait" || sk.mode === "lift") rb.hidden = true;
+    else { const r = runAt(sk.p.x, sk.p.z), ar = r ? null : areaAt(sk.p.x, sk.p.z);
+      if (r) set("d" + r.d, r.n, DIFF_NAME[r.d] + (r.g ? " · groomed" : " · powder"));
+      else if (ar) set("d" + ar.d, ar.n, DIFF_NAME[ar.d] + " · powder");
+      else set("", "Off-piste", _runNear && _runK < 8 ? "Powder · near " + _runNear.n : "Powder"); } }
   // lift prompt and ride bar
   const pr = $("prompt"), lb = $("liftBar");
   if (sk.mode === "ski" && nearLift) { pr.hidden = false; pr.innerHTML = "<kbd>E</kbd> Load " + nearLift.name; } else pr.hidden = true;
@@ -32,7 +38,7 @@ function updateHUD(dt) {
   } else lb.hidden = true;
 }
 /* ---------- trail map and minimap ---------- */
-let mapBase = null; const MAPW = 1500, MAPH = Math.round(MAPW * (Z1 - Z0) / (X1 - X0));
+let mapBase = null, mapFromMenu = false; const MAPW = 1200, MAPH = Math.round(MAPW * (Z1 - Z0) / (X1 - X0));
 const mx = x => (x - X0) / (X1 - X0) * MAPW, mz = z => (z - Z0) / (Z1 - Z0) * MAPH;
 function buildMap() {
   const c = document.createElement("canvas"); c.width = MAPW; c.height = MAPH; const g = c.getContext("2d"), im = g.createImageData(MAPW, MAPH), d = im.data;
@@ -46,7 +52,7 @@ function buildMap() {
   const path = pts => { g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(mx(p[0]), mz(p[1])) : g.moveTo(mx(p[0]), mz(p[1]))); };
   for (const pass of [0, 1]) for (const r of WORLD.runs) { path(r.pts); if (!pass) { g.strokeStyle = "rgba(255,255,255,.85)"; g.lineWidth = r.d <= 1 ? 5.5 : 4; } else { g.strokeStyle = DIFF_COL[r.d]; g.lineWidth = r.d <= 1 ? 3 : 2; g.setLineDash(r.d === 3 ? [5, 4] : []); } g.stroke(); g.setLineDash([]); }
   for (const L of LIFTS) { g.strokeStyle = "#d81f26"; g.lineWidth = L.carpet ? 1.5 : 2.6; path(L.nodes.map(n => [n.x, n.z])); g.stroke(); if (L.carpet) continue; g.fillStyle = "#d81f26"; for (const n of [L.bot, L.top]) { g.beginPath(); g.arc(mx(n.x), mz(n.z), n === L.bot ? 5 : 3.2, 0, TAU); g.fill(); } }
-  g.font = "700 12px 'Barlow Semi Condensed', sans-serif"; g.textAlign = "center"; g.textBaseline = "middle";
+  g.font = "700 11px 'Barlow Semi Condensed', sans-serif"; g.textAlign = "center"; g.textBaseline = "middle";
   for (const L of LIFTS) { if (L.carpet || L.len < 300) continue; const x = mx(L.cx), y = mz(L.cz); let a = Math.atan2(mz(L.top.z) - mz(L.bot.z), mx(L.top.x) - mx(L.bot.x)); if (a > Math.PI / 2 || a < -Math.PI / 2) a += Math.PI; g.save(); g.translate(x, y); g.rotate(a); g.lineWidth = 3; g.strokeStyle = "rgba(255,255,255,.9)"; g.strokeText(L.name.toUpperCase(), 0, -8); g.fillStyle = "#a01318"; g.fillText(L.name.toUpperCase(), 0, -8); g.restore(); }
   g.font = "800 13px 'Barlow Semi Condensed', sans-serif";
   for (const pk of WORLD.peaks) { const x = mx(pk.p[0]), y = mz(pk.p[1]); g.fillStyle = "#1b2733"; g.beginPath(); g.moveTo(x, y - 6); g.lineTo(x + 5, y + 4); g.lineTo(x - 5, y + 4); g.fill(); g.lineWidth = 3; g.strokeStyle = "rgba(255,255,255,.9)"; const t = pk.n.toUpperCase() + " " + pk.ft.toLocaleString() + "′"; g.strokeText(t, x, y + 14); g.fillText(t, x, y + 14); }
@@ -58,11 +64,14 @@ function drawMap() {
   for (const r of MP.remotes.values()) if (r.st) dot(r.st.x, r.st.z, r.col || "#ffd24a", 5);
   const x = mx(sk.p.x), y = mz(sk.p.z), a = Math.atan2(Math.sin(sk.yaw), -Math.cos(sk.yaw)); g.save(); g.translate(x, y); g.rotate(a); g.fillStyle = "#ff5a36"; g.strokeStyle = "#fff"; g.lineWidth = 2.5; g.beginPath(); g.moveTo(0, -11); g.lineTo(7.5, 8); g.lineTo(0, 4); g.lineTo(-7.5, 8); g.closePath(); g.fill(); g.stroke(); g.restore();
 }
-function mapPick(ev) {
-  const c = $("mapC"), r = c.getBoundingClientRect(), x = X0 + (ev.clientX - r.left) / r.width * (X1 - X0), z = Z0 + (ev.clientY - r.top) / r.height * (Z1 - Z0); let best = null, bd = 130;
+function mapPick(ev) { // a lift end if the click is on one, otherwise the spot itself
+  const c = $("mapC"), r = c.getBoundingClientRect(), x = X0 + (ev.clientX - r.left) / r.width * (X1 - X0), z = Z0 + (ev.clientY - r.top) / r.height * (Z1 - Z0); let best = null, bd = 55;
   for (const L of LIFTS) for (const [n, top] of [[L.bot, false], [L.top, true]]) { const d = Math.hypot(n.x - x, n.z - z); if (d < bd) { bd = d; best = { L, top }; } }
-  return best;
+  return best || (inWorld(x, z, 240) && !buildingAt(x, z) ? { x, z } : null);
 }
+function fallLine(x, z) { const gx = H(x - 3, z) - H(x + 3, z), gz = H(x, z - 3) - H(x, z + 3); return Math.hypot(gx, gz) > 0.02 ? Math.atan2(gx, gz) : 0; }
+function startPlay() { setOverlay("menu", false); $("hud").hidden = false; paused = false; }
+function goHome() { for (const id of ["pause", "map", "how"]) setOverlay(id, false); paused = false; sk.mode = "menu"; sk.lift = null; for (const k in K) K[k] = 0; charging = false; $("hud").hidden = true; setOverlay("menu", true); }
 let miniT = 0;
 function drawMini(dt) {
   miniT += dt; if (miniT < 0.06) return; miniT = 0;
@@ -101,7 +110,7 @@ const KEYMAP = { ArrowLeft: "left", ArrowRight: "right", ArrowUp: "up", w: "up",
 function setOverlay(id, on) { $(id).hidden = !on; }
 const anyOverlay = () => ["menu", "how", "pause", "map"].some(id => !$(id).hidden);
 function setPaused(v) { paused = v; setOverlay("pause", v); }
-function toggleMap(v) { const on = v === undefined ? $("map").hidden : v; if (on) { drawMap(); setOverlay("pause", false); } setOverlay("map", on); paused = on; }
+function toggleMap(v, fromMenu) { const on = v === undefined ? $("map").hidden : v; if (on) { mapFromMenu = !!fromMenu; drawMap(); setOverlay("pause", false); } setOverlay("map", on); paused = on && !mapFromMenu; }
 function setGfx(name) { if (!QUAL[name]) return; qName = name; Q = QUAL[name]; store.set("pal-gfx", name); buildComposer(); document.querySelectorAll("[data-q]").forEach(b => b.classList.toggle("on", b.dataset.q === name)); }
 function setUnits(u) { units = u; store.set("pal-units", u); document.querySelectorAll("[data-u]").forEach(b => b.classList.toggle("on", b.dataset.u === u)); }
 function initInput() {
@@ -111,7 +120,7 @@ function initInput() {
     if (n) { K[n] = 1; ev.preventDefault(); }
     if (ev.repeat) return;
     if (key === " ") gDown();
-    if (sk.mode === "menu") { if (key === "Enter") $("go").click(); return; }
+    if (sk.mode === "menu") { if (key === "Escape" && !$("map").hidden) toggleMap(false); else if (key === "Enter" && $("map").hidden) $("go").click(); return; }
     if (key === "Escape") { if (!$("map").hidden) toggleMap(false); else if (!$("how").hidden) setOverlay("how", false); else setPaused(!paused); }
     else if (key === "p") setPaused(!paused);
     else if (key === "m") toggleMap();
@@ -133,14 +142,19 @@ function initInput() {
   $("howBtn").addEventListener("click", () => setOverlay("how", true)); $("howOk").addEventListener("click", () => setOverlay("how", false)); $("pHow").addEventListener("click", () => setOverlay("how", true));
   $("resume").addEventListener("click", () => setPaused(false)); $("pMap").addEventListener("click", () => toggleMap(true));
   $("map").addEventListener("click", ev => { if (ev.target === $("map")) toggleMap(false); });
-  $("mapC").addEventListener("mousemove", ev => { const h = mapPick(ev), t = $("mapTip"); if (!h) { t.style.display = "none"; return; } const r = $("mapWrap").getBoundingClientRect(); t.style.display = "block"; t.style.left = ev.clientX - r.left + 14 + "px"; t.style.top = ev.clientY - r.top + 14 + "px"; t.textContent = (h.top ? "Top of " : "Base of ") + h.L.name + " · " + fmtAlt((h.top ? h.L.top : h.L.bot).g); });
-  $("mapC").addEventListener("click", ev => { const h = mapPick(ev); if (!h) return; if (h.top) unloadAt(h.L); else placeSkier(h.L.bot.x - Math.sin(h.L.dir) * 14, h.L.bot.z - Math.cos(h.L.dir) * 14, h.L.dir); toggleMap(false); toast((h.top ? "Top of " : "Base of ") + h.L.name); });
+  $("mapC").addEventListener("mousemove", ev => { const h = mapPick(ev), t = $("mapTip"); if (!h) { t.style.display = "none"; return; } const r = $("mapWrap").getBoundingClientRect(); t.style.display = "block"; t.style.left = ev.clientX - r.left + 14 + "px"; t.style.top = ev.clientY - r.top + 14 + "px";
+    if (h.L) t.textContent = (h.top ? "Top of " : "Base of ") + h.L.name + " · " + fmtAlt((h.top ? h.L.top : h.L.bot).g); else { const rn = runAt(h.x, h.z); t.textContent = "Drop in here · " + fmtAlt(H(h.x, h.z)) + (rn ? " · " + rn.n : ""); } });
+  $("mapC").addEventListener("click", ev => { const h = mapPick(ev); if (!h) return;
+    if (h.L) { if (h.top) unloadAt(h.L); else placeSkier(h.L.bot.x - Math.sin(h.L.dir) * 14, h.L.bot.z - Math.cos(h.L.dir) * 14, h.L.dir); toast((h.top ? "Top of " : "Base of ") + h.L.name); }
+    else { placeSkier(h.x, h.z, fallLine(h.x, h.z)); const rn = runAt(h.x, h.z); toast("Dropped in" + (rn ? " on " + rn.n : "") + " · " + fmtAlt(sk.p.y)); }
+    toggleMap(false); startPlay(); initAudio(); });
+  $("pickBtn").addEventListener("click", () => toggleMap(true, true)); $("homeBtn").addEventListener("click", goHome); $("pHome").addEventListener("click", goHome); $("mapBtn").addEventListener("click", () => toggleMap(true));
   const sel = $("startSel"); const opt = (v, t) => { const o = document.createElement("option"); o.value = v; o.textContent = t; sel.appendChild(o); };
-  opt("village", "The Village · base area, 6,200 ft");
+  opt("village", "The Village · Olympic Valley base, 6,200 ft");
   LIFTS.map((L, i) => [L, i]).filter(([L]) => !L.carpet && L.len > 400).sort((a, b) => b[0].top.g - a[0].top.g).forEach(([L, i]) => opt(i, "Top of " + L.name + " · " + Math.round(L.top.g * FT).toLocaleString() + " ft"));
   sel.value = store.get("pal-start", "village"); if (!sel.value) sel.value = "village";
   Object.keys(KR.JACKETS).forEach(key => { const b = document.createElement("button"); b.className = "sw" + (key === outfit.jacket ? " on" : ""); b.dataset.j = key; b.title = key; b.style.background = "#" + KR.JACKETS[key].j.toString(16).padStart(6, "0"); b.addEventListener("click", () => { outfit.jacket = key; store.set("pal-outfit", outfit); KR.dress(rig, outfit); document.querySelectorAll(".sw").forEach(sw => sw.classList.toggle("on", sw.dataset.j === key)); }); $("jackets").appendChild(b); });
-  $("go").addEventListener("click", () => { initAudio(); store.set("pal-start", sel.value); spawnAt(sel.value); setOverlay("menu", false); $("hud").hidden = false; });
+  $("go").addEventListener("click", () => { initAudio(); store.set("pal-start", sel.value); spawnAt(sel.value); startPlay(); });
   setGfxButtons(); setUnits(units);
 }
 function setGfxButtons() { document.querySelectorAll("[data-q]").forEach(b => b.classList.toggle("on", b.dataset.q === qName)); }

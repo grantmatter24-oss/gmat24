@@ -1,6 +1,6 @@
 # Palisades Tahoe
 
-`../palisades.html` is a single-file ski game of the Olympic Valley side of Palisades Tahoe at 1:1 scale.
+`../palisades.html` is a single-file ski game of Palisades Tahoe (Olympic Valley and Alpine Meadows) at 1:1 scale.
 
 - `shell.html`: page, HUD and menus. `src/*.js`: the game, concatenated in name order. `data/world.json`: the baked world.
 - `python3 build.py` assembles `../palisades.html`.

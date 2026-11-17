@@ -9,25 +9,25 @@ function tileTrees(cx, cz) { // -> Float32Array of [x, y, z, height, width, rot,
   for (let j = 0; j < TPER; j++) for (let i = 0; i < TPER; i++) {
     const gx = bx + i, gz = bz + j, x = (gx + 0.15 + 0.7 * hash2(gx, gz, 2)) * TCELL, z = (gz + 0.15 + 0.7 * hash2(gx, gz, 3)) * TCELL;
     const tm = treeMask(x, z); if (tm < 0.12) continue;
-    if (hash2(gx, gz, 1) > tm * tm * 0.74 + 0.03) continue;
+    if (hash2(gx, gz, 1) > tm * tm * 0.6 + 0.02) continue;
     if (!inWorld(x, z, 30)) continue;
     const y = H(x, z), hi = sstep(2330, 2640, y), big = hash2(gx, gz, 4);
-    const h = (8 + 19 * big * big + 6 * tm) * lerp(1.1, 0.5, hi), v = hash2(gx, gz, 5) < lerp(0.35, 0.75, hi) ? 1 : 0;
+    const h = Math.max(9.5, (9 + 19 * big * big + 6 * tm) * lerp(1.1, 0.62, hi)), v = hash2(gx, gz, 5) < lerp(0.35, 0.75, hi) ? 1 : 0;
     out.push(x, y - 0.3, z, h, h * (v ? 0.34 : 0.25) * (0.85 + 0.3 * hash2(gx, gz, 6)), hash2(gx, gz, 7) * TAU, v, 0.8 + 0.4 * hash2(gx, gz, 8));
   }
   t = new Float32Array(out); treeTiles.set(key, t); return t;
 }
 /* unit-height conifer: v=0 a narrow fir spire, v=1 a broader pine with a taller clear trunk */
 function treeGeometry(v) {
-  const pos = [], nor = [], col = [], seg = 9, tiers = v ? 6 : 9, y0 = v ? 0.3 : 0.13;
+  const pos = [], nor = [], col = [], seg = 9, tiers = v ? 6 : 8, y0 = v ? 0.44 : 0.33;   // the lowest boughs sit a third of the way up: 3 m or more of clear trunk
   const tri = (a, b, c, ca, cb, cc) => {
     const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2], vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2]; let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx; const l = Math.hypot(nx, ny, nz) || 1; nx /= l; ny /= l; nz /= l;
     pos.push(...a, ...b, ...c); nor.push(nx, ny, nz, nx, ny, nz, nx, ny, nz); col.push(...ca, ...cb, ...cc);
   };
   const bark = [0.16, 0.10, 0.065], dark = [0.018, 0.045, 0.024], tip = [0.055, 0.115, 0.05];
-  for (let i = 0; i < 6; i++) { const a0 = i / 6 * TAU, a1 = (i + 1) / 6 * TAU, r0 = 0.034, r1 = 0.012, yt = v ? 0.62 : 0.5; tri([Math.cos(a0) * r0, 0, Math.sin(a0) * r0], [Math.cos(a0) * r1, yt, Math.sin(a0) * r1], [Math.cos(a1) * r0, 0, Math.sin(a1) * r0], bark, bark, bark); tri([Math.cos(a1) * r0, 0, Math.sin(a1) * r0], [Math.cos(a0) * r1, yt, Math.sin(a0) * r1], [Math.cos(a1) * r1, yt, Math.sin(a1) * r1], bark, bark, bark); }
+  for (let i = 0; i < 6; i++) { const a0 = i / 6 * TAU, a1 = (i + 1) / 6 * TAU, r0 = 0.05, r1 = 0.02, yt = v ? 0.7 : 0.6; tri([Math.cos(a0) * r0, 0, Math.sin(a0) * r0], [Math.cos(a0) * r1, yt, Math.sin(a0) * r1], [Math.cos(a1) * r0, 0, Math.sin(a1) * r0], bark, bark, bark); tri([Math.cos(a1) * r0, 0, Math.sin(a1) * r0], [Math.cos(a0) * r1, yt, Math.sin(a0) * r1], [Math.cos(a1) * r1, yt, Math.sin(a1) * r1], bark, bark, bark); }
   for (let t = 0; t < tiers; t++) {
-    const f = t / (tiers - 1), yb = lerp(y0, 0.86, Math.pow(f, 0.9)), th = lerp(0.24, 0.13, f) * (v ? 1.25 : 1), yt = Math.min(1, yb + th), rb = lerp(0.5, 0.09, Math.pow(f, v ? 0.7 : 0.85)) * (v && t === 0 ? 0.8 : 1), tw = t * 0.7;
+    const f = t / (tiers - 1), yb = lerp(y0, 0.86, Math.pow(f, 0.9)), th = lerp(0.2, 0.12, f) * (v ? 1.2 : 1), yt = Math.min(1, yb + th), rb = lerp(0.5, 0.09, Math.pow(f, v ? 0.7 : 0.85)) * (v && t === 0 ? 0.8 : 1), tw = t * 0.7;
     for (let i = 0; i < seg; i++) {
       const a0 = i / seg * TAU + tw, a1 = (i + 1) / seg * TAU + tw, am = (a0 + a1) / 2, k0 = 0.78 + 0.22 * hash2(i, t, 40 + v), k1 = 0.78 + 0.22 * hash2((i + 1) % seg, t, 40 + v), dr = 0.045 * (1 - f);
       const p0 = [Math.cos(a0) * rb * k0, yb - dr * k0, Math.sin(a0) * rb * k0], p1 = [Math.cos(a1) * rb * k1, yb - dr * k1, Math.sin(a1) * rb * k1], pm = [Math.cos(am) * rb * 0.62, yb + th * 0.1, Math.sin(am) * rb * 0.62], top = [0, yt, 0];
@@ -131,6 +131,6 @@ function updateTrees(cam) {
 function treeHit(x, z, rad) {
   const cx = Math.floor((x - X0) / CH), cz = Math.floor((z - Z0) / CH); if (cx < 0 || cz < 0 || cx >= CNX || cz >= CNZ) return null;
   const t = tileTrees(cx, cz);
-  for (let k = 0; k < t.length; k += 8) { const dx = t[k] - x, dz = t[k + 2] - z, r = rad + 0.16 + t[k + 3] * 0.012; if (dx * dx + dz * dz < r * r) return { x: t[k], z: t[k + 2], h: t[k + 3] }; }
+  for (let k = 0; k < t.length; k += 8) { const dx = t[k] - x, dz = t[k + 2] - z, r = rad + 0.1 + t[k + 3] * 0.008; if (dx * dx + dz * dz < r * r) return { x: t[k], z: t[k + 2], h: t[k + 3] }; }
   return null;
 }

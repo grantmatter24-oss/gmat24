@@ -1,7 +1,7 @@
 import math, io, requests, numpy as np
 from PIL import Image
 Z = 14
-BB = (-120.300, 39.165, -120.210, 39.215)
+BB = (-120.302, 39.134, -120.208, 39.216)
 def t(lon, lat, z): 
     n = 2 ** z; x = (lon + 180) / 360 * n; y = (1 - math.asinh(math.tan(math.radians(lat))) / math.pi) / 2 * n; return x, y
 x0, y1 = t(BB[0], BB[1], Z); x1, y0 = t(BB[2], BB[3], Z)

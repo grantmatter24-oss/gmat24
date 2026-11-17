@@ -64,7 +64,7 @@ function standUp() {
   placeSkier(sk.p.x, sk.p.z, yaw);
 }
 function readSurface() {
-  const m = maskAt(sk.p.x, sk.p.z), s = sk.surf; s.groom = m[0]; s.road = m[2]; s.mogul = m[3]; s.rock = sstep(0.215, 0.33, 1 - nrm.y) * (1 - m[0]);
+  const m = maskAt(sk.p.x, sk.p.z), s = sk.surf; s.groom = m[0]; s.road = m[2]; s.mogul = m[3]; s.rock = sstep(0.215, 0.33, 1 - nrm.y) * (1 - m[0]) * sstep(0.35, 0.75, rockAt(sk.p.x, sk.p.z));   // only true cliff bands count as rock under the skis
   s.powder = (1 - m[0]) * (1 - m[2]) * (1 - s.rock) * (wx.snow ? 1 : 0.6); return s;
 }
 function landing() {
@@ -235,8 +235,8 @@ function updateParticles(dt) {
 }
 function emitSpray(dt) {
   if (sk.mode !== "ski" || !sk.ground || sk.crashed || sk.sp < 4) return;
-  const s = sk.surf, pw = 0.5 + 1.2 * s.powder, steer = sk.turn, n = (sk.sp > 18 ? 3 : 2) * pw * dt * 60 * 0.5, cnt = Math.floor(n + Math.random());
-  for (let i = 0; i < cnt; i++) spray(sk.p, 0.8 + Math.random() * (1.0 + 2.2 * s.powder), (Math.random() - 0.5) * 1.5, sk.v, 0.3);
+  const s = sk.surf, pw = 0.5 + 2.6 * s.powder, steer = sk.turn, n = (sk.sp > 18 ? 3 : 2) * pw * dt * 60 * 0.5, cnt = Math.floor(n + Math.random());
+  for (let i = 0; i < Math.min(cnt, 12); i++) spray(sk.p, 0.8 + Math.random() * (1.0 + 3.4 * s.powder), (Math.random() - 0.5) * (1.5 + 3 * s.powder), sk.v, 0.3 + 0.25 * s.powder);
   if (Math.abs(steer) > 0.3 && sk.sp > 6 && sk.carve > 0.2) { const k = Math.floor((2 + sk.sp / 10) * dt * 60 * 0.5 + Math.random()); for (let i = 0; i < k; i++) spray(sk.p, 1.5 + sk.sp * 0.05 + Math.random() * 2, -Math.sign(steer) * (3 + sk.carve * 4 + sk.sp * 0.12) * (0.5 + Math.random() * 0.6), sk.v, 0.3); }
   if ((K.down || K.up) && sk.sp > 3 && Math.random() < 0.4) spray(sk.p, 2, 0, sk.v, 0.4);
 }
@@ -262,7 +262,7 @@ function initTracks() {
 }
 function layTracks() {
   if (sk.mode !== "ski" || !sk.ground || sk.crashed) { trkPrev[0] = trkPrev[1] = null; return; }
-  const yawM = sk.yaw - sk.spin, fx = Math.sin(yawM), fz = Math.cos(yawM), rx = -fz, rz = fx, s = sk.surf, hw = 0.04 + 0.05 * sk.carve + 0.03 * s.powder + 0.12 * sk.brakeK, al = (0.10 + 0.16 * s.powder + 0.07 * sk.carve) * (1 - s.rock) * (1 - s.road);
+  const yawM = sk.yaw - sk.spin, fx = Math.sin(yawM), fz = Math.cos(yawM), rx = -fz, rz = fx, s = sk.surf, hw = 0.04 + 0.05 * sk.carve + 0.09 * s.powder + 0.12 * sk.brakeK, al = (0.10 + 0.24 * s.powder + 0.07 * sk.carve) * (1 - s.rock) * (1 - s.road);
   for (let i = 0; i < 2; i++) {
     const o = (i ? 1 : -1) * 0.16, x = sk.p.x + rx * o - fx * 0.3, z = sk.p.z + rz * o - fz * 0.3, cur = { x, z, hw };
     if (Math.hypot(x - trkLast[i].x, z - trkLast[i].z) < 0.45) continue;
@@ -295,8 +295,8 @@ function makeRider(of) { // Kicker Run's skier faces -z; the holder faces +z and
 function poseRider(R, q, keys, slope, dt, time, snap) {
   const hold = R.hold, onSnow = q.ground && q.mode === "ski" && !q.crashed;
   const up = onSnow ? normalAt(q.p.x, q.p.z, 0.7, _y) : _y.set(0, 1, 0); fwdOf(q.yaw, _z); _x.crossVectors(up, _z).normalize(); _z.crossVectors(_x, up).normalize();
-  _qa.setFromRotationMatrix(_m4.makeBasis(_x, up, _z)); if (snap) hold.quaternion.copy(_qa); else hold.quaternion.slerp(_qa, Math.min(1, 16 * dt));
-  hold.position.copy(q.p);
+  _qa.setFromRotationMatrix(_m4.makeBasis(_x, up, _z)); if (snap) hold.quaternion.copy(_qa); else hold.quaternion.slerp(_qa, Math.min(1, (onSnow ? 7 : 16) * dt));
+  hold.position.copy(q.p); if (onSnow) { q.sink = (q.sink || 0) + ((1 - maskAt(q.p.x, q.p.z)[0]) * 0.11 * clamp(q.sp / 6, 0.3, 1) - (q.sink || 0)) * Math.min(1, 5 * dt); hold.position.y -= q.sink; }
   KR.pose(R, q, keys, slope, dt, time);
   R.rig.rotation.y = -(q.spin + (q.sw ? Math.PI : 0));
   const wob = q.stumT > 0 && !q.crashed ? Math.min(1, q.stumT / 0.9) : 0, seated = q.mode === "lift";
@@ -308,7 +308,8 @@ function updateRig(dt, time) {
   const R = rig, onLift = sk.mode === "lift", seated = onLift && sk.lift && sk.lift.type.startsWith("chair"), cabin = onLift && sk.lift && !sk.lift.carpet && !seated;
   R.hold.visible = !cabin; sk.air = !sk.ground && sk.mode === "ski";
   if (seated) { sk.chg = 0.85; sk.turn = 0; sk.carve = 0; }   // sit: Kicker Run's deep crouch reads as a seat on the chair
-  poseRider(R, sk, sk.mode === "ski" ? K : NOKEYS, sk.slope, dt, time, camSnap);
+  sk.poseSlope = camSnap ? sk.slope : (sk.poseSlope || 0) + (sk.slope - (sk.poseSlope || 0)) * Math.min(1, 3 * dt);   // legs follow the hill, not every ripple
+  poseRider(R, sk, sk.mode === "ski" ? K : NOKEYS, sk.poseSlope, dt, time, camSnap);
   if (seated) R.hold.position.y += 0.2;
   R.head.visible = !(fpv && !cabin);
 }

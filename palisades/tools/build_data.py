@@ -12,7 +12,7 @@ OUT = sys.argv[2]
 LON0, LAT0 = -120.255, 39.192
 MLAT, MLON = 111019.1, 86403.0
 CELL = 10.0
-X0, X1, Z0, Z1 = -3750.0, 3750.0, -2250.0, 2250.0  # multiples of the 250 m backdrop grid so the two meshes share an edge
+X0, X1, Z0, Z1 = -3750.0, 3750.0, -2250.0, 6000.0  # Olympic Valley and Alpine Meadows;  # multiples of the 250 m backdrop grid so the two meshes share an edge
 NX = int((X1 - X0) / CELL) + 1; NZ = int((Z1 - Z0) / CELL) + 1
 def toXZ(lon, lat): return ((lon - LON0) * MLON, -(lat - LAT0) * MLAT)
 def toLL(x, z): return (LON0 + x / MLON, LAT0 - z / MLAT)
@@ -65,14 +65,13 @@ for f in load("infra"):
     if p.get("subtype") != "aerialway" or f["geometry"]["type"] != "LineString": continue
     name = nm(p); tags = dict(p.get("source_tags") or []); cls = p["class"]
     pts = xz_line(f["geometry"]["coordinates"])
-    if name in ("Subway", "Sun Kid"): continue
-    if name == "Base to Base":  # ride as far as the KT-22 mid station
-        kt = toXZ(-120.2422, 39.1831); k = min(range(len(pts)), key=lambda i: math.hypot(pts[i][0] - kt[0], pts[i][1] - kt[1])); pts = pts[:k + 1]
-    if not all(inb(x, z) for x, z in pts): continue
+    if not name or not all(inb(x, z, -150) for x, z in pts): continue
     hs = Hat([q[0] for q in pts], [q[1] for q in pts])
-    if hs[0] > hs[-1]: pts = pts[::-1]; hs = hs[::-1]
+    if name == "Base to Base":  # village to Alpine, over the KT-22 shoulder
+        if pts[0][1] > pts[-1][1]: pts = pts[::-1]; hs = hs[::-1]
+    elif hs[0] > hs[-1]: pts = pts[::-1]; hs = hs[::-1]
     occ = int(tags.get("aerialway:occupancy", 0) or 0); cap = int(tags.get("aerialway:capacity", 0) or 0)
-    if cls == "chair_lift": typ = "chair_det" if ("Express" in name or name in ("Wa She Shu", "Big Blue Express")) else "chair_fixed"
+    if cls == "chair_lift": typ = "chair_det" if ("Express" in name or name == "Wa She Shu" or any(k in name for k in ("Summit", "Roundhouse", "Treeline"))) else "chair_fixed"
     elif cls == "gondola": typ = "funitel" if "Funitel" in name else "gondola"
     elif cls == "cable_car": typ = "tram"
     else: typ = "carpet"
@@ -109,7 +108,14 @@ print("runs", len(runs), "areas", len(areas))
 
 peaks = [{"n": "Granite Chief", "ft": 9006, "ll": (-120.2870419, 39.1982695)}, {"n": "Washeshu Peak", "ft": 8885, "ll": (-120.26964, 39.1807396)}, {"n": "KT-22", "ft": 8070, "ll": (-120.2416764, 39.1829177)},
          {"n": "Emigrant Peak", "ft": 8774, "ll": (-120.2775, 39.1925)}, {"n": "Snow King", "ft": 7550, "ll": (-120.2268, 39.1880)}, {"n": "Broken Arrow", "ft": 8020, "ll": (-120.2555, 39.1925)}, {"n": "Poulsen Peak", "ft": 7651, "ll": (-120.2361744, 39.209604)}]
+have = {pk["n"] for pk in peaks}
+for f in load("land"):
+    p = f["properties"]
+    if p.get("subtype") == "physical" and p.get("class") == "peak" and f["geometry"]["type"] == "Point" and nm(p) and nm(p) not in have:
+        lon, lat = f["geometry"]["coordinates"][:2]; x, z = toXZ(lon, lat)
+        if inb(x, z, -200): peaks.append({"n": nm(p), "ft": int(round(float(Hat([x], [z])[0]) * 3.28084)), "ll": (lon, lat)}); have.add(nm(p))
 for pk in peaks: x, z = toXZ(*pk.pop("ll")); pk["p"] = [round(x), round(z)]
+peaks = [pk for pk in peaks if inb(pk["p"][0], pk["p"][1])]
 
 # ---------- masks at 5 m ----------
 MC = 5.0; MW = (NX - 1) * 2 + 1; MH = (NZ - 1) * 2 + 1
@@ -125,7 +131,6 @@ order = sorted(runs, key=lambda r: (r["g"], -r["d"]))
 for r in order:
     w = WID[r["d"]]
     if r["g"]: thick(groom, r["pts"], w, 255)
-    if r["m"]: thick(mogul, r["pts"], w + 14, 255)
     thick(clear, r["pts"], w * (1.0 if r["d"] <= 1 else 0.6) + 6, 255)
     for a, b in zip(r["pts"][:-1], r["pts"][1:]):  # direction field (double-angle so it can be blended)
         th = math.atan2(b[1] - a[1], b[0] - a[0]); c2, s2 = math.cos(2 * th), math.sin(2 * th)
@@ -135,19 +140,27 @@ for l in lifts:
     if l["t"] == "carpet": thick(groom, l["pts"], 30, 255)
 # roads, parking, buildings
 ROADC = {"tertiary": 9, "residential": 7, "unclassified": 7, "service": 5, "pedestrian": 6}
+ALPINE_BASE = toXZ(-120.2386, 39.1644)
+def plowed(pts, cls):
+    hs = Hat([q[0] for q in pts], [q[1] for q in pts]); mx, mz = np.mean([q[0] for q in pts]), np.mean([q[1] for q in pts])
+    if hs.max() < 1935: return True                      # Olympic Valley floor
+    if cls in ("tertiary", "residential", "unclassified") and mz > 2300 and hs.max() < 2140: return True   # Alpine Meadows Road and its neighbourhoods
+    return math.hypot(mx - ALPINE_BASE[0], mz - ALPINE_BASE[1]) < 420 and hs.max() < 2115   # Alpine base area
+parks = []
 for f in load("seg"):
     p = f["properties"]
     if p.get("subtype") != "road" or p.get("class") not in ROADC: continue
     pts = xz_line(f["geometry"]["coordinates"])
-    hs = Hat([q[0] for q in pts], [q[1] for q in pts])
-    if hs.max() > 1935: continue  # summer service roads on the mountain are under snow
+    if not plowed(pts, p["class"]): continue
     thick(road, pts, ROADC[p["class"]], 255); thick(clear, pts, ROADC[p["class"]] + 6, 255)
 for f in load("infra"):
     p = f["properties"]
     if p.get("class") == "parking" and f["geometry"]["type"] == "Polygon":
         pts = xz_line(f["geometry"]["coordinates"][0])
-        if float(Hat([pts[0][0]], [pts[0][1]])[0]) > 1935: continue
+        if not plowed(pts, "service") or not inb(pts[0][0], pts[0][1], -60): continue
         ImageDraw.Draw(road).polygon(mpx(pts), fill=255); ImageDraw.Draw(clear).polygon(mpx(pts), fill=255)
+        pg = Polygon(pts).simplify(1.5)
+        if pg.geom_type == "Polygon" and pg.area > 300: parks.append(rnd(list(pg.exterior.coords)[:-1], 0))
 blds = []
 for f in load("bld"):
     p = f["properties"]; g = shape(f["geometry"])
@@ -207,6 +220,6 @@ def pack16(a, base, q):
 out = {"meta": {"lon0": LON0, "lat0": LAT0, "mlon": MLON, "mlat": MLAT, "x0": X0, "z0": Z0, "nx": NX, "nz": NZ, "cell": CELL, "hbase": 1800, "hq": 0.02, "mw": MW, "mh": MH, "mcell": MC,
                  "ox0": ox0, "oz0": oz0, "on": ON, "ocell": OC, "obase": 600, "oq": 0.05},
        "h": pack16(Hm, 1800, 0.02), "ho": pack16(Ho, 600, 0.05), "maskA": png(mA), "maskB": png(mB),
-       "lifts": lifts, "runs": runs, "areas": areas, "peaks": peaks, "blds": blds}
+       "lifts": lifts, "runs": runs, "areas": areas, "peaks": peaks, "blds": blds, "parks": parks}
 js = json.dumps(out, separators=(",", ":")); open(OUT, "w").write(js)
 print("world.json", len(js) / 1e6, "MB;", {k: round(len(json.dumps(v)) / 1e3) for k, v in out.items()})

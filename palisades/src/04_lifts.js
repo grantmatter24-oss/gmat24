@@ -32,11 +32,11 @@ function chairGeometry(occ, bubble) {
   for (const sx of [-1, 1]) b.cyl(0.022, 0.022, 0.9, sx * (w / 2 + 0.03), -2.3, -0.24, STEEL, 5, Math.PI / 2 - 0.1);
   return b.build();
 }
-function cabinGeometry(w, h, d, drop, twin) {
+function cabinGeometry(w, h, d, drop, twin, body = [0.62, 0.64, 0.67], cap = [0.72, 0.74, 0.77]) {
   const b = new GeoBag(), y = -drop + h / 2;
   if (twin) for (const sx of [-1, 1]) { b.box(0.4, 0.22, 0.6, sx * twin, 0, 0, DARK); b.cyl(0.06, 0.06, drop - h + 0.1, sx * twin * 0.55, -(drop - h) / 2, 0, STEEL, 6, 0, sx * 0.25); }
   else { b.box(0.4, 0.22, 0.6, 0, 0, 0, DARK); b.cyl(0.07, 0.07, drop - h + 0.1, 0, -(drop - h) / 2, 0, STEEL, 6); }
-  b.box(w, h * 0.34, d, 0, y - h * 0.33, 0, [0.62, 0.64, 0.67]); b.box(w - 0.04, h * 0.44, d - 0.04, 0, y + h * 0.06, 0, GLASS); b.box(w + 0.06, h * 0.22, d + 0.06, 0, y + h * 0.39, 0, [0.72, 0.74, 0.77]);
+  b.box(w, h * 0.34, d, 0, y - h * 0.33, 0, body); b.box(w - 0.04, h * 0.44, d - 0.04, 0, y + h * 0.06, 0, GLASS); b.box(w + 0.06, h * 0.22, d + 0.06, 0, y + h * 0.39, 0, cap);
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) b.box(0.08, h * 0.46, 0.08, sx * (w / 2 - 0.02), y + h * 0.06, sz * (d / 2 - 0.02), [0.55, 0.57, 0.6]);
   b.box(w * 0.9, 0.12, d * 0.9, 0, y + h * 0.55, 0, [0.9, 0.92, 0.95]);   // snow on the roof
   return b.build();
@@ -68,7 +68,7 @@ function buildLift(l, id) {
   if (L.type === "tram") { L.count = 2; L.spacing = L.len; }
   else { const sp = clamp(l.v * 3600 / l.cap * l.occ, L.carpet ? 1e9 : 9, 260); L.count = L.carpet ? 0 : Math.max(2, Math.round(2 * L.len / sp)); L.spacing = 2 * L.len / Math.max(1, L.count); }
   if (L.count) {
-    const geo = L.type.startsWith("chair") ? chairGeometry(l.occ) : L.type === "gondola" ? cabinGeometry(1.9, 2.1, 2.1, T.drop) : L.type === "funitel" ? cabinGeometry(2.4, 2.3, 3.4, T.drop, 1.6) : cabinGeometry(3.4, 2.9, 6.6, T.drop, 0);
+    const geo = L.type.startsWith("chair") ? chairGeometry(l.occ) : L.type === "gondola" ? cabinGeometry(1.9, 2.1, 2.1, T.drop, 0, [0.05, 0.08, 0.15], [0.07, 0.10, 0.18]) : L.type === "funitel" ? cabinGeometry(2.4, 2.3, 3.4, T.drop, 1.6, [0.08, 0.2, 0.42], [0.75, 0.77, 0.8]) : cabinGeometry(3.4, 2.9, 6.6, T.drop, 0, [0.5, 0.05, 0.045], [0.5, 0.05, 0.045]);
     L.mesh = new THREE.InstancedMesh(geo, liftMat, L.count); L.mesh.castShadow = true; L.mesh.receiveShadow = true; L.mesh.boundingSphere = sphere; scene.add(L.mesh);
   }
   // towers, ropes, stations in one static mesh
@@ -150,6 +150,14 @@ function updateLifts(dt, cam, frame) {
 
 /* ---------- buildings: OSM footprints extruded, snow on every roof ---------- */
 const BLD_GRID = new Map(); let bldMat = null; const uLamp = { value: 0 };
+function polyBox(P) { // tightest box aligned with one of the outline's edges: {ux, uz, cu, cv, hu, hv, area} with u the long axis
+  let best = null;
+  for (let i = 0; i < P.length; i++) { const a = P[i], b = P[(i + 1) % P.length], l = Math.hypot(b[0] - a[0], b[1] - a[1]); if (l < 1) continue; const ux = (b[0] - a[0]) / l, uz = (b[1] - a[1]) / l; let u0 = 1e9, u1 = -1e9, v0 = 1e9, v1 = -1e9;
+    for (const q of P) { const u = q[0] * ux + q[1] * uz, v = -q[0] * uz + q[1] * ux; u0 = Math.min(u0, u); u1 = Math.max(u1, u); v0 = Math.min(v0, v); v1 = Math.max(v1, v); }
+    const area = (u1 - u0) * (v1 - v0); if (!best || area < best.area) best = u1 - u0 >= v1 - v0 ? { ux, uz, cu: (u0 + u1) / 2, cv: (v0 + v1) / 2, hu: (u1 - u0) / 2, hv: (v1 - v0) / 2, area } : { ux: -uz, uz: ux, cu: (v0 + v1) / 2, cv: -(u0 + u1) / 2, hu: (v1 - v0) / 2, hv: (u1 - u0) / 2, area }; }
+  return best;
+}
+function polyArea(P) { let a = 0; for (let i = 0, j = P.length - 1; i < P.length; j = i++) a += P[j][0] * P[i][1] - P[i][0] * P[j][1]; return Math.abs(a) / 2; }
 function initBuildings() {
   const pos = [], nor = [], col = [], uv = [];
   const WALLS = [[0.44, 0.36, 0.28], [0.30, 0.25, 0.21], [0.50, 0.47, 0.42], [0.36, 0.30, 0.25], [0.26, 0.28, 0.30], [0.42, 0.33, 0.24]];
@@ -158,13 +166,21 @@ function initBuildings() {
     const P = bd.p, n = P.length; let lo = 1e9, hi = -1e9, cx = 0, cz = 0;
     for (const q of P) { const g = Hsmooth(q[0], q[1]); lo = Math.min(lo, g); hi = Math.max(hi, g); cx += q[0] / n; cz += q[1] / n; }
     const top = hi + bd.h, wc = WALLS[bi % WALLS.length], sn = [0.9, 0.92, 0.95]; let per = 0;
+    const bx = polyBox(P), gable = bx && polyArea(P) / bx.area > 0.76 && bx.hv * 2 < 26 && bd.h < 15;
     for (let i = 0; i < n; i++) {
       const a = P[i], b = P[(i + 1) % n], ex = b[0] - a[0], ez = b[1] - a[1], len = Math.hypot(ex, ez), nx = -ez / len, nz = ex / len;
       const quad = (y0, y1, c, o, u0, u1, v0, v1) => { const ax = a[0] + nx * o, az = a[1] + nz * o, bx = b[0] + nx * o, bz = b[1] + nz * o; pos.push(ax, y0, az, bx, y0, bz, bx, y1, bz, ax, y0, az, bx, y1, bz, ax, y1, az); for (let k = 0; k < 6; k++) { nor.push(nx, 0, nz); col.push(...c); } uv.push(u0, v0, u1, v0, u1, v1, u0, v0, u1, v1, u0, v1); };
-      quad(lo - 1.5, top, wc, 0, per, per + len, lo - hi, bd.h); quad(top, top + 0.55, sn, 0.3, 0, 0, -9, -9); per += len;
+      quad(lo - 1.5, top, wc, 0, per, per + len, lo - hi, bd.h); if (!gable) quad(top, top + 0.55, sn, 0.3, 0, 0, -9, -9); per += len;
     }
-    const tris = THREE.ShapeUtils.triangulateShape(P.map(q => new THREE.Vector2(q[0], q[1])), []);
-    for (const t of tris) for (const k of [t[0], t[2], t[1]]) { pos.push(P[k][0], top + 0.55, P[k][1]); nor.push(0, 1, 0); col.push(...sn); uv.push(0, -9); }
+    if (gable) { // pitched roof under a slab of snow, ridge along the long side
+      const { ux, uz, cu, cv, hu, hv } = bx, rh = hv * 0.62, ov = 0.7, W = (u, v, y) => [u * ux - v * uz, y, u * uz + v * ux];
+      const tri = (a, b, c, cc) => { const e1 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], e2 = [c[0] - a[0], c[1] - a[1], c[2] - a[2]]; let n = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]]; const l = Math.hypot(...n) || 1; if (n[1] < 0) n = n.map(q => -q); for (const q of [a, b, c]) { pos.push(...q); nor.push(n[0] / l, n[1] / l, n[2] / l); col.push(...cc); uv.push(0, -9); } };
+      for (const sv of [-1, 1]) { const e0 = W(cu - hu - ov, cv + sv * (hv + ov), top - 0.25), e1 = W(cu + hu + ov, cv + sv * (hv + ov), top - 0.25), r0 = W(cu - hu - ov, cv, top + rh + 0.45), r1 = W(cu + hu + ov, cv, top + rh + 0.45); tri(e0, e1, r1, sn); tri(e0, r1, r0, sn); }
+      for (const su of [-1, 1]) tri(W(cu + su * hu, cv - hv, top), W(cu + su * hu, cv + hv, top), W(cu + su * hu, cv, top + rh), wc);
+    } else {
+      const tris = THREE.ShapeUtils.triangulateShape(P.map(q => new THREE.Vector2(q[0], q[1])), []);
+      for (const t of tris) for (const k of [t[0], t[2], t[1]]) { pos.push(P[k][0], top + 0.55, P[k][1]); nor.push(0, 1, 0); col.push(...sn); uv.push(0, -9); }
+    }
     bd.cx = cx; bd.cz = cz; bd.top = top;
     const key = Math.floor(cx / 60) + "," + Math.floor(cz / 60); if (!BLD_GRID.has(key)) BLD_GRID.set(key, []); BLD_GRID.get(key).push(bd);
   });
@@ -190,4 +206,65 @@ function buildingAt(x, z) {
   const gx = Math.floor(x / 60), gz = Math.floor(z / 60);
   for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { const l = BLD_GRID.get((gx + a) + "," + (gz + b)); if (l) for (const bd of l) if (inPoly(bd.p, x, z)) return bd; }
   return null;
+}
+
+/* ---------- parked cars, trail signs and other skiers: the things every photo of the place has ---------- */
+function initCars() {
+  const b = new GeoBag(); b.box(1.85, 0.72, 4.4, 0, 0.62, 0, [1, 1, 1]); b.box(1.68, 0.56, 2.3, 0, 1.24, -0.2, [0.12, 0.14, 0.17]); b.box(1.7, 0.1, 2.3, 0, 1.56, -0.2, [1.6, 1.6, 1.6]);
+  for (const sx of [-1, 1]) for (const sz of [-1.35, 1.35]) b.cyl(0.33, 0.33, 0.24, sx * 0.86, 0.33, sz, [0.05, 0.05, 0.05], 8, 0, Math.PI / 2);
+  const geo = b.build(), spots = [], PAL = [0xe8eaed, 0xc9ccd1, 0x14161a, 0x55595f, 0x1f3f6e, 0x8a1a1c, 0x2b3f34, 0x7d8288, 0xf2f2f2, 0x3a3d42];
+  for (const P of WORLD.parks || []) {
+    const bx = polyBox(P); if (!bx) continue; const { ux, uz, cu, cv, hu, hv } = bx;
+    for (let v = -hv + 3; v < hv - 2; v += 17.6) for (const row of [0, 5.3]) for (let u = -hu + 2; u < hu - 2; u += 2.75) {
+      const x = (cu + u) * ux - (cv + v + row) * uz, z = (cu + u) * uz + (cv + v + row) * ux, hsh = hash2(Math.round(x * 3), Math.round(z * 3), 61); if (hsh > 0.72 || !inPoly(P, x, z) || buildingAt(x, z)) continue;
+      spots.push([x, Hsmooth(x, z), z, Math.atan2(ux, uz) + Math.PI / 2 + (row ? Math.PI : 0), PAL[Math.floor(hsh * 139) % PAL.length]]); if (spots.length >= 4000) break;
+    }
+  }
+  if (!spots.length) return; const m = new THREE.InstancedMesh(geo, liftMat, spots.length), c = new THREE.Color();
+  spots.forEach((q, i) => { _lq.setFromAxisAngle(_up, q[3]); _lm.compose(_lp.set(q[0], q[1], q[2]), _lq, _ls); m.setMatrixAt(i, _lm); m.setColorAt(i, c.setHex(q[4])); });
+  m.castShadow = true; m.receiveShadow = true; m.frustumCulled = false; scene.add(m);
+}
+const signs = [];
+function initSigns() { // a board at the top of every named run, the way the resort marks them
+  const seen = new Set(), postB = new GeoBag(), COL = ["#1f8f4d", "#1c5fc4", "#0b0b0c", "#0b0b0c"], back = worldShade(new THREE.MeshStandardMaterial({ color: 0x2a2d31, roughness: 0.8 })), pg = new THREE.PlaneGeometry(2.6, 0.62);
+  for (const r of WORLD.runs) {
+    if (!r.n || seen.has(r.n) || r.pts.length < 2) continue; seen.add(r.n);
+    const a = r.pts[0], b = r.pts[1], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, dx = (b[0] - a[0]) / l, dz = (b[1] - a[1]) / l, off = [46, 42, 30, 18][r.d] * 0.5 + 2.5;
+    const x = a[0] + dx * 12 - dz * off, z = a[1] + dz * 12 + dx * off; if (!inWorld(x, z, 240)) continue; const y = H(x, z), yaw = Math.atan2(-dx, -dz);
+    const cv = document.createElement("canvas"); cv.width = 512; cv.height = 122; const g = cv.getContext("2d"); g.fillStyle = COL[r.d]; g.fillRect(0, 0, 512, 122); g.strokeStyle = "#fff"; g.lineWidth = 6; g.strokeRect(5, 5, 502, 112);
+    g.fillStyle = "#fff"; g.textBaseline = "middle"; const sym = r.d === 0 ? "●" : r.d === 1 ? "■" : r.d === 2 ? "◆" : "◆◆"; g.font = "700 54px system-ui, sans-serif"; g.fillText(sym, 22, 63); const sw = g.measureText(sym).width + 40;
+    let fs = 58; g.font = "800 " + fs + "px 'Big Shoulders Display', 'Arial Narrow', sans-serif"; while (g.measureText(r.n.toUpperCase()).width > 490 - sw && fs > 24) { fs -= 3; g.font = "800 " + fs + "px 'Big Shoulders Display', 'Arial Narrow', sans-serif"; } g.fillText(r.n.toUpperCase(), sw, 64);
+    const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+    const board = new THREE.Mesh(pg, worldShade(new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6 }))); board.position.set(x, y + 2.75, z); board.rotation.y = yaw; board.visible = false; scene.add(board);
+    const bk = new THREE.Mesh(pg, back); bk.position.set(x - Math.sin(yaw) * 0.03, y + 2.75, z - Math.cos(yaw) * 0.03); bk.rotation.y = yaw + Math.PI; bk.visible = false; scene.add(bk); signs.push([board, bk, x, z]);
+    for (const sd of [-1, 1]) { const px = x + Math.cos(yaw) * sd * 1.15, pz = z - Math.sin(yaw) * sd * 1.15; postB.cyl(0.05, 0.05, 3.6, px, y + 1.4, pz, [0.3, 0.22, 0.14], 6); towerHits.push({ x: px, z: pz, r: 0.12 }); }
+  }
+  const pm = new THREE.Mesh(postB.build(), liftMat); pm.castShadow = true; pm.frustumCulled = false; scene.add(pm);
+}
+const NPC_N = 120, npcs = []; let npcMesh = null, npcRuns = [];
+function initNPCs() {
+  npcRuns = WORLD.runs.filter(r => r.g && r.len > 300).map(r => { const S = [0]; for (let i = 1; i < r.pts.length; i++) S.push(S[i - 1] + Math.hypot(r.pts[i][0] - r.pts[i - 1][0], r.pts[i][1] - r.pts[i - 1][1])); return { r, S, len: S[S.length - 1] }; });
+  if (!npcRuns.length) return; const tot = npcRuns.reduce((a, q) => a + q.len, 0);
+  const b = new GeoBag(), W = [1, 1, 1], D = [0.1, 0.11, 0.13];
+  for (const sx of [-1, 1]) { b.box(0.15, 0.78, 0.17, sx * 0.14, 0.5, 0, D, 0, 0.18); b.box(0.095, 0.03, 1.6, sx * 0.15, 0.03, 0.05, [0.08, 0.08, 0.09]); b.box(0.11, 0.5, 0.12, sx * 0.3, 1.18, 0.12, W, 0, -0.5, sx * 0.25); }
+  b.cyl(0.2, 0.19, 0.62, 0, 1.2, 0.05, W, 10, 0.22); b.add(new THREE.SphereGeometry(0.125, 10, 8), _gm.makeTranslation(0, 1.68, 0.14), [0.1, 0.1, 0.12]);
+  npcMesh = new THREE.InstancedMesh(b.build(), worldShade(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8 })), NPC_N); npcMesh.castShadow = true; npcMesh.frustumCulled = false; scene.add(npcMesh);
+  const JK = [0xd8362b, 0x1f6fd6, 0xf2b61b, 0x2a9d62, 0x8a4fd1, 0xe86a1c, 0x1b1e24, 0xe9edf2, 0x16a3a3, 0xd9438c], c = new THREE.Color();
+  for (let i = 0; i < NPC_N; i++) { let t = hash2(i, 3, 71) * tot, k = 0; while (k < npcRuns.length - 1 && t > npcRuns[k].len) t -= npcRuns[k++].len; npcs.push({ k, s: t, v: 6 + 7 * hash2(i, 5, 72), ph: hash2(i, 7, 73) * TAU, lam: 28 + 34 * hash2(i, 9, 74), seg: 0 }); npcMesh.setColorAt(i, c.setHex(JK[i % JK.length])); }
+}
+const _ne = new THREE.Euler();
+let signT = 0;
+function updateNPCs(dt, cam) {
+  signT -= dt; if (signT <= 0) { signT = 0.5; for (const q of signs) q[0].visible = q[1].visible = Math.abs(q[2] - cam.x) + Math.abs(q[3] - cam.z) < 700; }
+  if (!npcMesh) return;
+  for (let i = 0; i < NPC_N; i++) {
+    const n = npcs[i]; let q = npcRuns[n.k]; n.s += n.v * dt;
+    if (n.s >= q.len - 2) { n.k = Math.floor(hash2(i, (n.k + 1) * 7 + Math.floor(liftTime), 75) * npcRuns.length) % npcRuns.length; q = npcRuns[n.k]; n.s = 2; n.seg = 0; }
+    while (n.seg < q.S.length - 2 && n.s > q.S[n.seg + 1]) n.seg++; while (n.seg > 0 && n.s < q.S[n.seg]) n.seg--;
+    const a = q.r.pts[n.seg], b = q.r.pts[n.seg + 1], sl = q.S[n.seg + 1] - q.S[n.seg] || 1, u = (n.s - q.S[n.seg]) / sl, dx = (b[0] - a[0]) / sl, dz = (b[1] - a[1]) / sl;
+    const amp = [46, 42, 30, 18][q.r.d] * 0.28, w = TAU / n.lam, sw = Math.sin(n.ph + n.s * w), cw = Math.cos(n.ph + n.s * w), x = lerp(a[0], b[0], u) - dz * amp * sw, z = lerp(a[1], b[1], u) + dx * amp * sw;
+    if (Math.abs(x - cam.x) + Math.abs(z - cam.z) > 1800) { _lm.makeScale(0, 0, 0); npcMesh.setMatrixAt(i, _lm); continue; }
+    const yaw = Math.atan2(dx, dz) - Math.atan(amp * w * cw) * 0.8; _lq.setFromEuler(_ne.set(0, yaw, -cw * 0.38, "YXZ")); _lm.compose(_lp.set(x, H(x, z), z), _lq, _ls); npcMesh.setMatrixAt(i, _lm);
+  }
+  npcMesh.instanceMatrix.needsUpdate = true;
 }

@@ -2,7 +2,7 @@ import os, sys, numpy as np, rasterio
 from rasterio.warp import transform_bounds
 from rasterio.windows import from_bounds
 os.environ["CURL_CA_BUNDLE"] = "/root/.ccr/ca-bundle.crt"; os.environ["GDAL_DISABLE_READDIR_ON_OPEN"] = "EMPTY_DIR"
-BB = (-120.300, 39.170, -120.210, 39.214)
+BB = (-120.302, 39.134, -120.208, 39.216)
 scene, bands = sys.argv[1], sys.argv[2].split(",")
 base = f"/vsicurl/https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/10/S/GJ/{scene}/"
 out = {}

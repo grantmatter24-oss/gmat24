@@ -1,7 +1,7 @@
 import sys, re, json, requests, fsspec, pyarrow.parquet as pq, pyarrow as pa, pyarrow.compute as pc
 from shapely import wkb
 from shapely.geometry import mapping
-BB = (-120.300, 39.165, -120.210, 39.215)  # xmin ymin xmax ymax
+BB = (-120.302, 39.134, -120.208, 39.216)  # xmin ymin xmax ymax
 REL = "release/2026-10-21.0"
 def keys(theme, typ):
     x = requests.get(f"https://overturemaps-us-west-2.s3.amazonaws.com/?list-type=2&prefix={REL}/theme={theme}/type={typ}/", timeout=60).text
