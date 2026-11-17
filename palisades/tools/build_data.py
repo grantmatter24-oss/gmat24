@@ -103,7 +103,8 @@ for f in load("land_use"):
     if hs[0] < hs[-1]: pts = pts[::-1]
     groomed = 1 if (gr == "classic" or (gr is None and d <= 1)) else 0
     mog = 1 if (gr == "mogul" or (gr is None and d == 2)) else 0
-    runs.append({"n": name, "d": d, "g": groomed, "m": mog, "len": round(ls.length), "pts": rnd(pts)})
+    hs2 = Hat([q[0] for q in pts], [q[1] for q in pts]); cat = 1 if (groomed and d <= 1 and ls.length > 250 and abs(float(hs2[0] - hs2[-1])) / ls.length < 0.115) else 0
+    runs.append({"n": name, "d": d, "g": groomed, "m": mog, "c": cat, "len": round(ls.length), "pts": rnd(pts)})
 print("runs", len(runs), "areas", len(areas))
 
 peaks = [{"n": "Granite Chief", "ft": 9006, "ll": (-120.2870419, 39.1982695)}, {"n": "Washeshu Peak", "ft": 8885, "ll": (-120.26964, 39.1807396)}, {"n": "KT-22", "ft": 8070, "ll": (-120.2416764, 39.1829177)},
@@ -129,7 +130,7 @@ def thick(img, pts, w, fill):
     for x, y in q: d.ellipse([x - wp / 2, y - wp / 2, x + wp / 2, y + wp / 2], fill=fill)
 order = sorted(runs, key=lambda r: (r["g"], -r["d"]))
 for r in order:
-    w = WID[r["d"]]
+    w = 11 if r["c"] else WID[r["d"]]
     if r["g"]: thick(groom, r["pts"], w, 255)
     thick(clear, r["pts"], w * (1.0 if r["d"] <= 1 else 0.6) + 6, 255)
     for a, b in zip(r["pts"][:-1], r["pts"][1:]):  # direction field (double-angle so it can be blended)
@@ -186,7 +187,7 @@ def s2s(b): return ndimage.map_coordinates(s2[b][0].astype(np.float32), [uy, ux]
 red, nir = s2s("B04"), s2s("B08")
 ndvi = (nir - red) / (nir + red + 1)
 ss = lambda v, a, b: np.clip((v - a) / (b - a), 0, 1) ** 2 * (3 - 2 * np.clip((v - a) / (b - a), 0, 1))
-tree = ss(ndvi, 0.42, 0.72) * (1 - ss(red, 420, 800)) * (1 - ss(nir, 2600, 3600))
+tree = ss(ndvi, 0.33, 0.66) * (1 - ss(red, 450, 850)) * (1 - ss(nir, 2700, 3700))
 # golf course / meadow polygons are not trees
 nt = Image.new("L", (MW, MH), 0)
 for f in load("land_use"):
@@ -209,7 +210,7 @@ roadA = blur(road, 0.6)
 print("tree cover %.3f groom %.3f mogul %.3f road %.4f" % (tree.mean(), groomA.mean(), mogA.mean(), roadA.mean()))
 u8 = lambda a: np.clip(a * 255 + 0.5, 0, 255).astype(np.uint8)
 mA = np.stack([u8(groomA), (u8(tree) // 8) * 8, u8(roadA)], -1)
-mB = np.stack([u8(mogA), np.asarray(dcos.filter(ImageFilter.GaussianBlur(2.5))), np.asarray(dsin.filter(ImageFilter.GaussianBlur(2.5)))], -1)
+mB = np.stack([u8(np.clip(clearA * 1.3, 0, 1)), np.asarray(dcos.filter(ImageFilter.GaussianBlur(2.5))), np.asarray(dsin.filter(ImageFilter.GaussianBlur(2.5)))], -1)
 def png(a):
     b = io.BytesIO(); Image.fromarray(a).save(b, "PNG", optimize=True); return "data:image/png;base64," + base64.b64encode(b.getvalue()).decode()
 

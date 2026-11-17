@@ -24,6 +24,7 @@ function updateHUD(dt) {
   // the run you are on stays named at the top of the screen
   { const rb = $("runBox"), set = (cls, name, sub) => { const key = cls + name + sub; if (rb.dataset.k !== key) { rb.dataset.k = key; $("runName").textContent = ""; if (cls) { const d = document.createElement("span"); d.className = "dia " + cls; $("runName").append(d); } $("runName").append(document.createTextNode(name)); $("runSub").textContent = sub; } rb.hidden = false; };
     if (sk.mode === "wait" || sk.mode === "lift") rb.hidden = true;
+    else if (sk.mode === "walk") set("", "On foot", "Skis off · B to click back in");
     else { const r = runAt(sk.p.x, sk.p.z), ar = r ? null : areaAt(sk.p.x, sk.p.z);
       if (r) set("d" + r.d, r.n, DIFF_NAME[r.d] + (r.g ? " · groomed" : " · powder"));
       else if (ar) set("d" + ar.d, ar.n, DIFF_NAME[ar.d] + " · powder");
@@ -71,7 +72,7 @@ function mapPick(ev) { // a lift end if the click is on one, otherwise the spot 
 }
 function fallLine(x, z) { const gx = H(x - 3, z) - H(x + 3, z), gz = H(x, z - 3) - H(x, z + 3); return Math.hypot(gx, gz) > 0.02 ? Math.atan2(gx, gz) : 0; }
 function startPlay() { setOverlay("menu", false); $("hud").hidden = false; paused = false; }
-function goHome() { for (const id of ["pause", "map", "how"]) setOverlay(id, false); paused = false; sk.mode = "menu"; sk.lift = null; for (const k in K) K[k] = 0; charging = false; $("hud").hidden = true; setOverlay("menu", true); }
+function goHome() { for (const id of ["pause", "map", "how"]) setOverlay(id, false); paused = false; if (sk.mode === "walk") toggleWalk(); sk.mode = "menu"; sk.lift = null; for (const k in K) K[k] = 0; charging = false; $("hud").hidden = true; setOverlay("menu", true); }
 let miniT = 0;
 function drawMini(dt) {
   miniT += dt; if (miniT < 0.06) return; miniT = 0;
@@ -124,6 +125,7 @@ function initInput() {
     if (key === "Escape") { if (!$("map").hidden) toggleMap(false); else if (!$("how").hidden) setOverlay("how", false); else setPaused(!paused); }
     else if (key === "p") setPaused(!paused);
     else if (key === "m") toggleMap();
+    else if (key === "b") toggleWalk();
     else if (key === "v") { fpv = !fpv; store.set("pal-fpv", fpv); camSnap = true; }
     else if (key === "n") { muted = !muted; store.set("pal-mute", muted); toast(muted ? "Sound off" : "Sound on", 1.2); }
     else if (key === "r" && sk.mode === "ski") { if (sk.crashed || sk.sp < 6) standUp(); }
@@ -148,7 +150,7 @@ function initInput() {
     if (h.L) { if (h.top) unloadAt(h.L); else placeSkier(h.L.bot.x - Math.sin(h.L.dir) * 14, h.L.bot.z - Math.cos(h.L.dir) * 14, h.L.dir); toast((h.top ? "Top of " : "Base of ") + h.L.name); }
     else { placeSkier(h.x, h.z, fallLine(h.x, h.z)); const rn = runAt(h.x, h.z); toast("Dropped in" + (rn ? " on " + rn.n : "") + " · " + fmtAlt(sk.p.y)); }
     toggleMap(false); startPlay(); initAudio(); });
-  $("pickBtn").addEventListener("click", () => toggleMap(true, true)); $("homeBtn").addEventListener("click", goHome); $("pHome").addEventListener("click", goHome); $("mapBtn").addEventListener("click", () => toggleMap(true));
+  $("pickBtn").addEventListener("click", () => toggleMap(true, true)); $("walkBtn").addEventListener("click", ev => { toggleWalk(); ev.target.blur(); }); $("homeBtn").addEventListener("click", goHome); $("pHome").addEventListener("click", goHome); $("mapBtn").addEventListener("click", () => toggleMap(true));
   const sel = $("startSel"); const opt = (v, t) => { const o = document.createElement("option"); o.value = v; o.textContent = t; sel.appendChild(o); };
   opt("village", "The Village · Olympic Valley base, 6,200 ft");
   LIFTS.map((L, i) => [L, i]).filter(([L]) => !L.carpet && L.len > 400).sort((a, b) => b[0].top.g - a[0].top.g).forEach(([L, i]) => opt(i, "Top of " + L.name + " · " + Math.round(L.top.g * FT).toLocaleString() + " ft"));
@@ -164,7 +166,7 @@ const MP = { room: null, user: null, myId: null, remotes: new Map(), others: [],
 const r2 = v => Math.round(v * 100) / 100;
 function mpPack() {
   let k = 0; MP_KEYS.forEach((n, i) => { if (K[n]) k |= 1 << i; });
-  return { v: 2, res: "palisades", id: MP.myId, play: sk.mode !== "menu", x: r2(sk.p.x), y: r2(sk.p.y), z: r2(sk.p.z), yaw: r2(sk.yaw), spin: r2(sk.spin), rot: r2(sk.rot), rotV: r2(sk.rotV), sw: !!sk.sw, gr: !!sk.ground, cr: !!sk.crashed, tz: r2(sk.tumZ), turn: r2(sk.turn), carve: r2(sk.carve), sp: r2(sk.sp), chg: r2(sk.chg), st: r2(Math.max(0, sk.stumT)), k, md: sk.mode, li: sk.lift ? sk.lift.id : -1, sl: r2(sk.slope), sc: sk.pts, vt: Math.round(sk.vert),
+  return { v: 2, res: "palisades", id: MP.myId, play: sk.mode !== "menu", x: r2(sk.p.x), y: r2(sk.p.y), z: r2(sk.p.z), yaw: r2(sk.yaw), spin: r2(sk.spin), rot: r2(sk.rot), rotV: r2(sk.rotV), sw: !!sk.sw, gr: !!sk.ground, cr: !!sk.crashed, tz: r2(sk.tumZ), turn: r2(sk.turn), carve: r2(sk.carve), sp: r2(sk.sp), chg: r2(sk.chg), st: r2(Math.max(0, sk.stumT)), k, md: sk.mode, wp: r2(sk.walkPh || 0), li: sk.lift ? sk.lift.id : -1, sl: r2(sk.slope), sc: sk.pts, vt: Math.round(sk.vert),
     of: { helmet: outfit.helmet, jacket: outfit.jacket, pants: outfit.pants, accessory: outfit.accessory, skis: outfit.skis, poles: outfit.poles, style: outfit.style } };
 }
 function mpSend(dt) { if (!MP.room) return; MP.sendT -= dt; if (MP.sendT > 0) return; MP.sendT = 1 / 12; try { const r = MP.room.presence({ st: mpPack() }); if (r && r.catch) r.catch(() => { }); } catch (e) { } }
@@ -205,7 +207,7 @@ function updateRemotes(dt, time) {
     const jump = !r.q || Math.hypot(st.x - r.q.p.x, st.z - r.q.p.z) > 30;
     if (jump) r.q = { p: new THREE.Vector3(st.x, st.y, st.z), yaw: st.yaw, spin: st.spin, rot: st.rot, grind: null, boxT: 0, bike: false, finished: false, bikeJump: false, pumpT: 0, landT: 0, popT: 0, airT: 1, vx: 0, vs: 0 };
     const q = r.q; q.p.x += (st.x - q.p.x) * a; q.p.y += (st.y - q.p.y) * a; q.p.z += (st.z - q.p.z) * a; q.yaw += wrap(st.yaw - q.yaw) * a; q.spin += (st.spin - q.spin) * a; q.rot += (st.rot - q.rot) * a;
-    q.rotV = st.rotV || 0; q.sw = st.sw; q.ground = st.gr; q.air = !st.gr && st.md === "ski"; q.crashed = st.cr; q.tumZ = st.tz || 0; q.turn = st.turn; q.carve = st.carve; q.sp = st.sp; q.vs = st.sp; q.chg = L && L.type.startsWith("chair") ? 0.85 : st.chg || 0; q.stumT = st.st || 0; q.stumD = 1; q.mode = st.md;
+    q.rotV = st.rotV || 0; q.sw = st.sw; q.ground = st.gr; q.air = !st.gr && st.md === "ski"; q.crashed = st.cr; q.tumZ = st.tz || 0; q.turn = st.turn; q.carve = st.carve; q.sp = st.sp; q.vs = st.sp; q.chg = L && L.type.startsWith("chair") ? 0.85 : st.chg || 0; q.stumT = st.st || 0; q.stumD = 1; q.mode = st.md; q.walkPh = st.wp || 0;
     MP_KEYS.forEach((n, i) => { r.keys[n] = st.k & (1 << i) ? 1 : 0; });
     poseRider(R, q, st.md === "ski" ? r.keys : NOKEYS, st.sl || 0, dt, time, jump); if (L && L.type.startsWith("chair")) R.hold.position.y += 0.2;
   }

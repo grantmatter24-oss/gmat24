@@ -19,7 +19,7 @@ const LT = { // per lift type: rope height at towers and stations, rope gauge, h
 };
 const liftMat = worldShade(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.55, metalness: 0.35 }));
 const ropeMat = worldShade(new THREE.MeshStandardMaterial({ color: 0x1b1d20, roughness: 0.5, metalness: 0.6 }));
-const LIFTS = [], towerHits = [];
+const LIFTS = [], towerHits = [], liftSigns = [];
 function chairGeometry(occ, bubble) {
   const b = new GeoBag(), w = Math.max(1.1, occ * 0.56), y = -3.05;
   b.box(0.36, 0.2, 0.5, 0, 0, 0, DARK);                                   // grip
@@ -111,6 +111,22 @@ function buildLift(l, id) {
     for (const o of offs) for (let k = 0; k < ns - 1; k += 2) {
       const k2 = Math.min(ns - 1, k + 2), ax = L.px[k] + L.rx[k] * o, az = L.pz[k] + L.rz[k] * o, bx = L.px[k2] + L.rx[k2] * o, bz = L.pz[k2] + L.rz[k2] * o, dy = L.py[k2] - L.py[k], len = Math.hypot(bx - ax, dy, bz - az);
       b.add(new THREE.CylinderGeometry(rr, rr, len, 3, 1, true), _gm.compose(_gp.set((ax + bx) / 2, (L.py[k] + L.py[k2]) / 2, (az + bz) / 2), _gq.setFromEuler(_ge.set(Math.PI / 2 - Math.atan2(dy, Math.hypot(bx - ax, bz - az)), Math.atan2(bx - ax, bz - az), 0, "YXZ")), _gs.set(1, 1, 1)), DARK);
+    }
+  }
+  if (!L.carpet) { // the base: an entry arch carrying the lift's name, queue rails, and the name again on the terminal
+    const cv = document.createElement("canvas"); cv.width = 1024; cv.height = 128; const g = cv.getContext("2d"); g.fillStyle = "#0e2a47"; g.fillRect(0, 0, 1024, 128); g.fillStyle = "#e9eef3"; g.fillRect(0, 118, 1024, 10); g.fillRect(0, 0, 1024, 6);
+    g.fillStyle = "#fff"; g.textAlign = "center"; g.textBaseline = "middle"; let fs = 86; const label = L.name.toUpperCase(); g.font = "800 " + fs + "px 'Big Shoulders Display', 'Arial Narrow', Impact, sans-serif"; while (g.measureText(label).width > 960 && fs > 30) { fs -= 4; g.font = "800 " + fs + "px 'Big Shoulders Display', 'Arial Narrow', Impact, sans-serif"; } g.fillText(label, 512, 64);
+    const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8; const nm = worldShade(new THREE.MeshStandardMaterial({ map: tex, roughness: 0.55 }));
+    const plate = (x, y, z, w, h, yaw) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), nm); m.position.set(x, y, z); m.rotation.y = yaw; scene.add(m); liftSigns.push([m, x, z]); };
+    for (const [nd, sgn] of [[L.bot, 1], [L.top, -1]]) {
+      const fx = Math.sin(L.dir), fz = Math.cos(L.dir), rx = -fz, rz = fx, ex = nd.x - fx * sgn * 13, ez = nd.z - fz * sgn * 13, gy = Hsmooth(ex, ez), W = T.gauge + 3, face = Math.atan2(-fx * sgn, -fz * sgn);
+      if (sgn > 0) {
+        for (const sd of [-1, 1]) { b.cyl(0.11, 0.13, 4.6, ex + rx * sd * W / 2, gy + 1.9, ez + rz * sd * W / 2, STEEL, 8); towerHits.push({ x: ex + rx * sd * W / 2, z: ez + rz * sd * W / 2, r: 0.2 }); }
+        b.box(W + 0.4, 1.0, 0.16, ex, gy + 3.75, ez, [0.05, 0.11, 0.2], L.dir); plate(ex - fx * 0.1, gy + 3.75, ez - fz * 0.1, W, 0.86, face); plate(ex + fx * 0.1, gy + 3.75, ez + fz * 0.1, W, 0.86, face + Math.PI);
+        for (let k = -2; k <= 2; k++) { const ox = rx * k * 1.5, oz = rz * k * 1.5; b.box(0.05, 0.05, 9, ex + ox + fx * 5, gy + 0.95, ez + oz + fz * 5, [0.9, 0.35, 0.08], L.dir); for (const t of [0.5, 5, 9.5]) b.cyl(0.03, 0.03, 1.1, ex + ox + fx * t, gy + 0.5, ez + oz + fz * t, [0.9, 0.35, 0.08], 5); }
+      }
+      if (L.type === "chair_det") for (const sd of [-1, 1]) plate(nd.x - fx * sgn * 4.5 + rx * sd * (T.gauge / 2 + 1.27), nd.y + 1.4, nd.z - fz * sgn * 4.5 + rz * sd * (T.gauge / 2 + 1.27), 7.5, 0.7, L.dir + sd * -Math.PI / 2 + Math.PI);
+      else if (sgn < 0 || L.type === "chair_fixed") { const px = nd.x + rx * 5.2 * sgn - fx * sgn * 1.5 - fx * sgn * 1.75, pz = nd.z + rz * 5.2 * sgn - fz * sgn * 1.5 - fz * sgn * 1.75; if (L.type === "chair_fixed") plate(px, nd.g + 2.2, pz, 3.0, 0.4, face); }
     }
   }
   const sm = new THREE.Mesh(b.build(), liftMat); sm.castShadow = true; sm.receiveShadow = true; sm.geometry.boundingSphere = sphere; sm.matrixAutoUpdate = false; scene.add(sm);
@@ -255,7 +271,7 @@ function initNPCs() {
 const _ne = new THREE.Euler();
 let signT = 0;
 function updateNPCs(dt, cam) {
-  signT -= dt; if (signT <= 0) { signT = 0.5; for (const q of signs) q[0].visible = q[1].visible = Math.abs(q[2] - cam.x) + Math.abs(q[3] - cam.z) < 700; }
+  signT -= dt; if (signT <= 0) { signT = 0.5; for (const q of signs) q[0].visible = q[1].visible = Math.abs(q[2] - cam.x) + Math.abs(q[3] - cam.z) < 700; for (const q of liftSigns) q[0].visible = Math.abs(q[1] - cam.x) + Math.abs(q[2] - cam.z) < 900; }
   if (!npcMesh) return;
   for (let i = 0; i < NPC_N; i++) {
     const n = npcs[i]; let q = npcRuns[n.k]; n.s += n.v * dt;
@@ -267,4 +283,29 @@ function updateNPCs(dt, cam) {
     const yaw = Math.atan2(dx, dz) - Math.atan(amp * w * cw) * 0.8; _lq.setFromEuler(_ne.set(0, yaw, -cw * 0.38, "YXZ")); _lm.compose(_lp.set(x, H(x, z), z), _lq, _ls); npcMesh.setMatrixAt(i, _lm);
   }
   npcMesh.instanceMatrix.needsUpdate = true;
+}
+
+/* SLOW banners where runs funnel together: the bottom of each groomed run, along the cat tracks, and coming into every lift base */
+function initSlow() {
+  const cv = document.createElement("canvas"); cv.width = 512; cv.height = 160; const g = cv.getContext("2d"); g.fillStyle = "#f7b500"; g.fillRect(0, 0, 512, 160); g.strokeStyle = "#111"; g.lineWidth = 10; g.strokeRect(9, 9, 494, 142);
+  g.fillStyle = "#111"; g.textAlign = "center"; g.textBaseline = "middle"; g.font = "900 128px 'Big Shoulders Display', 'Arial Narrow', Impact, sans-serif"; g.fillText("SLOW", 256, 86);
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+  const pos = [], nor = [], uv = [], idx = [], posts = new GeoBag(), placed = [];
+  const put = (x, z, dx, dz) => { // banner facing skiers who come down along (dx, dz)
+    if (!inWorld(x, z, 240) || buildingAt(x, z)) return; for (const q of placed) if (Math.abs(q[0] - x) + Math.abs(q[1] - z) < 70) return; placed.push([x, z]);
+    const y = H(x, z), rx = -dz, rz = dx, w = 1.5, y0 = y + 1.25, y1 = y + 2.15;
+    for (const f of [1, -1]) { const o = pos.length / 3, nx = -dx * f, nz = -dz * f, ox = nx * 0.02, oz = nz * 0.02;
+      pos.push(x - rx * w * f + ox, y0, z - rz * w * f + oz, x + rx * w * f + ox, y0, z + rz * w * f + oz, x + rx * w * f + ox, y1, z + rz * w * f + oz, x - rx * w * f + ox, y1, z - rz * w * f + oz); for (let k = 0; k < 4; k++) nor.push(nx, 0, nz); uv.push(0, 0, 1, 0, 1, 1, 0, 1); idx.push(o, o + 1, o + 2, o, o + 2, o + 3); }
+    for (const sd of [-1, 1]) { posts.cyl(0.035, 0.035, 2.5, x + rx * w * sd, y + 1.0, z + rz * w * sd, [0.85, 0.3, 0.06], 5); towerHits.push({ x: x + rx * w * sd, z: z + rz * w * sd, r: 0.1 }); }
+  };
+  for (const L of LIFTS) { if (L.carpet) continue; const fx = Math.sin(L.dir), fz = Math.cos(L.dir); for (const sd of [-1, 1]) put(L.bot.x - fx * 26 - fz * sd * 9, L.bot.z - fz * 26 + fx * sd * 9, fx, fz); }
+  for (const r of WORLD.runs) {
+    if (!r.g || r.len < 300) continue; const P = r.pts, n = P.length, off = (r.c ? 11 : [46, 42, 30, 18][r.d]) * 0.5 + 1.5; let acc = 0, next = r.c ? 150 : 1e9;
+    for (let i = 0; i < n - 1; i++) { const a = P[i], b = P[i + 1], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, dx = (b[0] - a[0]) / l, dz = (b[1] - a[1]) / l;
+      if (acc + l > next) { const t = (next - acc) / l; put(lerp(a[0], b[0], t) - dz * off, lerp(a[1], b[1], t) + dx * off, dx, dz); next += 320; }
+      if (i === n - 2) put(b[0] - dx * 35 + dz * off, b[1] - dz * 35 - dx * off, dx, dz); acc += l; }
+  }
+  if (!pos.length) return; const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute("normal", new THREE.Float32BufferAttribute(nor, 3)); geo.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2)); geo.setIndex(idx);
+  const m = new THREE.Mesh(geo, worldShade(new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6 }))); m.frustumCulled = false; scene.add(m);
+  const pm = new THREE.Mesh(posts.build(), liftMat); pm.frustumCulled = false; scene.add(pm);
 }

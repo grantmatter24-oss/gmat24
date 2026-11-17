@@ -29,7 +29,7 @@ function spawnAt(key) {
   if (key === "village") { const L = LIFTS.find(l => l.name === "KT22 Express") || LIFTS[0]; placeSkier(L.bot.x - Math.sin(L.dir) * 16, L.bot.z - Math.cos(L.dir) * 16, L.dir); return; }
   const L = LIFTS[+key]; if (L) unloadAt(L);
 }
-function unloadAt(L) { const d = L.carpet ? 3 : 9; placeSkier(L.top.x + Math.sin(L.dir) * d, L.top.z + Math.cos(L.dir) * d, L.dir, L.carpet ? 1 : 3); }
+function unloadAt(L) { const d = L.carpet ? 3 : 15; placeSkier(L.top.x + Math.sin(L.dir) * d, L.top.z + Math.cos(L.dir) * d, L.dir, L.carpet ? 1 : 3); }
 function toast(msg, t = 2.6) { const e = $("toast"); e.textContent = msg; e.style.opacity = 1; toastT = t; }
 let trickT = 0;
 function popup(name, sub) { $("trickN").textContent = name; $("trickP").textContent = sub || ""; $("trick").style.opacity = 1; trickT = 2.2; }
@@ -166,6 +166,23 @@ function stepSki(dt) {
   if (!inWorld(p.x, p.z, 70)) { toast("Ski area boundary"); placeSkier(sk.safe.x, sk.safe.z, sk.safeYaw + Math.PI); }
 }
 
+/* ---------- on foot: skis off and carried, to boot-pack up to the ridges and summits no lift reaches ---------- */
+function toggleWalk() {
+  if (sk.mode === "walk") { sk.mode = "ski"; sk.parked = true; sk.sp = 0; sk.v.set(0, 0, 0); toast("Skis on"); }
+  else if (sk.mode === "ski" && sk.ground && !sk.crashed && sk.sp < 5) { sk.mode = "walk"; sk.sp = 0; sk.v.set(0, 0, 0); sk.sw = false; sk.spin = 0; sk.turn = sk.carve = 0; sk.walkPh = 0; charging = false; popReq = false; toast("Skis off · W walks, A D turn, Shift hurries · B to click back in", 4); }
+  else if (sk.mode === "ski") toast("Stop first to take your skis off");
+  const b = $("walkBtn"); if (b) b.textContent = sk.mode === "walk" ? "Ski" : "Walk";
+}
+function stepWalk(dt) {
+  const p = sk.p, steer = ((K.spinR || K.right) ? 1 : 0) - ((K.spinL || K.left) ? 1 : 0), go = (K.up ? 1 : 0) - (K.down ? 1 : 0); sk.yaw -= steer * 1.9 * dt;
+  const sA = tangent(sk.yaw); sk.slope = sA; readSurface();
+  let v = go > 0 ? (K.boost ? 2.7 : 1.75) : go < 0 ? -1.0 : 0; v *= clamp(1 - Math.sin(sA) * go * 0.9, 0.45, 1.2) * (1 - 0.25 * sk.surf.powder);   // slower up the steeps and in deep snow
+  const nx = p.x + Math.sin(sk.yaw) * v * dt, nz = p.z + Math.cos(sk.yaw) * v * dt;
+  if (!buildingAt(nx, nz) && !treeHit(nx, nz, 0.15) && inWorld(nx, nz, 75)) { p.x = nx; p.z = nz; } else v = 0;
+  p.y = H(p.x, p.z); sk.sp = Math.abs(v); sk.walkPh = (sk.walkPh || 0) + v * dt * 4.3; sk.turn = lerp(sk.turn, 0, Math.min(1, 8 * dt));
+  const dy = sk.lastY !== undefined ? p.y - sk.lastY : 0; sk.lastY = p.y; sk.climb = (sk.climb || 0) + Math.max(0, dy);
+  sk.safeT += dt; if (sk.safeT > 1.5) { sk.safeT = 0; sk.safe.copy(p); sk.safeYaw = sk.yaw; }
+}
 /* ---------- riding lifts ---------- */
 let nearLift = null; const _cp = new THREE.Vector3(), _cq = { s: 0, side: 1, docked: 0 };
 function findNearLift() {
@@ -203,7 +220,7 @@ const fmtAlt = y => units === "imp" ? Math.round(y * FT).toLocaleString() + " ft
 const fmtTime = t => Math.floor(t / 60) + ":" + String(Math.floor(t % 60)).padStart(2, "0");
 
 /* ---------- snow spray, tracks, falling snow ---------- */
-const NP = 1400, pPos = new Float32Array(NP * 3), pVel = new Float32Array(NP * 3), pLife = new Float32Array(NP), pSize = new Float32Array(NP); let pNext = 0, sprayPts = null;
+const NP = 3600, pPos = new Float32Array(NP * 3), pVel = new Float32Array(NP * 3), pLife = new Float32Array(NP), pSize = new Float32Array(NP); let pNext = 0, sprayPts = null;
 function initParticles() {
   const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(pPos, 3)); g.setAttribute("aLife", new THREE.BufferAttribute(pLife, 1)); g.setAttribute("aSize", new THREE.BufferAttribute(pSize, 1));
   const m = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, uniforms: Object.assign({ uPx: { value: 600 } }, U, THREE.UniformsUtils.clone(THREE.UniformsLib.fog)), fog: true,
@@ -223,11 +240,11 @@ function initParticles() {
       }` });
   sprayPts = new THREE.Points(g, m); sprayPts.frustumCulled = false; sprayPts.renderOrder = 5; scene.add(sprayPts);
 }
-function spray(at, up, side, vel, back = 0.5) {
+function spray(at, up, side, vel, back = 0.5, big = 0) {
   const i = pNext; pNext = (pNext + 1) % NP;
   pPos[i * 3] = at.x + (Math.random() - 0.5) * 0.3; pPos[i * 3 + 1] = at.y + 0.05; pPos[i * 3 + 2] = at.z + (Math.random() - 0.5) * 0.3;
   pVel[i * 3] = vel.x * back + rt.x * side + (Math.random() - 0.5) * 1.2; pVel[i * 3 + 1] = up + vel.y * back; pVel[i * 3 + 2] = vel.z * back + rt.z * side + (Math.random() - 0.5) * 1.2;
-  pLife[i] = 0.5 + Math.random() * 0.6; pSize[i] = 0.16 + Math.random() * 0.3;
+  pLife[i] = (0.5 + Math.random() * 0.6) * (1 + 0.9 * big); pSize[i] = (0.16 + Math.random() * 0.3) * (1 + 2.2 * big);
 }
 function updateParticles(dt) {
   for (let i = 0; i < NP; i++) { if (pLife[i] <= 0) continue; pLife[i] -= dt; const k = i * 3; pVel[k + 1] -= 7.5 * dt; const dr = Math.exp(-2.2 * dt); pVel[k] *= dr; pVel[k + 2] *= dr; pPos[k] += pVel[k] * dt; pPos[k + 1] += pVel[k + 1] * dt; pPos[k + 2] += pVel[k + 2] * dt; }
@@ -235,16 +252,16 @@ function updateParticles(dt) {
 }
 function emitSpray(dt) {
   if (sk.mode !== "ski" || !sk.ground || sk.crashed || sk.sp < 4) return;
-  const s = sk.surf, pw = 0.5 + 2.6 * s.powder, steer = sk.turn, n = (sk.sp > 18 ? 3 : 2) * pw * dt * 60 * 0.5, cnt = Math.floor(n + Math.random());
-  for (let i = 0; i < Math.min(cnt, 12); i++) spray(sk.p, 0.8 + Math.random() * (1.0 + 3.4 * s.powder), (Math.random() - 0.5) * (1.5 + 3 * s.powder), sk.v, 0.3 + 0.25 * s.powder);
-  if (Math.abs(steer) > 0.3 && sk.sp > 6 && sk.carve > 0.2) { const k = Math.floor((2 + sk.sp / 10) * dt * 60 * 0.5 + Math.random()); for (let i = 0; i < k; i++) spray(sk.p, 1.5 + sk.sp * 0.05 + Math.random() * 2, -Math.sign(steer) * (3 + sk.carve * 4 + sk.sp * 0.12) * (0.5 + Math.random() * 0.6), sk.v, 0.3); }
+  const s = sk.surf, pw = 0.5 + 0.7 * s.powder, steer = sk.turn, n = (sk.sp > 18 ? 3 : 2) * pw * dt * 60 * 0.5, cnt = Math.floor(n + Math.random());
+  for (let i = 0; i < Math.min(cnt, 12); i++) spray(sk.p, 0.5 + Math.random() * (0.8 + 1.2 * s.powder), (Math.random() - 0.5) * (1.5 + 2 * s.powder), sk.v, 0.3 + 0.2 * s.powder, 0.25 * s.powder);
+  if (Math.abs(steer) > 0.3 && sk.sp > 6 && sk.carve > 0.2) { const k = Math.floor((2 + sk.sp / 10) * (1 + 3.5 * s.powder) * dt * 60 * 0.5 + Math.random()); for (let i = 0; i < k; i++) spray(sk.p, (1.5 + sk.sp * 0.05 + Math.random() * 2) * (1 + 0.8 * s.powder), -Math.sign(steer) * (3 + sk.carve * 4 + sk.sp * 0.12) * (0.5 + Math.random() * 0.6), sk.v, 0.3 + 0.2 * s.powder, s.powder); }   // a real cloud off every powder turn
   if ((K.down || K.up) && sk.sp > 3 && Math.random() < 0.4) spray(sk.p, 2, 0, sk.v, 0.4);
 }
-/* ski tracks: two ribbons laid on the snow behind the skis */
-const TRK = 900, trkPos = new Float32Array(TRK * 2 * 4 * 3), trkA = new Float32Array(TRK * 2 * 4); let trkN = 0, trkMesh = null, trkLast = [new THREE.Vector3(1e9, 0, 0), new THREE.Vector3(1e9, 0, 0)], trkPrev = [null, null];
+/* ski tracks: two ribbons pressed into the new snow. They stay where you left them until it is topped up, every five minutes. */
+const TRK = 32000, TRACK_LIFE = 300, trkPos = new Float32Array(TRK * 12), trkA = new Float32Array(TRK * 4); let trkN = 0, trkMesh = null, trkClock = 0, trkLast = [new THREE.Vector3(1e9, 0, 0), new THREE.Vector3(1e9, 0, 0)], trkPrev = [null, null];
 function initTracks() {
-  const idx = []; for (let q = 0; q < TRK * 2; q++) { const a = q * 4; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
-  const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(trkPos, 3)); g.setAttribute("aA", new THREE.BufferAttribute(trkA, 1)); g.setIndex(idx);
+  const idx = new Uint32Array(TRK * 6); for (let q = 0; q < TRK; q++) { const a = q * 4; idx.set([a, a + 1, a + 2, a + 1, a + 3, a + 2], q * 6); }
+  const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(trkPos, 3)); g.setAttribute("aA", new THREE.BufferAttribute(trkA, 1)); g.setIndex(new THREE.BufferAttribute(idx, 1)); g.setDrawRange(0, 0);
   const m = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4, uniforms: Object.assign({}, U, THREE.UniformsUtils.clone(THREE.UniformsLib.fog)), fog: true,
     vertexShader: `attribute float aA; varying float vA;
       #include <fog_pars_vertex>
@@ -253,25 +270,30 @@ function initTracks() {
       }`,
     fragmentShader: `uniform vec3 uSkyAmb; varying float vA;
       #include <fog_pars_fragment>
-      void main() { gl_FragColor = vec4(uSkyAmb * 0.55, vA);
+      void main() { gl_FragColor = vec4(uSkyAmb * 0.5, vA);
       #include <tonemapping_fragment>
       #include <colorspace_fragment>
       #include <fog_fragment>
       }` });
   trkMesh = new THREE.Mesh(g, m); trkMesh.frustumCulled = false; trkMesh.renderOrder = 2; scene.add(trkMesh);
 }
-function layTracks() {
-  if (sk.mode !== "ski" || !sk.ground || sk.crashed) { trkPrev[0] = trkPrev[1] = null; return; }
-  const yawM = sk.yaw - sk.spin, fx = Math.sin(yawM), fz = Math.cos(yawM), rx = -fz, rz = fx, s = sk.surf, hw = 0.04 + 0.05 * sk.carve + 0.09 * s.powder + 0.12 * sk.brakeK, al = (0.10 + 0.24 * s.powder + 0.07 * sk.carve) * (1 - s.rock) * (1 - s.road);
+function clearTracks(say) { trkN = 0; trkClock = 0; trkPrev[0] = trkPrev[1] = null; trkMesh.geometry.setDrawRange(0, 0); if (say) toast("Fresh snow has filled in your tracks"); }
+function layTracks(dt) {
+  trkClock += dt; if (trkClock > TRACK_LIFE) clearTracks(trkN > 40);
+  const walking = sk.mode === "walk";
+  if (!(sk.mode === "ski" || walking) || !sk.ground || sk.crashed) { trkPrev[0] = trkPrev[1] = null; return; }
+  const yawM = sk.yaw - sk.spin, fx = Math.sin(yawM), fz = Math.cos(yawM), rx = -fz, rz = fx, s = sk.surf, hw = walking ? 0.13 : 0.045 + 0.05 * sk.carve + 0.10 * s.powder + 0.12 * sk.brakeK, al = (walking ? 0.3 : 0.10 + 0.30 * s.powder + 0.07 * sk.carve) * (1 - s.rock) * (1 - s.road);
+  const pa = trkMesh.geometry.attributes.position, aa = trkMesh.geometry.attributes.aA;
   for (let i = 0; i < 2; i++) {
-    const o = (i ? 1 : -1) * 0.16, x = sk.p.x + rx * o - fx * 0.3, z = sk.p.z + rz * o - fz * 0.3, cur = { x, z, hw };
-    if (Math.hypot(x - trkLast[i].x, z - trkLast[i].z) < 0.45) continue;
-    const pv = trkPrev[i]; trkLast[i].set(x, 0, z); trkPrev[i] = cur; if (!pv) continue;
-    const q = (trkN++ % (TRK * 2)), k = q * 12, a = q * 4, dx = x - pv.x, dz = z - pv.z, l = Math.hypot(dx, dz) || 1, px = -dz / l, pz = dx / l, w = hw;
+    const o = (i ? 1 : -1) * (walking ? 0.12 : 0.16), x = sk.p.x + rx * o - fx * 0.3, z = sk.p.z + rz * o - fz * 0.3, cur = { x, z, hw };
+    if (Math.hypot(x - trkLast[i].x, z - trkLast[i].z) < 0.5) continue;
+    const pv = trkPrev[i]; trkLast[i].set(x, 0, z); trkPrev[i] = cur; if (!pv || (walking && (Math.floor((sk.walkPh || 0) / Math.PI) + i) % 2)) continue;
+    const q = trkN % TRK, k = q * 12, a = q * 4, dx = x - pv.x, dz = z - pv.z, l = Math.hypot(dx, dz) || 1, px = -dz / l, pz = dx / l; trkN++;
     const put = (j, X, Z) => { trkPos[k + j * 3] = X; trkPos[k + j * 3 + 1] = H(X, Z) + 0.035; trkPos[k + j * 3 + 2] = Z; trkA[a + j] = al; };
-    put(0, pv.x - px * pv.hw, pv.z - pz * pv.hw); put(1, pv.x + px * pv.hw, pv.z + pz * pv.hw); put(2, x - px * w, z - pz * w); put(3, x + px * w, z + pz * w); cur.hw = w;
+    put(0, pv.x - px * pv.hw, pv.z - pz * pv.hw); put(1, pv.x + px * pv.hw, pv.z + pz * pv.hw); put(2, x - px * hw, z - pz * hw); put(3, x + px * hw, z + pz * hw);
+    pa.addUpdateRange(k, 12); aa.addUpdateRange(a, 4); pa.needsUpdate = true; aa.needsUpdate = true;
   }
-  trkMesh.geometry.attributes.position.needsUpdate = true; trkMesh.geometry.attributes.aA.needsUpdate = true;
+  trkMesh.geometry.setDrawRange(0, Math.min(trkN, TRK) * 6);
 }
 function initSnowfall() {
   const n = 9000, pos = new Float32Array(n * 3), g = new THREE.BufferGeometry(); for (let i = 0; i < n * 3; i++) pos[i] = Math.random();
@@ -288,17 +310,20 @@ function initSnowfall() {
 }
 
 /* ---------- camera ---------- */
-let camSnap = true, look = { yaw: 0, pit: 0, drag: false, idle: 0 }; const camPos = new THREE.Vector3(), camTgt = new THREE.Vector3(), camDir = new THREE.Vector3(0, 0, 1), _m4 = new THREE.Matrix4(), _qa = new THREE.Quaternion(), _qb = new THREE.Quaternion(), _x = new THREE.Vector3(), _y = new THREE.Vector3(), _z = new THREE.Vector3();
+let camSnap = true, camSlope = 0, camAir = 0, look = { yaw: 0, pit: 0, drag: false, idle: 0 }; const camPos = new THREE.Vector3(), camTgt = new THREE.Vector3(), camDir = new THREE.Vector3(0, 0, 1), _m4 = new THREE.Matrix4(), _qa = new THREE.Quaternion(), _qb = new THREE.Quaternion(), _x = new THREE.Vector3(), _y = new THREE.Vector3(), _z = new THREE.Vector3();
 function makeRider(of) { // Kicker Run's skier faces -z; the holder faces +z and stands on the slope
-  const R = KR.build(of), hold = new THREE.Group(); R.root.rotation.y = Math.PI; R.root.position.y = 0.025; hold.add(R.root); R.hold = hold; scene.add(hold); return R;
+  const R = KR.build(of), hold = new THREE.Group(); R.root.rotation.y = Math.PI; R.root.position.y = 0.025; hold.add(R.root); R.hold = hold; scene.add(hold);
+  const carry = new THREE.Group(); R.skiMeshes.forEach((m, i) => { const c = new THREE.Mesh(m.geometry, m.material); c.position.set(i ? 0.035 : -0.035, 0, 0); if (i) c.rotation.z = Math.PI; c.castShadow = true; carry.add(c); }); carry.position.set(0.25, 1.36, 0.1); carry.rotation.set(1.18, 0, 0.06); carry.visible = false; R.rig.add(carry); R.carry = carry; return R;
 }
 function poseRider(R, q, keys, slope, dt, time, snap) {
-  const hold = R.hold, onSnow = q.ground && q.mode === "ski" && !q.crashed;
+  const hold = R.hold, onSnow = q.ground && (q.mode === "ski" || q.mode === "walk") && !q.crashed;
   const up = onSnow ? normalAt(q.p.x, q.p.z, 0.7, _y) : _y.set(0, 1, 0); fwdOf(q.yaw, _z); _x.crossVectors(up, _z).normalize(); _z.crossVectors(_x, up).normalize();
   _qa.setFromRotationMatrix(_m4.makeBasis(_x, up, _z)); if (snap) hold.quaternion.copy(_qa); else hold.quaternion.slerp(_qa, Math.min(1, (onSnow ? 7 : 16) * dt));
-  hold.position.copy(q.p); if (onSnow) { q.sink = (q.sink || 0) + ((1 - maskAt(q.p.x, q.p.z)[0]) * 0.11 * clamp(q.sp / 6, 0.3, 1) - (q.sink || 0)) * Math.min(1, 5 * dt); hold.position.y -= q.sink; }
+  hold.position.copy(q.p); if (onSnow) { q.sink = (q.sink || 0) + ((1 - maskAt(q.p.x, q.p.z)[0]) * (1 - maskAt(q.p.x, q.p.z)[2]) * (q.mode === "walk" ? 0.2 : 0.14) - (q.sink || 0)) * Math.min(1, 5 * dt); hold.position.y -= q.sink; }   // 20 cm of fresh: boots go to the bottom of it, skis float most of the way
   KR.pose(R, q, keys, slope, dt, time);
   R.rig.rotation.y = -(q.spin + (q.sw ? Math.PI : 0));
+  const walking = q.mode === "walk"; R.carry.visible = walking; R.skiMeshes.forEach(m => { m.visible = !walking; });
+  if (walking) { const mv = clamp(q.sp / 1.2, 0, 1), ph = q.walkPh || 0; R.legs.forEach((l, i) => { const sw = Math.sin(ph + i * Math.PI) * 0.5 * mv; l.hip.rotation.x += sw; l.knee.rotation.x -= Math.max(0, -Math.cos(ph + i * Math.PI)) * 0.55 * mv; const sg = R.skiG[i]; sg.position.z -= Math.sin(sw) * 0.82; sg.position.y += Math.max(0, -Math.cos(ph + i * Math.PI)) * 0.12 * mv; sg.rotation.x = 0; sg.rotation.z = 0; }); }
   const wob = q.stumT > 0 && !q.crashed ? Math.min(1, q.stumT / 0.9) : 0, seated = q.mode === "lift";
   R.pivot.rotation.x = (q.crashed ? q.rot : q.ground ? 0 : q.rot - 0) + wob * (0.28 * Math.sin(time * 9) - 0.12) - (seated ? 0.25 : 0);
   R.pivot.rotation.z = (q.crashed ? q.tumZ : -(R.pose.vt !== undefined ? R.pose.vt : q.turn) * (0.3 + 0.32 * q.carve) * (q.air ? 0.3 : 1)) + (wob ? wob * (q.stumD || 1) * 0.45 * Math.sin(time * 12) : 0);
@@ -320,10 +345,10 @@ function updateCamera(dt) {
   if (sk.mode === "ski" && !sk.ground && vh > 2.5) heading = Math.atan2(sk.v.x, sk.v.z);
   const cur = Math.atan2(camDir.x, camDir.z), nh = cur + wrap(heading - cur) * (camSnap ? 1 : Math.min(1, (sk.ground ? 3.2 : 1.6) * dt)); camDir.set(Math.sin(nh), 0, Math.cos(nh));
   const cy = nh + look.yaw, dx = Math.sin(cy), dz = Math.cos(cy);
-  camera.fov = lerp(camera.fov, (fpv ? 78 : 60) + 13 * smooth(sp / 36), Math.min(1, 3 * dt)); camera.updateProjectionMatrix();
+  camera.fov = lerp(camera.fov, fpv ? 100 : 60 + 13 * smooth(sp / 36), Math.min(1, 3 * dt)); camera.near = fpv ? 0.12 : 0.25; camera.updateProjectionMatrix();
   if (fpv && !sk.crashed) {
-    const eye = cabin ? tmp.set(p.x, p.y + 1.7, p.z) : rig.head.getWorldPosition(tmp); if (!cabin) eye.y += 0.04;
-    camera.position.copy(eye); const slope = sk.ground && sk.mode === "ski" ? Math.atan2(fw.y, Math.hypot(fw.x, fw.z)) : 0, pit = clamp(slope * 0.7 - 0.13 + look.pit, -1.3, 1.3);
+    const eye = cabin ? tmp.set(p.x, p.y + 1.7, p.z) : rig.head.getWorldPosition(tmp); if (!cabin) { eye.y += 0.06; eye.x += Math.sin(nh) * 0.2; eye.z += Math.cos(nh) * 0.2; }   // just ahead of the goggles, like a helmet mount
+    camera.position.copy(eye); const slope = sk.ground && sk.mode === "ski" ? Math.atan2(fw.y, Math.hypot(fw.x, fw.z)) : 0, pit = clamp(slope * 0.7 - (onLift ? 0.1 : 0.62) + look.pit, -1.45, 1.3);   // tipped down far enough to keep the front of the skis in frame
     camTgt.set(eye.x + dx * Math.cos(pit), eye.y + Math.sin(pit), eye.z + dz * Math.cos(pit)); camera.up.set(0, 1, 0); camera.lookAt(camTgt);
     camera.rotateZ(rig.pivot.rotation.z * 0.3); camSnap = false; return;
   }
@@ -333,12 +358,15 @@ function updateCamera(dt) {
     if (camSnap) camPos.copy(tmp); else camPos.lerp(tmp, 1 - Math.exp(-6 * dt)); camera.position.copy(camPos); camera.up.set(0, 1, 0);
     tmp.set(p.x + dx * 14, p.y + 1.2 + sl * 14, p.z + dz * 14); if (camSnap) camTgt.copy(tmp); else camTgt.lerp(tmp, 1 - Math.exp(-8 * dt)); camera.lookAt(camTgt); camSnap = false; return;
   }
-  const dist = (onLift ? (cabin ? 15 : 8.5) : 6.4 + sp * 0.07) * (sk.crashed ? 1.3 : 1), hgtC = (onLift ? 3.4 : 2.5 + sp * 0.012) + look.pit * -6, slopeY = sk.ground && sk.mode === "ski" ? clamp(-fw.y, -0.5, 0.8) * dist * 0.55 : 0;
+  const dist = (onLift ? (cabin ? 15 : 8.5) : 6.4 + sp * 0.07) * (sk.crashed ? 1.3 : 1), hgtC = (onLift ? 3.4 : 2.5 + sp * 0.012) + look.pit * -6;
+  if (sk.ground && sk.mode === "ski") camSlope += (clamp(-fw.y, -0.5, 0.8) - camSlope) * Math.min(1, 4 * dt);   // held through the air, so leaving a lip never drops the view
+  camAir += ((!sk.ground && sk.mode === "ski" ? clamp(0.9 + (p.y - H(p.x, p.z)) * 0.14, 0.9, 3) : 0) - camAir) * Math.min(1, (sk.ground ? 2.5 : 5) * dt);
+  const slopeY = camSlope * dist * 0.55 + camAir / 0.6;
   tmp.set(p.x - dx * dist, p.y + hgtC + slopeY * 0.6, p.z - dz * dist);
   const gh = H(tmp.x, tmp.z) + 1.1; if (tmp.y < gh) tmp.y = gh;
-  if (camSnap) camPos.copy(tmp); else { const k = 1 - Math.exp(-(onLift ? 5 : 7) * dt); camPos.x += (tmp.x - camPos.x) * k; camPos.z += (tmp.z - camPos.z) * k; camPos.y += (tmp.y - camPos.y) * (1 - Math.exp(-5 * dt)); if (camPos.y < H(camPos.x, camPos.z) + 0.9) camPos.y = H(camPos.x, camPos.z) + 0.9; }
+  if (camSnap) camPos.copy(tmp); else { const k = 1 - Math.exp(-(onLift ? 5 : 7) * dt); camPos.x += (tmp.x - camPos.x) * k; camPos.z += (tmp.z - camPos.z) * k; camPos.y += (tmp.y - camPos.y) * (1 - Math.exp(-(tmp.y > camPos.y ? 7 : sk.ground ? 5 : 2.2) * dt)); if (camPos.y < H(camPos.x, camPos.z) + 0.9) camPos.y = H(camPos.x, camPos.z) + 0.9; }
   camera.position.copy(camPos); camera.up.set(0, 1, 0);
-  tmp.set(p.x + dx * (3 + sp * 0.22), p.y + 1.25 - slopeY * 0.25 + (onLift ? -1 : 0), p.z + dz * (3 + sp * 0.22));
+  tmp.set(p.x + dx * (3 + sp * 0.22), p.y + 1.25 - camSlope * dist * 0.14 + (onLift ? -1 : 0), p.z + dz * (3 + sp * 0.22));
   if (camSnap) camTgt.copy(tmp); else camTgt.lerp(tmp, 1 - Math.exp(-9 * dt)); camera.lookAt(camTgt);
   camera.rotateZ(-sk.turn * 0.03 * clamp(sp / 15, 0, 1)); camSnap = false;
 }

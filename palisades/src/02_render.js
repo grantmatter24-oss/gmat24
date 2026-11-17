@@ -144,6 +144,7 @@ function buildTerrainTex() {
     const gi = clamp(i >> 1, 3, NX - 4), gj = clamp(j >> 1, 3, NZ - 4), c = HM[gj * NX + gi];
     const av = (HM[gj * NX + gi - 3] + HM[gj * NX + gi + 3] + HM[(gj - 3) * NX + gi] + HM[(gj + 3) * NX + gi] + HM[(gj - 2) * NX + gi - 2] + HM[(gj - 2) * NX + gi + 2] + HM[(gj + 2) * NX + gi - 2] + HM[(gj + 2) * NX + gi + 2]) / 8;
     MB[(j * MW + i) * 4 + 3] = Math.round(255 * (1 - clamp((av - c) / 16, 0, 0.42)));
+    MA[(j * MW + i) * 4 + 3] = Math.round(255 * clamp(0.5 + (c - av) / 14, 0, 1));   // how much a point stands proud of its surroundings: rock shows on knobs and ribs
   }
   const mk = d => { const t = new THREE.DataTexture(d, MW, MH, THREE.RGBAFormat); t.magFilter = THREE.LinearFilter; t.minFilter = THREE.LinearMipmapLinearFilter; t.generateMipmaps = true; t.needsUpdate = true; return t; };
   U.uMA.value = mk(MA); U.uMB.value = mk(MB);
@@ -198,7 +199,7 @@ float glint(vec3 p, vec3 V, float scale) {
 `;
 const TERRAIN_FRAG_COLOR = `
   float tDist = length(cameraPosition - vWp); vec3 tV = (cameraPosition - vWp) / tDist;
-  vec4 tt = vec4(0.0, 0.0, 1.0, 1.0); vec4 mA = vec4(0.0), mB = vec4(0.0, 0.5, 0.5, 1.0);
+  vec4 tt = vec4(0.0, 0.0, 1.0, 1.0); vec4 mA = vec4(0.0, 0.0, 0.0, 0.5), mB = vec4(0.0, 0.5, 0.5, 1.0);
   #ifndef OUTER
     tt = texture2D(uTT, ttUV(vWp)); mA = texture2D(uMA, mkUV(vWp)); mB = texture2D(uMB, mkUV(vWp));
   #endif
@@ -210,7 +211,8 @@ const TERRAIN_FRAG_COLOR = `
   float groom = mA.r, tree = mA.g, road = mA.b;
   float nA = texture2D(uNoise, vWp.xz * 0.0031).r, nB = texture2D(uNoise, vWp.xz * 0.021).g, nC = texture2D(uNoise, vWp.xz * 0.19).b;
   float slope = 1.0 - Nw.y;
-  float rock = smoothstep(0.245, 0.30, slope + (nB - 0.5) * 0.13 + (nC - 0.5) * 0.09 + (texture2D(uNoise, vWp.xz * 0.006).a - 0.5) * 0.08);   // ragged, crisp snow line
+  float proud = (mA.a - 0.5) * 2.0;
+  float rock = smoothstep(0.205, 0.255, slope + proud * 0.07 + (nB - 0.5) * 0.16 + (nC - 0.5) * 0.10 + (texture2D(uNoise, vWp.xz * 0.006).a - 0.5) * 0.09);   // ragged, crisp snow line; outcrops scattered through the steeps
   #ifdef OUTER
     float forest = smoothstep(0.42, 0.62, nB * 0.6 + nA * 0.5 + texture2D(uNoise, vWp.xz * 0.0009).g * 0.3) * smoothstep(2650.0, 2350.0, vWp.y + nA * 200.0) * smoothstep(0.30, 0.16, slope);
     tree = forest * (1.0 - vLake);
@@ -239,20 +241,24 @@ const TERRAIN_FRAG_COLOR = `
   #endif
   // Sierra granite: pale grey blocks split by dark joints, iron staining, water streaks down the fall line, snow held on ledges and in cracks
   vec3 rp = vWp; float rFar = smoothstep(2500.0, 300.0, tDist);
-  float blk = texture2D(uNoise, rp.xz * 0.011 + rp.y * 0.016).r, strata = texture2D(uNoise, vec2(rp.x + rp.z, rp.y * 2.4) * 0.03).g, grain = texture2D(uNoise, rp.xz * 0.9 + rp.y * 0.7).a;
-  float j1 = smoothstep(0.045, 0.0, abs(texture2D(uNoise, rp.xz * 0.04 + rp.y * 0.027).b - 0.5));
-  float j2 = smoothstep(0.06, 0.0, abs(texture2D(uNoise, vec2(rp.x - rp.z, rp.y * 1.7) * 0.1).r - 0.5)) * smoothstep(500.0, 60.0, tDist);
-  float j3 = smoothstep(0.08, 0.0, abs(texture2D(uNoise, vec2(rp.x * 0.7 + rp.z, rp.y * 1.3) * 0.37).g - 0.5)) * smoothstep(90.0, 15.0, tDist);
-  vec3 rk = mix(vec3(0.20, 0.195, 0.19), vec3(0.47, 0.455, 0.43), blk * 0.55 + strata * 0.45);
-  rk = mix(rk, vec3(0.36, 0.27, 0.19), smoothstep(0.5, 0.85, nA) * 0.45);                       // rust-tan staining on some faces
+  vec2 rw = abs(Nw.xz) + 0.001; rw /= rw.x + rw.y;   // rock detail is projected onto the cliff's own face, so it does not smear down steep walls
+  #define RT(SC, CH) (texture2D(uNoise, rp.zy * (SC)).CH * rw.x + texture2D(uNoise, rp.xy * (SC)).CH * rw.y)
+  float blk = RT(0.013, r), strata = RT(vec2(0.021, 0.05), g), grain = RT(0.8, a);
+  float j1 = smoothstep(0.05, 0.0, abs(RT(0.037, b) - 0.5)) * smoothstep(1500.0, 350.0, tDist);
+  float j2 = smoothstep(0.06, 0.0, abs(RT(0.1, r) - 0.5)) * smoothstep(500.0, 60.0, tDist);
+  float j3 = smoothstep(0.08, 0.0, abs(RT(0.36, g) - 0.5)) * smoothstep(90.0, 15.0, tDist);
+  vec3 rk = mix(vec3(0.085, 0.062, 0.045), vec3(0.37, 0.285, 0.20), blk * 0.55 + strata * 0.45);      // tan and ochre, as the faces above the valley are
+  rk = mix(rk, vec3(0.22, 0.215, 0.21), smoothstep(0.45, 0.8, nA) * 0.4);                         // greyer bands
   rk = mix(rk, vec3(0.13, 0.15, 0.11), smoothstep(0.62, 0.8, nB) * smoothstep(0.45, 0.7, blk) * 0.35);   // lichen
-  rk *= 0.82 + 0.36 * grain * rFar + 0.18 * (nC - 0.5);
-  vec2 fall = normalize(Nw.xz + vec2(1e-4)); float streak = texture2D(uNoise, vec2(dot(rp.xz, vec2(-fall.y, fall.x)) * 0.03, rp.y * 0.004)).g;
-  rk *= 1.0 - 0.28 * smoothstep(0.5, 0.8, streak);                                               // dark water streaks
-  rk = mix(rk, vec3(0.045, 0.04, 0.04), clamp(j1 * 0.8 + j2 * 0.65 + j3 * 0.5, 0.0, 0.85));     // joints and cracks
-  float ledge = smoothstep(0.5, 0.72, texture2D(uNoise, vec2((rp.x + rp.z) * 0.017, rp.y * 0.13) + nB * 0.15).b) * (1.0 - smoothstep(0.36, 0.52, slope));
-  rock *= 1.0 - max(ledge * 0.75, j1 * 0.35 * (1.0 - smoothstep(0.4, 0.55, slope)));              // snow on ledges and packed into the big cracks
-  { vec3 bp = (texture2D(uNoise, rp.xz * 0.06 + rp.y * 0.05).rgb - 0.5) * 0.55 + (texture2D(uNoise, rp.xz * 0.4 + rp.y * 0.33).gbr - 0.5) * 0.4 * rFar;
+  rk *= (0.82 + 0.36 * grain * rFar + 0.18 * (nC - 0.5)) * 0.72;
+  float streak = RT(vec2(0.07, 0.006), g);
+  rk *= 1.0 - 0.3 * smoothstep(0.5, 0.8, streak) * smoothstep(600.0, 120.0, tDist);                                               // dark water streaks
+  rk = mix(rk, vec3(0.04, 0.03, 0.025), clamp(j1 * 0.8 + j2 * 0.65 + j3 * 0.5, 0.0, 0.85));     // joints and cracks
+  float ledge = smoothstep(0.5, 0.72, RT(vec2(0.017, 0.13), b)) * (1.0 - smoothstep(0.36, 0.52, slope));
+  rock *= 1.0 - max(ledge * 0.75, j1 * 0.35 * (1.0 - smoothstep(0.4, 0.55, slope)));
+  { float cover = texture2D(uNoise, rp.xz * 0.0135 + 0.37).r * 0.55 + RT(0.047, g) * 0.45;
+    rock *= smoothstep(0.43, 0.47, cover + (slope - 0.27) * 1.5); }                                  // faces hold as much snow as rock: outcrops in clusters, pillows between              // snow on ledges and packed into the big cracks
+  { vec3 bp = (vec3(RT(0.06, r), RT(0.06, g), RT(0.06, b)) - 0.5) * 0.55 + (vec3(RT(0.4, g), RT(0.4, b), RT(0.4, r)) - 0.5) * 0.4 * rFar;
     Nw = normalize(Nw + bp * rock); }                                                              // broken, faceted faces
   vec3 alb = mix(snow, rk, rock);
   alb = mix(alb, mix(vec3(0.075, 0.078, 0.085), vec3(0.42, 0.43, 0.45), nC * nC * 0.7), road * 0.92);

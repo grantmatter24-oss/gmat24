@@ -8,10 +8,13 @@ function tileTrees(cx, cz) { // -> Float32Array of [x, y, z, height, width, rot,
   const out = [], bx = Math.round((X0 + cx * CH) / TCELL), bz = Math.round((Z0 + cz * CH) / TCELL);
   for (let j = 0; j < TPER; j++) for (let i = 0; i < TPER; i++) {
     const gx = bx + i, gz = bz + j, x = (gx + 0.15 + 0.7 * hash2(gx, gz, 2)) * TCELL, z = (gz + 0.15 + 0.7 * hash2(gx, gz, 3)) * TCELL;
-    const tm = treeMask(x, z); if (tm < 0.12) continue;
-    if (hash2(gx, gz, 1) > tm * tm * 0.6 + 0.02) continue;
+    const tm = treeMask(x, z), hr = hash2(gx, gz, 1); let lone = false;
+    if (tm < 0.12 || hr > tm * tm * 0.6 + 0.02) { // outside the forest: lone firs and small clumps dotted over open slopes, never on a run
+      const clump = vnoise(x * 0.012, z * 0.012, 91); if (hr > 0.004 + 0.05 * sstep(0.62, 0.85, clump) + 0.02 * tm) continue;
+      if (clearMask(x, z) > 0.06 || rockAt(x, z) > 0.75) continue; lone = true;
+    }
     if (!inWorld(x, z, 30)) continue;
-    const y = H(x, z), hi = sstep(2330, 2640, y), big = hash2(gx, gz, 4);
+    const y = H(x, z), hi = sstep(2330, 2640, y), big = hash2(gx, gz, 4); if (lone && y > 2640 + 60 * (hr * 200 % 1)) continue;
     const h = Math.max(9.5, (9 + 19 * big * big + 6 * tm) * lerp(1.1, 0.62, hi)), v = hash2(gx, gz, 5) < lerp(0.35, 0.75, hi) ? 1 : 0;
     out.push(x, y - 0.3, z, h, h * (v ? 0.34 : 0.25) * (0.85 + 0.3 * hash2(gx, gz, 6)), hash2(gx, gz, 7) * TAU, v, 0.8 + 0.4 * hash2(gx, gz, 8));
   }
@@ -36,7 +39,7 @@ function treeGeometry(v) {
   }
   const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute("normal", new THREE.Float32BufferAttribute(nor, 3)); g.setAttribute("color", new THREE.Float32BufferAttribute(col, 3)); return g;
 }
-const TREE_SNOW = `float tsn = smoothstep(0.66, 0.92, tNy * 0.8 + texture2D(uNoise, tP.xz * 0.9 + tP.y * 0.31).r * 0.62 - 0.06) * step(0.012, tGreen) * 0.7;`;
+const TREE_SNOW = `float tsn = smoothstep(0.6, 0.9, tNy * 0.8 + texture2D(uNoise, tP.xz * 0.9 + tP.y * 0.31).r * 0.62 - 0.03) * step(0.012, tGreen) * 0.85;`;
 let treeGeo = null, treeMat = null, treeDepthMat = null, impTex = null, bbMat = null;
 function initTrees() {
   treeGeo = [treeGeometry(0), treeGeometry(1)];
@@ -46,7 +49,7 @@ function initTrees() {
       sh.fragmentShader = "varying vec3 vOn; varying vec3 vOp;\n" + sh.fragmentShader.replace("#include <color_fragment>", `#include <color_fragment>
         { float tD = length(cameraPosition - vWp); if (smoothstep(uTreeNear - 40.0, uTreeNear, tD) > ign(gl_FragCoord.xy)) discard;
           float tNy = vOn.y * (gl_FrontFacing ? 1.0 : -1.0), tGreen = diffuseColor.g - diffuseColor.r; vec3 tP = vWp; ${TREE_SNOW}
-          diffuseColor.rgb = mix(diffuseColor.rgb * (0.55 + 0.9 * smoothstep(0.0, 0.5, length(vOp.xz))), vec3(0.80, 0.83, 0.88), tsn); }`)
+          diffuseColor.rgb = mix(diffuseColor.rgb * (0.55 + 0.9 * smoothstep(0.0, 0.5, length(vOp.xz))), vec3(0.88, 0.90, 0.94), tsn); }`)
         .replace("#include <lights_fragment_end>", "#include <lights_fragment_end>\n reflectedLight.indirectDiffuse *= 0.45 + 0.55 * smoothstep(0.05, 0.45, length(vOp.xz));");
     }
   });
@@ -57,7 +60,7 @@ function initTrees() {
     vertexShader: `varying vec3 vC; varying vec3 vN; varying vec3 vP; void main() { vC = color; vN = normal; vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
     fragmentShader: `uniform sampler2D uNoise; varying vec3 vC; varying vec3 vN; varying vec3 vP;
       void main() { float tNy = vN.y * (gl_FrontFacing ? 1.0 : -1.0), tGreen = vC.g - vC.r; vec3 tP = vP * 14.0; ${TREE_SNOW}
-        vec3 c = mix(vC * (0.55 + 0.9 * smoothstep(0.0, 0.5, length(vP.xz))), vec3(0.80, 0.83, 0.88), tsn);
+        vec3 c = mix(vC * (0.55 + 0.9 * smoothstep(0.0, 0.5, length(vP.xz))), vec3(0.88, 0.90, 0.94), tsn);
         gl_FragColor = vec4(c * (0.5 + 0.5 * clamp(tNy * 0.5 + 0.6, 0.0, 1.0)), 1.0); }` });
   const prev = renderer.getRenderTarget(); renderer.setRenderTarget(rt); renderer.setClearColor(0x0c1a0e, 0); renderer.clear();
   for (let v = 0; v < 2; v++) for (let a = 0; a < 2; a++) { const m = new THREE.Mesh(treeGeo[v], im); m.rotation.y = a * 1.3; sc.add(m); rt.viewport.set(v * S, a * S, S, S); rt.scissor.set(v * S, a * S, S, S); rt.scissorTest = true; renderer.setRenderTarget(rt); renderer.render(sc, cam); sc.remove(m); }
@@ -80,7 +83,7 @@ function initTrees() {
         vec3 n = normalize(right * vX * 0.9 + vec3(toC.x, 0.0, toC.z) * (1.0 - abs(vX) * 0.6) + vec3(0.0, 0.45, 0.0));
         float vis = texture2D(uTT, ttUV(vBase)).a;
         vec3 lit = uSunCol * (0.3183 * (max(dot(n, uSunDir), 0.0) * 0.8 + 0.2 * max(uSunDir.y, 0.0))) * vis + uSkyAmb * 0.62;
-        gl_FragColor = vec4(t.rgb * mix(0.8, 1.2, vTint - 0.8) * lit, 1.0);
+        gl_FragColor = vec4(t.rgb * mix(0.8, 1.2, vTint - 0.8) * lit * mix(1.0, 0.5, smoothstep(250.0, 1400.0, tD)), 1.0);   // from across the valley a snowy fir still reads dark
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
         #include <fog_fragment>

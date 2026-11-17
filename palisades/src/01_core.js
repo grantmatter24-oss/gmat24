@@ -49,7 +49,7 @@ async function loadWorld() {
   ROCK = new Float32Array(NX * NZ);
   for (let j = 0; j < NZ; j++) for (let i = 0; i < NX; i++) {
     const a = HM[j * NX + Math.min(NX - 1, i + 1)] - HM[j * NX + Math.max(0, i - 1)], b = HM[Math.min(NZ - 1, j + 1) * NX + i] - HM[Math.max(0, j - 1) * NX + i];
-    ROCK[j * NX + i] = sstep(0.74, 1.12, Math.hypot(a, b) / (2 * CELL));
+    ROCK[j * NX + i] = sstep(0.62, 1.02, Math.hypot(a, b) / (2 * CELL));   // the 10 m survey rounds cliffs off, so rock starts near 32 degrees
   }
 }
 const inWorld = (x, z, m = 0) => x >= X0 + m && x <= X1 - m && z >= Z0 + m && z <= Z1 - m;
@@ -72,12 +72,13 @@ function maskAt(x, z) { // -> [groom, tree, road, mogul, cos2t, sin2t], each 0..
   for (let k = 0; k < 3; k++) { _mk[k] = (MA[a + k] * w0 + MA[b + k] * w1 + MA[c + k] * w2 + MA[d + k] * w3) / 255; _mk[k + 3] = (MB[a + k] * w0 + MB[b + k] * w1 + MB[c + k] * w2 + MB[d + k] * w3) / 255; }
   return _mk;
 }
+const clearMask = (x, z) => { const fx = clamp(Math.round((x - X0) / MCELL), 0, MW - 1), fz = clamp(Math.round((z - Z0) / MCELL), 0, MH - 1); return Math.max(MB[(fz * MW + fx) * 4], MA[(fz * MW + fx) * 4], MA[(fz * MW + fx) * 4 + 2]) / 255; };
 const treeMask = (x, z) => { const fx = clamp(Math.round((x - X0) / MCELL), 0, MW - 1), fz = clamp(Math.round((z - Z0) / MCELL), 0, MH - 1); return MA[(fz * MW + fx) * 4 + 1] / 255; };
 const rockAt = (x, z) => bil(ROCK, NX, NZ, (x - X0) / CELL, (z - Z0) / CELL);
 /* Snow surface on top of the survey data. Skiable ground stays smooth (long, gentle powder rolls off the groomed runs);
    only true cliffs get stepped rock bands. Physics and rendering share it. */
 function detailH(x, z) {
-  const m = maskAt(x, z), open = (1 - m[0]) * (1 - m[2]), rk = sstep(0.4, 0.95, rockAt(x, z));
+  const m = maskAt(x, z), open = (1 - m[0]) * (1 - m[2]), rk = sstep(0.3, 0.9, rockAt(x, z)) * (1 - m[0]);
   let d = 0;
   if (open > 0.01) d += open * 0.32 * (vnoise(x * 0.019, z * 0.019, 11) * 2 - 1);
   if (rk > 0.01) {
@@ -86,13 +87,34 @@ function detailH(x, z) {
   }
   return d;
 }
+/* Cat tracks: the gentle groomed roads that traverse the mountain are cut level into the hillside, as the snowcats leave them. */
+const CATC = 40, CATW = Math.ceil((X1 - X0) / CATC), CATH = Math.ceil((Z1 - Z0) / CATC); let CATG = null;
+function initCat() {
+  const G = new Array(CATW * CATH);
+  for (const r of WORLD.runs) {
+    if (!r.c) continue; const P = [];
+    for (let i = 0; i < r.pts.length - 1; i++) { const a = r.pts[i], b = r.pts[i + 1], n = Math.max(1, Math.round(Math.hypot(b[0] - a[0], b[1] - a[1]) / 12)); for (let k = 0; k < n; k++) P.push([lerp(a[0], b[0], k / n), lerp(a[1], b[1], k / n)]); }
+    P.push(r.pts[r.pts.length - 1].slice()); let hs = P.map(q => hBase(q[0], q[1]));
+    for (let it = 0; it < 6; it++) hs = hs.map((h, i) => i === 0 || i === hs.length - 1 ? h : (hs[i - 1] + 2 * h + hs[i + 1]) / 4);   // even out the grade along the road
+    for (let i = 0; i < P.length - 1; i++) {
+      const sg = [P[i][0], P[i][1], P[i + 1][0], P[i + 1][1], hs[i], hs[i + 1]], x0 = Math.floor((Math.min(sg[0], sg[2]) - 12 - X0) / CATC), x1 = Math.floor((Math.max(sg[0], sg[2]) + 12 - X0) / CATC), z0 = Math.floor((Math.min(sg[1], sg[3]) - 12 - Z0) / CATC), z1 = Math.floor((Math.max(sg[1], sg[3]) + 12 - Z0) / CATC);
+      for (let cz = Math.max(0, z0); cz <= Math.min(CATH - 1, z1); cz++) for (let cx = Math.max(0, x0); cx <= Math.min(CATW - 1, x1); cx++) (G[cz * CATW + cx] || (G[cz * CATW + cx] = [])).push(sg);
+    }
+  }
+  CATG = G;
+}
+function catBench(x, z, h) {
+  const c = CATG && CATG[((z - Z0) / CATC | 0) * CATW + ((x - X0) / CATC | 0)]; if (!c) return h; let bd = 144, bt = 0;
+  for (const s of c) { const ex = s[2] - s[0], ez = s[3] - s[1], t = clamp(((x - s[0]) * ex + (z - s[1]) * ez) / (ex * ex + ez * ez || 1), 0, 1), dx = x - s[0] - ex * t, dz = z - s[1] - ez * t, d = dx * dx + dz * dz; if (d < bd) { bd = d; bt = s[4] + (s[5] - s[4]) * t; } }
+  if (bd >= 144) return h; return lerp(h, bt, 1 - sstep(4, 12, Math.sqrt(bd)));
+}
 const EDGE = 220;
 function edgeW(x, z) { return smooth(1 - Math.min(x - X0, X1 - x, z - Z0, Z1 - z) / EDGE); }
 /* Ground height. Inside the resort grid it is survey + detail, blending to the coarse backdrop at the rim so the two meshes meet exactly. */
 function H(x, z) {
   if (!(x > X0 && x < X1 && z > Z0 && z < Z1)) return hOuter(x, z);
   const w = edgeW(x, z); if (w >= 1) return hOuter(x, z);
-  const h = hBase(x, z) + detailH(x, z); return w > 0 ? lerp(h, hOuter(x, z), w) : h;
+  const h = catBench(x, z, hBase(x, z) + detailH(x, z)); return w > 0 ? lerp(h, hOuter(x, z), w) : h;
 }
 function Hsmooth(x, z) { // no detail: far terrain, lift profiles, building pads
   if (!(x > X0 && x < X1 && z > Z0 && z < Z1)) return hOuter(x, z);
