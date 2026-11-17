@@ -874,43 +874,63 @@ function treeHit(x, z, rad) {
   return null;
 }
 
-/* ---------- rock you can see the shape of: faceted blocks set into every cliff face near the skier ---------- */
+/* ---------- cliffs: every surveyed cliff is one rock ----------
+   Connected patches of the lidar cliff map are found once. Each becomes a single mesh laid over the real cliff surface and pushed
+   out along its normal by the chosen style, so no two are the same size or shape: each is as big as the cliff it stands on. */
+const ROCK_STYLES = {
+  a: { name: "Granite domes", flat: false, lo: [0.20, 0.19, 0.18], hi: [0.50, 0.48, 0.45] },
+  b: { name: "Fractured blocks", flat: true, lo: [0.085, 0.062, 0.045], hi: [0.34, 0.26, 0.18] },
+  c: { name: "Stepped ledges", flat: true, lo: [0.13, 0.11, 0.095], hi: [0.40, 0.33, 0.26] },
+  d: { name: "Fluted columns", flat: true, lo: [0.05, 0.05, 0.055], hi: [0.22, 0.21, 0.21] }
+};
+let rockStyle = QS.get("rock") || store.get("pal-rock", "b"); if (!ROCK_STYLES[rockStyle]) rockStyle = "b";
+const rockU = { uRkLo: { value: new THREE.Color() }, uRkHi: { value: new THREE.Color() } };
+let CLIFFS = [], rockMats = null;
+function rockPush(x, y, z, nx, nz) { // how far the rock stands out from the surveyed surface, by style
+  if (rockStyle === "a") { const n = vnoise(x * 0.11 + y * 0.05, z * 0.11 + y * 0.08, 61); return 1.6 * n * n + 0.25 * vnoise(x * 0.45, z * 0.45 + y * 0.35, 62); }
+  if (rockStyle === "b") { const a = Math.floor((x * 0.8 + z * 0.6) / 3.4), b = Math.floor(y / 2.8 + 0.4 * hash2(a, 1, 66)), c = Math.floor((-x * 0.6 + z * 0.8) / 3.4); return 0.2 + 1.7 * hash2(a * 7 + b * 13, c * 5 + b, 63); }
+  if (rockStyle === "c") { const t = y / 2.6 + vnoise(x * 0.05, z * 0.05, 64) * 1.6, f = t - Math.floor(t); return 1.5 * (f < 0.78 ? f / 0.78 : (1 - f) / 0.22) + 0.2 * vnoise(x * 0.6, z * 0.6, 65); }
+  const s2 = x * -nz + z * nx; return 1.7 * Math.pow(Math.abs(Math.sin(s2 * 0.62 + vnoise(y * 0.07, s2 * 0.03, 67) * 3)), 0.55) + 0.25 * vnoise(x * 0.5, z * 0.5 + y * 0.4, 68);
+}
 function initRocks() {
-  const g = new THREE.IcosahedronGeometry(1, 1), p = g.attributes.position;
-  for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i), k = 0.72 + 0.6 * hash2(Math.round(x * 97), Math.round(y * 89 + z * 61), 5); p.setXYZ(i, x * k, y * k * 0.85, z * k); }
-  g.computeVertexNormals(); rockGeo = g;
-  rockMat = worldShade(new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, flatShading: true }), {
-    patch(sh) { sh.fragmentShader = sh.fragmentShader.replace("#include <color_fragment>", `#include <color_fragment>
+  const lab = new Int32Array(NX * NZ), stack = [];
+  for (let k0 = 0; k0 < NX * NZ; k0++) {
+    if (CL[k0] <= 0.35 || lab[k0]) continue; const id = CLIFFS.length + 1, c = { id, i0: 1e9, i1: 0, j0: 1e9, j1: 0, n: 0, mesh: null }; stack.push(k0); lab[k0] = id;
+    while (stack.length) { const k = stack.pop(), i = k % NX, j = (k / NX) | 0; c.n++; if (i < c.i0) c.i0 = i; if (i > c.i1) c.i1 = i; if (j < c.j0) c.j0 = j; if (j > c.j1) c.j1 = j;
+      for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) { const a = i + di, b = j + dj; if (a < 0 || b < 0 || a >= NX || b >= NZ) continue; const q = b * NX + a; if (CL[q] > 0.35 && !lab[q]) { lab[q] = id; stack.push(q); } } }
+    c.x = X0 + (c.i0 + c.i1) / 2 * CELL; c.z = Z0 + (c.j0 + c.j1) / 2 * CELL; c.r = Math.hypot(c.i1 - c.i0, c.j1 - c.j0) * CELL / 2 + 6; CLIFFS.push(c);
+  }
+  CLIFFS.lab = lab;
+  const mk = flat => worldShade(new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, flatShading: flat }), {
+    patch(sh) { Object.assign(sh.uniforms, rockU); sh.fragmentShader = "uniform vec3 uRkLo, uRkHi;\n" + sh.fragmentShader.replace("#include <color_fragment>", `#include <color_fragment>
       { vec3 wn = normalize(cross(dFdx(vWp), dFdy(vWp))); vec2 rw = abs(wn.xz) + 0.001; rw /= rw.x + rw.y;
-        float n1 = texture2D(uNoise, vWp.zy * 0.05).r * rw.x + texture2D(uNoise, vWp.xy * 0.05).r * rw.y, n2 = texture2D(uNoise, vWp.zy * 0.4).g * rw.x + texture2D(uNoise, vWp.xy * 0.4).g * rw.y;
-        vec3 rk = mix(vec3(0.07, 0.052, 0.04), vec3(0.30, 0.235, 0.17), n1 * 0.6 + n2 * 0.4) * (0.75 + 0.5 * vColor.r);
-        float sn = smoothstep(0.45, 0.62, wn.y + (n2 - 0.5) * 0.3);
+        float n1 = texture2D(uNoise, vWp.zy * 0.045).r * rw.x + texture2D(uNoise, vWp.xy * 0.045).r * rw.y, n2 = texture2D(uNoise, vWp.zy * 0.4).g * rw.x + texture2D(uNoise, vWp.xy * 0.4).g * rw.y, n3 = texture2D(uNoise, vWp.zy * vec2(0.5, 0.02)).b * rw.x + texture2D(uNoise, vWp.xy * vec2(0.5, 0.02)).b * rw.y;
+        vec3 rk = mix(uRkLo, uRkHi, n1 * 0.6 + n2 * 0.4) * (1.0 - 0.3 * smoothstep(0.55, 0.8, n3));
+        float sn = smoothstep(0.42, 0.6, wn.y + (n2 - 0.5) * 0.3);
         diffuseColor.rgb = mix(rk, vec3(0.9, 0.92, 0.95), sn); }`); }
   });
+  rockMats = { smooth: mk(false), flat: mk(true) }; setRockStyle(rockStyle);
 }
-const rockTiles = new Map(), nearRocks = new Map();
-function tileRocks(cx, cz) {
-  const key = cz * 1000 + cx; let t = rockTiles.get(key); if (t) return t; const out = [], x0 = X0 + cx * CH, z0 = Z0 + cz * CH, st = 5, n = Math.round(CH / st);
-  let any = false; for (let j = 0; j <= 10 && !any; j++) for (let i = 0; i <= 10; i++) if (cliffK(x0 + i * CH / 10, z0 + j * CH / 10) > 0.15) { any = true; break; }
-  if (any) for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
-    const gx = Math.round(x0 / st) + i, gz = Math.round(z0 / st) + j, x = (gx + hash2(gx, gz, 81)) * st, z = (gz + hash2(gx, gz, 82)) * st; if (!inWorld(x, z, 240)) continue;
-    const c = cliffK(x, z); if (c < 0.4 || hash2(gx, gz, 83) > 0.8) continue;
-    const sc = (2.4 + 4.6 * hash2(gx, gz, 84) * hash2(gx, gz, 85)) * (0.6 + 0.6 * c);   // outcrops the size of a truck, not rubble out.push(x, H(x, z) - sc * 0.15, z, sc, hash2(gx, gz, 86) * TAU, 0.75 + 0.6 * hash2(gx, gz, 87), 0.7 + 0.6 * hash2(gx, gz, 88));
-  }
-  t = new Float32Array(out); rockTiles.set(key, t); return t;
+function setRockStyle(k) { rockStyle = k; store.set("pal-rock", k); const st = ROCK_STYLES[k]; rockU.uRkLo.value.setRGB(...st.lo); rockU.uRkHi.value.setRGB(...st.hi); for (const c of CLIFFS) if (c.mesh) { scene.remove(c.mesh); c.mesh.geometry.dispose(); c.mesh = null; } }
+function buildCliff(c) {
+  const big = c.n > 900, st = big ? 2.5 : 1.25, pad = 5, x0 = X0 + c.i0 * CELL - pad, z0 = Z0 + c.j0 * CELL - pad, nx = Math.ceil(((c.i1 - c.i0) * CELL + 2 * pad) / st) + 1, nz = Math.ceil(((c.j1 - c.j0) * CELL + 2 * pad) / st) + 1;
+  const hs = new Float32Array(nx * nz), ms = new Float32Array(nx * nz), pos = new Float32Array(nx * nz * 3), lab = CLIFFS.lab;
+  for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) { const x = x0 + i * st, z = z0 + j * st, k = j * nx + i; hs[k] = H(x, z);
+    const gi = clamp(Math.round((x - X0) / CELL), 0, NX - 1), gj = clamp(Math.round((z - Z0) / CELL), 0, NZ - 1), l = lab[gj * NX + gi]; ms[k] = l && l !== c.id ? 0 : sstep(0.16, 0.5, cliffK(x, z)); }
+  for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) { const k = j * nx + i, x = x0 + i * st, z = z0 + j * st, i0 = Math.max(0, i - 1), i1 = Math.min(nx - 1, i + 1), j0 = Math.max(0, j - 1), j1 = Math.min(nz - 1, j + 1);
+    let ax = (hs[j * nx + i0] - hs[j * nx + i1]) / ((i1 - i0) * st), az = (hs[j0 * nx + i] - hs[j1 * nx + i]) / ((j1 - j0) * st); const il = 1 / Math.hypot(ax, 1, az), hl = Math.hypot(ax, az) || 1, m = ms[k], d = m * (0.15 + rockPush(x, hs[k], z, ax / hl, az / hl));
+    pos[k * 3] = x - c.x + ax * il * d; pos[k * 3 + 1] = hs[k] + il * d * 0.6; pos[k * 3 + 2] = z - c.z + az * il * d; }
+  const idx = []; for (let j = 0; j < nz - 1; j++) for (let i = 0; i < nx - 1; i++) { const a = j * nx + i, b = a + 1, d = a + nx, e = d + 1; if (ms[a] < 0.07 || ms[b] < 0.07 || ms[d] < 0.07 || ms[e] < 0.07) continue; idx.push(a, d, b, b, d, e); }
+  if (!idx.length) { c.mesh = false; return; }
+  const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+  const m = new THREE.Mesh(g, ROCK_STYLES[rockStyle].flat ? rockMats.flat : rockMats.smooth); m.position.set(c.x, 0, c.z); m.matrixAutoUpdate = false; m.updateMatrix(); m.receiveShadow = true; m.castShadow = true; scene.add(m); c.mesh = m;
 }
-const _re = new THREE.Euler();
 function updateRocks(cam) {
-  const R = Q.rockR, c0x = Math.floor((cam.x - R - X0) / CH), c1x = Math.floor((cam.x + R - X0) / CH), c0z = Math.floor((cam.z - R - Z0) / CH), c1z = Math.floor((cam.z + R - Z0) / CH);
-  for (const [key, m] of nearRocks) { const cx = key % 1000, cz = (key / 1000) | 0; if (cx < c0x - 1 || cx > c1x + 1 || cz < c0z - 1 || cz > c1z + 1) { if (m) { scene.remove(m); m.dispose(); } nearRocks.delete(key); } }
   let made = 0;
-  for (let cz = Math.max(0, c0z); cz <= Math.min(CNZ - 1, c1z); cz++) for (let cx = Math.max(0, c0x); cx <= Math.min(CNX - 1, c1x); cx++) {
-    const key = cz * 1000 + cx; if (nearRocks.has(key)) { const m = nearRocks.get(key); if (m) m.castShadow = Math.hypot(X0 + (cx + 0.5) * CH - cam.x, Z0 + (cz + 0.5) * CH - cam.z) < Q.shadowR + 110; continue; } if (made > 1) continue; made++;
-    const t = tileRocks(cx, cz), cnt = t.length / 7; if (!cnt) { nearRocks.set(key, null); continue; }
-    const m = new THREE.InstancedMesh(rockGeo, rockMat, cnt);
-    for (let k = 0; k < cnt; k++) { const o = k * 7, sc = t[o + 3]; _tq.setFromEuler(_re.set(t[o + 4] * 0.3, t[o + 4], t[o + 4] * 0.17)); _tm.compose(_tp.set(t[o], t[o + 1], t[o + 2]), _tq, _ts.set(sc * t[o + 5], sc * 1.5, sc * t[o + 6])); m.setMatrixAt(k, _tm); m.setColorAt(k, _tc.setRGB(t[o + 5] - 0.4, 0, 0)); }
-    m.receiveShadow = true; m.frustumCulled = false; scene.add(m); nearRocks.set(key, m);
-  }
+  for (const c of CLIFFS) { const d = Math.hypot(c.x - cam.x, c.z - cam.z) - c.r;
+    if (d > Q.rockR + 150) { if (c.mesh) { scene.remove(c.mesh); c.mesh.geometry.dispose(); } c.mesh = null; continue; }
+    if (d < Q.rockR && c.mesh === null && c.n >= 2 && made < 2) { buildCliff(c); made++; }
+    if (c.mesh) c.mesh.castShadow = d < Q.shadowR + 60; }
 }
 
 /* ---------- lifts: real alignments and tower positions from OpenStreetMap ---------- */
@@ -2366,7 +2386,7 @@ function tick(t) {
 }
 async function boot() {
   await progress("Reading the survey", 0.05); await loadWorld();
-  await progress("Shaping the mountain", 0.2); initCat(); buildTerrainTex(); buildComposer(); initTrees(); initRocks();
+  await progress("Shaping the mountain", 0.2); initCat(); initRocks(); buildTerrainTex(); buildComposer(); initTrees();
   await progress("Setting the light", 0.35); setWeather(wxName);
   await progress("Laying snow", 0.45); initChunks(); buildOuter();
   await progress("Stringing the lifts", 0.6); initLifts(); initBuildings(); initRuns(); initCars(); initSigns(); initSlow(); initNPCs(); initVillage(); initParkMeshes();
@@ -2383,7 +2403,7 @@ async function boot() {
   for (let i = 0; i < 300; i++) if (!updateTerrain(camera.position, 40)) break;
   for (let i = 0; i < 40; i++) { updateTrees(camera.position); updateRocks(camera.position); }
   $("load").hidden = true; renderer.info.autoReset = false; requestAnimationFrame(tick);
-  window.__pal = { cliffK, hBase, PARK, REW, stepRewind, recordRewind, toggleWalk, stepWalk, clearTracks, goHome, toggleMap, runAt, npcs, KR, gDown, gUp, landing, stepSki, stepLift, updateLifts, findNearLift, nrm, sk, K, LIFTS, WORLD, H, camera, scene, renderer, setWeather, placeSkier, boardLift, unloadAt, spawnAt, MP, chunks, nearTiles, treeTiles, Q };
+  window.__pal = { CLIFFS, buildCliff, setRockStyle, setCam: a => { camFix = a; sk.mode = "menu"; $("menu").hidden = true; $("hud").hidden = true; }, cliffK, hBase, PARK, REW, stepRewind, recordRewind, toggleWalk, stepWalk, clearTracks, goHome, toggleMap, runAt, npcs, KR, gDown, gUp, landing, stepSki, stepLift, updateLifts, findNearLift, nrm, sk, K, LIFTS, WORLD, H, camera, scene, renderer, setWeather, placeSkier, boardLift, unloadAt, spawnAt, MP, chunks, nearTiles, treeTiles, Q };
   window.__info = () => ({ mode: sk.mode, p: [Math.round(sk.p.x), Math.round(sk.p.y), Math.round(sk.p.z)], sp: +sk.sp.toFixed(1), ground: sk.ground, crashed: sk.crashed, trees: treeCount, calls: renderer.info.render.calls, tris: renderer.info.render.triangles, lift: sk.lift && sk.lift.name, liftS: Math.round(sk.liftS) });
 }
 boot().catch(e => { const d = document.createElement("div"); d.id = "err"; d.textContent = String(e && e.stack || e); document.body.appendChild(d); console.error(e); });
