@@ -117,35 +117,52 @@ function catBench(x, z, h) {
     if (s[8] === 1 && d > s[6] - 0.4 && d < s[6] + 2.2) berm = Math.max(berm, 0.38 * Math.sin((d - s[6] + 0.4) / 2.6 * Math.PI)); }   // the windrow the cat leaves along each edge
   return mw > 0 ? lerp(h, st / sw, mw) + berm : h;
 }
-/* Terrain parks where the resort builds them: Belmont, and the Gold Coast line. Table-top kickers are shaped into the snow here;
-   the rails that go with them are in PARK for the renderer and the grind physics. */
+/* Terrain parks where the resort builds them (Belmont, and the Gold Coast line), cut the way the park crew cuts them: a takeoff
+   wedge with square sides and a clean lip, a flat deck, a knuckle and a long landing. Sizes are taken from photographs of the
+   Gold Coast park against the people in them: the big tables stand about two riders high at the lip and six or seven wide.
+   Side hits are the little lips and banks skiers wear into the edges of the groomed runs. */
+let parkLayout = +(QS.get("park") || store.get("pal-park", 2)), hitStyle = +(QS.get("hits") || store.get("pal-hits", 1));
+const TABLE = { big: { hK: 3.6, Lr: 11, T: 16, Ld: 26, W: 12 }, mid: { hK: 2.4, Lr: 8.5, T: 10, Ld: 17, W: 8.5 }, wedge: { hK: 1.7, Lr: 5.2, T: 0, Ld: 0.7, W: 3.2 } };
 function initPark() {
-  const G = new Array(CATW * CATH), SZ = [[1.9, 8, 6, 13], [2.9, 10, 9, 17], [3.9, 12, 12, 21]];
-  const line = (pts, off, s0, s1) => { // lay features along a downhill path
-    const S = [0]; for (let i = 1; i < pts.length; i++) S.push(S[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
-    const at = s => { let k = 0; while (k < pts.length - 2 && s > S[k + 1]) k++; const u = (s - S[k]) / (S[k + 1] - S[k] || 1), dx = (pts[k + 1][0] - pts[k][0]) / (S[k + 1] - S[k] || 1), dz = (pts[k + 1][1] - pts[k][1]) / (S[k + 1] - S[k] || 1); return { x: lerp(pts[k][0], pts[k + 1][0], u) - dz * off, z: lerp(pts[k][1], pts[k + 1][1], u) + dx * off, dx, dz }; };
-    let s = s0, n = 0; const end = Math.min(s1, S[S.length - 1] - 30);
-    while (s < end) {
-      const o = at(s);
-      if (n % 2 === 0) { const q = SZ[(n / 2) % 3], f = Object.assign({ k: "kick", hK: q[0], Lr: q[1], T: q[2], Ld: q[3], W: 9 }, o); PARK.push(f); s += q[1] + q[2] + q[3] + 30; }
-      else { const len = 9 + 3 * ((n >> 1) % 2), lip = Object.assign({ k: "kick", hK: 0.55, Lr: 3.2, T: 0, Ld: 1.2, W: 3.2, lip: true }, o), r = at(s + 4.2); PARK.push(lip, Object.assign({ k: "rail", len, hgt: 0.62 }, r)); s += 4.2 + len + 24; }
-      n++;
-    }
-  };
+  const G = new Array(CATW * CATH);
+  const path = (pts, off) => { const S = [0]; for (let i = 1; i < pts.length; i++) S.push(S[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+    return { len: S[S.length - 1], at: (s, o = off) => { let k = 0; while (k < pts.length - 2 && s > S[k + 1]) k++; const u = (s - S[k]) / (S[k + 1] - S[k] || 1), dx = (pts[k + 1][0] - pts[k][0]) / (S[k + 1] - S[k] || 1), dz = (pts[k + 1][1] - pts[k][1]) / (S[k + 1] - S[k] || 1); return { x: lerp(pts[k][0], pts[k + 1][0], u) - dz * o, z: lerp(pts[k][1], pts[k + 1][1], u) + dx * o, dx, dz }; } }; };
+  const table = (p, s, off, kind) => { const q = TABLE[kind]; PARK.push(Object.assign({ k: "table", kind, deck: kind === "wedge" ? 0 : 0.56 }, q, p.at(s, off))); return q.Lr + q.T + q.Ld; };
+  const rail = (p, s, off, len) => { PARK.push(Object.assign({ k: "table", kind: "lip", hK: 0.55, Lr: 3.2, T: 0, Ld: 1.2, W: 3.2, deck: 0, lip: true }, p.at(s, off)), Object.assign({ k: "rail", len, hgt: 0.62 }, p.at(s + 4.2, off))); return 4.2 + len; };
+  const barrel = (p, s, off) => { PARK.push(Object.assign({ k: "mound", R: 3.4, hK: 1.25 }, p.at(s, off))); return 7; };
   const bel = WORLD.lifts.find(l => l.n === "Belmont"), gc = WORLD.runs.filter(r => r.n === "Gold Coast").sort((a, b) => b.len - a.len)[0];
-  if (bel) line(bel.pts.slice().reverse(), 22, 24, 1e9);
-  if (gc) line(gc.pts, 0, 70, 760);
-  for (const f of PARK) { const L = f.k === "kick" ? f.Lr + f.T + f.Ld + 2 : f.len, r = (f.W || 2) / 2 + 3; gridAdd(G, Math.min(f.x, f.x + f.dx * L) - r, Math.min(f.z, f.z + f.dz * L) - r, Math.max(f.x, f.x + f.dx * L) + r, Math.max(f.z, f.z + f.dz * L) + r, f); }
+  if (bel) { const p = path(bel.pts.slice().reverse(), 22); let s = 24, n = 0; while (s < p.len - 40) { s += (n % 3 === 0 ? table(p, s, 22, "wedge") : n % 3 === 1 ? rail(p, s, 22, 10) : table(p, s, 22, "mid")) + 24; n++; } }
+  if (gc) { const p = path(gc.pts, 0), end = Math.min(780, p.len - 40);
+    if (parkLayout === 2) { // two lines side by side: medium tables on the left, the big ones on the right, jibs below
+      let s = 70; while (s < end - 60) s += table(p, s, -11, "mid") + 30;
+      s = 80; while (s < end - 70) s += table(p, s, 11, "big") + 38;
+    } else { // the jump line down the middle, with a jib lane of small wedges, barrels and rails beside it
+      let s = 80; while (s < end - 70) s += table(p, s, 3, "big") + 38;
+      s = 70; let n = 0; while (s < end - 30) { s += (n % 3 === 0 ? table(p, s, -15, "wedge") : n % 3 === 1 ? barrel(p, s, -15) : rail(p, s, -15, 9 + 3 * (n % 2))) + 26; n++; }
+    } }
+  // side hits on the busier groomed runs, alternating edges
+  for (const r of WORLD.runs) { if (!r.g || r.c || r.d > 1 || r.len < 500 || r.n === "Gold Coast") continue; const p = path(r.pts, 0), W = [46, 42, 30, 18][r.d]; let s = 90 + 60 * hash2(r.len, 3, 41), n = 0;
+    while (s < p.len - 60) { const sd = (n + (r.len & 1)) % 2 ? 1 : -1, o = p.at(s, sd * (W / 2 - 1.5));
+      if (hitStyle === 2) PARK.push(Object.assign({ k: "bank", len: 26, wB: 6.5, hK: 2.3, sd }, p.at(s, sd * (W / 2 - 2))));
+      else { const c = Math.cos(0.3 * sd), sn = Math.sin(0.3 * sd); PARK.push(Object.assign({ k: "table", kind: "hit", hK: 1.1 + 0.5 * hash2(n, r.len, 42), Lr: 5, T: 0, Ld: 2.2, W: 4.2, deck: 0, side: true, soft: true }, o, { dx: o.dx * c - o.dz * sn, dz: o.dz * c + o.dx * sn })); }
+      s += 150 + 110 * hash2(n, r.len, 43); n++; } }
+  for (const f of PARK) { const L = f.k === "table" ? f.Lr + f.T + f.Ld + 2 : f.k === "mound" ? f.R : f.len, r = f.k === "bank" ? f.wB + 3 : f.k === "mound" ? f.R + 1 : (f.W || 2) / 2 + 6; gridAdd(G, Math.min(f.x, f.x + f.dx * L) - r, Math.min(f.z, f.z + f.dz * L) - r, Math.max(f.x, f.x + f.dx * L) + r, Math.max(f.z, f.z + f.dz * L) + r, f); }
   PARKG = G;
 }
 const parkCell = (x, z) => PARKG && PARKG[((z - Z0) / CATC | 0) * CATW + ((x - X0) / CATC | 0)];
 function parkH(x, z) {
   const c = parkCell(x, z); if (!c) return 0; let h = 0;
-  for (const f of c) { if (f.k !== "kick") continue; const rx = x - f.x, rz = z - f.z, s = rx * f.dx + rz * f.dz; if (s < 0 || s > f.Lr + f.T + f.Ld) continue; const u = Math.abs(-rx * f.dz + rz * f.dx), w = 1 - sstep(f.W / 2 - 0.8, f.W / 2 + 1.6, u); if (w <= 0) continue;
-    const top = f.hK * 0.78, v = s < f.Lr ? f.hK * (s / f.Lr) * (s / f.Lr) : s < f.Lr + f.T ? top : top * (1 - smooth((s - f.Lr - f.T) / f.Ld)); if (v * w > h) h = v * w; }
+  for (const f of c) { const rx = x - f.x, rz = z - f.z, s = rx * f.dx + rz * f.dz, ul = -rx * f.dz + rz * f.dx, u = Math.abs(ul); let v = 0;
+    if (f.k === "table") { const L = f.Lr + f.T + f.Ld; if (s < 0 || s > L) continue;
+      if (s < f.Lr) v = f.hK * Math.pow(s / f.Lr, 1.7) * (1 - sstep(f.W / 2 - (f.soft ? 1.2 : 0.25), f.W / 2 + (f.soft ? 1.8 : 0.7), u));   // the wedge: square-cut sides
+      const dk = f.hK * f.deck; if (dk > 0 && s > f.Lr - 1.5) { const wl = f.W / 2 + 2, body = (s < f.Lr + f.T ? dk * sstep(f.Lr - 1.5, f.Lr + 0.6, s) : dk * (1 - smooth((s - f.Lr - f.T) / f.Ld))) * (1 - sstep(wl - 0.4, wl + 2.6, u)); if (s >= f.Lr + 0.55) v = body; else v = Math.max(v * (1 - sstep(f.Lr, f.Lr + 0.55, s)), body); }
+      else if (s >= f.Lr) v *= 1 - sstep(f.Lr, f.Lr + f.Ld, s); }
+    else if (f.k === "mound") { const d = Math.hypot(rx - f.dx * f.R * 0.5, rz - f.dz * f.R * 0.5); v = f.hK * (1 - smooth(d / f.R)); }
+    else if (f.k === "bank") { if (s < 0 || s > f.len) continue; const o = ul * f.sd; if (o < 0 || o > f.wB + 3) continue; const t = Math.min(1, o / f.wB); v = f.hK * t * t * Math.sin(Math.PI * s / f.len) * (1 - sstep(f.wB, f.wB + 3, o)); }
+    if (v > h) h = v; }
   return h;
 }
-function kickerLip(x, z) { const c = parkCell(x, z); if (!c) return null; for (const f of c) { if (f.k !== "kick") continue; const rx = x - f.x, rz = z - f.z, s = rx * f.dx + rz * f.dz; if (s > f.Lr - 3 && s < f.Lr + 1.2 && Math.abs(-rx * f.dz + rz * f.dx) < f.W / 2) return f; } return null; }
+function kickerLip(x, z) { const c = parkCell(x, z); if (!c) return null; for (const f of c) { if (f.k !== "table") continue; const rx = x - f.x, rz = z - f.z, s = rx * f.dx + rz * f.dz; if (s > f.Lr - 3 && s < f.Lr + 1.2 && Math.abs(-rx * f.dz + rz * f.dx) < f.W / 2) return f; } return null; }
 const EDGE = 220;
 function edgeW(x, z) { return smooth(1 - Math.min(x - X0, X1 - x, z - Z0, Z1 - z) / EDGE); }
 /* Ground height. Inside the resort grid it is survey + detail, blending to the coarse backdrop at the rim so the two meshes meet exactly. */

@@ -296,35 +296,52 @@ function catBench(x, z, h) {
     if (s[8] === 1 && d > s[6] - 0.4 && d < s[6] + 2.2) berm = Math.max(berm, 0.38 * Math.sin((d - s[6] + 0.4) / 2.6 * Math.PI)); }   // the windrow the cat leaves along each edge
   return mw > 0 ? lerp(h, st / sw, mw) + berm : h;
 }
-/* Terrain parks where the resort builds them: Belmont, and the Gold Coast line. Table-top kickers are shaped into the snow here;
-   the rails that go with them are in PARK for the renderer and the grind physics. */
+/* Terrain parks where the resort builds them (Belmont, and the Gold Coast line), cut the way the park crew cuts them: a takeoff
+   wedge with square sides and a clean lip, a flat deck, a knuckle and a long landing. Sizes are taken from photographs of the
+   Gold Coast park against the people in them: the big tables stand about two riders high at the lip and six or seven wide.
+   Side hits are the little lips and banks skiers wear into the edges of the groomed runs. */
+let parkLayout = +(QS.get("park") || store.get("pal-park", 2)), hitStyle = +(QS.get("hits") || store.get("pal-hits", 1));
+const TABLE = { big: { hK: 3.6, Lr: 11, T: 16, Ld: 26, W: 12 }, mid: { hK: 2.4, Lr: 8.5, T: 10, Ld: 17, W: 8.5 }, wedge: { hK: 1.7, Lr: 5.2, T: 0, Ld: 0.7, W: 3.2 } };
 function initPark() {
-  const G = new Array(CATW * CATH), SZ = [[1.9, 8, 6, 13], [2.9, 10, 9, 17], [3.9, 12, 12, 21]];
-  const line = (pts, off, s0, s1) => { // lay features along a downhill path
-    const S = [0]; for (let i = 1; i < pts.length; i++) S.push(S[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
-    const at = s => { let k = 0; while (k < pts.length - 2 && s > S[k + 1]) k++; const u = (s - S[k]) / (S[k + 1] - S[k] || 1), dx = (pts[k + 1][0] - pts[k][0]) / (S[k + 1] - S[k] || 1), dz = (pts[k + 1][1] - pts[k][1]) / (S[k + 1] - S[k] || 1); return { x: lerp(pts[k][0], pts[k + 1][0], u) - dz * off, z: lerp(pts[k][1], pts[k + 1][1], u) + dx * off, dx, dz }; };
-    let s = s0, n = 0; const end = Math.min(s1, S[S.length - 1] - 30);
-    while (s < end) {
-      const o = at(s);
-      if (n % 2 === 0) { const q = SZ[(n / 2) % 3], f = Object.assign({ k: "kick", hK: q[0], Lr: q[1], T: q[2], Ld: q[3], W: 9 }, o); PARK.push(f); s += q[1] + q[2] + q[3] + 30; }
-      else { const len = 9 + 3 * ((n >> 1) % 2), lip = Object.assign({ k: "kick", hK: 0.55, Lr: 3.2, T: 0, Ld: 1.2, W: 3.2, lip: true }, o), r = at(s + 4.2); PARK.push(lip, Object.assign({ k: "rail", len, hgt: 0.62 }, r)); s += 4.2 + len + 24; }
-      n++;
-    }
-  };
+  const G = new Array(CATW * CATH);
+  const path = (pts, off) => { const S = [0]; for (let i = 1; i < pts.length; i++) S.push(S[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+    return { len: S[S.length - 1], at: (s, o = off) => { let k = 0; while (k < pts.length - 2 && s > S[k + 1]) k++; const u = (s - S[k]) / (S[k + 1] - S[k] || 1), dx = (pts[k + 1][0] - pts[k][0]) / (S[k + 1] - S[k] || 1), dz = (pts[k + 1][1] - pts[k][1]) / (S[k + 1] - S[k] || 1); return { x: lerp(pts[k][0], pts[k + 1][0], u) - dz * o, z: lerp(pts[k][1], pts[k + 1][1], u) + dx * o, dx, dz }; } }; };
+  const table = (p, s, off, kind) => { const q = TABLE[kind]; PARK.push(Object.assign({ k: "table", kind, deck: kind === "wedge" ? 0 : 0.56 }, q, p.at(s, off))); return q.Lr + q.T + q.Ld; };
+  const rail = (p, s, off, len) => { PARK.push(Object.assign({ k: "table", kind: "lip", hK: 0.55, Lr: 3.2, T: 0, Ld: 1.2, W: 3.2, deck: 0, lip: true }, p.at(s, off)), Object.assign({ k: "rail", len, hgt: 0.62 }, p.at(s + 4.2, off))); return 4.2 + len; };
+  const barrel = (p, s, off) => { PARK.push(Object.assign({ k: "mound", R: 3.4, hK: 1.25 }, p.at(s, off))); return 7; };
   const bel = WORLD.lifts.find(l => l.n === "Belmont"), gc = WORLD.runs.filter(r => r.n === "Gold Coast").sort((a, b) => b.len - a.len)[0];
-  if (bel) line(bel.pts.slice().reverse(), 22, 24, 1e9);
-  if (gc) line(gc.pts, 0, 70, 760);
-  for (const f of PARK) { const L = f.k === "kick" ? f.Lr + f.T + f.Ld + 2 : f.len, r = (f.W || 2) / 2 + 3; gridAdd(G, Math.min(f.x, f.x + f.dx * L) - r, Math.min(f.z, f.z + f.dz * L) - r, Math.max(f.x, f.x + f.dx * L) + r, Math.max(f.z, f.z + f.dz * L) + r, f); }
+  if (bel) { const p = path(bel.pts.slice().reverse(), 22); let s = 24, n = 0; while (s < p.len - 40) { s += (n % 3 === 0 ? table(p, s, 22, "wedge") : n % 3 === 1 ? rail(p, s, 22, 10) : table(p, s, 22, "mid")) + 24; n++; } }
+  if (gc) { const p = path(gc.pts, 0), end = Math.min(780, p.len - 40);
+    if (parkLayout === 2) { // two lines side by side: medium tables on the left, the big ones on the right, jibs below
+      let s = 70; while (s < end - 60) s += table(p, s, -11, "mid") + 30;
+      s = 80; while (s < end - 70) s += table(p, s, 11, "big") + 38;
+    } else { // the jump line down the middle, with a jib lane of small wedges, barrels and rails beside it
+      let s = 80; while (s < end - 70) s += table(p, s, 3, "big") + 38;
+      s = 70; let n = 0; while (s < end - 30) { s += (n % 3 === 0 ? table(p, s, -15, "wedge") : n % 3 === 1 ? barrel(p, s, -15) : rail(p, s, -15, 9 + 3 * (n % 2))) + 26; n++; }
+    } }
+  // side hits on the busier groomed runs, alternating edges
+  for (const r of WORLD.runs) { if (!r.g || r.c || r.d > 1 || r.len < 500 || r.n === "Gold Coast") continue; const p = path(r.pts, 0), W = [46, 42, 30, 18][r.d]; let s = 90 + 60 * hash2(r.len, 3, 41), n = 0;
+    while (s < p.len - 60) { const sd = (n + (r.len & 1)) % 2 ? 1 : -1, o = p.at(s, sd * (W / 2 - 1.5));
+      if (hitStyle === 2) PARK.push(Object.assign({ k: "bank", len: 26, wB: 6.5, hK: 2.3, sd }, p.at(s, sd * (W / 2 - 2))));
+      else { const c = Math.cos(0.3 * sd), sn = Math.sin(0.3 * sd); PARK.push(Object.assign({ k: "table", kind: "hit", hK: 1.1 + 0.5 * hash2(n, r.len, 42), Lr: 5, T: 0, Ld: 2.2, W: 4.2, deck: 0, side: true, soft: true }, o, { dx: o.dx * c - o.dz * sn, dz: o.dz * c + o.dx * sn })); }
+      s += 150 + 110 * hash2(n, r.len, 43); n++; } }
+  for (const f of PARK) { const L = f.k === "table" ? f.Lr + f.T + f.Ld + 2 : f.k === "mound" ? f.R : f.len, r = f.k === "bank" ? f.wB + 3 : f.k === "mound" ? f.R + 1 : (f.W || 2) / 2 + 6; gridAdd(G, Math.min(f.x, f.x + f.dx * L) - r, Math.min(f.z, f.z + f.dz * L) - r, Math.max(f.x, f.x + f.dx * L) + r, Math.max(f.z, f.z + f.dz * L) + r, f); }
   PARKG = G;
 }
 const parkCell = (x, z) => PARKG && PARKG[((z - Z0) / CATC | 0) * CATW + ((x - X0) / CATC | 0)];
 function parkH(x, z) {
   const c = parkCell(x, z); if (!c) return 0; let h = 0;
-  for (const f of c) { if (f.k !== "kick") continue; const rx = x - f.x, rz = z - f.z, s = rx * f.dx + rz * f.dz; if (s < 0 || s > f.Lr + f.T + f.Ld) continue; const u = Math.abs(-rx * f.dz + rz * f.dx), w = 1 - sstep(f.W / 2 - 0.8, f.W / 2 + 1.6, u); if (w <= 0) continue;
-    const top = f.hK * 0.78, v = s < f.Lr ? f.hK * (s / f.Lr) * (s / f.Lr) : s < f.Lr + f.T ? top : top * (1 - smooth((s - f.Lr - f.T) / f.Ld)); if (v * w > h) h = v * w; }
+  for (const f of c) { const rx = x - f.x, rz = z - f.z, s = rx * f.dx + rz * f.dz, ul = -rx * f.dz + rz * f.dx, u = Math.abs(ul); let v = 0;
+    if (f.k === "table") { const L = f.Lr + f.T + f.Ld; if (s < 0 || s > L) continue;
+      if (s < f.Lr) v = f.hK * Math.pow(s / f.Lr, 1.7) * (1 - sstep(f.W / 2 - (f.soft ? 1.2 : 0.25), f.W / 2 + (f.soft ? 1.8 : 0.7), u));   // the wedge: square-cut sides
+      const dk = f.hK * f.deck; if (dk > 0 && s > f.Lr - 1.5) { const wl = f.W / 2 + 2, body = (s < f.Lr + f.T ? dk * sstep(f.Lr - 1.5, f.Lr + 0.6, s) : dk * (1 - smooth((s - f.Lr - f.T) / f.Ld))) * (1 - sstep(wl - 0.4, wl + 2.6, u)); if (s >= f.Lr + 0.55) v = body; else v = Math.max(v * (1 - sstep(f.Lr, f.Lr + 0.55, s)), body); }
+      else if (s >= f.Lr) v *= 1 - sstep(f.Lr, f.Lr + f.Ld, s); }
+    else if (f.k === "mound") { const d = Math.hypot(rx - f.dx * f.R * 0.5, rz - f.dz * f.R * 0.5); v = f.hK * (1 - smooth(d / f.R)); }
+    else if (f.k === "bank") { if (s < 0 || s > f.len) continue; const o = ul * f.sd; if (o < 0 || o > f.wB + 3) continue; const t = Math.min(1, o / f.wB); v = f.hK * t * t * Math.sin(Math.PI * s / f.len) * (1 - sstep(f.wB, f.wB + 3, o)); }
+    if (v > h) h = v; }
   return h;
 }
-function kickerLip(x, z) { const c = parkCell(x, z); if (!c) return null; for (const f of c) { if (f.k !== "kick") continue; const rx = x - f.x, rz = z - f.z, s = rx * f.dx + rz * f.dz; if (s > f.Lr - 3 && s < f.Lr + 1.2 && Math.abs(-rx * f.dz + rz * f.dx) < f.W / 2) return f; } return null; }
+function kickerLip(x, z) { const c = parkCell(x, z); if (!c) return null; for (const f of c) { if (f.k !== "table") continue; const rx = x - f.x, rz = z - f.z, s = rx * f.dx + rz * f.dz; if (s > f.Lr - 3 && s < f.Lr + 1.2 && Math.abs(-rx * f.dz + rz * f.dx) < f.W / 2) return f; } return null; }
 const EDGE = 220;
 function edgeW(x, z) { return smooth(1 - Math.min(x - X0, X1 - x, z - Z0, Z1 - z) / EDGE); }
 /* Ground height. Inside the resort grid it is survey + detail, blending to the coarse backdrop at the rim so the two meshes meet exactly. */
@@ -384,6 +401,7 @@ function noiseTexture() {
 const noiseTex = noiseTexture();
 const U = { // uniforms shared by every material that reads the world
   uTT: { value: null }, uMA: { value: null }, uMB: { value: null }, uNoise: { value: noiseTex },
+  uTrk: { value: null }, uTraffic: { value: null },
   uSunDir: { value: sunDir }, uSunCol: { value: new THREE.Color() }, uTime: { value: 0 }, uShadowR: { value: 160 }, uTreeNear: { value: 260 }, uSkyAmb: { value: new THREE.Color() }, uWet: { value: 0 }
 };
 const GLSL_WORLD = `
@@ -476,7 +494,24 @@ addEventListener("resize", () => buildComposer());
 /* The sun's shadow over the whole mountain, marched across the height grid: terrain only (alpha) and with forest canopy (blue). */
 let TT = null, ttTex = null;
 const hf = v => THREE.DataUtils.toHalfFloat(v);
+/* Tracks other skiers have left on the groomed runs: carved S-turns drawn once into a tiling texture, laid along each run's
+   direction, and shown in proportion to how busy the run is (Mountain Run most of all). */
+let trkStyle = +(QS.get("trk") || store.get("pal-trk", 1));
+function trackTexture(dense) {
+  const Wd = 512, Ht = 2048, c = document.createElement("canvas"); c.width = Wd; c.height = Ht; const g = c.getContext("2d"); g.fillStyle = "#000"; g.fillRect(0, 0, Wd, Ht); g.lineCap = "round"; let sd = dense ? 911 : 373; const rnd = () => { sd = Math.imul(sd ^ (sd >>> 15), 2246822519) + 0x9e3779b9 | 0; return ((sd >>> 8) & 0xffff) / 65536; };
+  const arc = (x0, amp, k, ph, lw, al, off) => { g.strokeStyle = "rgba(255,255,255," + al + ")"; g.lineWidth = lw; for (const dx of [-Wd, 0, Wd]) { g.beginPath(); for (let y = -8; y <= Ht + 8; y += 6) { const x = x0 + amp * Math.sin(TAU * k * y / Ht + ph) + dx + off; y < 0 ? g.moveTo(x, y) : g.lineTo(x, y); } g.stroke(); } };
+  if (dense) for (let i = 0; i < 16; i++) arc(rnd() * Wd, 30 + rnd() * 110, 2 + Math.floor(rnd() * 4), rnd() * TAU, 9 + rnd() * 10, 0.10 + rnd() * 0.08, 0);   // scraped, skidded patches
+  for (let i = 0, n = dense ? 46 : 12; i < n; i++) { const x0 = rnd() * Wd, amp = 35 + rnd() * 120, k = 2 + Math.floor(rnd() * 4), ph = rnd() * TAU, al = 0.45 + rnd() * 0.5; for (const off of [-1.8, 1.8]) arc(x0, amp, k, ph, dense ? 1.5 : 1.9, al, off); }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8; t.colorSpace = THREE.NoColorSpace; return t;
+}
+function trafficTexture() {
+  const Wd = 500, Ht = Math.round(Wd * (Z1 - Z0) / (X1 - X0)), c = document.createElement("canvas"); c.width = Wd; c.height = Ht; const g = c.getContext("2d"), sc = Wd / (X1 - X0); g.fillStyle = "#000"; g.fillRect(0, 0, Wd, Ht); g.lineCap = g.lineJoin = "round";
+  const lv = r => r.n === "Mountain Run" ? 255 : r.c ? 185 : r.d <= 1 ? 150 : 95;
+  for (const r of WORLD.runs.filter(r => r.g).sort((a, b) => lv(a) - lv(b))) { const v = lv(r); g.strokeStyle = "rgb(" + v + "," + v + "," + v + ")"; g.lineWidth = ((r.c ? 11 : [46, 42, 30, 18][r.d]) + 20) * sc; g.beginPath(); r.pts.forEach((p, i) => { const x = (p[0] - X0) * sc, y = (p[1] - Z0) * sc; i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke(); }
+  const t = new THREE.CanvasTexture(c); t.flipY = false; t.colorSpace = THREE.NoColorSpace; return t;
+}
 function buildTerrainTex() {
+  U.uTrk.value = trackTexture(trkStyle === 2); U.uTraffic.value = trafficTexture();
   TT = new Uint16Array(TNX * TNZ * 4);
   for (let j = 0; j < TNZ; j++) for (let i = 0; i < TNX; i++) {
     const x = X0 + i * LCELL, z = Z0 + j * LCELL, e = LCELL;
@@ -535,7 +570,7 @@ function setWeather(name, quick) {
 
 /* ---------- terrain ---------- */
 const TERRAIN_FRAG_PARS = GLSL_WORLD + `
-varying vec3 vWp; varying vec3 vWn; varying float vLake;
+varying vec3 vWp; varying vec3 vWn; varying float vLake; uniform sampler2D uTrk, uTraffic;
 float glint(vec3 p, vec3 V, float scale) {
   vec3 q = p * scale, c = floor(q); vec4 r = texture2D(uNoise, (c.xz + c.y * 37.0 + 0.5) / 256.0, -8.0);
   vec3 fn = normalize(r.xyz * 2.0 - 1.0 + vec3(0.0, 0.5, 0.0)); vec3 f = fract(q) - 0.5 - (r.zxy - 0.5) * 0.5;
@@ -563,7 +598,7 @@ const TERRAIN_FRAG_COLOR = `
   #elif defined(FAR_N)
     float rock = cliffM;
   #else
-    float rock = max(smoothstep(0.36, 0.5, 1.0 - normalize(vWn).y), smoothstep(0.4, 0.62, mA.a + (nC - 0.5) * 0.2) * mix(0.75, 1.0, smoothstep(240.0, 520.0, tDist)));   // the surveyed cliff faces, plus anything this steep
+    float rock = max(smoothstep(0.36, 0.5, 1.0 - normalize(vWn).y) * smoothstep(0.03, 0.2, mA.a), smoothstep(0.4, 0.62, mA.a + (nC - 0.5) * 0.2) * mix(0.75, 1.0, smoothstep(240.0, 520.0, tDist)));   // only surveyed cliffs are rock: a steep jump wall or cat-track bank is still snow
   #endif
   #ifdef OUTER
     float forest = smoothstep(0.42, 0.62, nB * 0.6 + nA * 0.5 + texture2D(uNoise, vWp.xz * 0.0009).g * 0.3) * smoothstep(2650.0, 2350.0, vWp.y + nA * 200.0) * smoothstep(0.30, 0.16, slope);
@@ -581,12 +616,15 @@ const TERRAIN_FRAG_COLOR = `
   vec2 d2 = mB.gb * 2.0 - 1.0; d2 /= max(length(d2), 0.05);
   vec4 wk = vec4(max(d2.x, 0.0), max(d2.y, 0.0), max(-d2.x, 0.0), max(-d2.y, 0.0)); wk *= wk;
   vec2 cordG = vec2(0.0); float bandV = 0.0, bandE = 0.0;
-  float scr = 0.0;
-  #define CORD(PK, W) { float a = dot(vWp.xz, PK); scr += W * texture2D(uNoise, vec2(a * 0.55, dot(vWp.xz, vec2(-PK.y, PK.x)) * 0.012)).r; float ph = a * 125.66; float vis = clamp(1.0 - fwidth(ph) * 0.45, 0.0, 1.0); cordG += PK * cos(ph) * W * vis; float b = a / 4.4, fb = fract(b); bandV += W * (texture2D(uNoise, vec2(floor(b) * 0.0391, 0.3), -8.0).r - 0.5); bandE += W * smoothstep(0.05, 0.0, min(fb, 1.0 - fb)); }
+  float scr = 0.0, trk = 0.0;
+  #define CORD(PK, W) { float a = dot(vWp.xz, PK); trk += W * texture2D(uTrk, vec2(a / 24.0, dot(vWp.xz, vec2(-PK.y, PK.x)) / 96.0)).r; scr += W * texture2D(uNoise, vec2(a * 0.55, dot(vWp.xz, vec2(-PK.y, PK.x)) * 0.012)).r; float ph = a * 125.66; float vis = clamp(1.0 - fwidth(ph) * 0.45, 0.0, 1.0); cordG += PK * cos(ph) * W * vis; float b = a / 4.4, fb = fract(b); bandV += W * (texture2D(uNoise, vec2(floor(b) * 0.0391, 0.3), -8.0).r - 0.5); bandE += W * smoothstep(0.05, 0.0, min(fb, 1.0 - fb)); }
   CORD(vec2(0.0, 1.0), wk.x) CORD(vec2(-0.7071, 0.7071), wk.y) CORD(vec2(-1.0, 0.0), wk.z) CORD(vec2(-0.7071, -0.7071), wk.w)
   float groomK = smoothstep(0.25, 0.6, groom);   // a groomed surface has a definite edge
   Nw.xz += cordG * 0.30 * groomK; snow *= 1.0 + groomK * (bandV * 0.05 - bandE * 0.035 * smoothstep(900.0, 60.0, tDist));
-  snow *= 1.0 - groomK * (0.07 + (scr - 0.5) * 0.18 * smoothstep(260.0, 8.0, tDist));   // packed and scored by skis, against the untouched snow beside it
+  snow *= 1.0 - groomK * (0.07 + (scr - 0.5) * 0.18 * smoothstep(260.0, 8.0, tDist));
+  #ifndef OUTER
+    snow *= 1.0 - groomK * trk * texture2D(uTraffic, (vWp.xz - vec2(${X0.toFixed(1)}, ${Z0.toFixed(1)})) / vec2(${(X1 - X0).toFixed(1)}, ${(Z1 - Z0).toFixed(1)})).r * 0.42 * smoothstep(420.0, 12.0, tDist);   // other skiers' tracks, thickest where the traffic is
+  #endif   // packed and scored by skis, against the untouched snow beside it
   Nw = normalize(Nw);
   // forest floor: litter up close, canopy shade from afar
   snow = mix(snow, vec3(0.50, 0.47, 0.40), tree * 0.16 * nC * nearK);
@@ -670,7 +708,7 @@ function buildPatch(o, size, n, detail, slot) {
   skirt(0, i => i); skirt(1, i => n * w + i); skirt(2, i => i * w); skirt(3, i => i * w + n);
   const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(pos, 3)); g.setAttribute("normal", new THREE.BufferAttribute(nor, 3)); g.setIndex(gridIndex(n));
   g.boundingSphere = new THREE.Sphere(new THREE.Vector3(size / 2, (lo + hi) / 2 - o.y0, size / 2), Math.hypot(size * 0.71, (hi - lo) / 2 + drop));
-  const m = new THREE.Mesh(g, detail ? matNear : matFar); m.position.set(o.x0, o.y0, o.z0); m.matrixAutoUpdate = false; m.updateMatrix(); m.receiveShadow = true; m.visible = false;
+  const m = new THREE.Mesh(g, detail ? matNear : matFar); m.position.set(o.x0, o.y0, o.z0); m.matrixAutoUpdate = false; m.updateMatrix(); m.receiveShadow = true; m.castShadow = detail && n >= 60; m.visible = false;   // the ground near you throws its own shadows: jump faces, cliffs, cat-track banks
   terrainG.add(m); o.mesh[slot] = m; if (o.lo === undefined || lo < o.lo) o.lo = lo; if (o.hi === undefined || hi > o.hi) o.hi = hi;
 }
 const buildChunk = (ch, lod) => buildPatch(ch, CH, LODSEG[lod], lod <= 2, lod), buildBlock = (b, k) => buildPatch(b, CH * BK, BLKSEG[k], false, k);
@@ -1264,21 +1302,26 @@ function initVillage() {
 }
 /* ---------- terrain park hardware: rails with their posts, lip markers, and a banner at the top of each line ---------- */
 function initParkMeshes() {
-  const b = new GeoBag(), COL = [[0.9, 0.33, 0.06], [0.08, 0.3, 0.75], [0.85, 0.7, 0.05]]; let k = 0, first = true;
+  const b = new GeoBag(), COL = [[0.9, 0.33, 0.06], [0.08, 0.3, 0.75], [0.85, 0.7, 0.05]]; let k = 0; const flagG = [];
   for (const f of PARK) {
     const yaw = Math.atan2(f.dx, f.dz), rx = -f.dz, rz = f.dx;
     if (f.k === "rail") { f.y0 = H(f.x, f.z) + f.hgt; f.y1 = H(f.x + f.dx * f.len, f.z + f.dz * f.len) + f.hgt; const c = COL[k++ % 3], mx = f.x + f.dx * f.len / 2, mz = f.z + f.dz * f.len / 2, pit = Math.atan2(f.y1 - f.y0, f.len);
       b.box(0.16, 0.1, Math.hypot(f.len, f.y1 - f.y0), mx, (f.y0 + f.y1) / 2 - 0.05, mz, c, yaw, -pit);
       for (const u of [0.08, 0.5, 0.92]) { const px = f.x + f.dx * f.len * u, pz = f.z + f.dz * f.len * u, gy = H(px, pz); b.box(0.08, lerp(f.y0, f.y1, u) - gy, 0.08, px, (lerp(f.y0, f.y1, u) + gy) / 2 - 0.05, pz, DARK, yaw); } }
-    else if (!f.lip) { for (const sd of [-1, 1]) { const px = f.x + f.dx * f.Lr + rx * sd * (f.W / 2 + 0.5), pz = f.z + f.dz * f.Lr + rz * sd * (f.W / 2 + 0.5); b.cyl(0.05, 0.05, 1.5, px, H(px, pz) + 0.6, pz, [0.9, 0.33, 0.06], 5); }
-      if (first || f.hK === 1.3 && PARK.indexOf(f) > 3 && !f.seen) { /* banner drawn below */ } }
-    first = false;
+    if (f.k === "mound") { const cx = f.x + f.dx * f.R * 0.5, cz = f.z + f.dz * f.R * 0.5, y = H(cx, cz); b.cyl(0.62, 0.62, 2.3, cx, y + 0.45, cz, [0.85, 0.3, 0.05], 14, 0, Math.PI / 2, yaw); for (const e of [-1, 1]) b.cyl(0.64, 0.64, 0.08, cx + rx * e * 1.1, y + 0.45, cz + rz * e * 1.1, [0.5, 0.17, 0.03], 14, 0, Math.PI / 2, yaw); }   // the orange tank to tap or slide
+    if (f.k === "table" && !f.side && !f.lip) { // the lip is marked with a line of blue dye so you can read it against the snow
+      const lx = f.x + f.dx * (f.Lr - 0.25), lz = f.z + f.dz * (f.Lr - 0.25); b.box(f.W - 0.3, 0.04, 0.2, lx, H(lx, lz) + 0.02, lz, [0.03, 0.16, 0.7], yaw); }
+    if (f.k === "table" && (f.kind === "big" || f.kind === "mid")) { // green flags either side of the landing, as the crew marks them
+      for (const sd of [-1, 1]) { const s0 = f.Lr + f.T + 1, px = f.x + f.dx * s0 + rx * sd * (f.W / 2 + 4.5), pz = f.z + f.dz * s0 + rz * sd * (f.W / 2 + 4.5), y = H(px, pz); b.cyl(0.035, 0.035, 5.4, px, y + 2.6, pz, [0.75, 0.76, 0.78], 5); flagG.push([px, y + 4.6, pz, yaw]); towerHits.push({ x: px, z: pz, r: 0.1 }); } }
   }
   if (b.p.length) { const m = new THREE.Mesh(b.build(), liftMat); m.castShadow = true; m.frustumCulled = false; scene.add(m); }
+  if (flagG.length) { const pos = [], nor = []; for (const [x, y, z, yaw] of flagG) { const fx = Math.sin(yaw + 0.5), fz = Math.cos(yaw + 0.5), A = [x, y + 0.5, z], B = [x, y - 0.5, z], C = [x + fx * 1.3, y, z + fz * 1.3]; for (const q of [A, B, C]) { pos.push(...q); nor.push(-fz, 0, fx); } }
+    const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute("normal", new THREE.Float32BufferAttribute(nor, 3));
+    const m = new THREE.Mesh(g, worldShade(new THREE.MeshStandardMaterial({ color: 0x8fd31a, roughness: 0.7, side: THREE.DoubleSide }))); m.frustumCulled = false; scene.add(m); }
   // banner at the head of each park line
   const cv = document.createElement("canvas"); cv.width = 1024; cv.height = 160; const g = cv.getContext("2d"); g.fillStyle = "#e8580c"; g.fillRect(0, 0, 1024, 160); g.fillStyle = "#fff"; g.textAlign = "center"; g.textBaseline = "middle"; g.font = "900 112px 'Big Shoulders Display', 'Arial Narrow', Impact, sans-serif"; g.fillText("TERRAIN PARK", 512, 86);
   const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; const mat = worldShade(new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6, side: THREE.DoubleSide })), posts = new GeoBag(); let last = null;
-  for (const f of PARK) { if (f.k !== "kick" || f.lip) continue; if (last && Math.hypot(f.x - last.x, f.z - last.z) < 200) { last = f; continue; } last = f;
+  for (const f of PARK) { if (f.k !== "table" || f.lip || f.side) continue; if (last && Math.hypot(f.x - last.x, f.z - last.z) < 200) { last = f; continue; } last = f;
     const x = f.x - f.dx * 14, z = f.z - f.dz * 14, y = H(x, z), rx = -f.dz, rz = f.dx, m = new THREE.Mesh(new THREE.PlaneGeometry(9, 1.4), mat); m.position.set(x, y + 4.2, z); m.rotation.y = Math.atan2(-f.dx, -f.dz); scene.add(m);
     for (const sd of [-1, 1]) { posts.cyl(0.09, 0.1, 5.2, x + rx * sd * 4.6, y + 2.3, z + rz * sd * 4.6, STEEL, 6); towerHits.push({ x: x + rx * sd * 4.6, z: z + rz * sd * 4.6, r: 0.18 }); } }
   if (posts.p.length) { const pm = new THREE.Mesh(posts.build(), liftMat); pm.frustumCulled = false; scene.add(pm); }
@@ -1828,7 +1871,7 @@ function stepSki(dt) {
     }
     if (popNow || yp > hn + 0.12) { // the snow dropped away, or a pop: airborne
       const lip = kickerLip(p.x, p.z); sk.featLaunch = !!lip;
-      sk.ground = false; sk.air = true; if (popNow) { v.y += (lip ? 6.5 : 5.2) * pw + 3.0; sk.popT = 0.2; } if (lip && !lip.lip) { const L2 = lip.Lr + lip.T + lip.Ld, hill = Math.atan2(H(lip.x + lip.dx * (L2 + 3), lip.z + lip.dz * (L2 + 3)) - H(lip.x - lip.dx * 3, lip.z - lip.dz * 3), L2 + 6); v.y = Math.max(v.y, sk.sp * Math.sin(hill + Math.atan(2 * lip.hK / lip.Lr))) + (popNow ? 0 : 3.0); }   // leave along the lip's own angle, with the lift Kicker Run's kickers give
+      sk.ground = false; sk.air = true; if (popNow) { v.y += (lip ? 6.5 : 5.2) * pw + 3.0; sk.popT = 0.2; } if (lip && !lip.lip) { const L2 = lip.Lr + lip.T + lip.Ld, hill = Math.atan2(H(lip.x + lip.dx * (L2 + 3), lip.z + lip.dz * (L2 + 3)) - H(lip.x - lip.dx * 3, lip.z - lip.dz * 3), L2 + 6); v.y = Math.max(v.y, sk.sp * Math.sin(hill + Math.atan(1.7 * lip.hK / lip.Lr))) + (popNow ? 0 : lip.side ? 1.4 : 3.0); }   // leave along the lip's own angle, with the lift Kicker Run's kickers give
       p.set(nx, popNow ? Math.max(yp, hn) + 0.02 : yp, nz); sk.rot = sA; sk.vside = 0; sk.peakY = p.y;
       sk.airT = 0; sk.flipAcc = 0; sk.flipB = 0; sk.flipF = 0; sk.spin = 0; sk.spinV = 0; sk.grabT = 0; sk.rotV = 0; sk.spinTarget = 0;
     } else {
@@ -2359,7 +2402,7 @@ function tick(t) {
   const now = t / 1000, dt = Math.min(0.05, Math.max(0.001, now - lastT)); lastT = now; frame++; U.uTime.value = now;
   if (sk.mode === "menu") { // slow drift over the valley, looking up at KT-22 and Headwall
     menuA += dt * 0.012; camera.position.set(2350 + Math.cos(menuA) * 260, 2105 + Math.sin(menuA * 0.7) * 25, -820 + Math.sin(menuA) * 260); camera.up.set(0, 1, 0); camera.lookAt(700, 2230, 760); if (camFix) { camera.position.set(camFix[0], camFix[1], camFix[2]); camera.lookAt(camFix[3], camFix[4], camFix[5]); }
-    camDir.set(-0.7, 0, 0.7); sk.p.set(1500, 2000, 0); updateLifts(dt, camera.position, frame); updateNPCs(dt, camera.position);
+    camDir.set(-0.7, 0, 0.7); if (camFix) { sk.p.set(camFix[3], camFix[4], camFix[5]); camDir.set(0, 0, 0); } else sk.p.set(1500, 2000, 0); updateLifts(dt, camera.position, frame); updateNPCs(dt, camera.position);
   } else if (!paused) {
     const riding = sk.mode === "wait" || sk.mode === "lift", ff = riding && K.grabS ? 10 : 1;
     // G in the air: Kicker Run's slow-motion, on a meter that drains in 3.4 s and refills on snow
@@ -2370,7 +2413,7 @@ function tick(t) {
     else if (sk.mode === "ski") { acc += dt * timeScale; let n = 0; while (acc >= 1 / 120 && n < 8) { stepSki(1 / 120); acc -= 1 / 120; n++; } if (n === 8) acc = 0; recordRewind(dt); }
     updateLifts(dt * ff, camera.position, frame); updateNPCs(dt, camera.position);
     if (sk.mode === "wait" || sk.mode === "lift") stepLift(dt * ff); else if (sk.mode === "walk") stepWalk(dt);
-    findNearLift(); emitSpray(dt); layTracks(dt); updateParticles(dt); updateRig(dt, now); updateCamera(dt); updateRemotes(dt, now); mpSend(dt);
+    findNearLift(); emitSpray(dt); layTracks(dt); updateParticles(dt); updateRig(dt, now); updateCamera(dt); if (camFix) { camera.position.set(camFix[0], camFix[1], camFix[2]); camera.up.set(0, 1, 0); camera.lookAt(camFix[3], camFix[4], camFix[5]); camera.fov = camFix[6] || 50; camera.updateProjectionMatrix(); } updateRemotes(dt, now); mpSend(dt);
   }
   rig.hold.visible = sk.mode !== "menu" && rig.hold.visible;
   updateSun(); skyMesh.position.copy(camera.position); skyMesh.scale.setScalar(40000);
@@ -2401,7 +2444,7 @@ async function boot() {
   for (let i = 0; i < 300; i++) if (!updateTerrain(camera.position, 40)) break;
   for (let i = 0; i < 40; i++) { updateTrees(camera.position); updateRocks(camera.position); }
   $("load").hidden = true; renderer.info.autoReset = false; requestAnimationFrame(tick);
-  window.__pal = { CLIFFS, buildCliff, setCam: a => { camFix = a; sk.mode = "menu"; $("menu").hidden = true; $("hud").hidden = true; }, cliffK, hBase, PARK, REW, stepRewind, recordRewind, toggleWalk, stepWalk, clearTracks, goHome, toggleMap, runAt, npcs, KR, gDown, gUp, landing, stepSki, stepLift, updateLifts, findNearLift, nrm, sk, K, LIFTS, WORLD, H, camera, scene, renderer, setWeather, placeSkier, boardLift, unloadAt, spawnAt, MP, chunks, nearTiles, treeTiles, Q };
+  window.__pal = { viewFrom: a => { camFix = a; }, CLIFFS, buildCliff, updateTerrain, setCam: a => { camFix = a; sk.mode = "menu"; $("menu").hidden = true; $("hud").hidden = true; }, cliffK, hBase, PARK, REW, stepRewind, recordRewind, toggleWalk, stepWalk, clearTracks, goHome, toggleMap, runAt, npcs, KR, gDown, gUp, landing, stepSki, stepLift, updateLifts, findNearLift, nrm, sk, K, LIFTS, WORLD, H, camera, scene, renderer, setWeather, placeSkier, boardLift, unloadAt, spawnAt, MP, chunks, nearTiles, treeTiles, Q };
   window.__info = () => ({ mode: sk.mode, p: [Math.round(sk.p.x), Math.round(sk.p.y), Math.round(sk.p.z)], sp: +sk.sp.toFixed(1), ground: sk.ground, crashed: sk.crashed, trees: treeCount, calls: renderer.info.render.calls, tris: renderer.info.render.triangles, lift: sk.lift && sk.lift.name, liftS: Math.round(sk.liftS) });
 }
 boot().catch(e => { const d = document.createElement("div"); d.id = "err"; d.textContent = String(e && e.stack || e); document.body.appendChild(d); console.error(e); });

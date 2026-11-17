@@ -39,6 +39,7 @@ function noiseTexture() {
 const noiseTex = noiseTexture();
 const U = { // uniforms shared by every material that reads the world
   uTT: { value: null }, uMA: { value: null }, uMB: { value: null }, uNoise: { value: noiseTex },
+  uTrk: { value: null }, uTraffic: { value: null },
   uSunDir: { value: sunDir }, uSunCol: { value: new THREE.Color() }, uTime: { value: 0 }, uShadowR: { value: 160 }, uTreeNear: { value: 260 }, uSkyAmb: { value: new THREE.Color() }, uWet: { value: 0 }
 };
 const GLSL_WORLD = `
@@ -131,7 +132,24 @@ addEventListener("resize", () => buildComposer());
 /* The sun's shadow over the whole mountain, marched across the height grid: terrain only (alpha) and with forest canopy (blue). */
 let TT = null, ttTex = null;
 const hf = v => THREE.DataUtils.toHalfFloat(v);
+/* Tracks other skiers have left on the groomed runs: carved S-turns drawn once into a tiling texture, laid along each run's
+   direction, and shown in proportion to how busy the run is (Mountain Run most of all). */
+let trkStyle = +(QS.get("trk") || store.get("pal-trk", 1));
+function trackTexture(dense) {
+  const Wd = 512, Ht = 2048, c = document.createElement("canvas"); c.width = Wd; c.height = Ht; const g = c.getContext("2d"); g.fillStyle = "#000"; g.fillRect(0, 0, Wd, Ht); g.lineCap = "round"; let sd = dense ? 911 : 373; const rnd = () => { sd = Math.imul(sd ^ (sd >>> 15), 2246822519) + 0x9e3779b9 | 0; return ((sd >>> 8) & 0xffff) / 65536; };
+  const arc = (x0, amp, k, ph, lw, al, off) => { g.strokeStyle = "rgba(255,255,255," + al + ")"; g.lineWidth = lw; for (const dx of [-Wd, 0, Wd]) { g.beginPath(); for (let y = -8; y <= Ht + 8; y += 6) { const x = x0 + amp * Math.sin(TAU * k * y / Ht + ph) + dx + off; y < 0 ? g.moveTo(x, y) : g.lineTo(x, y); } g.stroke(); } };
+  if (dense) for (let i = 0; i < 16; i++) arc(rnd() * Wd, 30 + rnd() * 110, 2 + Math.floor(rnd() * 4), rnd() * TAU, 9 + rnd() * 10, 0.10 + rnd() * 0.08, 0);   // scraped, skidded patches
+  for (let i = 0, n = dense ? 46 : 12; i < n; i++) { const x0 = rnd() * Wd, amp = 35 + rnd() * 120, k = 2 + Math.floor(rnd() * 4), ph = rnd() * TAU, al = 0.45 + rnd() * 0.5; for (const off of [-1.8, 1.8]) arc(x0, amp, k, ph, dense ? 1.5 : 1.9, al, off); }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8; t.colorSpace = THREE.NoColorSpace; return t;
+}
+function trafficTexture() {
+  const Wd = 500, Ht = Math.round(Wd * (Z1 - Z0) / (X1 - X0)), c = document.createElement("canvas"); c.width = Wd; c.height = Ht; const g = c.getContext("2d"), sc = Wd / (X1 - X0); g.fillStyle = "#000"; g.fillRect(0, 0, Wd, Ht); g.lineCap = g.lineJoin = "round";
+  const lv = r => r.n === "Mountain Run" ? 255 : r.c ? 185 : r.d <= 1 ? 150 : 95;
+  for (const r of WORLD.runs.filter(r => r.g).sort((a, b) => lv(a) - lv(b))) { const v = lv(r); g.strokeStyle = "rgb(" + v + "," + v + "," + v + ")"; g.lineWidth = ((r.c ? 11 : [46, 42, 30, 18][r.d]) + 20) * sc; g.beginPath(); r.pts.forEach((p, i) => { const x = (p[0] - X0) * sc, y = (p[1] - Z0) * sc; i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke(); }
+  const t = new THREE.CanvasTexture(c); t.flipY = false; t.colorSpace = THREE.NoColorSpace; return t;
+}
 function buildTerrainTex() {
+  U.uTrk.value = trackTexture(trkStyle === 2); U.uTraffic.value = trafficTexture();
   TT = new Uint16Array(TNX * TNZ * 4);
   for (let j = 0; j < TNZ; j++) for (let i = 0; i < TNX; i++) {
     const x = X0 + i * LCELL, z = Z0 + j * LCELL, e = LCELL;
@@ -190,7 +208,7 @@ function setWeather(name, quick) {
 
 /* ---------- terrain ---------- */
 const TERRAIN_FRAG_PARS = GLSL_WORLD + `
-varying vec3 vWp; varying vec3 vWn; varying float vLake;
+varying vec3 vWp; varying vec3 vWn; varying float vLake; uniform sampler2D uTrk, uTraffic;
 float glint(vec3 p, vec3 V, float scale) {
   vec3 q = p * scale, c = floor(q); vec4 r = texture2D(uNoise, (c.xz + c.y * 37.0 + 0.5) / 256.0, -8.0);
   vec3 fn = normalize(r.xyz * 2.0 - 1.0 + vec3(0.0, 0.5, 0.0)); vec3 f = fract(q) - 0.5 - (r.zxy - 0.5) * 0.5;
@@ -218,7 +236,7 @@ const TERRAIN_FRAG_COLOR = `
   #elif defined(FAR_N)
     float rock = cliffM;
   #else
-    float rock = max(smoothstep(0.36, 0.5, 1.0 - normalize(vWn).y), smoothstep(0.4, 0.62, mA.a + (nC - 0.5) * 0.2) * mix(0.75, 1.0, smoothstep(240.0, 520.0, tDist)));   // the surveyed cliff faces, plus anything this steep
+    float rock = max(smoothstep(0.36, 0.5, 1.0 - normalize(vWn).y) * smoothstep(0.03, 0.2, mA.a), smoothstep(0.4, 0.62, mA.a + (nC - 0.5) * 0.2) * mix(0.75, 1.0, smoothstep(240.0, 520.0, tDist)));   // only surveyed cliffs are rock: a steep jump wall or cat-track bank is still snow
   #endif
   #ifdef OUTER
     float forest = smoothstep(0.42, 0.62, nB * 0.6 + nA * 0.5 + texture2D(uNoise, vWp.xz * 0.0009).g * 0.3) * smoothstep(2650.0, 2350.0, vWp.y + nA * 200.0) * smoothstep(0.30, 0.16, slope);
@@ -236,12 +254,15 @@ const TERRAIN_FRAG_COLOR = `
   vec2 d2 = mB.gb * 2.0 - 1.0; d2 /= max(length(d2), 0.05);
   vec4 wk = vec4(max(d2.x, 0.0), max(d2.y, 0.0), max(-d2.x, 0.0), max(-d2.y, 0.0)); wk *= wk;
   vec2 cordG = vec2(0.0); float bandV = 0.0, bandE = 0.0;
-  float scr = 0.0;
-  #define CORD(PK, W) { float a = dot(vWp.xz, PK); scr += W * texture2D(uNoise, vec2(a * 0.55, dot(vWp.xz, vec2(-PK.y, PK.x)) * 0.012)).r; float ph = a * 125.66; float vis = clamp(1.0 - fwidth(ph) * 0.45, 0.0, 1.0); cordG += PK * cos(ph) * W * vis; float b = a / 4.4, fb = fract(b); bandV += W * (texture2D(uNoise, vec2(floor(b) * 0.0391, 0.3), -8.0).r - 0.5); bandE += W * smoothstep(0.05, 0.0, min(fb, 1.0 - fb)); }
+  float scr = 0.0, trk = 0.0;
+  #define CORD(PK, W) { float a = dot(vWp.xz, PK); trk += W * texture2D(uTrk, vec2(a / 24.0, dot(vWp.xz, vec2(-PK.y, PK.x)) / 96.0)).r; scr += W * texture2D(uNoise, vec2(a * 0.55, dot(vWp.xz, vec2(-PK.y, PK.x)) * 0.012)).r; float ph = a * 125.66; float vis = clamp(1.0 - fwidth(ph) * 0.45, 0.0, 1.0); cordG += PK * cos(ph) * W * vis; float b = a / 4.4, fb = fract(b); bandV += W * (texture2D(uNoise, vec2(floor(b) * 0.0391, 0.3), -8.0).r - 0.5); bandE += W * smoothstep(0.05, 0.0, min(fb, 1.0 - fb)); }
   CORD(vec2(0.0, 1.0), wk.x) CORD(vec2(-0.7071, 0.7071), wk.y) CORD(vec2(-1.0, 0.0), wk.z) CORD(vec2(-0.7071, -0.7071), wk.w)
   float groomK = smoothstep(0.25, 0.6, groom);   // a groomed surface has a definite edge
   Nw.xz += cordG * 0.30 * groomK; snow *= 1.0 + groomK * (bandV * 0.05 - bandE * 0.035 * smoothstep(900.0, 60.0, tDist));
-  snow *= 1.0 - groomK * (0.07 + (scr - 0.5) * 0.18 * smoothstep(260.0, 8.0, tDist));   // packed and scored by skis, against the untouched snow beside it
+  snow *= 1.0 - groomK * (0.07 + (scr - 0.5) * 0.18 * smoothstep(260.0, 8.0, tDist));
+  #ifndef OUTER
+    snow *= 1.0 - groomK * trk * texture2D(uTraffic, (vWp.xz - vec2(${X0.toFixed(1)}, ${Z0.toFixed(1)})) / vec2(${(X1 - X0).toFixed(1)}, ${(Z1 - Z0).toFixed(1)})).r * 0.42 * smoothstep(420.0, 12.0, tDist);   // other skiers' tracks, thickest where the traffic is
+  #endif   // packed and scored by skis, against the untouched snow beside it
   Nw = normalize(Nw);
   // forest floor: litter up close, canopy shade from afar
   snow = mix(snow, vec3(0.50, 0.47, 0.40), tree * 0.16 * nC * nearK);
@@ -325,7 +346,7 @@ function buildPatch(o, size, n, detail, slot) {
   skirt(0, i => i); skirt(1, i => n * w + i); skirt(2, i => i * w); skirt(3, i => i * w + n);
   const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(pos, 3)); g.setAttribute("normal", new THREE.BufferAttribute(nor, 3)); g.setIndex(gridIndex(n));
   g.boundingSphere = new THREE.Sphere(new THREE.Vector3(size / 2, (lo + hi) / 2 - o.y0, size / 2), Math.hypot(size * 0.71, (hi - lo) / 2 + drop));
-  const m = new THREE.Mesh(g, detail ? matNear : matFar); m.position.set(o.x0, o.y0, o.z0); m.matrixAutoUpdate = false; m.updateMatrix(); m.receiveShadow = true; m.visible = false;
+  const m = new THREE.Mesh(g, detail ? matNear : matFar); m.position.set(o.x0, o.y0, o.z0); m.matrixAutoUpdate = false; m.updateMatrix(); m.receiveShadow = true; m.castShadow = detail && n >= 60; m.visible = false;   // the ground near you throws its own shadows: jump faces, cliffs, cat-track banks
   terrainG.add(m); o.mesh[slot] = m; if (o.lo === undefined || lo < o.lo) o.lo = lo; if (o.hi === undefined || hi > o.hi) o.hi = hi;
 }
 const buildChunk = (ch, lod) => buildPatch(ch, CH, LODSEG[lod], lod <= 2, lod), buildBlock = (b, k) => buildPatch(b, CH * BK, BLKSEG[k], false, k);

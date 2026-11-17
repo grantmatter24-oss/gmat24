@@ -331,21 +331,26 @@ function initVillage() {
 }
 /* ---------- terrain park hardware: rails with their posts, lip markers, and a banner at the top of each line ---------- */
 function initParkMeshes() {
-  const b = new GeoBag(), COL = [[0.9, 0.33, 0.06], [0.08, 0.3, 0.75], [0.85, 0.7, 0.05]]; let k = 0, first = true;
+  const b = new GeoBag(), COL = [[0.9, 0.33, 0.06], [0.08, 0.3, 0.75], [0.85, 0.7, 0.05]]; let k = 0; const flagG = [];
   for (const f of PARK) {
     const yaw = Math.atan2(f.dx, f.dz), rx = -f.dz, rz = f.dx;
     if (f.k === "rail") { f.y0 = H(f.x, f.z) + f.hgt; f.y1 = H(f.x + f.dx * f.len, f.z + f.dz * f.len) + f.hgt; const c = COL[k++ % 3], mx = f.x + f.dx * f.len / 2, mz = f.z + f.dz * f.len / 2, pit = Math.atan2(f.y1 - f.y0, f.len);
       b.box(0.16, 0.1, Math.hypot(f.len, f.y1 - f.y0), mx, (f.y0 + f.y1) / 2 - 0.05, mz, c, yaw, -pit);
       for (const u of [0.08, 0.5, 0.92]) { const px = f.x + f.dx * f.len * u, pz = f.z + f.dz * f.len * u, gy = H(px, pz); b.box(0.08, lerp(f.y0, f.y1, u) - gy, 0.08, px, (lerp(f.y0, f.y1, u) + gy) / 2 - 0.05, pz, DARK, yaw); } }
-    else if (!f.lip) { for (const sd of [-1, 1]) { const px = f.x + f.dx * f.Lr + rx * sd * (f.W / 2 + 0.5), pz = f.z + f.dz * f.Lr + rz * sd * (f.W / 2 + 0.5); b.cyl(0.05, 0.05, 1.5, px, H(px, pz) + 0.6, pz, [0.9, 0.33, 0.06], 5); }
-      if (first || f.hK === 1.3 && PARK.indexOf(f) > 3 && !f.seen) { /* banner drawn below */ } }
-    first = false;
+    if (f.k === "mound") { const cx = f.x + f.dx * f.R * 0.5, cz = f.z + f.dz * f.R * 0.5, y = H(cx, cz); b.cyl(0.62, 0.62, 2.3, cx, y + 0.45, cz, [0.85, 0.3, 0.05], 14, 0, Math.PI / 2, yaw); for (const e of [-1, 1]) b.cyl(0.64, 0.64, 0.08, cx + rx * e * 1.1, y + 0.45, cz + rz * e * 1.1, [0.5, 0.17, 0.03], 14, 0, Math.PI / 2, yaw); }   // the orange tank to tap or slide
+    if (f.k === "table" && !f.side && !f.lip) { // the lip is marked with a line of blue dye so you can read it against the snow
+      const lx = f.x + f.dx * (f.Lr - 0.25), lz = f.z + f.dz * (f.Lr - 0.25); b.box(f.W - 0.3, 0.04, 0.2, lx, H(lx, lz) + 0.02, lz, [0.03, 0.16, 0.7], yaw); }
+    if (f.k === "table" && (f.kind === "big" || f.kind === "mid")) { // green flags either side of the landing, as the crew marks them
+      for (const sd of [-1, 1]) { const s0 = f.Lr + f.T + 1, px = f.x + f.dx * s0 + rx * sd * (f.W / 2 + 4.5), pz = f.z + f.dz * s0 + rz * sd * (f.W / 2 + 4.5), y = H(px, pz); b.cyl(0.035, 0.035, 5.4, px, y + 2.6, pz, [0.75, 0.76, 0.78], 5); flagG.push([px, y + 4.6, pz, yaw]); towerHits.push({ x: px, z: pz, r: 0.1 }); } }
   }
   if (b.p.length) { const m = new THREE.Mesh(b.build(), liftMat); m.castShadow = true; m.frustumCulled = false; scene.add(m); }
+  if (flagG.length) { const pos = [], nor = []; for (const [x, y, z, yaw] of flagG) { const fx = Math.sin(yaw + 0.5), fz = Math.cos(yaw + 0.5), A = [x, y + 0.5, z], B = [x, y - 0.5, z], C = [x + fx * 1.3, y, z + fz * 1.3]; for (const q of [A, B, C]) { pos.push(...q); nor.push(-fz, 0, fx); } }
+    const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute("normal", new THREE.Float32BufferAttribute(nor, 3));
+    const m = new THREE.Mesh(g, worldShade(new THREE.MeshStandardMaterial({ color: 0x8fd31a, roughness: 0.7, side: THREE.DoubleSide }))); m.frustumCulled = false; scene.add(m); }
   // banner at the head of each park line
   const cv = document.createElement("canvas"); cv.width = 1024; cv.height = 160; const g = cv.getContext("2d"); g.fillStyle = "#e8580c"; g.fillRect(0, 0, 1024, 160); g.fillStyle = "#fff"; g.textAlign = "center"; g.textBaseline = "middle"; g.font = "900 112px 'Big Shoulders Display', 'Arial Narrow', Impact, sans-serif"; g.fillText("TERRAIN PARK", 512, 86);
   const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; const mat = worldShade(new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6, side: THREE.DoubleSide })), posts = new GeoBag(); let last = null;
-  for (const f of PARK) { if (f.k !== "kick" || f.lip) continue; if (last && Math.hypot(f.x - last.x, f.z - last.z) < 200) { last = f; continue; } last = f;
+  for (const f of PARK) { if (f.k !== "table" || f.lip || f.side) continue; if (last && Math.hypot(f.x - last.x, f.z - last.z) < 200) { last = f; continue; } last = f;
     const x = f.x - f.dx * 14, z = f.z - f.dz * 14, y = H(x, z), rx = -f.dz, rz = f.dx, m = new THREE.Mesh(new THREE.PlaneGeometry(9, 1.4), mat); m.position.set(x, y + 4.2, z); m.rotation.y = Math.atan2(-f.dx, -f.dz); scene.add(m);
     for (const sd of [-1, 1]) { posts.cyl(0.09, 0.1, 5.2, x + rx * sd * 4.6, y + 2.3, z + rz * sd * 4.6, STEEL, 6); towerHits.push({ x: x + rx * sd * 4.6, z: z + rz * sd * 4.6, r: 0.18 }); } }
   if (posts.p.length) { const pm = new THREE.Mesh(posts.build(), liftMat); pm.frustumCulled = false; scene.add(pm); }

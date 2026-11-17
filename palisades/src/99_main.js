@@ -13,7 +13,7 @@ function tick(t) {
   const now = t / 1000, dt = Math.min(0.05, Math.max(0.001, now - lastT)); lastT = now; frame++; U.uTime.value = now;
   if (sk.mode === "menu") { // slow drift over the valley, looking up at KT-22 and Headwall
     menuA += dt * 0.012; camera.position.set(2350 + Math.cos(menuA) * 260, 2105 + Math.sin(menuA * 0.7) * 25, -820 + Math.sin(menuA) * 260); camera.up.set(0, 1, 0); camera.lookAt(700, 2230, 760); if (camFix) { camera.position.set(camFix[0], camFix[1], camFix[2]); camera.lookAt(camFix[3], camFix[4], camFix[5]); }
-    camDir.set(-0.7, 0, 0.7); sk.p.set(1500, 2000, 0); updateLifts(dt, camera.position, frame); updateNPCs(dt, camera.position);
+    camDir.set(-0.7, 0, 0.7); if (camFix) { sk.p.set(camFix[3], camFix[4], camFix[5]); camDir.set(0, 0, 0); } else sk.p.set(1500, 2000, 0); updateLifts(dt, camera.position, frame); updateNPCs(dt, camera.position);
   } else if (!paused) {
     const riding = sk.mode === "wait" || sk.mode === "lift", ff = riding && K.grabS ? 10 : 1;
     // G in the air: Kicker Run's slow-motion, on a meter that drains in 3.4 s and refills on snow
@@ -24,7 +24,7 @@ function tick(t) {
     else if (sk.mode === "ski") { acc += dt * timeScale; let n = 0; while (acc >= 1 / 120 && n < 8) { stepSki(1 / 120); acc -= 1 / 120; n++; } if (n === 8) acc = 0; recordRewind(dt); }
     updateLifts(dt * ff, camera.position, frame); updateNPCs(dt, camera.position);
     if (sk.mode === "wait" || sk.mode === "lift") stepLift(dt * ff); else if (sk.mode === "walk") stepWalk(dt);
-    findNearLift(); emitSpray(dt); layTracks(dt); updateParticles(dt); updateRig(dt, now); updateCamera(dt); updateRemotes(dt, now); mpSend(dt);
+    findNearLift(); emitSpray(dt); layTracks(dt); updateParticles(dt); updateRig(dt, now); updateCamera(dt); if (camFix) { camera.position.set(camFix[0], camFix[1], camFix[2]); camera.up.set(0, 1, 0); camera.lookAt(camFix[3], camFix[4], camFix[5]); camera.fov = camFix[6] || 50; camera.updateProjectionMatrix(); } updateRemotes(dt, now); mpSend(dt);
   }
   rig.hold.visible = sk.mode !== "menu" && rig.hold.visible;
   updateSun(); skyMesh.position.copy(camera.position); skyMesh.scale.setScalar(40000);
@@ -55,7 +55,7 @@ async function boot() {
   for (let i = 0; i < 300; i++) if (!updateTerrain(camera.position, 40)) break;
   for (let i = 0; i < 40; i++) { updateTrees(camera.position); updateRocks(camera.position); }
   $("load").hidden = true; renderer.info.autoReset = false; requestAnimationFrame(tick);
-  window.__pal = { CLIFFS, buildCliff, setCam: a => { camFix = a; sk.mode = "menu"; $("menu").hidden = true; $("hud").hidden = true; }, cliffK, hBase, PARK, REW, stepRewind, recordRewind, toggleWalk, stepWalk, clearTracks, goHome, toggleMap, runAt, npcs, KR, gDown, gUp, landing, stepSki, stepLift, updateLifts, findNearLift, nrm, sk, K, LIFTS, WORLD, H, camera, scene, renderer, setWeather, placeSkier, boardLift, unloadAt, spawnAt, MP, chunks, nearTiles, treeTiles, Q };
+  window.__pal = { viewFrom: a => { camFix = a; }, CLIFFS, buildCliff, updateTerrain, setCam: a => { camFix = a; sk.mode = "menu"; $("menu").hidden = true; $("hud").hidden = true; }, cliffK, hBase, PARK, REW, stepRewind, recordRewind, toggleWalk, stepWalk, clearTracks, goHome, toggleMap, runAt, npcs, KR, gDown, gUp, landing, stepSki, stepLift, updateLifts, findNearLift, nrm, sk, K, LIFTS, WORLD, H, camera, scene, renderer, setWeather, placeSkier, boardLift, unloadAt, spawnAt, MP, chunks, nearTiles, treeTiles, Q };
   window.__info = () => ({ mode: sk.mode, p: [Math.round(sk.p.x), Math.round(sk.p.y), Math.round(sk.p.z)], sp: +sk.sp.toFixed(1), ground: sk.ground, crashed: sk.crashed, trees: treeCount, calls: renderer.info.render.calls, tris: renderer.info.render.triangles, lift: sk.lift && sk.lift.name, liftS: Math.round(sk.liftS) });
 }
 boot().catch(e => { const d = document.createElement("div"); d.id = "err"; d.textContent = String(e && e.stack || e); document.body.appendChild(d); console.error(e); });

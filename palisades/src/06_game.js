@@ -144,7 +144,7 @@ function stepSki(dt) {
     }
     if (popNow || yp > hn + 0.12) { // the snow dropped away, or a pop: airborne
       const lip = kickerLip(p.x, p.z); sk.featLaunch = !!lip;
-      sk.ground = false; sk.air = true; if (popNow) { v.y += (lip ? 6.5 : 5.2) * pw + 3.0; sk.popT = 0.2; } if (lip && !lip.lip) { const L2 = lip.Lr + lip.T + lip.Ld, hill = Math.atan2(H(lip.x + lip.dx * (L2 + 3), lip.z + lip.dz * (L2 + 3)) - H(lip.x - lip.dx * 3, lip.z - lip.dz * 3), L2 + 6); v.y = Math.max(v.y, sk.sp * Math.sin(hill + Math.atan(2 * lip.hK / lip.Lr))) + (popNow ? 0 : 3.0); }   // leave along the lip's own angle, with the lift Kicker Run's kickers give
+      sk.ground = false; sk.air = true; if (popNow) { v.y += (lip ? 6.5 : 5.2) * pw + 3.0; sk.popT = 0.2; } if (lip && !lip.lip) { const L2 = lip.Lr + lip.T + lip.Ld, hill = Math.atan2(H(lip.x + lip.dx * (L2 + 3), lip.z + lip.dz * (L2 + 3)) - H(lip.x - lip.dx * 3, lip.z - lip.dz * 3), L2 + 6); v.y = Math.max(v.y, sk.sp * Math.sin(hill + Math.atan(1.7 * lip.hK / lip.Lr))) + (popNow ? 0 : lip.side ? 1.4 : 3.0); }   // leave along the lip's own angle, with the lift Kicker Run's kickers give
       p.set(nx, popNow ? Math.max(yp, hn) + 0.02 : yp, nz); sk.rot = sA; sk.vside = 0; sk.peakY = p.y;
       sk.airT = 0; sk.flipAcc = 0; sk.flipB = 0; sk.flipF = 0; sk.spin = 0; sk.spinV = 0; sk.grabT = 0; sk.rotV = 0; sk.spinTarget = 0;
     } else {
