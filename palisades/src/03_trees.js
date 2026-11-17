@@ -153,20 +153,15 @@ function treeHit(x, z, rad) {
 /* ---------- cliffs: every surveyed cliff is one rock ----------
    Connected patches of the lidar cliff map are found once. Each becomes a single mesh laid over the real cliff surface and pushed
    out along its normal by the chosen style, so no two are the same size or shape: each is as big as the cliff it stands on. */
-const ROCK_STYLES = {
+const ROCK_STYLES = { // the two kinds of rock on the mountain: pale rounded granite, and brown rock broken into flat faces
   a: { name: "Granite domes", flat: false, lo: [0.20, 0.19, 0.18], hi: [0.50, 0.48, 0.45] },
-  b: { name: "Fractured blocks", flat: true, lo: [0.085, 0.062, 0.045], hi: [0.34, 0.26, 0.18] },
-  c: { name: "Stepped ledges", flat: true, lo: [0.13, 0.11, 0.095], hi: [0.40, 0.33, 0.26] },
-  d: { name: "Fluted columns", flat: true, lo: [0.05, 0.05, 0.055], hi: [0.22, 0.21, 0.21] }
+  b: { name: "Fractured blocks", flat: true, lo: [0.085, 0.062, 0.045], hi: [0.34, 0.26, 0.18] }
 };
-let rockStyle = QS.get("rock") || store.get("pal-rock", "b"); if (!ROCK_STYLES[rockStyle]) rockStyle = "b";
-const rockU = { uRkLo: { value: new THREE.Color() }, uRkHi: { value: new THREE.Color() } };
 let CLIFFS = [], rockMats = null;
-function rockPush(x, y, z, nx, nz) { // how far the rock stands out from the surveyed surface, by style
-  if (rockStyle === "a") { const n = vnoise(x * 0.11 + y * 0.05, z * 0.11 + y * 0.08, 61); return 1.6 * n * n + 0.25 * vnoise(x * 0.45, z * 0.45 + y * 0.35, 62); }
-  if (rockStyle === "b") { const a = Math.floor((x * 0.8 + z * 0.6) / 3.4), b = Math.floor(y / 2.8 + 0.4 * hash2(a, 1, 66)), c = Math.floor((-x * 0.6 + z * 0.8) / 3.4); return 0.2 + 1.7 * hash2(a * 7 + b * 13, c * 5 + b, 63); }
-  if (rockStyle === "c") { const t = y / 2.6 + vnoise(x * 0.05, z * 0.05, 64) * 1.6, f = t - Math.floor(t); return 1.5 * (f < 0.78 ? f / 0.78 : (1 - f) / 0.22) + 0.2 * vnoise(x * 0.6, z * 0.6, 65); }
-  const s2 = x * -nz + z * nx; return 1.7 * Math.pow(Math.abs(Math.sin(s2 * 0.62 + vnoise(y * 0.07, s2 * 0.03, 67) * 3)), 0.55) + 0.25 * vnoise(x * 0.5, z * 0.5 + y * 0.4, 68);
+const cliffStyle = c => vnoise(c.x * 0.0011 + 3.7, c.z * 0.0011 + 1.3, 71) > 0.52 ? "a" : "b";   // whole faces share a rock type, as real outcrops do
+function rockPush(st, x, y, z) { // how far the rock stands out from the surveyed surface
+  if (st === "a") { const n = vnoise(x * 0.11 + y * 0.05, z * 0.11 + y * 0.08, 61); return 1.6 * n * n + 0.25 * vnoise(x * 0.45, z * 0.45 + y * 0.35, 62); }
+  const a = Math.floor((x * 0.8 + z * 0.6) / 3.4), b = Math.floor(y / 2.8 + 0.4 * hash2(a, 1, 66)), c = Math.floor((-x * 0.6 + z * 0.8) / 3.4); return 0.2 + 1.7 * hash2(a * 7 + b * 13, c * 5 + b, 63);
 }
 function initRocks() {
   const lab = new Int32Array(NX * NZ), stack = [];
@@ -177,29 +172,28 @@ function initRocks() {
     c.x = X0 + (c.i0 + c.i1) / 2 * CELL; c.z = Z0 + (c.j0 + c.j1) / 2 * CELL; c.r = Math.hypot(c.i1 - c.i0, c.j1 - c.j0) * CELL / 2 + 6; CLIFFS.push(c);
   }
   CLIFFS.lab = lab;
-  const mk = flat => worldShade(new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, flatShading: flat }), {
-    patch(sh) { Object.assign(sh.uniforms, rockU); sh.fragmentShader = "uniform vec3 uRkLo, uRkHi;\n" + sh.fragmentShader.replace("#include <color_fragment>", `#include <color_fragment>
+  const mk = st => worldShade(new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, flatShading: st.flat }), {
+    patch(sh) { sh.uniforms.uRkLo = { value: new THREE.Color(...st.lo) }; sh.uniforms.uRkHi = { value: new THREE.Color(...st.hi) }; sh.fragmentShader = "uniform vec3 uRkLo, uRkHi;\n" + sh.fragmentShader.replace("#include <color_fragment>", `#include <color_fragment>
       { vec3 wn = normalize(cross(dFdx(vWp), dFdy(vWp))); vec2 rw = abs(wn.xz) + 0.001; rw /= rw.x + rw.y;
         float n1 = texture2D(uNoise, vWp.zy * 0.045).r * rw.x + texture2D(uNoise, vWp.xy * 0.045).r * rw.y, n2 = texture2D(uNoise, vWp.zy * 0.4).g * rw.x + texture2D(uNoise, vWp.xy * 0.4).g * rw.y, n3 = texture2D(uNoise, vWp.zy * vec2(0.5, 0.02)).b * rw.x + texture2D(uNoise, vWp.xy * vec2(0.5, 0.02)).b * rw.y;
         vec3 rk = mix(uRkLo, uRkHi, n1 * 0.6 + n2 * 0.4) * (1.0 - 0.3 * smoothstep(0.55, 0.8, n3));
         float sn = smoothstep(0.42, 0.6, wn.y + (n2 - 0.5) * 0.3);
         diffuseColor.rgb = mix(rk, vec3(0.9, 0.92, 0.95), sn); }`); }
   });
-  rockMats = { smooth: mk(false), flat: mk(true) }; setRockStyle(rockStyle);
+  rockMats = { a: mk(ROCK_STYLES.a), b: mk(ROCK_STYLES.b) };
 }
-function setRockStyle(k) { rockStyle = k; store.set("pal-rock", k); const st = ROCK_STYLES[k]; rockU.uRkLo.value.setRGB(...st.lo); rockU.uRkHi.value.setRGB(...st.hi); for (const c of CLIFFS) if (c.mesh) { scene.remove(c.mesh); c.mesh.geometry.dispose(); c.mesh = null; } }
 function buildCliff(c) {
   const big = c.n > 900, st = big ? 2.5 : 1.25, pad = 5, x0 = X0 + c.i0 * CELL - pad, z0 = Z0 + c.j0 * CELL - pad, nx = Math.ceil(((c.i1 - c.i0) * CELL + 2 * pad) / st) + 1, nz = Math.ceil(((c.j1 - c.j0) * CELL + 2 * pad) / st) + 1;
-  const hs = new Float32Array(nx * nz), ms = new Float32Array(nx * nz), pos = new Float32Array(nx * nz * 3), lab = CLIFFS.lab;
+  const hs = new Float32Array(nx * nz), ms = new Float32Array(nx * nz), pos = new Float32Array(nx * nz * 3), lab = CLIFFS.lab, sty = cliffStyle(c);
   for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) { const x = x0 + i * st, z = z0 + j * st, k = j * nx + i; hs[k] = H(x, z);
     const gi = clamp(Math.round((x - X0) / CELL), 0, NX - 1), gj = clamp(Math.round((z - Z0) / CELL), 0, NZ - 1), l = lab[gj * NX + gi]; ms[k] = l && l !== c.id ? 0 : sstep(0.16, 0.5, cliffK(x, z)); }
   for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) { const k = j * nx + i, x = x0 + i * st, z = z0 + j * st, i0 = Math.max(0, i - 1), i1 = Math.min(nx - 1, i + 1), j0 = Math.max(0, j - 1), j1 = Math.min(nz - 1, j + 1);
-    let ax = (hs[j * nx + i0] - hs[j * nx + i1]) / ((i1 - i0) * st), az = (hs[j0 * nx + i] - hs[j1 * nx + i]) / ((j1 - j0) * st); const il = 1 / Math.hypot(ax, 1, az), hl = Math.hypot(ax, az) || 1, m = ms[k], d = m * (0.15 + rockPush(x, hs[k], z, ax / hl, az / hl));
+    let ax = (hs[j * nx + i0] - hs[j * nx + i1]) / ((i1 - i0) * st), az = (hs[j0 * nx + i] - hs[j1 * nx + i]) / ((j1 - j0) * st); const il = 1 / Math.hypot(ax, 1, az), m = ms[k], d = m * (0.15 + rockPush(sty, x, hs[k], z));
     pos[k * 3] = x - c.x + ax * il * d; pos[k * 3 + 1] = hs[k] + il * d * 0.6; pos[k * 3 + 2] = z - c.z + az * il * d; }
   const idx = []; for (let j = 0; j < nz - 1; j++) for (let i = 0; i < nx - 1; i++) { const a = j * nx + i, b = a + 1, d = a + nx, e = d + 1; if (ms[a] < 0.07 || ms[b] < 0.07 || ms[d] < 0.07 || ms[e] < 0.07) continue; idx.push(a, d, b, b, d, e); }
   if (!idx.length) { c.mesh = false; return; }
   const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
-  const m = new THREE.Mesh(g, ROCK_STYLES[rockStyle].flat ? rockMats.flat : rockMats.smooth); m.position.set(c.x, 0, c.z); m.matrixAutoUpdate = false; m.updateMatrix(); m.receiveShadow = true; m.castShadow = true; scene.add(m); c.mesh = m;
+  const m = new THREE.Mesh(g, rockMats[sty]); m.position.set(c.x, 0, c.z); m.matrixAutoUpdate = false; m.updateMatrix(); m.receiveShadow = true; m.castShadow = true; scene.add(m); c.mesh = m;
 }
 function updateRocks(cam) {
   let made = 0;

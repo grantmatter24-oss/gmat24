@@ -36,11 +36,15 @@ _lon, _lat = toLL(gx, gz); _e, _n = _tf("EPSG:4326", "EPSG:26910", _lon.ravel(),
 lcol = np.array(_e).reshape(gx.shape) - LE0 - 0.5; lrow = LN1 - np.array(_n).reshape(gx.shape) - 0.5
 Hl = ndimage.map_coordinates(lid, [lrow, lcol], order=1, mode="nearest").astype(np.float32)
 print("lidar vs 10 m survey: mean diff %.2f m, rms %.2f m" % (float(np.mean(Hl - Hm)), float(np.sqrt(np.mean((Hl - Hm) ** 2)))))
-Hm = Hl
 steep = np.zeros(lid.shape, np.float32); dx = np.abs(np.diff(lid, axis=1)) > 1.5; dy = np.abs(np.diff(lid, axis=0)) > 1.5
 steep[:, 1:] += dx; steep[:, :-1] += dx; steep[1:, :] += dy; steep[:-1, :] += dy; del dx, dy
 steep = ndimage.uniform_filter((steep > 0).astype(np.float32), 5)
-cliffRaw = ndimage.map_coordinates(steep, [lrow, lcol], order=1, mode="nearest"); del steep, lid
+cliffRaw = ndimage.map_coordinates(steep, [lrow, lcol], order=1, mode="nearest"); del steep
+# Snow buries the small stuff (boulders, brush, ruts), so everywhere except the cliffs the surface is the lidar smoothed over about
+# 15 m. The cliffs keep the raw point samples so they stay sharp and full height.
+Hs = ndimage.map_coordinates(ndimage.gaussian_filter(lid, 6.0), [lrow, lcol], order=1, mode="nearest").astype(np.float32); del lid
+_cw = np.clip(ndimage.gaussian_filter(np.clip((cliffRaw - 0.06) / 0.3, 0, 1), 1.2) * 1.6, 0, 1)
+Hm = (Hs * (1 - _cw) + Hl * _cw).astype(np.float32); del Hs
 print("height", Hm.min(), Hm.max())
 def Hat(x, z):
     i = np.clip((np.asarray(x) - X0) / CELL, 0, NX - 1); j = np.clip((np.asarray(z) - Z0) / CELL, 0, NZ - 1)

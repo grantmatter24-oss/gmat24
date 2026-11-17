@@ -48,6 +48,10 @@ async function loadWorld() {
   let MC; [HM, HO, MA, MB, MC] = await Promise.all([inflate16(WORLD.h, [NX, NZ], M.hbase, M.hq), inflate16(WORLD.ho, [M.on, M.on], M.obase, M.oq), loadMask(WORLD.maskA), loadMask(WORLD.maskB), loadMask(WORLD.maskC)]);
   WORLD.h = WORLD.ho = null; CL = new Float32Array(NX * NZ);
   for (let k = 0; k < NX * NZ; k++) { MA[k * 4 + 3] = MC[k * 4]; CL[k] = MC[k * 4] / 255; }   // mask grid and height grid are the same 5 m grid
+  // Heights arrive in 8 cm steps. Off the cliffs, two passes of a small blur take the steps out so the snow lies smooth.
+  for (let pass = 0; pass < 2; pass++) { const src = HM.slice();
+    for (let j = 1; j < NZ - 1; j++) for (let i = 1; i < NX - 1; i++) { const k = j * NX + i; if (CL[k] + CL[k - 1] + CL[k + 1] + CL[k - NX] + CL[k + NX] > 0.02) continue;
+      HM[k] = (4 * src[k] + 2 * (src[k - 1] + src[k + 1] + src[k - NX] + src[k + NX]) + src[k - NX - 1] + src[k - NX + 1] + src[k + NX - 1] + src[k + NX + 1]) / 16; } }
   // rock shows where the ground is too steep to hold snow
   ROCK = new Float32Array(NX * NZ);
   for (let j = 0; j < NZ; j++) for (let i = 0; i < NX; i++) {
@@ -98,7 +102,7 @@ function gridAdd(G, x0, z0, x1, z1, item) { for (let cz = Math.max(0, Math.floor
 function initCat() {
   const G = new Array(CATW * CATH);
   for (const r of WORLD.runs) {
-    if (!r.g) continue; const W = [46, 42, 30, 18][r.d], core = r.c ? 5.5 : 0.26 * W, outer = r.c ? 9.5 : 0.5 * W + 9, str = r.c ? 1 : 0.35, P = [];
+    if (!r.c) continue; const core = 5.5, outer = 9.5, str = 1, P = [];   // only the cat tracks are levelled: ordinary groomed runs keep the survey's own grading
     for (let i = 0; i < r.pts.length - 1; i++) { const a = r.pts[i], b = r.pts[i + 1], n = Math.max(1, Math.round(Math.hypot(b[0] - a[0], b[1] - a[1]) / 14)); for (let k = 0; k < n; k++) P.push([lerp(a[0], b[0], k / n), lerp(a[1], b[1], k / n)]); }
     P.push(r.pts[r.pts.length - 1].slice()); let hs = P.map(q => hBase(q[0], q[1]));
     for (let it = 0; it < (r.c ? 6 : 3); it++) hs = hs.map((h, i) => i === 0 || i === hs.length - 1 ? h : (hs[i - 1] + 2 * h + hs[i + 1]) / 4);   // even out the grade along the run
