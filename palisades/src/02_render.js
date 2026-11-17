@@ -236,7 +236,7 @@ const TERRAIN_FRAG_COLOR = `
   #elif defined(FAR_N)
     float rock = cliffM;
   #else
-    float rock = max(smoothstep(0.36, 0.5, 1.0 - normalize(vWn).y) * smoothstep(0.03, 0.2, mA.a), smoothstep(0.4, 0.62, mA.a + (nC - 0.5) * 0.2) * mix(0.75, 1.0, smoothstep(240.0, 520.0, tDist)));   // only surveyed cliffs are rock: a steep jump wall or cat-track bank is still snow
+    float rock = max(smoothstep(0.36, 0.5, 1.0 - normalize(vWn).y) * smoothstep(0.03, 0.2, mA.a), smoothstep(0.4, 0.62, mA.a + (nC - 0.5) * 0.2) * mix(0.75 * smoothstep(0.2, 0.34, 1.0 - normalize(vWn).y), 1.0, smoothstep(240.0, 520.0, tDist)));   // only surveyed cliffs are rock: a steep jump wall or cat-track bank is still snow
   #endif
   #ifdef OUTER
     float forest = smoothstep(0.42, 0.62, nB * 0.6 + nA * 0.5 + texture2D(uNoise, vWp.xz * 0.0009).g * 0.3) * smoothstep(2650.0, 2350.0, vWp.y + nA * 200.0) * smoothstep(0.30, 0.16, slope);
@@ -332,8 +332,9 @@ function gridIndex(n) {
   return idxCache[n] = new THREE.BufferAttribute(base + 4 * w > 65535 ? new Uint32Array(ix) : new Uint16Array(ix), 1);
 }
 let _hg = new Float32Array(1);
+const Hbare = (x, z) => H(x, z, true);
 function buildPatch(o, size, n, detail, slot) {
-  const w = n + 1, st = size / n, hfn = detail ? H : Hsmooth, gw = n + 3;
+  const w = n + 1, st = size / n, hfn = detail ? Hbare : Hsmooth, gw = n + 3;
   if (_hg.length < gw * gw) _hg = new Float32Array(gw * gw);
   for (let j = 0; j < gw; j++) for (let i = 0; i < gw; i++) _hg[j * gw + i] = hfn(o.x0 + (i - 1) * st, o.z0 + (j - 1) * st);
   const nv = w * w + 4 * w, pos = new Float32Array(nv * 3), nor = new Float32Array(nv * 3), drop = Math.max(10, st * 0.8 + 0.6);

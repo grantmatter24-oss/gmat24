@@ -147,14 +147,15 @@ function initPark() {
       else { const c = Math.cos(0.3 * sd), sn = Math.sin(0.3 * sd); PARK.push(Object.assign({ k: "table", kind: "hit", hK: 1.1 + 0.5 * hash2(n, r.len, 42), Lr: 5, T: 0, Ld: 2.2, W: 4.2, deck: 0, side: true, soft: true }, o, { dx: o.dx * c - o.dz * sn, dz: o.dz * c + o.dx * sn })); }
       s += 150 + 110 * hash2(n, r.len, 43); n++; } }
   for (const f of PARK) { const L = f.k === "table" ? f.Lr + f.T + f.Ld + 2 : f.k === "mound" ? f.R : f.len, r = f.k === "bank" ? f.wB + 3 : f.k === "mound" ? f.R + 1 : (f.W || 2) / 2 + 6; gridAdd(G, Math.min(f.x, f.x + f.dx * L) - r, Math.min(f.z, f.z + f.dz * L) - r, Math.max(f.x, f.x + f.dx * L) + r, Math.max(f.z, f.z + f.dz * L) + r, f); }
+  for (const f of PARK) f.cut = f.k === "table" && !f.soft;
   PARKG = G;
 }
 const parkCell = (x, z) => PARKG && PARKG[((z - Z0) / CATC | 0) * CATW + ((x - X0) / CATC | 0)];
-function parkH(x, z) {
+function parkH(x, z, bare) { // bare: leave out the cut jumps, which are drawn by their own fine meshes
   const c = parkCell(x, z); if (!c) return 0; let h = 0;
-  for (const f of c) { const rx = x - f.x, rz = z - f.z, s = rx * f.dx + rz * f.dz, ul = -rx * f.dz + rz * f.dx, u = Math.abs(ul); let v = 0;
+  for (const f of c) { if (bare && f.cut) continue; const rx = x - f.x, rz = z - f.z, s = rx * f.dx + rz * f.dz, ul = -rx * f.dz + rz * f.dx, u = Math.abs(ul); let v = 0;
     if (f.k === "table") { const L = f.Lr + f.T + f.Ld; if (s < 0 || s > L) continue;
-      if (s < f.Lr) v = f.hK * Math.pow(s / f.Lr, 1.7) * (1 - sstep(f.W / 2 - (f.soft ? 1.2 : 0.25), f.W / 2 + (f.soft ? 1.8 : 0.7), u));   // the wedge: square-cut sides
+      if (s < f.Lr) v = f.hK * Math.pow(s / f.Lr, 1.7) * (1 - sstep(f.W / 2 - (f.soft ? 1.2 : 0.12), f.W / 2 + (f.soft ? 1.8 : 0.4), u));   // the wedge: square-cut sides
       const dk = f.hK * f.deck; if (dk > 0 && s > f.Lr - 1.5) { const wl = f.W / 2 + 2, body = (s < f.Lr + f.T ? dk * sstep(f.Lr - 1.5, f.Lr + 0.6, s) : dk * (1 - smooth((s - f.Lr - f.T) / f.Ld))) * (1 - sstep(wl - 0.4, wl + 2.6, u)); if (s >= f.Lr + 0.55) v = body; else v = Math.max(v * (1 - sstep(f.Lr, f.Lr + 0.55, s)), body); }
       else if (s >= f.Lr) v *= 1 - sstep(f.Lr, f.Lr + f.Ld, s); }
     else if (f.k === "mound") { const d = Math.hypot(rx - f.dx * f.R * 0.5, rz - f.dz * f.R * 0.5); v = f.hK * (1 - smooth(d / f.R)); }
@@ -166,10 +167,10 @@ function kickerLip(x, z) { const c = parkCell(x, z); if (!c) return null; for (c
 const EDGE = 220;
 function edgeW(x, z) { return smooth(1 - Math.min(x - X0, X1 - x, z - Z0, Z1 - z) / EDGE); }
 /* Ground height. Inside the resort grid it is survey + detail, blending to the coarse backdrop at the rim so the two meshes meet exactly. */
-function H(x, z) {
+function H(x, z, bare) {
   if (!(x > X0 && x < X1 && z > Z0 && z < Z1)) return hOuter(x, z);
   const w = edgeW(x, z); if (w >= 1) return hOuter(x, z);
-  const h = catBench(x, z, hBase(x, z) + detailH(x, z)) + parkH(x, z); return w > 0 ? lerp(h, hOuter(x, z), w) : h;
+  const h = catBench(x, z, hBase(x, z) + detailH(x, z)) + parkH(x, z, bare); return w > 0 ? lerp(h, hOuter(x, z), w) : h;
 }
 function Hsmooth(x, z) { // no cliffs or drifts: far terrain, lift profiles, building pads
   if (!(x > X0 && x < X1 && z > Z0 && z < Z1)) return hOuter(x, z);

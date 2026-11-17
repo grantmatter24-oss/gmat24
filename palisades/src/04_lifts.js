@@ -330,7 +330,24 @@ function initVillage() {
   if (b.p.length) { const m = new THREE.Mesh(b.build(), liftMat); m.castShadow = true; m.frustumCulled = false; scene.add(m); }
 }
 /* ---------- terrain park hardware: rails with their posts, lip markers, and a banner at the top of each line ---------- */
+/* Each cut jump gets its own fine snow mesh (25 cm at the takeoff) so the lip, the square side walls and the deck edge are as crisp as a cat-cut feature. */
+const cutMeshes = [];
+function buildCut(f) {
+  const L = f.Lr + f.T + f.Ld, fine = 0.25, wF = f.W / 2 + 1.3, wAll = f.deck > 0 ? f.W / 2 + 5 : wF, S = [], Uu = [];
+  for (let s = -1; s < f.Lr + 1.5; s += fine) S.push(s); for (let s = f.Lr + 1.5; s < L + 1; s += 1) S.push(s); S.push(L + 1);
+  for (let u = -wAll; u < -wF; u += 0.6) Uu.push(u); for (let u = -wF; u < wF; u += fine) Uu.push(u); for (let u = wF; u < wAll; u += 0.6) Uu.push(u); Uu.push(wAll);
+  const ns = S.length, nu = Uu.length, hg = new Float32Array(ns * nu), pos = new Float32Array(ns * nu * 3), nor = new Float32Array(ns * nu * 3), idx = [];
+  const cx = f.x + f.dx * L / 2, cz = f.z + f.dz * L / 2, cy = H(cx, cz);
+  for (let j = 0; j < ns; j++) for (let i = 0; i < nu; i++) { const x = f.x + f.dx * S[j] - f.dz * Uu[i], z = f.z + f.dz * S[j] + f.dx * Uu[i], h = H(x, z), k = (j * nu + i) * 3; hg[j * nu + i] = h; pos[k] = x - cx; pos[k + 1] = h + 0.05 - cy; pos[k + 2] = z - cz; }
+  for (let j = 0; j < ns; j++) for (let i = 0; i < nu; i++) { const j0 = Math.max(0, j - 1), j1 = Math.min(ns - 1, j + 1), i0 = Math.max(0, i - 1), i1 = Math.min(nu - 1, i + 1);
+    const hs = (hg[j1 * nu + i] - hg[j0 * nu + i]) / (S[j1] - S[j0]), hu = (hg[j * nu + i1] - hg[j * nu + i0]) / (Uu[i1] - Uu[i0]), nx = -hs * f.dx + hu * f.dz, nz = -hs * f.dz - hu * f.dx, il = 1 / Math.hypot(nx, 1, nz), k = (j * nu + i) * 3; nor[k] = nx * il; nor[k + 1] = il; nor[k + 2] = nz * il; }
+  for (let j = 0; j < ns - 1; j++) for (let i = 0; i < nu - 1; i++) { const a = j * nu + i, b = a + 1, c = a + nu, d = c + 1; idx.push(a, c, b, b, c, d); }
+  const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(pos, 3)); g.setAttribute("normal", new THREE.BufferAttribute(nor, 3)); g.setIndex(idx); g.computeBoundingSphere();
+  const m = new THREE.Mesh(g, matNear); m.position.set(cx, cy, cz); m.matrixAutoUpdate = false; m.updateMatrix(); m.receiveShadow = true; m.castShadow = true; scene.add(m); cutMeshes.push(m);
+}
+function updatePark(cam) { for (const m of cutMeshes) m.visible = Math.hypot(m.position.x - cam.x, m.position.z - cam.z) < 900; }
 function initParkMeshes() {
+  for (const f of PARK) if (f.cut) buildCut(f);
   const b = new GeoBag(), COL = [[0.9, 0.33, 0.06], [0.08, 0.3, 0.75], [0.85, 0.7, 0.05]]; let k = 0; const flagG = [];
   for (const f of PARK) {
     const yaw = Math.atan2(f.dx, f.dz), rx = -f.dz, rz = f.dx;

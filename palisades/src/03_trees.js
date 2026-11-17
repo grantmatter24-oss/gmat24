@@ -186,11 +186,14 @@ function buildCliff(c) {
   const big = c.n > 900, st = big ? 2.5 : 1.25, pad = 5, x0 = X0 + c.i0 * CELL - pad, z0 = Z0 + c.j0 * CELL - pad, nx = Math.ceil(((c.i1 - c.i0) * CELL + 2 * pad) / st) + 1, nz = Math.ceil(((c.j1 - c.j0) * CELL + 2 * pad) / st) + 1;
   const hs = new Float32Array(nx * nz), ms = new Float32Array(nx * nz), pos = new Float32Array(nx * nz * 3), lab = CLIFFS.lab, sty = cliffStyle(c);
   for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) { const x = x0 + i * st, z = z0 + j * st, k = j * nx + i; hs[k] = H(x, z);
-    const gi = clamp(Math.round((x - X0) / CELL), 0, NX - 1), gj = clamp(Math.round((z - Z0) / CELL), 0, NZ - 1), l = lab[gj * NX + gi]; ms[k] = l && l !== c.id ? 0 : sstep(0.16, 0.5, cliffK(x, z)); }
+    const gi = clamp(Math.round((x - X0) / CELL), 0, NX - 1), gj = clamp(Math.round((z - Z0) / CELL), 0, NZ - 1), l = lab[gj * NX + gi]; ms[k] = (l && l !== c.id) || i === 0 || j === 0 || i === nx - 1 || j === nz - 1 ? 0 : sstep(0.16, 0.5, cliffK(x, z)); }
   for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) { const k = j * nx + i, x = x0 + i * st, z = z0 + j * st, i0 = Math.max(0, i - 1), i1 = Math.min(nx - 1, i + 1), j0 = Math.max(0, j - 1), j1 = Math.min(nz - 1, j + 1);
-    let ax = (hs[j * nx + i0] - hs[j * nx + i1]) / ((i1 - i0) * st), az = (hs[j0 * nx + i] - hs[j1 * nx + i]) / ((j1 - j0) * st); const il = 1 / Math.hypot(ax, 1, az), m = ms[k], d = m * (0.15 + rockPush(sty, x, hs[k], z));
-    pos[k * 3] = x - c.x + ax * il * d; pos[k * 3 + 1] = hs[k] + il * d * 0.6; pos[k * 3 + 2] = z - c.z + az * il * d; }
-  const idx = []; for (let j = 0; j < nz - 1; j++) for (let i = 0; i < nx - 1; i++) { const a = j * nx + i, b = a + 1, d = a + nx, e = d + 1; if (ms[a] < 0.07 || ms[b] < 0.07 || ms[d] < 0.07 || ms[e] < 0.07) continue; idx.push(a, d, b, b, d, e); }
+    let ax = (hs[j * nx + i0] - hs[j * nx + i1]) / ((i1 - i0) * st), az = (hs[j0 * nx + i] - hs[j1 * nx + i]) / ((j1 - j0) * st); const il = 1 / Math.hypot(ax, 1, az), m = ms[k], steep = sstep(0.9, 1.7, Math.hypot(ax, az));
+    // The rock only stands out where the ground is a wall. On the flat above and below it sinks under the snow, and the rim of the mesh
+    // is buried well inside the hill, so the cliff is closed all round and the run's snow carries right to the lip.
+    const d = m < 0.07 ? -(big ? 6 : 3.5) : lerp(-0.9, m * (0.15 + rockPush(sty, x, hs[k], z)), steep);
+    pos[k * 3] = x - c.x + ax * il * d; pos[k * 3 + 1] = hs[k] + il * d * (d > 0 ? 0 : 1) - 0.1 - 0.4 * (1 - steep); pos[k * 3 + 2] = z - c.z + az * il * d; }
+  const idx = []; for (let j = 0; j < nz - 1; j++) for (let i = 0; i < nx - 1; i++) { const a = j * nx + i, b = a + 1, d = a + nx, e = d + 1; if (ms[a] < 0.07 && ms[b] < 0.07 && ms[d] < 0.07 && ms[e] < 0.07) continue; idx.push(a, d, b, b, d, e); }
   if (!idx.length) { c.mesh = false; return; }
   const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
   const m = new THREE.Mesh(g, rockMats[sty]); m.position.set(c.x, 0, c.z); m.matrixAutoUpdate = false; m.updateMatrix(); m.receiveShadow = true; m.castShadow = true; scene.add(m); c.mesh = m;

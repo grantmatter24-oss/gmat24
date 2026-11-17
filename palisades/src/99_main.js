@@ -28,7 +28,7 @@ function tick(t) {
   }
   rig.hold.visible = sk.mode !== "menu" && rig.hold.visible;
   updateSun(); skyMesh.position.copy(camera.position); skyMesh.scale.setScalar(40000);
-  updateTerrain(camera.position, 5); updateTrees(camera.position); updateRocks(camera.position); if (frame % 20 === 0) thinBillboards(camera.position);
+  updateTerrain(camera.position, 5); updateTrees(camera.position); updateRocks(camera.position); if (frame % 20 === 0) { thinBillboards(camera.position); updatePark(camera.position); }
   autoQuality(dt);
   if (snowFall.visible) { snowFall.material.uniforms.uCam.value.copy(camera.position); snowFall.material.uniforms.uPx.value = renderer.domElement.height * 0.5 / Math.tan(camera.fov * DEG / 2); }
   gradePass.uniforms.uSpeed.value = sk.mode === "ski" && !paused ? smooth((sk.sp - 14) / 26) : 0;

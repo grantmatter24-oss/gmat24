@@ -326,14 +326,15 @@ function initPark() {
       else { const c = Math.cos(0.3 * sd), sn = Math.sin(0.3 * sd); PARK.push(Object.assign({ k: "table", kind: "hit", hK: 1.1 + 0.5 * hash2(n, r.len, 42), Lr: 5, T: 0, Ld: 2.2, W: 4.2, deck: 0, side: true, soft: true }, o, { dx: o.dx * c - o.dz * sn, dz: o.dz * c + o.dx * sn })); }
       s += 150 + 110 * hash2(n, r.len, 43); n++; } }
   for (const f of PARK) { const L = f.k === "table" ? f.Lr + f.T + f.Ld + 2 : f.k === "mound" ? f.R : f.len, r = f.k === "bank" ? f.wB + 3 : f.k === "mound" ? f.R + 1 : (f.W || 2) / 2 + 6; gridAdd(G, Math.min(f.x, f.x + f.dx * L) - r, Math.min(f.z, f.z + f.dz * L) - r, Math.max(f.x, f.x + f.dx * L) + r, Math.max(f.z, f.z + f.dz * L) + r, f); }
+  for (const f of PARK) f.cut = f.k === "table" && !f.soft;
   PARKG = G;
 }
 const parkCell = (x, z) => PARKG && PARKG[((z - Z0) / CATC | 0) * CATW + ((x - X0) / CATC | 0)];
-function parkH(x, z) {
+function parkH(x, z, bare) { // bare: leave out the cut jumps, which are drawn by their own fine meshes
   const c = parkCell(x, z); if (!c) return 0; let h = 0;
-  for (const f of c) { const rx = x - f.x, rz = z - f.z, s = rx * f.dx + rz * f.dz, ul = -rx * f.dz + rz * f.dx, u = Math.abs(ul); let v = 0;
+  for (const f of c) { if (bare && f.cut) continue; const rx = x - f.x, rz = z - f.z, s = rx * f.dx + rz * f.dz, ul = -rx * f.dz + rz * f.dx, u = Math.abs(ul); let v = 0;
     if (f.k === "table") { const L = f.Lr + f.T + f.Ld; if (s < 0 || s > L) continue;
-      if (s < f.Lr) v = f.hK * Math.pow(s / f.Lr, 1.7) * (1 - sstep(f.W / 2 - (f.soft ? 1.2 : 0.25), f.W / 2 + (f.soft ? 1.8 : 0.7), u));   // the wedge: square-cut sides
+      if (s < f.Lr) v = f.hK * Math.pow(s / f.Lr, 1.7) * (1 - sstep(f.W / 2 - (f.soft ? 1.2 : 0.12), f.W / 2 + (f.soft ? 1.8 : 0.4), u));   // the wedge: square-cut sides
       const dk = f.hK * f.deck; if (dk > 0 && s > f.Lr - 1.5) { const wl = f.W / 2 + 2, body = (s < f.Lr + f.T ? dk * sstep(f.Lr - 1.5, f.Lr + 0.6, s) : dk * (1 - smooth((s - f.Lr - f.T) / f.Ld))) * (1 - sstep(wl - 0.4, wl + 2.6, u)); if (s >= f.Lr + 0.55) v = body; else v = Math.max(v * (1 - sstep(f.Lr, f.Lr + 0.55, s)), body); }
       else if (s >= f.Lr) v *= 1 - sstep(f.Lr, f.Lr + f.Ld, s); }
     else if (f.k === "mound") { const d = Math.hypot(rx - f.dx * f.R * 0.5, rz - f.dz * f.R * 0.5); v = f.hK * (1 - smooth(d / f.R)); }
@@ -345,10 +346,10 @@ function kickerLip(x, z) { const c = parkCell(x, z); if (!c) return null; for (c
 const EDGE = 220;
 function edgeW(x, z) { return smooth(1 - Math.min(x - X0, X1 - x, z - Z0, Z1 - z) / EDGE); }
 /* Ground height. Inside the resort grid it is survey + detail, blending to the coarse backdrop at the rim so the two meshes meet exactly. */
-function H(x, z) {
+function H(x, z, bare) {
   if (!(x > X0 && x < X1 && z > Z0 && z < Z1)) return hOuter(x, z);
   const w = edgeW(x, z); if (w >= 1) return hOuter(x, z);
-  const h = catBench(x, z, hBase(x, z) + detailH(x, z)) + parkH(x, z); return w > 0 ? lerp(h, hOuter(x, z), w) : h;
+  const h = catBench(x, z, hBase(x, z) + detailH(x, z)) + parkH(x, z, bare); return w > 0 ? lerp(h, hOuter(x, z), w) : h;
 }
 function Hsmooth(x, z) { // no cliffs or drifts: far terrain, lift profiles, building pads
   if (!(x > X0 && x < X1 && z > Z0 && z < Z1)) return hOuter(x, z);
@@ -598,7 +599,7 @@ const TERRAIN_FRAG_COLOR = `
   #elif defined(FAR_N)
     float rock = cliffM;
   #else
-    float rock = max(smoothstep(0.36, 0.5, 1.0 - normalize(vWn).y) * smoothstep(0.03, 0.2, mA.a), smoothstep(0.4, 0.62, mA.a + (nC - 0.5) * 0.2) * mix(0.75, 1.0, smoothstep(240.0, 520.0, tDist)));   // only surveyed cliffs are rock: a steep jump wall or cat-track bank is still snow
+    float rock = max(smoothstep(0.36, 0.5, 1.0 - normalize(vWn).y) * smoothstep(0.03, 0.2, mA.a), smoothstep(0.4, 0.62, mA.a + (nC - 0.5) * 0.2) * mix(0.75 * smoothstep(0.2, 0.34, 1.0 - normalize(vWn).y), 1.0, smoothstep(240.0, 520.0, tDist)));   // only surveyed cliffs are rock: a steep jump wall or cat-track bank is still snow
   #endif
   #ifdef OUTER
     float forest = smoothstep(0.42, 0.62, nB * 0.6 + nA * 0.5 + texture2D(uNoise, vWp.xz * 0.0009).g * 0.3) * smoothstep(2650.0, 2350.0, vWp.y + nA * 200.0) * smoothstep(0.30, 0.16, slope);
@@ -694,8 +695,9 @@ function gridIndex(n) {
   return idxCache[n] = new THREE.BufferAttribute(base + 4 * w > 65535 ? new Uint32Array(ix) : new Uint16Array(ix), 1);
 }
 let _hg = new Float32Array(1);
+const Hbare = (x, z) => H(x, z, true);
 function buildPatch(o, size, n, detail, slot) {
-  const w = n + 1, st = size / n, hfn = detail ? H : Hsmooth, gw = n + 3;
+  const w = n + 1, st = size / n, hfn = detail ? Hbare : Hsmooth, gw = n + 3;
   if (_hg.length < gw * gw) _hg = new Float32Array(gw * gw);
   for (let j = 0; j < gw; j++) for (let i = 0; i < gw; i++) _hg[j * gw + i] = hfn(o.x0 + (i - 1) * st, o.z0 + (j - 1) * st);
   const nv = w * w + 4 * w, pos = new Float32Array(nv * 3), nor = new Float32Array(nv * 3), drop = Math.max(10, st * 0.8 + 0.6);
@@ -952,11 +954,14 @@ function buildCliff(c) {
   const big = c.n > 900, st = big ? 2.5 : 1.25, pad = 5, x0 = X0 + c.i0 * CELL - pad, z0 = Z0 + c.j0 * CELL - pad, nx = Math.ceil(((c.i1 - c.i0) * CELL + 2 * pad) / st) + 1, nz = Math.ceil(((c.j1 - c.j0) * CELL + 2 * pad) / st) + 1;
   const hs = new Float32Array(nx * nz), ms = new Float32Array(nx * nz), pos = new Float32Array(nx * nz * 3), lab = CLIFFS.lab, sty = cliffStyle(c);
   for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) { const x = x0 + i * st, z = z0 + j * st, k = j * nx + i; hs[k] = H(x, z);
-    const gi = clamp(Math.round((x - X0) / CELL), 0, NX - 1), gj = clamp(Math.round((z - Z0) / CELL), 0, NZ - 1), l = lab[gj * NX + gi]; ms[k] = l && l !== c.id ? 0 : sstep(0.16, 0.5, cliffK(x, z)); }
+    const gi = clamp(Math.round((x - X0) / CELL), 0, NX - 1), gj = clamp(Math.round((z - Z0) / CELL), 0, NZ - 1), l = lab[gj * NX + gi]; ms[k] = (l && l !== c.id) || i === 0 || j === 0 || i === nx - 1 || j === nz - 1 ? 0 : sstep(0.16, 0.5, cliffK(x, z)); }
   for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) { const k = j * nx + i, x = x0 + i * st, z = z0 + j * st, i0 = Math.max(0, i - 1), i1 = Math.min(nx - 1, i + 1), j0 = Math.max(0, j - 1), j1 = Math.min(nz - 1, j + 1);
-    let ax = (hs[j * nx + i0] - hs[j * nx + i1]) / ((i1 - i0) * st), az = (hs[j0 * nx + i] - hs[j1 * nx + i]) / ((j1 - j0) * st); const il = 1 / Math.hypot(ax, 1, az), m = ms[k], d = m * (0.15 + rockPush(sty, x, hs[k], z));
-    pos[k * 3] = x - c.x + ax * il * d; pos[k * 3 + 1] = hs[k] + il * d * 0.6; pos[k * 3 + 2] = z - c.z + az * il * d; }
-  const idx = []; for (let j = 0; j < nz - 1; j++) for (let i = 0; i < nx - 1; i++) { const a = j * nx + i, b = a + 1, d = a + nx, e = d + 1; if (ms[a] < 0.07 || ms[b] < 0.07 || ms[d] < 0.07 || ms[e] < 0.07) continue; idx.push(a, d, b, b, d, e); }
+    let ax = (hs[j * nx + i0] - hs[j * nx + i1]) / ((i1 - i0) * st), az = (hs[j0 * nx + i] - hs[j1 * nx + i]) / ((j1 - j0) * st); const il = 1 / Math.hypot(ax, 1, az), m = ms[k], steep = sstep(0.9, 1.7, Math.hypot(ax, az));
+    // The rock only stands out where the ground is a wall. On the flat above and below it sinks under the snow, and the rim of the mesh
+    // is buried well inside the hill, so the cliff is closed all round and the run's snow carries right to the lip.
+    const d = m < 0.07 ? -(big ? 6 : 3.5) : lerp(-0.9, m * (0.15 + rockPush(sty, x, hs[k], z)), steep);
+    pos[k * 3] = x - c.x + ax * il * d; pos[k * 3 + 1] = hs[k] + il * d * (d > 0 ? 0 : 1) - 0.1 - 0.4 * (1 - steep); pos[k * 3 + 2] = z - c.z + az * il * d; }
+  const idx = []; for (let j = 0; j < nz - 1; j++) for (let i = 0; i < nx - 1; i++) { const a = j * nx + i, b = a + 1, d = a + nx, e = d + 1; if (ms[a] < 0.07 && ms[b] < 0.07 && ms[d] < 0.07 && ms[e] < 0.07) continue; idx.push(a, d, b, b, d, e); }
   if (!idx.length) { c.mesh = false; return; }
   const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
   const m = new THREE.Mesh(g, rockMats[sty]); m.position.set(c.x, 0, c.z); m.matrixAutoUpdate = false; m.updateMatrix(); m.receiveShadow = true; m.castShadow = true; scene.add(m); c.mesh = m;
@@ -1301,7 +1306,24 @@ function initVillage() {
   if (b.p.length) { const m = new THREE.Mesh(b.build(), liftMat); m.castShadow = true; m.frustumCulled = false; scene.add(m); }
 }
 /* ---------- terrain park hardware: rails with their posts, lip markers, and a banner at the top of each line ---------- */
+/* Each cut jump gets its own fine snow mesh (25 cm at the takeoff) so the lip, the square side walls and the deck edge are as crisp as a cat-cut feature. */
+const cutMeshes = [];
+function buildCut(f) {
+  const L = f.Lr + f.T + f.Ld, fine = 0.25, wF = f.W / 2 + 1.3, wAll = f.deck > 0 ? f.W / 2 + 5 : wF, S = [], Uu = [];
+  for (let s = -1; s < f.Lr + 1.5; s += fine) S.push(s); for (let s = f.Lr + 1.5; s < L + 1; s += 1) S.push(s); S.push(L + 1);
+  for (let u = -wAll; u < -wF; u += 0.6) Uu.push(u); for (let u = -wF; u < wF; u += fine) Uu.push(u); for (let u = wF; u < wAll; u += 0.6) Uu.push(u); Uu.push(wAll);
+  const ns = S.length, nu = Uu.length, hg = new Float32Array(ns * nu), pos = new Float32Array(ns * nu * 3), nor = new Float32Array(ns * nu * 3), idx = [];
+  const cx = f.x + f.dx * L / 2, cz = f.z + f.dz * L / 2, cy = H(cx, cz);
+  for (let j = 0; j < ns; j++) for (let i = 0; i < nu; i++) { const x = f.x + f.dx * S[j] - f.dz * Uu[i], z = f.z + f.dz * S[j] + f.dx * Uu[i], h = H(x, z), k = (j * nu + i) * 3; hg[j * nu + i] = h; pos[k] = x - cx; pos[k + 1] = h + 0.05 - cy; pos[k + 2] = z - cz; }
+  for (let j = 0; j < ns; j++) for (let i = 0; i < nu; i++) { const j0 = Math.max(0, j - 1), j1 = Math.min(ns - 1, j + 1), i0 = Math.max(0, i - 1), i1 = Math.min(nu - 1, i + 1);
+    const hs = (hg[j1 * nu + i] - hg[j0 * nu + i]) / (S[j1] - S[j0]), hu = (hg[j * nu + i1] - hg[j * nu + i0]) / (Uu[i1] - Uu[i0]), nx = -hs * f.dx + hu * f.dz, nz = -hs * f.dz - hu * f.dx, il = 1 / Math.hypot(nx, 1, nz), k = (j * nu + i) * 3; nor[k] = nx * il; nor[k + 1] = il; nor[k + 2] = nz * il; }
+  for (let j = 0; j < ns - 1; j++) for (let i = 0; i < nu - 1; i++) { const a = j * nu + i, b = a + 1, c = a + nu, d = c + 1; idx.push(a, c, b, b, c, d); }
+  const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(pos, 3)); g.setAttribute("normal", new THREE.BufferAttribute(nor, 3)); g.setIndex(idx); g.computeBoundingSphere();
+  const m = new THREE.Mesh(g, matNear); m.position.set(cx, cy, cz); m.matrixAutoUpdate = false; m.updateMatrix(); m.receiveShadow = true; m.castShadow = true; scene.add(m); cutMeshes.push(m);
+}
+function updatePark(cam) { for (const m of cutMeshes) m.visible = Math.hypot(m.position.x - cam.x, m.position.z - cam.z) < 900; }
 function initParkMeshes() {
+  for (const f of PARK) if (f.cut) buildCut(f);
   const b = new GeoBag(), COL = [[0.9, 0.33, 0.06], [0.08, 0.3, 0.75], [0.85, 0.7, 0.05]]; let k = 0; const flagG = [];
   for (const f of PARK) {
     const yaw = Math.atan2(f.dx, f.dz), rx = -f.dz, rz = f.dx;
@@ -2417,7 +2439,7 @@ function tick(t) {
   }
   rig.hold.visible = sk.mode !== "menu" && rig.hold.visible;
   updateSun(); skyMesh.position.copy(camera.position); skyMesh.scale.setScalar(40000);
-  updateTerrain(camera.position, 5); updateTrees(camera.position); updateRocks(camera.position); if (frame % 20 === 0) thinBillboards(camera.position);
+  updateTerrain(camera.position, 5); updateTrees(camera.position); updateRocks(camera.position); if (frame % 20 === 0) { thinBillboards(camera.position); updatePark(camera.position); }
   autoQuality(dt);
   if (snowFall.visible) { snowFall.material.uniforms.uCam.value.copy(camera.position); snowFall.material.uniforms.uPx.value = renderer.domElement.height * 0.5 / Math.tan(camera.fov * DEG / 2); }
   gradePass.uniforms.uSpeed.value = sk.mode === "ski" && !paused ? smooth((sk.sp - 14) / 26) : 0;
