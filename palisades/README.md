@@ -1,0 +1,17 @@
+# Palisades Tahoe
+
+`../palisades.html` is a single-file ski game of the Olympic Valley side of Palisades Tahoe at 1:1 scale.
+
+- `shell.html`: page, HUD and menus. `src/*.js`: the game, concatenated in name order. `data/world.json`: the baked world.
+- `python3 build.py` assembles `../palisades.html`.
+
+## World data
+
+`tools/` rebuilds `data/world.json` from public sources:
+
+1. `dem.py`: USGS 3DEP elevation from AWS Terrain Tiles (zoom 14).
+2. `overture.py <theme> <type> <out.json>`: lifts, towers, runs, buildings, roads from Overture Maps (OpenStreetMap), for `base/infrastructure`, `base/land_use`, `base/land`, `base/water`, `buildings/building`, `transportation/segment`.
+3. `s2.py <scene> <bands>`: Sentinel-2 L2A red and near-infrared bands for tree cover.
+4. `build_data.py <raw dir> <world.json>`: resamples to a 10 m grid, rasterises grooming, moguls, roads and tree masks, packs lifts and runs.
+
+Map data © OpenStreetMap contributors (ODbL), via Overture Maps. Elevation: USGS. Imagery: Copernicus Sentinel-2.

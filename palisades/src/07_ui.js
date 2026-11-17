@@ -1,0 +1,225 @@
+/* ---------- runs: which named trail am I on ---------- */
+const RUN_GRID = new Map(), DIFF_NAME = ["Green circle", "Blue square", "Black diamond", "Double black"], DIFF_COL = ["#2fb565", "#2f7fe0", "#111111", "#111111"], RUN_W = [46, 42, 30, 18];
+function initRuns() {
+  WORLD.runs.forEach((r, ri) => { for (let i = 0; i < r.pts.length - 1; i++) { const a = r.pts[i], b = r.pts[i + 1], n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 60)); for (let k = 0; k <= n; k++) { const key = Math.floor(lerp(a[0], b[0], k / n) / 120) + "," + Math.floor(lerp(a[1], b[1], k / n) / 120); let s = RUN_GRID.get(key); if (!s) RUN_GRID.set(key, s = new Set()); s.add(ri); } } });
+}
+function runAt(x, z) {
+  const gx = Math.floor(x / 120), gz = Math.floor(z / 120); let best = null, bd = 1e9;
+  for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { const s = RUN_GRID.get((gx + a) + "," + (gz + b)); if (!s) continue; for (const ri of s) { const r = WORLD.runs[ri]; if (!r.n) continue; for (let i = 0; i < r.pts.length - 1; i++) { const p = r.pts[i], q = r.pts[i + 1], ex = q[0] - p[0], ez = q[1] - p[1], t = clamp(((x - p[0]) * ex + (z - p[1]) * ez) / (ex * ex + ez * ez || 1), 0, 1), d = Math.hypot(x - p[0] - ex * t, z - p[1] - ez * t) / (RUN_W[r.d] * 0.5 + 8); if (d < bd) { bd = d; best = r; } } } }
+  return bd < 1 ? best : null;
+}
+/* ---------- HUD ---------- */
+let curRun = null, runShow = 0, hudT = 0, fpsAcc = 0, fpsN = 0;
+function updateHUD(dt) {
+  hudT += dt; fpsAcc += dt; fpsN++;
+  if (toastT > 0) { toastT -= dt; if (toastT <= 0) $("toast").style.opacity = 0; }
+  if (trickT > 0) { trickT -= dt; if (trickT <= 0) $("trick").style.opacity = 0; }
+  if (hudT < 0.1) return; hudT = 0;
+  const imp = units === "imp"; $("speed").textContent = Math.round(sk.sp * (imp ? MPH : KMH)); $("speedU").textContent = imp ? "MPH" : "KM/H";
+  $("sAlt").textContent = fmtAlt(sk.p.y); $("sVert").textContent = imp ? Math.round(sk.vert * FT).toLocaleString() + " ft" : Math.round(sk.vert).toLocaleString() + " m";
+  $("sMax").textContent = Math.round(sk.maxSp * (imp ? MPH : KMH)) + (imp ? " mph" : " km/h"); $("sPts").textContent = sk.pts.toLocaleString();
+  if (fpsAcc > 0.5) { $("fps").textContent = QS.has("fps") || QS.has("test") ? Math.round(fpsN / fpsAcc) + " fps · " + treeCount.toLocaleString() + " trees" : ""; fpsAcc = 0; fpsN = 0; }
+  // trail name
+  if (sk.mode === "ski" && sk.ground) { const r = runAt(sk.p.x, sk.p.z); if (r && r !== curRun && (!curRun || r.n !== curRun.n)) { curRun = r; runShow = 5; $("runName").innerHTML = ""; const d = document.createElement("span"); d.className = "dia d" + r.d; $("runName").append(d, document.createTextNode(r.n)); $("runSub").textContent = DIFF_NAME[r.d] + (r.g ? " · groomed" : r.m ? " · moguls" : " · ungroomed"); } else if (!r && runShow <= 0) curRun = null; }
+  if (runShow > 0) runShow -= 0.1; $("runBox").style.opacity = runShow > 0 ? 1 : 0;
+  // lift prompt and ride bar
+  const pr = $("prompt"), lb = $("liftBar");
+  if (sk.mode === "ski" && nearLift) { pr.hidden = false; pr.innerHTML = "<kbd>E</kbd> Load " + nearLift.name; } else pr.hidden = true;
+  if (sk.mode === "wait" || sk.mode === "lift") {
+    const L = sk.lift; lb.hidden = false; $("liftName").textContent = L.name;
+    if (sk.mode === "wait") { $("liftFill").style.width = "0%"; $("liftSub").innerHTML = (L.type === "tram" ? "Next cabin in " : "Next chair in ") + fmtTime(sk.wait) + ' · hold <span class="kb">F</span> to fast-forward · <span class="kb">Enter</span> skip to top'; }
+    else { const left = (L.len - sk.liftS) / L.v; $("liftFill").style.width = (100 * sk.liftS / L.len).toFixed(1) + "%"; $("liftSub").innerHTML = fmtAlt(sk.p.y) + " · " + fmtTime(left) + ' to the top · hold <span class="kb">F</span> to fast-forward · <span class="kb">Enter</span> skip'; }
+  } else lb.hidden = true;
+}
+/* ---------- trail map and minimap ---------- */
+let mapBase = null; const MAPW = 1500, MAPH = Math.round(MAPW * (Z1 - Z0) / (X1 - X0));
+const mx = x => (x - X0) / (X1 - X0) * MAPW, mz = z => (z - Z0) / (Z1 - Z0) * MAPH;
+function buildMap() {
+  const c = document.createElement("canvas"); c.width = MAPW; c.height = MAPH; const g = c.getContext("2d"), im = g.createImageData(MAPW, MAPH), d = im.data;
+  for (let j = 0; j < MAPH; j++) for (let i = 0; i < MAPW; i++) { // hillshade lit from the north-west, tinted by tree cover
+    const fx = i / MAPW * (NX - 1), fz = j / MAPH * (NZ - 1), gi = clamp(fx | 0, 1, NX - 2), gj = clamp(fz | 0, 1, NZ - 2), k = gj * NX + gi;
+    const sx = (HM[k + 1] - HM[k - 1]) / 20, sz = (HM[k + NX] - HM[k - NX]) / 20, sh = clamp(0.72 + (sx * 0.55 + sz * 0.45) * 0.9, 0.25, 1.15), t = MA[((clamp(Math.round(fz * 2), 0, MH - 1)) * MW + clamp(Math.round(fx * 2), 0, MW - 1)) * 4 + 1] / 255, rk = ROCK[k];
+    let r = 236 * sh, gg = 241 * sh, b = 248 * sh; r = lerp(r, 148 * sh, rk * 0.8); gg = lerp(gg, 140 * sh, rk * 0.8); b = lerp(b, 132 * sh, rk * 0.8); r = lerp(r, 62 * sh, t * 0.85); gg = lerp(gg, 104 * sh, t * 0.85); b = lerp(b, 74 * sh, t * 0.85);
+    const o = (j * MAPW + i) * 4; d[o] = r; d[o + 1] = gg; d[o + 2] = b; d[o + 3] = 255;
+  }
+  g.putImageData(im, 0, 0); g.lineCap = g.lineJoin = "round";
+  const path = pts => { g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(mx(p[0]), mz(p[1])) : g.moveTo(mx(p[0]), mz(p[1]))); };
+  for (const pass of [0, 1]) for (const r of WORLD.runs) { path(r.pts); if (!pass) { g.strokeStyle = "rgba(255,255,255,.85)"; g.lineWidth = r.d <= 1 ? 5.5 : 4; } else { g.strokeStyle = DIFF_COL[r.d]; g.lineWidth = r.d <= 1 ? 3 : 2; g.setLineDash(r.d === 3 ? [5, 4] : []); } g.stroke(); g.setLineDash([]); }
+  for (const L of LIFTS) { g.strokeStyle = "#d81f26"; g.lineWidth = L.carpet ? 1.5 : 2.6; path(L.nodes.map(n => [n.x, n.z])); g.stroke(); if (L.carpet) continue; g.fillStyle = "#d81f26"; for (const n of [L.bot, L.top]) { g.beginPath(); g.arc(mx(n.x), mz(n.z), n === L.bot ? 5 : 3.2, 0, TAU); g.fill(); } }
+  g.font = "700 12px 'Barlow Semi Condensed', sans-serif"; g.textAlign = "center"; g.textBaseline = "middle";
+  for (const L of LIFTS) { if (L.carpet || L.len < 300) continue; const x = mx(L.cx), y = mz(L.cz); let a = Math.atan2(mz(L.top.z) - mz(L.bot.z), mx(L.top.x) - mx(L.bot.x)); if (a > Math.PI / 2 || a < -Math.PI / 2) a += Math.PI; g.save(); g.translate(x, y); g.rotate(a); g.lineWidth = 3; g.strokeStyle = "rgba(255,255,255,.9)"; g.strokeText(L.name.toUpperCase(), 0, -8); g.fillStyle = "#a01318"; g.fillText(L.name.toUpperCase(), 0, -8); g.restore(); }
+  g.font = "800 13px 'Barlow Semi Condensed', sans-serif";
+  for (const pk of WORLD.peaks) { const x = mx(pk.p[0]), y = mz(pk.p[1]); g.fillStyle = "#1b2733"; g.beginPath(); g.moveTo(x, y - 6); g.lineTo(x + 5, y + 4); g.lineTo(x - 5, y + 4); g.fill(); g.lineWidth = 3; g.strokeStyle = "rgba(255,255,255,.9)"; const t = pk.n.toUpperCase() + " " + pk.ft.toLocaleString() + "′"; g.strokeText(t, x, y + 14); g.fillText(t, x, y + 14); }
+  mapBase = c;
+}
+function drawMap() {
+  const c = $("mapC"); if (c.width !== MAPW) { c.width = MAPW; c.height = MAPH; } const g = c.getContext("2d"); g.drawImage(mapBase, 0, 0);
+  const dot = (x, z, col, r) => { g.fillStyle = col; g.strokeStyle = "#fff"; g.lineWidth = 2.5; g.beginPath(); g.arc(mx(x), mz(z), r, 0, TAU); g.fill(); g.stroke(); };
+  for (const r of MP.remotes.values()) if (r.st) dot(r.st.x, r.st.z, r.col || "#ffd24a", 5);
+  const x = mx(sk.p.x), y = mz(sk.p.z), a = Math.atan2(Math.sin(sk.yaw), -Math.cos(sk.yaw)); g.save(); g.translate(x, y); g.rotate(a); g.fillStyle = "#ff5a36"; g.strokeStyle = "#fff"; g.lineWidth = 2.5; g.beginPath(); g.moveTo(0, -11); g.lineTo(7.5, 8); g.lineTo(0, 4); g.lineTo(-7.5, 8); g.closePath(); g.fill(); g.stroke(); g.restore();
+}
+function mapPick(ev) {
+  const c = $("mapC"), r = c.getBoundingClientRect(), x = X0 + (ev.clientX - r.left) / r.width * (X1 - X0), z = Z0 + (ev.clientY - r.top) / r.height * (Z1 - Z0); let best = null, bd = 130;
+  for (const L of LIFTS) for (const [n, top] of [[L.bot, false], [L.top, true]]) { const d = Math.hypot(n.x - x, n.z - z); if (d < bd) { bd = d; best = { L, top }; } }
+  return best;
+}
+let miniT = 0;
+function drawMini(dt) {
+  miniT += dt; if (miniT < 0.06) return; miniT = 0;
+  const c = $("miniC"), g = c.getContext("2d"), S = c.width, R = 520, sc = S / (2 * R), yaw = Math.atan2(camDir.x, camDir.z);
+  g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, S, S);
+  g.translate(S / 2, S / 2); g.rotate(yaw - Math.PI);   // heading up
+  const k = MAPW / (X1 - X0); g.save(); g.scale(sc / k, sc / k); g.translate(-mx(sk.p.x), -mz(sk.p.z)); g.imageSmoothingEnabled = true; g.drawImage(mapBase, 0, 0); g.restore();
+  for (const r of MP.remotes.values()) if (r.st) { g.fillStyle = r.col || "#ffd24a"; g.beginPath(); g.arc((r.st.x - sk.p.x) * sc, (r.st.z - sk.p.z) * sc, 7, 0, TAU); g.fill(); }
+  g.setTransform(1, 0, 0, 1, S / 2, S / 2); const a = wrap(Math.atan2(camDir.x, camDir.z) - (sk.yaw + (sk.sw ? Math.PI : 0))); g.rotate(a);
+  g.fillStyle = "#ff5a36"; g.strokeStyle = "#fff"; g.lineWidth = 4; g.beginPath(); g.moveTo(0, -17); g.lineTo(12, 13); g.lineTo(0, 6); g.lineTo(-12, 13); g.closePath(); g.stroke(); g.fill();
+}
+/* ---------- sound: wind, edges on snow, landings ---------- */
+let ac = null, muted = store.get("pal-mute", false), windG, windF, carveG, carveF;
+function initAudio() {
+  if (ac) return; try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
+  const buf = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate), d = buf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  const mk = (type, f, q) => { const s = ac.createBufferSource(); s.buffer = buf; s.loop = true; const fl = ac.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q; const gn = ac.createGain(); gn.gain.value = 0; s.connect(fl).connect(gn).connect(ac.destination); s.start(); return [gn, fl]; };
+  [windG, windF] = mk("lowpass", 400, 0.4); [carveG, carveF] = mk("bandpass", 2600, 0.7);
+}
+function updateAudio() {
+  if (!ac) return; const t = ac.currentTime, live = !muted && !paused && sk.mode !== "menu", sp = sk.sp;
+  windG.gain.setTargetAtTime(live ? clamp(sp / 34, 0, 1) ** 1.6 * 0.5 + (wx.wind * 0.02) : 0, t, 0.1); windF.frequency.setTargetAtTime(280 + sp * 34, t, 0.1);
+  const on = sk.mode === "ski" && sk.ground && !sk.crashed;
+  carveG.gain.setTargetAtTime(live && on ? clamp(sp / 28, 0, 1) * (0.018 + sk.carve * Math.abs(sk.turn) * 0.09 + sk.brakeK * 0.2 + Math.min(0.1, Math.abs(sk.slip || 0) * 0.08)) * (1 - 0.5 * sk.surf.powder) : 0, t, 0.04);
+  carveF.frequency.setTargetAtTime(1800 + sk.surf.groom * 1600 + sk.brakeK * 900, t, 0.08);
+}
+function sfx(kind, k = 1) {
+  if (!ac || muted) return; const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain(); o.connect(g).connect(ac.destination);
+  if (kind === "thump" || kind === "crash") { o.type = "sine"; o.frequency.setValueAtTime(kind === "crash" ? 90 : 120, t); o.frequency.exponentialRampToValueAtTime(38, t + 0.18); g.gain.setValueAtTime(0.5 * k, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.28); o.start(t); o.stop(t + 0.3); }
+  else if (kind === "pop") { o.type = "triangle"; o.frequency.setValueAtTime(180, t); o.frequency.exponentialRampToValueAtTime(320, t + 0.08); g.gain.setValueAtTime(0.12, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.12); o.start(t); o.stop(t + 0.13); }
+  else if (kind === "land") { o.type = "sine"; o.frequency.setValueAtTime(660, t); o.frequency.setValueAtTime(880, t + 0.09); g.gain.setValueAtTime(0.1, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.3); o.start(t); o.stop(t + 0.32); }
+}
+/* ---------- input ---------- */
+const KEYMAP = { ArrowLeft: "left", a: "left", ArrowRight: "right", d: "right", ArrowUp: "up", w: "up", ArrowDown: "down", s: "down", " ": "jump", Shift: "push", q: "gQ", e: "gE", c: "gC", f: "gF" };
+function setOverlay(id, on) { $(id).hidden = !on; }
+const anyOverlay = () => ["menu", "how", "pause", "map"].some(id => !$(id).hidden);
+function setPaused(v) { paused = v; setOverlay("pause", v); }
+function toggleMap(v) { const on = v === undefined ? $("map").hidden : v; if (on) { drawMap(); setOverlay("pause", false); } setOverlay("map", on); paused = on; }
+function setGfx(name) { if (!QUAL[name]) return; qName = name; Q = QUAL[name]; store.set("pal-gfx", name); buildComposer(); document.querySelectorAll("[data-q]").forEach(b => b.classList.toggle("on", b.dataset.q === name)); }
+function setUnits(u) { units = u; store.set("pal-units", u); document.querySelectorAll("[data-u]").forEach(b => b.classList.toggle("on", b.dataset.u === u)); }
+function initInput() {
+  addEventListener("keydown", ev => {
+    if (ev.target.tagName === "INPUT" || ev.target.tagName === "SELECT") return;
+    const key = ev.key.length === 1 ? ev.key.toLowerCase() : ev.key, n = KEYMAP[key]; initAudio(); if (ac && ac.state === "suspended") ac.resume();
+    if (n) { K[n] = 1; ev.preventDefault(); }
+    if (ev.repeat) return;
+    if (key === "f") K.ff = 1;
+    if (sk.mode === "menu") { if (key === "Enter") $("go").click(); return; }
+    if (key === "Escape") { if (!$("map").hidden) toggleMap(false); else if (!$("how").hidden) setOverlay("how", false); else setPaused(!paused); }
+    else if (key === "p") setPaused(!paused);
+    else if (key === "m") toggleMap();
+    else if (key === "v") { fpv = !fpv; store.set("pal-fpv", fpv); camSnap = true; }
+    else if (key === "n") { muted = !muted; store.set("pal-mute", muted); toast(muted ? "Sound off" : "Sound on", 1.2); }
+    else if (key === "r" && sk.mode === "ski") { if (sk.crashed || sk.sp < 3) standUp(); }
+    else if (key === "e" && sk.mode === "ski" && nearLift && sk.ground) boardLift(nearLift);
+    else if (key === "Enter" && (sk.mode === "wait" || sk.mode === "lift")) { const L = sk.lift; unloadAt(L); toast("Top of " + L.name + " · " + fmtAlt(sk.p.y)); }
+    else if ("1234".includes(key) && key.length === 1) setWeather(["bluebird", "golden", "overcast", "storm"][+key - 1]);
+  });
+  addEventListener("keyup", ev => { const key = ev.key.length === 1 ? ev.key.toLowerCase() : ev.key, n = KEYMAP[key]; if (n) K[n] = 0; if (key === "f") K.ff = 0; });
+  addEventListener("blur", () => { for (const k in K) K[k] = 0; });
+  canvas.addEventListener("pointerdown", ev => { look.drag = true; look.idle = 0; canvas.setPointerCapture(ev.pointerId); initAudio(); });
+  canvas.addEventListener("pointermove", ev => { if (!look.drag) return; look.yaw -= ev.movementX * 0.005; look.pit = clamp(look.pit - ev.movementY * 0.004, -1.1, 1.1); look.idle = 0; });
+  const end = () => { look.drag = false; }; canvas.addEventListener("pointerup", end); canvas.addEventListener("pointercancel", end);
+  document.querySelectorAll("[data-w]").forEach(b => b.addEventListener("click", () => setWeather(b.dataset.w)));
+  document.querySelectorAll("[data-q]").forEach(b => b.addEventListener("click", () => setGfx(b.dataset.q)));
+  document.querySelectorAll("[data-u]").forEach(b => b.addEventListener("click", () => setUnits(b.dataset.u)));
+  $("howBtn").addEventListener("click", () => setOverlay("how", true)); $("howOk").addEventListener("click", () => setOverlay("how", false)); $("pHow").addEventListener("click", () => setOverlay("how", true));
+  $("resume").addEventListener("click", () => setPaused(false)); $("pMap").addEventListener("click", () => toggleMap(true));
+  $("map").addEventListener("click", ev => { if (ev.target === $("map")) toggleMap(false); });
+  $("mapC").addEventListener("mousemove", ev => { const h = mapPick(ev), t = $("mapTip"); if (!h) { t.style.display = "none"; return; } const r = $("mapWrap").getBoundingClientRect(); t.style.display = "block"; t.style.left = ev.clientX - r.left + 14 + "px"; t.style.top = ev.clientY - r.top + 14 + "px"; t.textContent = (h.top ? "Top of " : "Base of ") + h.L.name + " · " + fmtAlt((h.top ? h.L.top : h.L.bot).g); });
+  $("mapC").addEventListener("click", ev => { const h = mapPick(ev); if (!h) return; if (h.top) unloadAt(h.L); else placeSkier(h.L.bot.x - Math.sin(h.L.dir) * 14, h.L.bot.z - Math.cos(h.L.dir) * 14, h.L.dir); toggleMap(false); toast((h.top ? "Top of " : "Base of ") + h.L.name); });
+  const sel = $("startSel"); const opt = (v, t) => { const o = document.createElement("option"); o.value = v; o.textContent = t; sel.appendChild(o); };
+  opt("village", "The Village · base area, 6,200 ft");
+  LIFTS.map((L, i) => [L, i]).filter(([L]) => !L.carpet && L.len > 400).sort((a, b) => b[0].top.g - a[0].top.g).forEach(([L, i]) => opt(i, "Top of " + L.name + " · " + Math.round(L.top.g * FT).toLocaleString() + " ft"));
+  sel.value = store.get("pal-start", "village"); if (!sel.value) sel.value = "village";
+  JACKETS.forEach((c, i) => { const b = document.createElement("button"); b.className = "sw" + (i === sk.jacket ? " on" : ""); b.style.background = "#" + c.toString(16).padStart(6, "0"); b.addEventListener("click", () => { sk.jacket = i; store.set("pal-jacket", i); rig.mats.jacket.color.setHex(c); document.querySelectorAll(".sw").forEach((s, k) => s.classList.toggle("on", k === i)); }); $("jackets").appendChild(b); });
+  $("go").addEventListener("click", () => { initAudio(); store.set("pal-start", sel.value); spawnAt(sel.value); setOverlay("menu", false); $("hud").hidden = false; });
+  setGfxButtons(); setUnits(units);
+}
+function setGfxButtons() { document.querySelectorAll("[data-q]").forEach(b => b.classList.toggle("on", b.dataset.q === qName)); }
+
+/* ---------- multiplayer: same lobby transports as Kicker Run (claude.ai room, or Firebase when opened anywhere else) ---------- */
+const MP = { room: null, user: null, myId: null, remotes: new Map(), others: [], sendT: 0, status: "connecting…", names: {}, dirty: true, listT: 0 };
+const r2 = v => Math.round(v * 100) / 100;
+function mpPack() {
+  let k = 0; if (K.up && sk.ground && !K.down) k |= 1; if (K.push) k |= 2;
+  return { v: 1, res: "palisades", id: MP.myId, play: sk.mode !== "menu", x: r2(sk.p.x), y: r2(sk.p.y), z: r2(sk.p.z), yaw: r2(sk.yaw), spin: r2(sk.spin), rot: r2(sk.rot), sw: !!sk.sw, gr: !!sk.ground, air: !!sk.air, cr: !!sk.crashed, tum: r2(sk.tum), turn: r2(sk.turn), carve: r2(sk.carve), br: r2(sk.brakeK), sy: r2(sk.slideYaw), sp: r2(sk.sp), k, gb: sk.grabNow || "", md: sk.mode, li: sk.lift ? sk.lift.id : -1, jk: sk.jacket, sc: sk.pts, vt: Math.round(sk.vert) };
+}
+function mpSend(dt) { if (!MP.room) return; MP.sendT -= dt; if (MP.sendT > 0) return; MP.sendT = 1 / 12; try { const r = MP.room.presence({ st: mpPack() }); if (r && r.catch) r.catch(() => { }); } catch (e) { } }
+function mpTag(R) { const c = document.createElement("canvas"); c.width = 256; c.height = 64; const tex = new THREE.CanvasTexture(c), sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, fog: false })); sp.scale.set(2.4, 0.6, 1); sp.position.set(0, 2.5, 0); sp.renderOrder = 999; R.root.add(sp); return { c, tex, txt: "" }; }
+function mpTagText(tag, txt) { if (tag.txt === txt) return; tag.txt = txt; const g = tag.c.getContext("2d"); g.clearRect(0, 0, 256, 64); g.font = "700 30px system-ui, sans-serif"; const w = Math.min(248, g.measureText(txt).width + 28); g.fillStyle = "rgba(10,14,24,.62)"; g.beginPath(); g.roundRect ? g.roundRect(128 - w / 2, 8, w, 46, 23) : g.rect(128 - w / 2, 8, w, 46); g.fill(); g.fillStyle = "#fff"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(txt, 128, 32); tag.tex.needsUpdate = true; }
+function mpColor(id) { let h = 0; for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return "hsl(" + (h % 360) + ",70%,62%)"; }
+function mpSync(peers) {
+  const seen = new Set(), others = [];
+  for (const p of peers) {
+    if (p.sameTab || (p.kind && p.kind !== "viewer")) continue; const st = p.presence && p.presence.st; if (!st || typeof st !== "object") continue;
+    const by = p.by || (typeof st.id === "string" ? st.id : null); others.push({ peer: p.peer, by, st, isMe: p.isMe });
+    if (st.res !== "palisades" || ![st.x, st.y, st.z].every(Number.isFinite)) continue;
+    seen.add(p.peer); let r = MP.remotes.get(p.peer);
+    if (!r) { const R = buildSkier(st.jk | 0); scene.add(R.root); r = { R, tag: mpTag(R), q: null, jk: st.jk | 0, col: mpColor(by || p.peer) }; MP.remotes.set(p.peer, r); }
+    if (r.jk !== (st.jk | 0)) { r.jk = st.jk | 0; r.R.mats.jacket.color.setHex(JACKETS[r.jk % JACKETS.length]); }
+    r.st = st; r.by = by; r.isMe = p.isMe;
+  }
+  for (const [peer, r] of MP.remotes) if (!seen.has(peer)) { scene.remove(r.R.root); MP.remotes.delete(peer); }
+  MP.others = others; MP.dirty = true;
+}
+async function mpList() {
+  const box = $("riders"); MP.dirty = false; const ids = MP.others.map(o => o.by).filter(Boolean); let ps = {};
+  try { if (MP.user && ids.length) ps = await MP.user.profiles([...new Set(ids)]); } catch (e) { }
+  const nameOf = (id, fb) => { const q = id && ps[id]; if (!q) return MP.names[id] || fb; const em = typeof q.email === "string" && q.email.indexOf("@") > 0 ? q.email.slice(0, q.email.indexOf("@")) : ""; return em || q.name || MP.names[id] || fb; };
+  box.textContent = ""; let n = 0;
+  for (const o of MP.others) { if (o.st.res !== "palisades") continue; n++; const nm = nameOf(o.by, o.isMe ? "You (other tab)" : "Rider " + n), r = MP.remotes.get(o.peer); if (r) mpTagText(r.tag, nm);
+    const d = document.createElement("div"); d.className = "r"; const dot = document.createElement("span"); dot.className = "dot"; dot.style.background = r ? r.col : "#ffd24a"; const b = document.createElement("b"); b.textContent = nm; const s = document.createElement("span"); s.textContent = o.st.md === "lift" && LIFTS[o.st.li] ? "on " + LIFTS[o.st.li].name : Math.round((o.st.sp || 0) * (units === "imp" ? MPH : KMH)) + (units === "imp" ? " mph" : " km/h"); d.append(dot, b, s); box.appendChild(d); }
+  const d = document.createElement("div"); d.textContent = MP.room ? (n ? n + (n === 1 ? " rider" : " riders") + " on the mountain with you" : "Share this link to ride together") : MP.status; box.prepend(d);
+}
+const _rs = { p: new THREE.Vector3() };
+function updateRemotes(dt, time) {
+  MP.listT += dt; if (MP.dirty && MP.listT > 0.5) { MP.listT = 0; mpList(); } else if (MP.listT > 2 && MP.remotes.size) { MP.listT = 0; mpList(); }
+  const a = 1 - Math.exp(-12 * dt);
+  for (const r of MP.remotes.values()) {
+    const st = r.st, R = r.R; if (!st) continue; const far = Math.hypot(st.x - sk.p.x, st.z - sk.p.z);
+    const L = st.md === "lift" ? LIFTS[st.li] : null, cabin = L && !L.carpet && !L.type.startsWith("chair");
+    R.root.visible = st.play !== false && far < 2500 && !cabin; if (!R.root.visible) continue;
+    if (!r.q || Math.hypot(st.x - r.q.x, st.z - r.q.z) > 30) r.q = { x: st.x, y: st.y, z: st.z, yaw: st.yaw, spin: st.spin, rot: st.rot };
+    const q = r.q; q.x += (st.x - q.x) * a; q.y += (st.y - q.y) * a; q.z += (st.z - q.z) * a; q.yaw += wrap(st.yaw - q.yaw) * a; q.spin += (st.spin - q.spin) * a; q.rot += (st.rot - q.rot) * a;
+    R.root.position.set(q.x, q.y, q.z);
+    const face = q.yaw + (st.sw ? Math.PI : 0) - (st.gr ? 0 : q.spin) - (st.sy || 0), onSnow = st.gr && st.md === "ski" && !st.cr;
+    const up = onSnow ? normalAt(q.x, q.z, 0.8, _y) : _y.set(0, 1, 0); fwdOf(face, _z); _x.crossVectors(up, _z).normalize(); _z.crossVectors(_x, up).normalize(); R.root.quaternion.setFromRotationMatrix(_m4.makeBasis(_x, up, _z));
+    R.flip.rotation.x = st.cr ? st.tum : st.gr ? 0 : -q.rot * (st.sw ? -1 : 1); R.flip.rotation.z = st.cr ? st.tum * 0.37 : 0;
+    R.lean.rotation.z = onSnow ? st.turn * (0.30 + 0.32 * st.carve) * clamp(st.sp / 9, 0.15, 1) * (st.sw ? -1 : 1) - (st.br || 0) * 0.35 * Math.sign(st.sy || 1) : 0;
+    poseSkier(R, { turn: -st.turn * (st.sw ? -1 : 1), carve: st.md === "ski" ? st.carve * clamp(st.sp / 8, 0, 1) : 0, tuck: !!(st.k & 1), crouch: 0, air: !st.gr && st.air, grab: st.gb || null, brake: st.br || 0, sp: st.sp, seated: !!(L && L.type.startsWith("chair")), push: !!(st.k & 2) && st.sp < 8 }, dt, time);
+  }
+}
+const FIREBASE_CONFIG = { apiKey: "AIzaSyDP_rgi4dWZqVax_c5Ob5Hg4dilLS9Bchc", authDomain: "kicker-run.firebaseapp.com", databaseURL: "https://kicker-run-default-rtdb.firebaseio.com", projectId: "kicker-run", storageBucket: "kicker-run.firebasestorage.app", messagingSenderId: "149808173020", appId: "1:149808173020:web:744be18f442c535fe54919" };
+const fbLoad = src => new Promise((ok, no) => { const e = document.createElement("script"); e.src = src; e.onload = ok; e.onerror = no; document.head.appendChild(e); });
+async function fbInit() {
+  MP.status = "Connecting to the lobby…"; MP.dirty = true;
+  const V = "https://www.gstatic.com/firebasejs/10.12.2/"; await fbLoad(V + "firebase-app-compat.js"); await Promise.all([fbLoad(V + "firebase-auth-compat.js"), fbLoad(V + "firebase-database-compat.js")]);
+  const fb = window.firebase; fb.initializeApp(FIREBASE_CONFIG); const auth = fb.auth(), db = fb.database(); let presRef = null, off = null, myName = "";
+  const signBtn = show => { let b = $("mpsign"); if (!b) { b = document.createElement("button"); b.id = "mpsign"; b.textContent = "Sign in with Google to ride together"; b.addEventListener("click", () => auth.signInWithPopup(new fb.auth.GoogleAuthProvider()).catch(e => { MP.status = "Sign-in failed (" + ((e && e.code) || "error") + ")"; MP.dirty = true; })); $("topRight").insertBefore(b, $("riders")); } b.hidden = !show; };
+  auth.onAuthStateChanged(u => {
+    if (presRef) { presRef.remove().catch(() => { }); presRef = null; } if (off) { off(); off = null; }
+    MP.room = null; MP.remotes.forEach(r => scene.remove(r.R.root)); MP.remotes.clear(); MP.others = [];
+    if (!u) { MP.myId = null; MP.status = "Solo · sign in to ride with others"; signBtn(true); MP.dirty = true; return; }
+    signBtn(false); MP.myId = u.uid; myName = (u.email && u.email.indexOf("@") > 0 ? u.email.slice(0, u.email.indexOf("@")) : u.displayName || "Rider").slice(0, 24);
+    presRef = db.ref("presence/" + u.uid); presRef.onDisconnect().remove();
+    MP.room = { presence: patch => presRef.set({ st: patch.st, nm: myName, t: fb.database.ServerValue.TIMESTAMP }) };
+    const ref = db.ref("presence"), fn = v => { const all = v.val() || {}, peers = []; for (const id in all) { const e = all[id]; if (!e || !e.st) continue; if (e.nm) MP.names[id] = String(e.nm).slice(0, 24); peers.push({ peer: id, by: id, sameTab: id === u.uid, isMe: id === u.uid, kind: "viewer", presence: { st: e.st } }); } mpSync(peers); };
+    ref.on("value", fn, () => { MP.room = null; MP.status = "Lobby refused the connection"; MP.dirty = true; }); off = () => ref.off("value", fn); MP.dirty = true;
+  });
+}
+async function mpInit() {
+  if (QS.has("solo") || QS.has("test")) { MP.status = "Solo"; return; }
+  if (!window.claude || !window.claude.use) { fbInit().catch(() => { MP.status = "Solo · lobby unreachable"; MP.dirty = true; }); return; }
+  try {
+    const [room, user] = await Promise.all([window.claude.use("room"), window.claude.use("user")]); MP.user = user; if (user) MP.myId = await user.id();
+    if (!room) { MP.status = "Solo · this page could not join a lobby"; MP.dirty = true; return; }
+    MP.room = room; room.onPeers(ch => mpSync(ch.peers), () => { MP.room = null; MP.status = "Solo · lobby disconnected"; MP.dirty = true; }); MP.dirty = true;
+  } catch (e) { MP.status = "Solo · lobby unreachable"; MP.dirty = true; }
+}

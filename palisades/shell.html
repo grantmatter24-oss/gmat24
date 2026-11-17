@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Palisades Tahoe</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Big+Shoulders+Display:wght@700;800;900&display=swap">
+<style>
+  :root {
+    color-scheme: dark;
+    --ink: #0a1622; --panel: rgba(10, 22, 34, .72); --line: rgba(255, 255, 255, .14);
+    --text: #f3f7fb; --dim: #a8bccf; --accent: #ff5a36; --ice: #7cc0ff; --gold: #ffd24a;
+    --green: #2fb565; --blue: #2f7fe0; --black: #111;
+    --display: "Big Shoulders Display", "Arial Narrow", Impact, sans-serif;
+    --body: "Barlow Semi Condensed", "Arial Narrow", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; background: var(--ink); color: var(--text); font-family: var(--body); overflow: hidden; }
+  #stage { position: fixed; inset: 0; user-select: none; -webkit-user-select: none; }
+  canvas#gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .hud { position: absolute; pointer-events: none; text-shadow: 0 1px 3px rgba(0, 0, 0, .55); }
+  #speedBox { left: 22px; bottom: 20px; }
+  #speed { font: 900 76px/0.85 var(--display); font-variant-numeric: tabular-nums; }
+  #speedU { font: 700 15px/1 var(--display); letter-spacing: .14em; color: var(--dim); margin-left: 6px; }
+  #stats { margin-top: 8px; display: grid; grid-template-columns: auto auto; gap: 1px 14px; font-size: 14px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); }
+  #stats b { color: var(--text); font-variant-numeric: tabular-nums; text-align: right; }
+  #runBox { left: 50%; top: 18px; transform: translateX(-50%); text-align: center; transition: opacity .5s; }
+  #runName { font: 800 30px/1 var(--display); letter-spacing: .04em; text-transform: uppercase; display: inline-flex; align-items: center; gap: 10px; }
+  #runSub { font-size: 13px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); margin-top: 4px; }
+  .dia { display: inline-block; width: 18px; height: 18px; flex: none; }
+  .dia.d0 { background: var(--green); border-radius: 50%; }
+  .dia.d1 { background: var(--blue); }
+  .dia.d2, .dia.d3 { background: #0b0b0b; transform: rotate(45deg) scale(.82); outline: 1.5px solid rgba(255, 255, 255, .7); }
+  .dia.d3 { box-shadow: 13px -13px 0 #0b0b0b, 13px -13px 0 1.5px rgba(255, 255, 255, .7); margin-right: 14px; }
+  #prompt { left: 50%; bottom: 120px; transform: translateX(-50%); font: 700 20px/1 var(--display); letter-spacing: .06em; text-transform: uppercase; background: var(--panel); border: 1px solid var(--line); padding: 12px 18px; border-radius: 10px; backdrop-filter: blur(6px); white-space: nowrap; }
+  #prompt kbd, .kb { display: inline-block; min-width: 26px; text-align: center; font: 800 15px/1 var(--display); color: var(--ink); background: var(--text); border-radius: 5px; padding: 5px 7px 4px; margin: 0 4px; text-shadow: none; }
+  #trick { left: 50%; top: 30%; transform: translateX(-50%); text-align: center; opacity: 0; transition: opacity .25s; }
+  #trickN { font: 900 44px/1 var(--display); letter-spacing: .03em; text-transform: uppercase; }
+  #trickP { font: 800 24px/1.2 var(--display); color: var(--gold); }
+  #topRight { right: 18px; top: 16px; text-align: right; pointer-events: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+  .seg { display: inline-flex; background: var(--panel); border: 1px solid var(--line); border-radius: 9px; overflow: hidden; backdrop-filter: blur(6px); }
+  .seg button { font: 700 13px/1 var(--display); letter-spacing: .08em; text-transform: uppercase; color: var(--dim); background: none; border: 0; padding: 9px 11px; cursor: pointer; }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button.on { color: var(--ink); background: var(--text); text-shadow: none; }
+  .seg button:hover:not(.on) { color: var(--text); }
+  #riders { font-size: 13px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--dim); text-align: right; max-width: 260px; }
+  #riders .r { display: flex; justify-content: flex-end; gap: 8px; align-items: center; white-space: nowrap; }
+  #riders .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  #riders b { color: var(--text); }
+  #mpsign { font: 700 13px/1 var(--display); letter-spacing: .06em; text-transform: uppercase; padding: 10px 13px; border-radius: 9px; border: 0; background: var(--accent); color: #fff; cursor: pointer; }
+  #mini { right: 18px; bottom: 18px; width: 210px; height: 210px; border-radius: 50%; overflow: hidden; border: 2px solid rgba(255, 255, 255, .55); box-shadow: 0 6px 22px rgba(0, 0, 0, .4); background: #dfe8f0; }
+  #mini canvas { width: 100%; height: 100%; display: block; }
+  #liftBar { left: 50%; bottom: 78px; transform: translateX(-50%); width: min(520px, 70vw); text-align: center; }
+  #liftName { font: 800 22px/1 var(--display); letter-spacing: .05em; text-transform: uppercase; }
+  #liftTrack { height: 5px; background: rgba(255, 255, 255, .22); border-radius: 3px; margin: 9px 0 7px; overflow: hidden; }
+  #liftFill { height: 100%; width: 0; background: var(--text); border-radius: 3px; }
+  #liftSub { font-size: 13px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+  #toast { left: 50%; top: 96px; transform: translateX(-50%); font: 700 16px/1 var(--display); letter-spacing: .08em; text-transform: uppercase; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 9px 14px; opacity: 0; transition: opacity .3s; }
+  #fps { left: 22px; top: 14px; font-size: 12px; font-weight: 600; color: var(--dim); letter-spacing: .08em; }
+
+  .overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(6, 14, 22, .55); backdrop-filter: blur(5px); z-index: 20; }
+  .overlay[hidden] { display: none; }
+  #menu { background: linear-gradient(180deg, rgba(6, 14, 22, .25), rgba(6, 14, 22, .78)); backdrop-filter: none; align-items: flex-end; justify-content: flex-start; }
+  #menuIn { padding: 0 0 54px 60px; max-width: 760px; }
+  #menu h1 { font: 900 clamp(64px, 10vw, 132px)/0.82 var(--display); letter-spacing: .01em; text-transform: uppercase; margin: 0; }
+  #menu h2 { font: 700 18px/1 var(--display); letter-spacing: .3em; text-transform: uppercase; color: var(--dim); margin: 0 0 14px; }
+  #menu p { font-size: 17px; font-weight: 500; line-height: 1.45; color: #d6e2ee; max-width: 560px; margin: 16px 0 22px; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 12px; }
+  .lab { font: 700 12px/1 var(--display); letter-spacing: .16em; text-transform: uppercase; color: var(--dim); width: 88px; }
+  select, input[type=text] { font: 600 15px/1 var(--body); color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 9px 11px; }
+  .btn { font: 800 22px/1 var(--display); letter-spacing: .08em; text-transform: uppercase; color: #fff; background: var(--accent); border: 0; border-radius: 10px; padding: 15px 30px 14px; cursor: pointer; }
+  .btn:hover { filter: brightness(1.1); }
+  .btn.ghost { background: var(--panel); border: 1px solid var(--line); font-size: 16px; padding: 12px 18px; }
+  .sw { width: 26px; height: 26px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; padding: 0; }
+  .sw.on { border-color: #fff; }
+  #load { background: var(--ink); flex-direction: column; gap: 16px; z-index: 30; }
+  #load h1 { font: 900 56px/1 var(--display); letter-spacing: .02em; text-transform: uppercase; margin: 0; }
+  #loadTrack { width: 320px; height: 4px; background: rgba(255, 255, 255, .15); border-radius: 2px; overflow: hidden; }
+  #loadFill { height: 100%; width: 0; background: var(--text); transition: width .2s; }
+  #loadMsg { font-size: 13px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: var(--dim); }
+  .card { background: rgba(10, 22, 34, .92); border: 1px solid var(--line); border-radius: 16px; padding: 26px 30px; max-width: min(860px, 94vw); max-height: 92vh; overflow: auto; }
+  .card h3 { font: 900 38px/1 var(--display); letter-spacing: .03em; text-transform: uppercase; margin: 0 0 16px; }
+  dl.keys { display: grid; grid-template-columns: auto 1fr; gap: 7px 16px; margin: 0; font-size: 15px; font-weight: 500; }
+  dl.keys dt { font: 700 14px/1.3 var(--display); letter-spacing: .08em; text-transform: uppercase; color: var(--ice); white-space: nowrap; }
+  dl.keys dd { margin: 0; color: #d6e2ee; }
+  #mapWrap { position: relative; width: min(1180px, 96vw); }
+  #mapC { width: 100%; display: block; border-radius: 12px; border: 1px solid var(--line); cursor: crosshair; }
+  #mapHead { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+  #mapHead h3 { font: 900 34px/1 var(--display); letter-spacing: .03em; text-transform: uppercase; margin: 0; }
+  #mapHead span { font-size: 13px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+  #mapTip { position: absolute; pointer-events: none; font: 700 14px/1.25 var(--display); letter-spacing: .06em; text-transform: uppercase; background: rgba(10, 22, 34, .92); border: 1px solid var(--line); border-radius: 7px; padding: 7px 10px; white-space: nowrap; display: none; }
+  @media (max-width: 1250px) { #runBox { top: 62px; } #runName { font-size: 24px; } }
+  #err { position: absolute; left: 20px; right: 20px; bottom: 20px; z-index: 50; font: 600 14px/1.4 ui-monospace, monospace; color: #ffd0c6; background: rgba(60, 10, 0, .85); padding: 12px 14px; border-radius: 8px; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="gl"></canvas>
+  <div id="hud" hidden>
+    <div class="hud" id="fps"></div>
+    <div class="hud" id="runBox" style="opacity:0"><div id="runName"></div><div id="runSub"></div></div>
+    <div class="hud" id="toast"></div>
+    <div class="hud" id="trick"><div id="trickN"></div><div id="trickP"></div></div>
+    <div class="hud" id="speedBox">
+      <div><span id="speed">0</span><span id="speedU">MPH</span></div>
+      <div id="stats"><span>Elevation</span><b id="sAlt">0 ft</b><span>Vertical</span><b id="sVert">0 ft</b><span>Top speed</span><b id="sMax">0</b><span>Trick pts</span><b id="sPts">0</b></div>
+    </div>
+    <div class="hud" id="prompt" hidden></div>
+    <div class="hud" id="liftBar" hidden><div id="liftName"></div><div id="liftTrack"><div id="liftFill"></div></div><div id="liftSub"></div></div>
+    <div class="hud" id="topRight">
+      <div class="seg" id="wx"><button data-w="bluebird">Bluebird</button><button data-w="golden">Golden hour</button><button data-w="overcast">Flat light</button><button data-w="storm">Snowing</button></div>
+      <div id="riders"></div>
+    </div>
+    <div class="hud" id="mini"><canvas id="miniC" width="420" height="420"></canvas></div>
+  </div>
+
+  <div class="overlay" id="menu" hidden>
+    <div id="menuIn">
+      <h2>Olympic Valley · California</h2>
+      <h1>Palisades<br>Tahoe</h1>
+      <p>The real mountain at 1:1 scale from USGS elevation data: 30 lifts, 124 named runs, 2,850 vertical feet. Carve it, tuck it, send the cliffs, ride the chair back up.</p>
+      <div class="row"><span class="lab">Start at</span><select id="startSel"></select></div>
+      <div class="row"><span class="lab">Weather</span><div class="seg" id="wxMenu"><button data-w="bluebird">Bluebird</button><button data-w="golden">Golden hour</button><button data-w="overcast">Flat light</button><button data-w="storm">Snowing</button></div></div>
+      <div class="row"><span class="lab">Jacket</span><span id="jackets" class="row" style="margin:0"></span></div>
+      <div class="row"><span class="lab">Graphics</span><div class="seg" id="gfx"><button data-q="low">Low</button><button data-q="med">Medium</button><button data-q="high">High</button><button data-q="ultra">Ultra</button></div></div>
+      <div class="row" style="margin-top:26px"><button class="btn" id="go">Drop in</button><button class="btn ghost" id="howBtn">Controls</button></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="how" hidden><div class="card">
+    <h3>Controls</h3>
+    <dl class="keys">
+      <dt>A D · ← →</dt><dd>Steer. Hold a turn and the edges bite: the carve tightens and scrubs less speed. In the air they spin you</dd>
+      <dt>W · ↑</dt><dd>Tuck for speed on snow. Front flip in the air</dd>
+      <dt>S · ↓</dt><dd>Brake: throw the skis sideways for a hockey stop. Back flip in the air</dd>
+      <dt>Shift</dt><dd>Pole and skate across the flats</dd>
+      <dt>Space</dt><dd>Hold to crouch, release to pop. In the air, hold for a tail grab</dd>
+      <dt>Q · E · C · F</dt><dd>Japan, nose, indy and safety grabs in the air</dd>
+      <dt>E</dt><dd>Load a lift when you are at its bottom station</dd>
+      <dt>F · Enter</dt><dd>On a lift: hold F to fast-forward, Enter to skip to the top</dd>
+      <dt>V</dt><dd>Chase camera / helmet camera. Drag the mouse to look around</dd>
+      <dt>M</dt><dd>Trail map. Click any lift to travel to it</dd>
+      <dt>1 2 3 4</dt><dd>Bluebird, golden hour, flat light, snowing</dd>
+      <dt>R · P · N</dt><dd>Stand back up where you are · pause · mute</dd>
+    </dl>
+    <div class="row" style="margin-top:22px"><button class="btn" id="howOk">Got it</button></div>
+  </div></div>
+
+  <div class="overlay" id="pause" hidden><div class="card" style="text-align:center;min-width:340px">
+    <h3>Paused</h3>
+    <div class="row" style="justify-content:center"><div class="seg" id="gfx2"><button data-q="low">Low</button><button data-q="med">Medium</button><button data-q="high">High</button><button data-q="ultra">Ultra</button></div></div>
+    <div class="row" style="justify-content:center"><div class="seg" id="units"><button data-u="imp">mph · ft</button><button data-u="met">km/h · m</button></div></div>
+    <div class="row" style="justify-content:center;margin-top:22px"><button class="btn" id="resume">Resume</button><button class="btn ghost" id="pMap">Trail map</button><button class="btn ghost" id="pHow">Controls</button></div>
+  </div></div>
+
+  <div class="overlay" id="map" hidden><div id="mapWrap">
+    <div id="mapHead"><h3>Trail map</h3><span>Click a lift to travel to its base · M or Esc to close</span></div>
+    <canvas id="mapC"></canvas><div id="mapTip"></div>
+  </div></div>
+
+  <div class="overlay" id="load"><h1>Palisades Tahoe</h1><div id="loadTrack"><div id="loadFill"></div></div><div id="loadMsg">Loading the mountain</div></div>
+</div>
+<script type="application/json" id="world">/*WORLD*/</script>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
+<script type="module">
+/*CODE*/
+</script>
+</body>
+</html>
