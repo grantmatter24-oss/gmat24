@@ -310,9 +310,9 @@ function updateCamera(dt) {
   camera.fov = lerp(camera.fov, (fpv ? 78 : 60) + 13 * smooth(sp / 36), Math.min(1, 3 * dt)); camera.updateProjectionMatrix();
   if (fpv && !sk.crashed) {
     const eye = cabin ? tmp.set(p.x, p.y + 1.7, p.z) : rig.seg.head.getWorldPosition(tmp); if (!cabin) eye.y += 0.06;
-    camera.position.copy(eye); const slope = sk.ground && sk.mode === "ski" ? Math.atan2(fw.y, Math.hypot(fw.x, fw.z)) : 0, pit = clamp(slope * 0.7 - 0.06 + look.pit, -1.3, 1.3);
+    camera.position.copy(eye); const slope = sk.ground && sk.mode === "ski" ? Math.atan2(fw.y, Math.hypot(fw.x, fw.z)) : 0, pit = clamp(slope * 0.7 - 0.13 + look.pit, -1.3, 1.3);
     camTgt.set(eye.x + dx * Math.cos(pit), eye.y + Math.sin(pit), eye.z + dz * Math.cos(pit)); camera.up.set(0, 1, 0); camera.lookAt(camTgt);
-    camera.rotateZ(-rig.lean.rotation.z * 0.55); camSnap = false; return;
+    camera.rotateZ(-rig.lean.rotation.z * 0.3); camSnap = false; return;
   }
   if (onLift && !sk.lift.carpet) { // ride cam: behind and a little above the carrier, looking up the line
     const L = sk.lift, a = liftPoint(L, sk.liftS - 4, 1, tmp), b = liftPoint(L, sk.liftS + 4, 1, tmp2), sl = (b.y - a.y) / 8, dist = cabin ? 15 : 7.5, cp = Math.cos(look.pit), ly = Math.sin(look.pit);

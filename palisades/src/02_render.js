@@ -222,6 +222,7 @@ const TERRAIN_FRAG_COLOR = `
   float nearK = smoothstep(260.0, 30.0, tDist);
   vec2 gW = texture2D(uNoise, vWp.xz * 0.19).rg - 0.5, gF = texture2D(uNoise, vWp.xz * 2.3).ba - 0.5;
   Nw.xz += (gW * 0.16 * open + gF * 0.09) * nearK * (1.0 - rock);
+  Nw.xz += (texture2D(uNoise, vWp.xz * 0.031).rg - 0.5) * 0.11 * open * (1.0 - rock) * smoothstep(1800.0, 150.0, tDist);   // wind-packed drifts read from across the bowl
   // grooming: corduroy up close, cat passes from a distance. Four fixed stripe fields blended by the run's direction.
   vec2 d2 = mB.gb * 2.0 - 1.0; d2 /= max(length(d2), 0.05);
   vec4 wk = vec4(max(d2.x, 0.0), max(d2.y, 0.0), max(-d2.x, 0.0), max(-d2.y, 0.0)); wk *= wk;
@@ -234,7 +235,7 @@ const TERRAIN_FRAG_COLOR = `
   snow = mix(snow, vec3(0.50, 0.47, 0.40), tree * 0.16 * nC * nearK);
   snow *= mix(1.0, 0.56, tree * smoothstep(uTreeNear * 0.6, uTreeNear + 250.0, tDist));
   #ifdef OUTER
-    snow = mix(snow, vec3(0.085, 0.115, 0.085), tree * 0.78);
+    snow = mix(snow, vec3(0.045, 0.075, 0.05) * (0.7 + 0.6 * nC), tree * (0.55 + 0.4 * texture2D(uNoise, vWp.xz * 0.006).b));
   #endif
   vec3 rk = mix(vec3(0.115, 0.105, 0.10), vec3(0.36, 0.34, 0.315), nB * 0.55 + nC * 0.45);
   rk *= 0.72 + 0.56 * texture2D(uNoise, vec2(vWp.y * 0.09 + nB * 0.6, (vWp.x + vWp.z) * 0.013)).r;
