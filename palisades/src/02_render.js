@@ -39,7 +39,7 @@ function noiseTexture() {
 const noiseTex = noiseTexture();
 const U = { // uniforms shared by every material that reads the world
   uTT: { value: null }, uMA: { value: null }, uMB: { value: null }, uNoise: { value: noiseTex },
-  uTrk: { value: null }, uTraffic: { value: null },
+  uTrk: { value: null }, uTraffic: { value: null }, uCrk: { value: null }, uCrkPool: { value: 0 },
   uSunDir: { value: sunDir }, uSunCol: { value: new THREE.Color() }, uTime: { value: 0 }, uShadowR: { value: 160 }, uTreeNear: { value: 260 }, uSkyAmb: { value: new THREE.Color() }, uWet: { value: 0 }
 };
 const GLSL_WORLD = `
@@ -208,7 +208,10 @@ function setWeather(name, quick) {
 
 /* ---------- terrain ---------- */
 const TERRAIN_FRAG_PARS = GLSL_WORLD + `
-varying vec3 vWp; varying vec3 vWn; varying float vLake; uniform sampler2D uTrk, uTraffic;
+varying vec3 vWp; varying vec3 vWn; varying float vLake; uniform sampler2D uTrk, uTraffic, uCrk; uniform float uCrkPool;
+#ifdef ROCKMESH
+uniform vec3 uRkLo, uRkHi;
+#endif
 float glint(vec3 p, vec3 V, float scale) {
   vec3 q = p * scale, c = floor(q); vec4 r = texture2D(uNoise, (c.xz + c.y * 37.0 + 0.5) / 256.0, -8.0);
   vec3 fn = normalize(r.xyz * 2.0 - 1.0 + vec3(0.0, 0.5, 0.0)); vec3 f = fract(q) - 0.5 - (r.zxy - 0.5) * 0.5;
@@ -235,6 +238,13 @@ const TERRAIN_FRAG_COLOR = `
     float rock = smoothstep(0.30, 0.38, slope + (nB - 0.5) * 0.14);
   #elif defined(FAR_N)
     float rock = cliffM;
+  #elif defined(ROCKMESH)
+    // a cliff's own rock mesh: snow lies wherever a face is flat enough to hold it, and that snow is the same snow as the slope around it
+    vec3 fN = normalize(cross(dFdx(vWp), dFdy(vWp))); float rkSnow = smoothstep(0.42, 0.6, fN.y + (nC - 0.5) * 0.3);
+    #ifdef ROCKFLAT
+      Nw = normalize(mix(fN, Nw, rkSnow));
+    #endif
+    float rock = 1.0 - rkSnow;
   #else
     float rock = max(smoothstep(0.36, 0.5, 1.0 - normalize(vWn).y) * smoothstep(0.03, 0.2, mA.a), smoothstep(0.4, 0.62, mA.a + (nC - 0.5) * 0.2) * mix(0.75 * smoothstep(0.2, 0.34, 1.0 - normalize(vWn).y), 1.0, smoothstep(240.0, 520.0, tDist)));   // only surveyed cliffs are rock: a steep jump wall or cat-track bank is still snow
   #endif
@@ -278,7 +288,12 @@ const TERRAIN_FRAG_COLOR = `
   float j1 = smoothstep(0.05, 0.0, abs(RT(0.037, b) - 0.5)) * smoothstep(1500.0, 350.0, tDist);
   float j2 = smoothstep(0.06, 0.0, abs(RT(0.1, r) - 0.5)) * smoothstep(500.0, 60.0, tDist);
   float j3 = smoothstep(0.08, 0.0, abs(RT(0.36, g) - 0.5)) * smoothstep(90.0, 15.0, tDist);
-  vec3 rk = mix(vec3(0.085, 0.062, 0.045), vec3(0.37, 0.285, 0.20), blk * 0.55 + strata * 0.45);      // tan and ochre, as the faces above the valley are
+  #ifdef ROCKMESH
+    vec3 rk = mix(uRkLo, uRkHi, blk * 0.55 + strata * 0.45);
+  #else
+  vec3 rk = mix(vec3(0.085, 0.062, 0.045), vec3(0.37, 0.285, 0.20), blk * 0.55 + strata * 0.45);
+  #endif
+       // tan and ochre, as the faces above the valley are
   rk = mix(rk, vec3(0.22, 0.215, 0.21), smoothstep(0.45, 0.8, nA) * 0.4);                         // greyer bands
   rk = mix(rk, vec3(0.13, 0.15, 0.11), smoothstep(0.62, 0.8, nB) * smoothstep(0.45, 0.7, blk) * 0.35);   // lichen
   rk *= (0.82 + 0.36 * grain * rFar + 0.18 * (nC - 0.5)) * 1.05;
@@ -293,15 +308,30 @@ const TERRAIN_FRAG_COLOR = `
   alb = mix(alb, mix(vec3(0.075, 0.078, 0.085), vec3(0.42, 0.43, 0.45), nC * nC * 0.7), road * 0.92);
   float tRough = mix(mix(0.76, 0.52, groomK), 0.93, max(rock, road));
   float snowAmt = (1.0 - rock) * (1.0 - road);
+  #ifndef OUTER
+  { // creeks: dark moving water in a channel through the snow, with wet stones at the edge
+    float cv = texture2D(uCrk, (vWp.xz - vec2(${X0.toFixed(1)}, ${Z0.toFixed(1)})) / vec2(${(X1 - X0).toFixed(1)}, ${(Z1 - Z0).toFixed(1)})).r;
+    float cd = 12.0 * (1.0 - cv) + (nC - 0.5) * 0.9 + (nB - 0.5) * 0.7 - clamp(tDist / 300.0, 0.0, 1.6);
+    float wOpen = (1.0 - smoothstep(0.15, 0.5, groom)) * (1.0 - road) * step(0.3, cv) * smoothstep(3200.0, 1800.0, tDist);
+    wOpen *= mix(1.0, smoothstep(0.5, 0.58, texture2D(uNoise, vWp.xz * 0.009).r), uCrkPool);   // snowed over, open only in pools
+    float wat = (1.0 - smoothstep(1.7, 2.05, cd)) * wOpen;
+    float rim = (1.0 - smoothstep(2.0, 3.0, cd)) * wOpen * smoothstep(0.56, 0.68, texture2D(uNoise, vWp.xz * 0.21).g) * (1.0 - wat) * smoothstep(400.0, 100.0, tDist);
+    vec2 fl = texture2D(uNoise, vWp.xz * 0.31 + vec2(uTime * 0.05, uTime * 0.11)).rg + texture2D(uNoise, vWp.xz * 0.83 - vec2(uTime * 0.13, uTime * 0.07)).gb - 1.0;
+    float riffle = smoothstep(0.38, 0.6, fl.x * fl.y + 0.3 * nC) * smoothstep(200.0, 30.0, tDist);
+    alb = mix(alb, rk * 0.5, rim * 0.9);
+    alb = mix(alb, vec3(0.013, 0.024, 0.03) + vec3(0.32, 0.36, 0.38) * riffle, wat);
+    Nw = normalize(mix(Nw, vec3(fl.x * 0.22, 1.0, fl.y * 0.22), wat));
+    tRough = mix(tRough, 0.08 + 0.3 * riffle, wat); tRough = mix(tRough, 0.6, rim); snowAmt *= 1.0 - max(wat, rim); }
+  #endif
   #ifdef OUTER
     alb = mix(alb, vec3(0.012, 0.045, 0.10), vLake); tRough = mix(tRough, 0.12, vLake); snowAmt *= 1.0 - vLake;
   #endif
   diffuseColor.rgb = alb;`;
-function terrainMaterial(defs) {
+function terrainMaterial(defs, extra) {
   const m = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8, metalness: 0 });
   m.defines = Object.assign({}, defs);
   m.onBeforeCompile = sh => {
-    Object.assign(sh.uniforms, U);
+    Object.assign(sh.uniforms, U, extra || {});
     sh.vertexShader = "varying vec3 vWp; varying vec3 vWn; varying float vLake; attribute float aLake;\n" + sh.vertexShader.replace("#include <begin_vertex>", "#include <begin_vertex>\n vWp = (modelMatrix * vec4(transformed, 1.0)).xyz; vWn = normal;\n #ifdef OUTER\n vLake = aLake;\n #else\n vLake = 0.0;\n #endif");
     sh.fragmentShader = TERRAIN_FRAG_PARS + sh.fragmentShader
       .replace("#include <color_fragment>", TERRAIN_FRAG_COLOR)

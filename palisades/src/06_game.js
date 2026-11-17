@@ -68,6 +68,7 @@ function readSurface() {
   s.powder = (1 - m[0]) * (1 - m[2]) * (1 - s.rock) * (wx.snow ? 1 : 0.6); return s;
 }
 function railAt(x, y, z) { const c = parkCell(x, z); if (!c) return null; for (const f of c) { if (f.k !== "rail") continue; const rx = x - f.x, rz = z - f.z, s = rx * f.dx + rz * f.dz; if (s < -0.6 || s > f.len - 0.5 || Math.abs(-rx * f.dz + rz * f.dx) > 0.9) continue; const ry = lerp(f.y0, f.y1, clamp(s / f.len, 0, 1)); if (y <= ry + 0.45 && y >= ry - 1.4) return f; } return null; }
+const _rkN = new THREE.Vector3(), onRock = (x, z) => cliffK(x, z) > 0.35 && normalAt(x, z, 1.2, _rkN).y < 0.72;   // bare cliff face: steeper than about 45 degrees inside a surveyed cliff
 function landing() {
   const p = sk.p, v = sk.v, vh = Math.hypot(v.x, v.z), head = vh > 0.5 ? Math.atan2(v.x, v.z) : sk.yaw;
   p.y = H(p.x, p.z); const sA = tangent(head), diff = wrap(sk.rot - sA), real = sk.airT > 0.3, PH = KR.PHYS;
@@ -132,6 +133,7 @@ function stepSki(dt) {
     const lin = (0.1 * s.powder + 0.05 + Math.abs(steer) * (0.34 - 0.24 * sk.carve) * (0.85 + sk.sp / 90) * PH.scrub + s.road * 0.25 + (slash ? 0.6 : 0)) * (0.5 + 0.5 * PH.drag), quad = (K.down || K.up ? 0.0052 : 0.0072) * PH.drag, push = K.up && !slash ? 7 : 0, brk = K.brake ? 16 : 0;
     const acc = -G * sn - lin * sk.sp - quad * sk.sp * sk.sp + push - brk;
     sk.sp = sk.sp < 0.25 && acc < 0.6 && !push ? 0 : clamp(sk.sp + acc * dt, 0, MAXV);   // unlike the course runs, here you can stop: across the hill, on the flat, or with J
+    if (sk.sp > 1 && creekWet(p.x, p.z)) { sk.sp *= Math.exp(-2.6 * dt); if (Math.random() < 0.8) for (let i = 0; i < 3; i++) spray(p, 1 + Math.random() * 3, (Math.random() - 0.5) * 4, v, 0.6); }   // open water drags hard
     sk.brakeK = lerp(sk.brakeK, (brk || slash) && sk.sp > 1 ? 1 : 0, Math.min(1, 8 * dt));
     if (brk && sk.sp > 4 && Math.random() < 0.7) for (let i = 0; i < 3; i++) spray(p, 1 + Math.random() * 3, (Math.random() - 0.5) * 5, v, 0.6);
     if (slash && sk.sp > 3) for (let i = 0; i < 4; i++) spray(p, 1.2 + Math.random() * (2 + sk.sp * 0.08), -steer * (3 + sk.sp * 0.3) * (0.4 + Math.random() * 0.8), v, 0.55, 0.5 + 0.5 * s.powder);
@@ -142,10 +144,14 @@ function stepSki(dt) {
     if (hn - p.y > 0.9 && sk.sp > 0.5) { // a cliff face dead ahead: you do not ski up it
       if (sk.sp > 9) crash("Hit a cliff"); else { sk.sp = 0; toast("Cliff", 1); } popReq = false; return;
     }
-    if (popNow || yp > hn + 0.12) { // the snow dropped away, or a pop: airborne
+    // The top of a cliff is a takeoff: where the snow ends and the rock falls away you leave the ground on the line you were skiing, and never ride the rock.
+    let cliffGo = false; const fl = Math.hypot(fw.x, fw.z) || 1, ax = fw.x / fl, az = fw.z / fl;
+    if (sk.sp > 0.3 && cliffK(nx, nz) > 0.3) cliffGo = hn - H(nx + ax * 2.5, nz + az * 2.5) > 2.6 || onRock(nx, nz);
+    if (cliffGo) { const a = clamp(Math.atan2(p.y - H(p.x - ax * 3, p.z - az * 3), 3), -0.6, 0.25), sp = Math.max(sk.sp, 2.5); v.set(ax * sp * Math.cos(a), sp * Math.sin(a), az * sp * Math.cos(a)); }
+    if (popNow || cliffGo || yp > hn + 0.12) { // the snow dropped away, a cliff lip, or a pop: airborne
       const lip = kickerLip(p.x, p.z); sk.featLaunch = !!lip;
       sk.ground = false; sk.air = true; if (popNow) { v.y += (lip ? 6.5 : 5.2) * pw + 3.0; sk.popT = 0.2; } if (lip && !lip.lip) { const L2 = lip.Lr + lip.T + lip.Ld, hill = Math.atan2(H(lip.x + lip.dx * (L2 + 3), lip.z + lip.dz * (L2 + 3)) - H(lip.x - lip.dx * 3, lip.z - lip.dz * 3), L2 + 6); v.y = Math.max(v.y, sk.sp * Math.sin(hill + Math.atan(1.7 * lip.hK / lip.Lr))) + (popNow ? 0 : lip.side ? 1.4 : 3.0); }   // leave along the lip's own angle, with the lift Kicker Run's kickers give
-      p.set(nx, popNow ? Math.max(yp, hn) + 0.02 : yp, nz); sk.rot = sA; sk.vside = 0; sk.peakY = p.y;
+      p.set(nx, popNow || cliffGo ? Math.max(cliffGo ? p.y + v.y * dt : yp, hn) + 0.02 : yp, nz); sk.rot = sA; sk.vside = 0; sk.peakY = p.y;
       sk.airT = 0; sk.flipAcc = 0; sk.flipB = 0; sk.flipF = 0; sk.spin = 0; sk.spinV = 0; sk.grabT = 0; sk.rotV = 0; sk.spinTarget = 0;
     } else {
       p.set(nx, hn, nz);
@@ -179,6 +185,10 @@ function stepSki(dt) {
     if (sk.noRail > 0) sk.noRail -= dt;
     const rl = !(sk.noRail > 0) && v.y <= 2.4 ? railAt(p.x, p.y, p.z) : null;
     if (rl) { sk.grind = rl; sk.gs = clamp((p.x - rl.x) * rl.dx + (p.z - rl.z) * rl.dz, 0, rl.len - 0.1); sk.grindT = 0; sk.sp = Math.max(6, Math.hypot(v.x, v.z)); sk.ground = true; sk.air = false; sk.rot = 0; sk.rotV = 0; sk.spin -= Math.round(sk.spin / Math.PI) * Math.PI; sk.landT = 0.2; sfx("thump", 0.3); }
+    else if (onRock(p.x, p.z) && p.y <= H(p.x, p.z) + 1.0) { // rock is not snow: you glance off the face and keep falling to the snow below
+      const n = normalAt(p.x, p.z, 1.2, nrm), vn = v.dot(n); if (vn < -15 && sk.airT > 0.4) { p.y = H(p.x, p.z); crash("Hit the rocks"); } else {
+        if (vn < 0) v.addScaledVector(n, -vn); const nl = Math.hypot(n.x, n.z) || 1, out = (v.x * n.x + v.z * n.z) / nl; if (out < 3.5) { v.x += n.x / nl * (3.5 - out); v.z += n.z / nl * (3.5 - out); }
+        p.y = Math.max(p.y, H(p.x, p.z) + 1.0); } }
     else if (p.y <= H(p.x, p.z)) landing();
     else if (sk.airT > 0.1 && treeHit(p.x, p.z, 0.2) && p.y - H(p.x, p.z) < 6) crash("Hit a tree");
   }

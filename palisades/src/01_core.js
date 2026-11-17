@@ -100,21 +100,26 @@ function detailH(x, z) {
 const CATC = 40, CATW = Math.ceil((X1 - X0) / CATC), CATH = Math.ceil((Z1 - Z0) / CATC); let CATG = null, PARKG = null; const PARK = [];
 function gridAdd(G, x0, z0, x1, z1, item) { for (let cz = Math.max(0, Math.floor((z0 - Z0) / CATC)); cz <= Math.min(CATH - 1, Math.floor((z1 - Z0) / CATC)); cz++) for (let cx = Math.max(0, Math.floor((x0 - X0) / CATC)); cx <= Math.min(CATW - 1, Math.floor((x1 - X0) / CATC)); cx++) (G[cz * CATW + cx] || (G[cz * CATW + cx] = [])).push(item); }
 function initCat() {
-  const G = new Array(CATW * CATH);
+  const G = new Array(CATW * CATH), RG = new Array(CATW * CATH);
+  // Where a cat track meets an ordinary groomed run the cat blends the two together: no cut bank and no windrow across the run.
+  for (const r of WORLD.runs) { if (r.c || !r.g) continue; const hw = ([46, 42, 30, 18][r.d] || 30) / 2; for (let i = 0; i < r.pts.length - 1; i++) { const a = r.pts[i], b = r.pts[i + 1]; gridAdd(RG, Math.min(a[0], b[0]) - hw - 30, Math.min(a[1], b[1]) - hw - 30, Math.max(a[0], b[0]) + hw + 30, Math.max(a[1], b[1]) + hw + 30, [a[0], a[1], b[0], b[1], hw]); } }
+  const joinK = (x, z) => { const c = RG[((z - Z0) / CATC | 0) * CATW + ((x - X0) / CATC | 0)]; if (!c) return 0; let k = 0;
+    for (const s of c) { const ex = s[2] - s[0], ez = s[3] - s[1], t = clamp(((x - s[0]) * ex + (z - s[1]) * ez) / (ex * ex + ez * ez || 1), 0, 1), d = Math.hypot(x - s[0] - ex * t, z - s[1] - ez * t); k = Math.max(k, 1 - sstep(s[4] + 6, s[4] + 28, d)); } return k; };
   for (const r of WORLD.runs) {
-    if (!r.c) continue; const core = 5.5, outer = 9.5, str = 1, P = [];   // only the cat tracks are levelled: ordinary groomed runs keep the survey's own grading
+    if (!r.c) continue; const core = 6, outer = 9.5, str = 1, P = [];   // only the cat tracks are levelled: ordinary groomed runs keep the survey's own grading
     for (let i = 0; i < r.pts.length - 1; i++) { const a = r.pts[i], b = r.pts[i + 1], n = Math.max(1, Math.round(Math.hypot(b[0] - a[0], b[1] - a[1]) / 14)); for (let k = 0; k < n; k++) P.push([lerp(a[0], b[0], k / n), lerp(a[1], b[1], k / n)]); }
     P.push(r.pts[r.pts.length - 1].slice()); let hs = P.map(q => hBase(q[0], q[1]));
-    for (let it = 0; it < (r.c ? 6 : 3); it++) hs = hs.map((h, i) => i === 0 || i === hs.length - 1 ? h : (hs[i - 1] + 2 * h + hs[i + 1]) / 4);   // even out the grade along the run
-    for (let i = 0; i < P.length - 1; i++) { const sg = [P[i][0], P[i][1], P[i + 1][0], P[i + 1][1], hs[i], hs[i + 1], core, outer, str]; gridAdd(G, Math.min(sg[0], sg[2]) - outer, Math.min(sg[1], sg[3]) - outer, Math.max(sg[0], sg[2]) + outer, Math.max(sg[1], sg[3]) + outer, sg); }
+    for (let it = 0; it < 14; it++) hs = hs.map((h, i) => i === 0 || i === hs.length - 1 ? h : (hs[i - 1] + 2 * h + hs[i + 1]) / 4);   // even out the grade along the run
+    let jk = P.map(q => joinK(q[0], q[1])); for (let it = 0; it < 2; it++) jk = jk.map((j, i) => i === 0 || i === jk.length - 1 ? j : (jk[i - 1] + 2 * j + jk[i + 1]) / 4);
+    for (let i = 0; i < P.length - 1; i++) { const om = outer + 18 * Math.max(jk[i], jk[i + 1]), sg = [P[i][0], P[i][1], P[i + 1][0], P[i + 1][1], hs[i], hs[i + 1], core, om, str, jk[i], jk[i + 1]]; gridAdd(G, Math.min(sg[0], sg[2]) - om, Math.min(sg[1], sg[3]) - om, Math.max(sg[0], sg[2]) + om, Math.max(sg[1], sg[3]) + om, sg); }
   }
   CATG = G; initPark();
 }
 function catBench(x, z, h) {
   const c = CATG && CATG[((z - Z0) / CATC | 0) * CATW + ((x - X0) / CATC | 0)]; if (!c) return h; let sw = 0, st = 0, mw = 0, berm = 0;
-  for (const s of c) { const ex = s[2] - s[0], ez = s[3] - s[1], t = clamp(((x - s[0]) * ex + (z - s[1]) * ez) / (ex * ex + ez * ez || 1), 0, 1), dx = x - s[0] - ex * t, dz = z - s[1] - ez * t, d2 = dx * dx + dz * dz; if (d2 >= s[7] * s[7]) continue;
-    const d = Math.sqrt(d2), w = s[8] * (1 - sstep(s[6], s[7], d)); if (w <= 0) continue; sw += w; st += w * (s[4] + (s[5] - s[4]) * t); if (w > mw) mw = w;
-    if (s[8] === 1 && d > s[6] - 0.4 && d < s[6] + 2.2) berm = Math.max(berm, 0.38 * Math.sin((d - s[6] + 0.4) / 2.6 * Math.PI)); }   // the windrow the cat leaves along each edge
+  for (const s of c) { const ex = s[2] - s[0], ez = s[3] - s[1], t = clamp(((x - s[0]) * ex + (z - s[1]) * ez) / (ex * ex + ez * ez || 1), 0, 1), dx = x - s[0] - ex * t, dz = z - s[1] - ez * t, d2 = dx * dx + dz * dz, jn = s[9] + (s[10] - s[9]) * t, outer = 9.5 + 18 * jn; if (d2 >= outer * outer) continue;
+    const d = Math.sqrt(d2), w = s[8] * (1 - sstep(s[6], outer, d)); if (w <= 0) continue; sw += w; st += w * (s[4] + (s[5] - s[4]) * t); if (w > mw) mw = w;
+    if (s[8] === 1 && d > s[6] - 0.4 && d < s[6] + 2.2) berm = Math.max(berm, 0.38 * (1 - jn) * Math.sin((d - s[6] + 0.4) / 2.6 * Math.PI)); }   // the windrow the cat leaves along each edge
   return mw > 0 ? lerp(h, st / sw, mw) + berm : h;
 }
 /* Terrain parks where the resort builds them (Belmont, and the Gold Coast line), cut the way the park crew cuts them: a takeoff
@@ -167,10 +172,31 @@ function kickerLip(x, z) { const c = parkCell(x, z); if (!c) return null; for (c
 const EDGE = 220;
 function edgeW(x, z) { return smooth(1 - Math.min(x - X0, X1 - x, z - Z0, Z1 - z) / EDGE); }
 /* Ground height. Inside the resort grid it is survey + detail, blending to the coarse backdrop at the rim so the two meshes meet exactly. */
+/* Creeks, from the mapped streams. They are drawn into a distance field (255 on the centreline, falling to zero twelve metres out,
+   scaled by the size of the stream) that the ground height, the snow shader, the trees and the skier all read. */
+const CRES = 2.5, CRW = Math.round((X1 - X0) / CRES), CRH = Math.round((Z1 - Z0) / CRES), CRSPAN = 12; let CRK = null;
+let creekStyle = +(QS.get("creek") || store.get("pal-creek", 1));
+function initCreeks() {
+  const cs = WORLD.creeks; U.uCrkPool.value = creekStyle === 2 ? 1 : 0;
+  if (!cs || !cs.length) { U.uCrk.value = new THREE.DataTexture(new Uint8Array([0]), 1, 1, THREE.RedFormat); U.uCrk.value.needsUpdate = true; return; }
+  const c = document.createElement("canvas"); c.width = CRW; c.height = CRH; const g = c.getContext("2d", { willReadFrequently: true }); g.fillStyle = "#000"; g.fillRect(0, 0, CRW, CRH); g.lineCap = g.lineJoin = "round"; g.globalCompositeOperation = "lighter";
+  const N = 16; g.strokeStyle = "rgb(16,16,16)";
+  for (let k = 0; k < 3; k++) { const sc = [0.75, 1.25, 4][k]; for (let s = 1; s <= N; s++) { g.lineWidth = 2 * CRSPAN * sc * s / N / CRES; g.beginPath(); for (const cr of cs) { if (cr.k !== k) continue; cr.pts.forEach((p, i) => { const x = (p[0] - X0) / CRES, z = (p[1] - Z0) / CRES; i ? g.lineTo(x, z) : g.moveTo(x, z); }); } g.stroke(); } }
+  const d = g.getImageData(0, 0, CRW, CRH).data; CRK = new Uint8Array(CRW * CRH); for (let i = 0; i < CRK.length; i++) CRK[i] = d[i * 4];
+  const t = new THREE.DataTexture(CRK, CRW, CRH, THREE.RedFormat); t.unpackAlignment = 1; t.magFilter = THREE.LinearFilter; t.minFilter = THREE.LinearFilter; t.needsUpdate = true; U.uCrk.value = t;
+}
+function creekD(x, z) { // metres from the nearest creek's centreline, in units of that creek's own size; CRSPAN when there is none
+  if (!CRK) return CRSPAN; const fx = (x - X0) / CRES - 0.5, fz = (z - Z0) / CRES - 0.5, i = fx | 0, j = fz | 0; if (i < 0 || j < 0 || i >= CRW - 1 || j >= CRH - 1) return CRSPAN;
+  const k = j * CRW + i, a = CRK[k], b = CRK[k + 1], c = CRK[k + CRW], d = CRK[k + CRW + 1]; if (!(a | b | c | d)) return CRSPAN; const u = fx - i, w = fz - j;
+  return CRSPAN * (1 - ((a * (1 - u) + b * u) * (1 - w) + (c * (1 - u) + d * u) * w) / 255);
+}
+const maskCh = (x, z, ch) => { const fx = clamp((x - X0) / MCELL, 0, MW - 1.001), fz = clamp((z - Z0) / MCELL, 0, MH - 1.001), i = fx | 0, j = fz | 0, u = fx - i, v = fz - j, a = (j * MW + i) * 4 + ch; return ((MA[a] * (1 - u) + MA[a + 4] * u) * (1 - v) + (MA[a + MW * 4] * (1 - u) + MA[a + MW * 4 + 4] * u) * v) / 255; };   // one channel of mask A, without touching maskAt's shared result
+function creekCut(x, z) { const d = creekD(x, z); if (d >= 5.5) return 0; return 0.9 * (1 - sstep(1.2, 5.5, d)) * (1 - sstep(0.15, 0.5, maskCh(x, z, 0))) * (1 - maskCh(x, z, 2)); }   // the channel: nothing under a groomed run or a road, where the creek is piped or bridged
+function creekWet(x, z) { return creekStyle === 1 && creekD(x, z) < 1.6 && maskCh(x, z, 0) < 0.2 && maskCh(x, z, 2) < 0.3; }
 function H(x, z, bare) {
   if (!(x > X0 && x < X1 && z > Z0 && z < Z1)) return hOuter(x, z);
   const w = edgeW(x, z); if (w >= 1) return hOuter(x, z);
-  const h = catBench(x, z, hBase(x, z) + detailH(x, z)) + parkH(x, z, bare); return w > 0 ? lerp(h, hOuter(x, z), w) : h;
+  const h = catBench(x, z, hBase(x, z) + detailH(x, z)) + parkH(x, z, bare) - creekCut(x, z); return w > 0 ? lerp(h, hOuter(x, z), w) : h;
 }
 function Hsmooth(x, z) { // no cliffs or drifts: far terrain, lift profiles, building pads
   if (!(x > X0 && x < X1 && z > Z0 && z < Z1)) return hOuter(x, z);

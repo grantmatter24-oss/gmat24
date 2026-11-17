@@ -51,6 +51,7 @@ function buildMap() {
   }
   g.putImageData(im, 0, 0); g.lineCap = g.lineJoin = "round";
   const path = pts => { g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(mx(p[0]), mz(p[1])) : g.moveTo(mx(p[0]), mz(p[1]))); };
+  for (const cr of WORLD.creeks || []) { g.strokeStyle = "rgba(58,124,190,0.75)"; g.lineWidth = cr.k ? 1.5 : 0.9; path(cr.pts); g.stroke(); }   // creeks
   for (const pass of [0, 1]) for (const r of WORLD.runs) { path(r.pts); if (!pass) { g.strokeStyle = "rgba(255,255,255,.85)"; g.lineWidth = r.d <= 1 ? 5.5 : 4; } else { g.strokeStyle = DIFF_COL[r.d]; g.lineWidth = r.d <= 1 ? 3 : 2; g.setLineDash(r.d === 3 ? [5, 4] : []); } g.stroke(); g.setLineDash([]); }
   for (const L of LIFTS) { g.strokeStyle = "#d81f26"; g.lineWidth = L.carpet ? 1.5 : 2.6; path(L.nodes.map(n => [n.x, n.z])); g.stroke(); if (L.carpet) continue; g.fillStyle = "#d81f26"; for (const n of [L.bot, L.top]) { g.beginPath(); g.arc(mx(n.x), mz(n.z), n === L.bot ? 5 : 3.2, 0, TAU); g.fill(); } }
   g.font = "700 11px 'Barlow Semi Condensed', sans-serif"; g.textAlign = "center"; g.textBaseline = "middle";

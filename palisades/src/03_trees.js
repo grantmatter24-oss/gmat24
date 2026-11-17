@@ -8,6 +8,7 @@ function tileTrees(cx, cz) { // -> Float32Array of [x, y, z, height, width, rot,
   const out = [], bx = Math.round((X0 + cx * CH) / TCELL), bz = Math.round((Z0 + cz * CH) / TCELL);
   for (let j = 0; j < TPER; j++) for (let i = 0; i < TPER; i++) {
     const gx = bx + i, gz = bz + j, x = (gx + 0.15 + 0.7 * hash2(gx, gz, 2)) * TCELL, z = (gz + 0.15 + 0.7 * hash2(gx, gz, 3)) * TCELL;
+    if (creekD(x, z) < 3.4) continue;   // no trees standing in the creek
     const tm = treeMask(x, z), hr = hash2(gx, gz, 1); let lone = false;
     if (tm < 0.12 || hr > tm * tm * 0.6 + 0.02) { // outside the forest: lone firs and small clumps dotted over open slopes, never on a run
       const clump = vnoise(x * 0.012, z * 0.012, 91); if (hr > 0.004 + 0.05 * sstep(0.62, 0.85, clump) + 0.02 * tm) continue;
@@ -172,14 +173,8 @@ function initRocks() {
     c.x = X0 + (c.i0 + c.i1) / 2 * CELL; c.z = Z0 + (c.j0 + c.j1) / 2 * CELL; c.r = Math.hypot(c.i1 - c.i0, c.j1 - c.j0) * CELL / 2 + 6; CLIFFS.push(c);
   }
   CLIFFS.lab = lab;
-  const mk = st => worldShade(new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, flatShading: st.flat }), {
-    patch(sh) { sh.uniforms.uRkLo = { value: new THREE.Color(...st.lo) }; sh.uniforms.uRkHi = { value: new THREE.Color(...st.hi) }; sh.fragmentShader = "uniform vec3 uRkLo, uRkHi;\n" + sh.fragmentShader.replace("#include <color_fragment>", `#include <color_fragment>
-      { vec3 wn = normalize(cross(dFdx(vWp), dFdy(vWp))); vec2 rw = abs(wn.xz) + 0.001; rw /= rw.x + rw.y;
-        float n1 = texture2D(uNoise, vWp.zy * 0.045).r * rw.x + texture2D(uNoise, vWp.xy * 0.045).r * rw.y, n2 = texture2D(uNoise, vWp.zy * 0.4).g * rw.x + texture2D(uNoise, vWp.xy * 0.4).g * rw.y, n3 = texture2D(uNoise, vWp.zy * vec2(0.5, 0.02)).b * rw.x + texture2D(uNoise, vWp.xy * vec2(0.5, 0.02)).b * rw.y;
-        vec3 rk = mix(uRkLo, uRkHi, n1 * 0.6 + n2 * 0.4) * (1.0 - 0.3 * smoothstep(0.55, 0.8, n3));
-        float sn = smoothstep(0.42, 0.6, wn.y + (n2 - 0.5) * 0.3);
-        diffuseColor.rgb = mix(rk, vec3(0.9, 0.92, 0.95), sn); }`); }
-  });
+  // rock meshes are drawn with the terrain's own shader, so snow lying on the rock is lit and coloured exactly like the slope beside it
+  const mk = st => terrainMaterial(st.flat ? { ROCKMESH: "", ROCKFLAT: "" } : { ROCKMESH: "" }, { uRkLo: { value: new THREE.Color(...st.lo) }, uRkHi: { value: new THREE.Color(...st.hi) } });
   rockMats = { a: mk(ROCK_STYLES.a), b: mk(ROCK_STYLES.b) };
 }
 function buildCliff(c) {
