@@ -12,14 +12,16 @@ function tick(t) {
     // G in the air: Kicker Run's slow-motion, on a meter that drains in 3.4 s and refills on snow
     const wantSlow = sk.mode === "ski" && K.focus && !sk.ground && !sk.crashed && focusM > 0.01; timeScale += ((wantSlow ? 0.38 : 1) - timeScale) * Math.min(1, 10 * dt);
     if (wantSlow) focusM = Math.max(0, focusM - dt / 3.4); else if (sk.ground) focusM = Math.min(1, focusM + dt * 0.04);
-    if (sk.mode === "ski") { acc += dt * timeScale; let n = 0; while (acc >= 1 / 120 && n < 8) { stepSki(1 / 120); acc -= 1 / 120; n++; } if (n === 8) acc = 0; }
+    rewinding = sk.mode === "ski" && rewKey && REW.length > 1; $("rew").hidden = !rewinding;
+    if (rewinding) stepRewind(dt);
+    else if (sk.mode === "ski") { acc += dt * timeScale; let n = 0; while (acc >= 1 / 120 && n < 8) { stepSki(1 / 120); acc -= 1 / 120; n++; } if (n === 8) acc = 0; recordRewind(dt); }
     updateLifts(dt * ff, camera.position, frame); updateNPCs(dt, camera.position);
     if (sk.mode === "wait" || sk.mode === "lift") stepLift(dt * ff); else if (sk.mode === "walk") stepWalk(dt);
     findNearLift(); emitSpray(dt); layTracks(dt); updateParticles(dt); updateRig(dt, now); updateCamera(dt); updateRemotes(dt, now); mpSend(dt);
   }
   rig.hold.visible = sk.mode !== "menu" && rig.hold.visible;
   updateSun(); skyMesh.position.copy(camera.position); skyMesh.scale.setScalar(40000);
-  updateTerrain(camera.position, 5); updateTrees(camera.position);
+  updateTerrain(camera.position, 5); updateTrees(camera.position); updateRocks(camera.position);
   if (snowFall.visible) { snowFall.material.uniforms.uCam.value.copy(camera.position); snowFall.material.uniforms.uPx.value = renderer.domElement.height * 0.5 / Math.tan(camera.fov * DEG / 2); }
   gradePass.uniforms.uSpeed.value = sk.mode === "ski" && !paused ? smooth((sk.sp - 14) / 26) : 0;
   updateHUD(dt); if (sk.mode !== "menu") drawMini(dt); updateAudio();
@@ -28,10 +30,10 @@ function tick(t) {
 }
 async function boot() {
   await progress("Reading the survey", 0.05); await loadWorld();
-  await progress("Shaping the mountain", 0.2); initCat(); buildTerrainTex(); buildComposer(); initTrees();
+  await progress("Shaping the mountain", 0.2); initCat(); buildTerrainTex(); buildComposer(); initTrees(); initRocks();
   await progress("Setting the light", 0.35); setWeather(wxName);
   await progress("Laying snow", 0.45); initChunks(); buildOuter();
-  await progress("Stringing the lifts", 0.6); initLifts(); initBuildings(); initRuns(); initCars(); initSigns(); initSlow(); initNPCs();
+  await progress("Stringing the lifts", 0.6); initLifts(); initBuildings(); initRuns(); initCars(); initSigns(); initSlow(); initNPCs(); initVillage(); initParkMeshes();
   await progress("Planting the forest", 0.72); buildBillboards();
   await progress("Drawing the trail map", 0.88); rig = makeRider(outfit); initParticles(); initTracks(); initSnowfall(); buildMap(); initInput(); mpInit();
   await progress("Ready", 1);
@@ -43,9 +45,9 @@ async function boot() {
   // build the terrain around the first view before showing it
   if (camFix) camera.position.set(camFix[0], camFix[1], camFix[2]); else if (sk.mode === "menu") camera.position.set(2350, 2105, -820); else updateCamera(0.016);
   for (let i = 0; i < 300; i++) if (!updateTerrain(camera.position, 40)) break;
-  for (let i = 0; i < 40; i++) updateTrees(camera.position);
+  for (let i = 0; i < 40; i++) { updateTrees(camera.position); updateRocks(camera.position); }
   $("load").hidden = true; renderer.info.autoReset = false; requestAnimationFrame(tick);
-  window.__pal = { toggleWalk, stepWalk, clearTracks, goHome, toggleMap, runAt, npcs, KR, gDown, gUp, landing, stepSki, stepLift, updateLifts, findNearLift, nrm, sk, K, LIFTS, WORLD, H, camera, scene, renderer, setWeather, placeSkier, boardLift, unloadAt, spawnAt, MP, chunks, nearTiles, treeTiles, Q };
+  window.__pal = { cliffAt, hBase, PARK, REW, stepRewind, recordRewind, toggleWalk, stepWalk, clearTracks, goHome, toggleMap, runAt, npcs, KR, gDown, gUp, landing, stepSki, stepLift, updateLifts, findNearLift, nrm, sk, K, LIFTS, WORLD, H, camera, scene, renderer, setWeather, placeSkier, boardLift, unloadAt, spawnAt, MP, chunks, nearTiles, treeTiles, Q };
   window.__info = () => ({ mode: sk.mode, p: [Math.round(sk.p.x), Math.round(sk.p.y), Math.round(sk.p.z)], sp: +sk.sp.toFixed(1), ground: sk.ground, crashed: sk.crashed, trees: treeCount, calls: renderer.info.render.calls, tris: renderer.info.render.triangles, lift: sk.lift && sk.lift.name, liftS: Math.round(sk.liftS) });
 }
 boot().catch(e => { const d = document.createElement("div"); d.id = "err"; d.textContent = String(e && e.stack || e); document.body.appendChild(d); console.error(e); });

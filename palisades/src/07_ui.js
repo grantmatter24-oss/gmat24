@@ -109,7 +109,7 @@ function sfx(kind, k = 1) {
 /* Kicker Run's key map */
 const KEYMAP = { ArrowLeft: "left", ArrowRight: "right", ArrowUp: "up", w: "up", ArrowDown: "down", s: "down", a: "spinL", d: "spinR", q: "grabQ", e: "grabN", " ": "grab", Shift: "boost", f: "grabS", g: "focus", j: "brake", x: "grabN", c: "grabI" };
 function setOverlay(id, on) { $(id).hidden = !on; }
-const anyOverlay = () => ["menu", "how", "pause", "map"].some(id => !$(id).hidden);
+const anyOverlay = () => ["menu", "how", "pause", "map", "fit"].some(id => !$(id).hidden);
 function setPaused(v) { paused = v; setOverlay("pause", v); }
 function toggleMap(v, fromMenu) { const on = v === undefined ? $("map").hidden : v; if (on) { mapFromMenu = !!fromMenu; drawMap(); setOverlay("pause", false); } setOverlay("map", on); paused = on && !mapFromMenu; }
 function setGfx(name) { if (!QUAL[name]) return; qName = name; Q = QUAL[name]; store.set("pal-gfx", name); buildComposer(); document.querySelectorAll("[data-q]").forEach(b => b.classList.toggle("on", b.dataset.q === name)); }
@@ -128,13 +128,13 @@ function initInput() {
     else if (key === "b") toggleWalk();
     else if (key === "v") { fpv = !fpv; store.set("pal-fpv", fpv); camSnap = true; }
     else if (key === "n") { muted = !muted; store.set("pal-mute", muted); toast(muted ? "Sound off" : "Sound on", 1.2); }
-    else if (key === "r" && sk.mode === "ski") { if (sk.crashed || sk.sp < 6) standUp(); }
+    else if (key === "r") rewKey = true;
     else if (key === "e" && sk.mode === "ski" && nearLift && sk.ground) boardLift(nearLift);
     else if (key === "Enter" && (sk.mode === "wait" || sk.mode === "lift")) { const L = sk.lift; unloadAt(L); toast("Top of " + L.name + " · " + fmtAlt(sk.p.y)); }
     else if ("1234".includes(key) && key.length === 1) setWeather(["bluebird", "golden", "overcast", "storm"][+key - 1]);
   });
-  addEventListener("keyup", ev => { const key = ev.key.length === 1 ? ev.key.toLowerCase() : ev.key, n = KEYMAP[key]; if (n) K[n] = 0; if (key === " ") gUp(); });
-  addEventListener("blur", () => { for (const k in K) K[k] = 0; charging = false; });
+  addEventListener("keyup", ev => { const key = ev.key.length === 1 ? ev.key.toLowerCase() : ev.key, n = KEYMAP[key]; if (n) K[n] = 0; if (key === " ") gUp(); if (key === "r") rewKey = false; });
+  addEventListener("blur", () => { for (const k in K) K[k] = 0; charging = false; rewKey = false; });
   canvas.addEventListener("pointerdown", ev => { look.drag = true; look.idle = 0; canvas.setPointerCapture(ev.pointerId); initAudio(); });
   canvas.addEventListener("pointermove", ev => { if (!look.drag) return; look.yaw -= ev.movementX * 0.005; look.pit = clamp(look.pit - ev.movementY * 0.004, -1.1, 1.1); look.idle = 0; });
   const end = () => { look.drag = false; }; canvas.addEventListener("pointerup", end); canvas.addEventListener("pointercancel", end);
@@ -155,7 +155,13 @@ function initInput() {
   opt("village", "The Village · Olympic Valley base, 6,200 ft");
   LIFTS.map((L, i) => [L, i]).filter(([L]) => !L.carpet && L.len > 400).sort((a, b) => b[0].top.g - a[0].top.g).forEach(([L, i]) => opt(i, "Top of " + L.name + " · " + Math.round(L.top.g * FT).toLocaleString() + " ft"));
   sel.value = store.get("pal-start", "village"); if (!sel.value) sel.value = "village";
-  Object.keys(KR.JACKETS).forEach(key => { const b = document.createElement("button"); b.className = "sw" + (key === outfit.jacket ? " on" : ""); b.dataset.j = key; b.title = key; b.style.background = "#" + KR.JACKETS[key].j.toString(16).padStart(6, "0"); b.addEventListener("click", () => { outfit.jacket = key; store.set("pal-outfit", outfit); KR.dress(rig, outfit); document.querySelectorAll(".sw").forEach(sw => sw.classList.toggle("on", sw.dataset.j === key)); }); $("jackets").appendChild(b); });
+  // outfit and ski setup: Kicker Run's own options, everything unlocked
+  const FIT = [["helmet", "Headwear"], ["jacket", "Jacket"], ["pants", "Pants"], ["accessory", "Accessory"], ["skis", "Skis"], ["poles", "Poles"], ["style", "Figure"], ["skibend", "Ski rocker"], ["len", "Ski length"], ["grip", "Edges"], ["wax", "Wax"]];
+  for (const [cat, label] of FIT) { const l = document.createElement("label"); l.textContent = label; l.htmlFor = "fit-" + cat; const sl = document.createElement("select"); sl.id = "fit-" + cat;
+    for (const k in KR.OUTFIT_OPTS[cat]) { const o = document.createElement("option"); o.value = k; o.textContent = KR.OUTFIT_OPTS[cat][k]; sl.appendChild(o); } sl.value = outfit[cat];
+    sl.addEventListener("change", () => { outfit[cat] = sl.value; store.set("pal-outfit", outfit); KR.dress(rig, outfit); }); $("fitRows").append(l, sl); }
+  const openFit = () => { setOverlay("pause", false); setOverlay("fit", true); if (sk.mode !== "menu") paused = true; };
+  $("fitBtn").addEventListener("click", openFit); $("pFit").addEventListener("click", openFit); $("fitOk").addEventListener("click", () => { setOverlay("fit", false); if (sk.mode !== "menu") paused = false; });
   $("go").addEventListener("click", () => { initAudio(); store.set("pal-start", sel.value); spawnAt(sel.value); startPlay(); });
   setGfxButtons(); setUnits(units);
 }
@@ -166,7 +172,7 @@ const MP = { room: null, user: null, myId: null, remotes: new Map(), others: [],
 const r2 = v => Math.round(v * 100) / 100;
 function mpPack() {
   let k = 0; MP_KEYS.forEach((n, i) => { if (K[n]) k |= 1 << i; });
-  return { v: 2, res: "palisades", id: MP.myId, play: sk.mode !== "menu", x: r2(sk.p.x), y: r2(sk.p.y), z: r2(sk.p.z), yaw: r2(sk.yaw), spin: r2(sk.spin), rot: r2(sk.rot), rotV: r2(sk.rotV), sw: !!sk.sw, gr: !!sk.ground, cr: !!sk.crashed, tz: r2(sk.tumZ), turn: r2(sk.turn), carve: r2(sk.carve), sp: r2(sk.sp), chg: r2(sk.chg), st: r2(Math.max(0, sk.stumT)), k, md: sk.mode, wp: r2(sk.walkPh || 0), li: sk.lift ? sk.lift.id : -1, sl: r2(sk.slope), sc: sk.pts, vt: Math.round(sk.vert),
+  return { v: 2, res: "palisades", id: MP.myId, play: sk.mode !== "menu", x: r2(sk.p.x), y: r2(sk.p.y), z: r2(sk.p.z), yaw: r2(sk.yaw), spin: r2(sk.spin), rot: r2(sk.rot), rotV: r2(sk.rotV), sw: !!sk.sw, gr: !!sk.ground, cr: !!sk.crashed, tz: r2(sk.tumZ), turn: r2(sk.turn), carve: r2(sk.carve), sp: r2(sk.sp), chg: r2(sk.chg), st: r2(Math.max(0, sk.stumT)), k, md: sk.mode, gd: sk.grind ? 1 : 0, wp: r2(sk.walkPh || 0), li: sk.lift ? sk.lift.id : -1, sl: r2(sk.slope), sc: sk.pts, vt: Math.round(sk.vert),
     of: { helmet: outfit.helmet, jacket: outfit.jacket, pants: outfit.pants, accessory: outfit.accessory, skis: outfit.skis, poles: outfit.poles, style: outfit.style } };
 }
 function mpSend(dt) { if (!MP.room) return; MP.sendT -= dt; if (MP.sendT > 0) return; MP.sendT = 1 / 12; try { const r = MP.room.presence({ st: mpPack() }); if (r && r.catch) r.catch(() => { }); } catch (e) { } }
@@ -180,8 +186,8 @@ function mpSync(peers) {
     const by = p.by || (typeof st.id === "string" ? st.id : null); others.push({ peer: p.peer, by, st, isMe: p.isMe });
     if (st.res !== "palisades" || ![st.x, st.y, st.z].every(Number.isFinite)) continue;
     seen.add(p.peer); let r = MP.remotes.get(p.peer); const ofk = st.of ? JSON.stringify(st.of) : "";
-    if (!r) { const R = makeRider(st.of); r = { R, tag: mpTag(R), q: null, ofk, col: mpColor(by || p.peer), keys: Object.assign({}, NOKEYS) }; MP.remotes.set(p.peer, r); }
-    if (r.ofk !== ofk) { r.ofk = ofk; KR.dress(r.R, st.of); }
+    if (!r) { const R = makeRider(st.of); r = { R, tag: mpTag(R), q: null, ofk, col: mpColor(by || p.peer), keys: Object.assign({}, NOKEYS) }; MP.remotes.set(p.peer, r); KR.dress(rig, outfit); }
+    if (r.ofk !== ofk) { r.ofk = ofk; KR.dress(r.R, st.of); KR.dress(rig, outfit); }   // dressing sets the ski tune, so put ours back
     r.st = st; r.by = by; r.isMe = p.isMe;
   }
   for (const [peer, r] of MP.remotes) if (!seen.has(peer)) { scene.remove(r.R.hold); MP.remotes.delete(peer); }
@@ -207,7 +213,7 @@ function updateRemotes(dt, time) {
     const jump = !r.q || Math.hypot(st.x - r.q.p.x, st.z - r.q.p.z) > 30;
     if (jump) r.q = { p: new THREE.Vector3(st.x, st.y, st.z), yaw: st.yaw, spin: st.spin, rot: st.rot, grind: null, boxT: 0, bike: false, finished: false, bikeJump: false, pumpT: 0, landT: 0, popT: 0, airT: 1, vx: 0, vs: 0 };
     const q = r.q; q.p.x += (st.x - q.p.x) * a; q.p.y += (st.y - q.p.y) * a; q.p.z += (st.z - q.p.z) * a; q.yaw += wrap(st.yaw - q.yaw) * a; q.spin += (st.spin - q.spin) * a; q.rot += (st.rot - q.rot) * a;
-    q.rotV = st.rotV || 0; q.sw = st.sw; q.ground = st.gr; q.air = !st.gr && st.md === "ski"; q.crashed = st.cr; q.tumZ = st.tz || 0; q.turn = st.turn; q.carve = st.carve; q.sp = st.sp; q.vs = st.sp; q.chg = L && L.type.startsWith("chair") ? 0.85 : st.chg || 0; q.stumT = st.st || 0; q.stumD = 1; q.mode = st.md; q.walkPh = st.wp || 0;
+    q.rotV = st.rotV || 0; q.sw = st.sw; q.ground = st.gr; q.air = !st.gr && st.md === "ski"; q.crashed = st.cr; q.tumZ = st.tz || 0; q.turn = st.turn; q.carve = st.carve; q.sp = st.sp; q.vs = st.sp; q.chg = L && L.type.startsWith("chair") ? 0.85 : st.chg || 0; q.stumT = st.st || 0; q.stumD = 1; q.mode = st.md; q.walkPh = st.wp || 0; q.grind = st.gd ? 1 : null;
     MP_KEYS.forEach((n, i) => { r.keys[n] = st.k & (1 << i) ? 1 : 0; });
     poseRider(R, q, st.md === "ski" ? r.keys : NOKEYS, st.sl || 0, dt, time, jump); if (L && L.type.startsWith("chair")) R.hold.position.y += 0.2;
   }

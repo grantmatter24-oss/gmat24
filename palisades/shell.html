@@ -59,6 +59,9 @@
   #topLeft { left: 18px; top: 16px; display: flex; gap: 8px; align-items: center; pointer-events: auto; }
   .hbtn { font: 700 13px/1 var(--display); letter-spacing: .08em; text-transform: uppercase; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 9px 13px; cursor: pointer; backdrop-filter: blur(6px); }
   .hbtn:hover { background: var(--text); color: var(--ink); text-shadow: none; }
+  #rew { left: 50%; top: 42%; transform: translateX(-50%); font: 900 40px/1 var(--display); letter-spacing: .08em; text-transform: uppercase; color: var(--gold); }
+  #fitRows label { font: 700 12px/1 var(--display); letter-spacing: .16em; text-transform: uppercase; color: var(--dim); }
+  #fitRows select { width: 100%; }
   #fps { font-size: 12px; font-weight: 600; color: var(--dim); letter-spacing: .08em; }
 
   .overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(6, 14, 22, .55); backdrop-filter: blur(5px); z-index: 20; }
@@ -103,6 +106,7 @@
     <div class="hud" id="topLeft"><button class="hbtn" id="homeBtn">Home</button><button class="hbtn" id="mapBtn">Map</button><button class="hbtn" id="walkBtn">Walk</button><span id="fps"></span></div>
     <div class="hud" id="runBox" hidden><div id="runName"></div><div id="runSub"></div></div>
     <div class="hud" id="toast"></div>
+    <div class="hud" id="rew" hidden>◀◀ Rewind</div>
     <div class="hud" id="trick"><div id="trickN"></div><div id="trickP"></div></div>
     <div class="hud" id="speedBox">
       <div><span id="speed">0</span><span id="speedU">MPH</span></div>
@@ -124,7 +128,7 @@
       <p>The real mountain at 1:1 scale from USGS elevation data: Olympic Valley and Alpine Meadows, every lift and named run. Same rider and controls as Kicker Run. Carve it, send the cliffs, ride the chair back up.</p>
       <div class="row"><span class="lab">Start at</span><select id="startSel"></select><button class="btn ghost" id="pickBtn" style="padding:9px 14px;font-size:14px">Or click a spot on the map</button></div>
       <div class="row"><span class="lab">Weather</span><div class="seg" id="wxMenu"><button data-w="bluebird">Bluebird</button><button data-w="golden">Golden hour</button><button data-w="overcast">Flat light</button><button data-w="storm">Snowing</button></div></div>
-      <div class="row"><span class="lab">Jacket</span><span id="jackets" class="row" style="margin:0"></span></div>
+      <div class="row"><span class="lab">Rider</span><button class="btn ghost" id="fitBtn" style="padding:9px 14px;font-size:14px">Outfit and ski setup</button></div>
       <div class="row"><span class="lab">Graphics</span><div class="seg" id="gfx"><button data-q="low">Low</button><button data-q="med">Medium</button><button data-q="high">High</button><button data-q="ultra">Ultra</button></div></div>
       <div class="row" style="margin-top:26px"><button class="btn" id="go">Drop in</button><button class="btn ghost" id="howBtn">Controls</button></div>
     </div>
@@ -133,19 +137,19 @@
   <div class="overlay" id="how" hidden><div class="card">
     <h3>Controls</h3>
     <dl class="keys">
-      <dt>A · D</dt><dd>Steer and carve on snow: hold a turn and the edges bite, tighter and with less scrub. In the air they spin you (flip + spin = cork)</dd>
-      <dt>← →</dt><dd>Steer on snow too. In the air they slide you sideways</dd>
-      <dt>W · S · ↑ ↓</dt><dd>Front flip / back flip in the air. On snow W is a nose butter, S a tail butter, and A D spin you while you butter</dd>
-      <dt>Space</dt><dd>Hold to charge a jump, release to pop. In the air, hold for a tail grab</dd>
+      <dt>A · D · ← →</dt><dd>Steer and carve on snow: hold a turn and the edges bite. In the air A D spin you and the arrows slide you sideways</dd>
+      <dt>W · ↑</dt><dd>Go: push and tuck forward on snow. Front flip in the air</dd>
+      <dt>S · ↓</dt><dd>Tail butter on snow (A D spin you while you butter). Back flip in the air</dd>
+      <dt>Shift + turn</dt><dd>Slash: a hard, sharp turn that scrubs speed and throws snow</dd>
+      <dt>J</dt><dd>Brake</dd>
+      <dt>Space</dt><dd>Hold to charge a jump, release to pop. In the air, hold for a tail grab. On a rail it pops you off</dd>
       <dt>Q · E · C · F</dt><dd>Japan, nose, indy and safety grabs in the air. X is also a nose grab</dd>
-      <dt>Shift · J</dt><dd>Speed up (tuck and push) · slow down</dd>
       <dt>G</dt><dd>Slow-motion in the air</dd>
+      <dt>R</dt><dd>Hold to rewind, up to the last 30 seconds</dd>
       <dt>B</dt><dd>Stop, then B takes your skis off to walk: W forward, A D turn, Shift hurries. B again clicks back in</dd>
-      <dt>E</dt><dd>On snow at a lift's bottom station: load the lift</dd>
-      <dt>F · Enter</dt><dd>On a lift: hold F to fast-forward, Enter to skip to the top</dd>
-      <dt>V · M</dt><dd>Chase camera / helmet camera (drag the mouse to look around) · trail map: click any spot to drop in there</dd>
-      <dt>1 2 3 4</dt><dd>Bluebird, golden hour, flat light, snowing</dd>
-      <dt>R · P · N</dt><dd>Stand back up where you are · pause · mute</dd>
+      <dt>E</dt><dd>On snow at a lift's bottom station: load the lift. On a lift, hold F to fast-forward or Enter to skip to the top</dd>
+      <dt>V · M</dt><dd>Chase view / first person (drag the mouse to look around) · trail map: click any spot to drop in there</dd>
+      <dt>1 2 3 4 · P · N</dt><dd>Bluebird, golden hour, flat light, snowing · pause · mute</dd>
     </dl>
     <div class="row" style="margin-top:22px"><button class="btn" id="howOk">Got it</button></div>
   </div></div>
@@ -154,12 +158,18 @@
     <h3>Paused</h3>
     <div class="row" style="justify-content:center"><div class="seg" id="gfx2"><button data-q="low">Low</button><button data-q="med">Medium</button><button data-q="high">High</button><button data-q="ultra">Ultra</button></div></div>
     <div class="row" style="justify-content:center"><div class="seg" id="units"><button data-u="imp">mph · ft</button><button data-u="met">km/h · m</button></div></div>
-    <div class="row" style="justify-content:center;margin-top:22px"><button class="btn" id="resume">Resume</button><button class="btn ghost" id="pMap">Trail map</button><button class="btn ghost" id="pHow">Controls</button><button class="btn ghost" id="pHome">Home</button></div>
+    <div class="row" style="justify-content:center;margin-top:22px"><button class="btn" id="resume">Resume</button><button class="btn ghost" id="pMap">Trail map</button><button class="btn ghost" id="pHow">Controls</button><button class="btn ghost" id="pFit">Outfit</button><button class="btn ghost" id="pHome">Home</button></div>
   </div></div>
 
   <div class="overlay" id="map" hidden><div id="mapWrap">
     <div id="mapHead"><h3>Trail map</h3><span id="mapHint">Click anywhere to drop in there · click a lift end to go to it · M or Esc to close</span></div>
     <canvas id="mapC"></canvas><div id="mapTip"></div>
+  </div></div>
+
+  <div class="overlay" id="fit" hidden><div class="card" style="min-width:min(560px,94vw)">
+    <h3>Outfit</h3>
+    <div id="fitRows" style="display:grid;grid-template-columns:auto 1fr;gap:10px 16px;align-items:center"></div>
+    <div class="row" style="margin-top:22px"><button class="btn" id="fitOk">Done</button></div>
   </div></div>
 
   <div class="overlay" id="load"><h1>Palisades Tahoe</h1><div id="loadTrack"><div id="loadFill"></div></div><div id="loadMsg">Loading the mountain</div></div>

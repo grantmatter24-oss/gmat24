@@ -10,7 +10,7 @@ const sk = {
   p: new THREE.Vector3(), v: new THREE.Vector3(), yaw: 0, ground: true, air: false, airT: 0, turn: 0, carve: 0, sw: false,
   spin: 0, spinV: 0, spinHold: 0, spinDir: 0, spinTarget: 0, rot: 0, rotV: 0, flipHold: 0, flipDir: 0, flipAcc: 0, flipB: 0, flipF: 0, grabT: 0, grabKind: "Tail", butSpun: false,
   chg: 0, pumpT: 0, landT: 0, popT: 0, stumT: 0, stumD: 1, crashed: false, crashT: 0, tumZ: 0, sp: 0, vx: 0, vs: 0, vside: 0,
-  grind: null, boxT: 0, bike: false, finished: false, bikeJump: false,   // Kicker Run pose inputs that never happen here
+  grind: null, grindT: 0, gs: 0, noRail: 0, featLaunch: false, boxT: 0, bike: false, finished: false, bikeJump: false,
   mode: "menu", lift: null, car: -1, liftS: 0, wait: 0, pts: 0, vert: 0, maxSp: 0, peakY: 0, slope: 0,
   surf: { groom: 0, powder: 1, rock: 0, road: 0, mogul: 0 }, safe: new THREE.Vector3(), safeYaw: 0, safeT: 0, slip: 0, brakeK: 0, slideYaw: 0
 };
@@ -23,7 +23,7 @@ function tangent(yaw) { normalAt(sk.p.x, sk.p.z, 0.7, nrm); fwdOf(yaw, fw).addSc
 function placeSkier(x, z, yaw, speed = 0) {
   sk.p.set(x, H(x, z), z); sk.yaw = yaw; sk.sp = speed; sk.v.set(0, 0, 0); sk.slope = tangent(yaw);
   sk.ground = true; sk.air = false; sk.airT = 0; sk.crashed = false; sk.sw = false; sk.spin = sk.spinV = sk.rot = sk.rotV = sk.spinTarget = 0; sk.turn = sk.carve = 0; sk.mode = "ski"; sk.lift = null; sk.car = -1; sk.stumT = 0; sk.butSpun = false;
-  sk.safe.copy(sk.p); sk.safeYaw = yaw; camSnap = true; sk.parked = !speed; sk.lastY = sk.p.y; charging = false; popReq = false;
+  sk.grind = null; REW.length = 0; sk.safe.copy(sk.p); sk.safeYaw = yaw; camSnap = true; sk.parked = !speed; sk.lastY = sk.p.y; charging = false; popReq = false;
 }
 function spawnAt(key) {
   if (key === "village") { const L = LIFTS.find(l => l.name === "KT22 Express") || LIFTS[0]; placeSkier(L.bot.x - Math.sin(L.dir) * 16, L.bot.z - Math.cos(L.dir) * 16, L.dir); return; }
@@ -49,7 +49,7 @@ function trickInfo() { // Kicker Run's names
 function crash(why) {
   if (sk.crashed) return; const vh = Math.hypot(sk.v.x, sk.v.z);
   if (!sk.ground && vh > 0.5) sk.yaw = Math.atan2(sk.v.x, sk.v.z);
-  const spd = sk.ground ? sk.sp : vh; sk.crashed = true; sk.crashT = 0; sk.air = false; sk.ground = true; sk.sp = Math.max(spd * 0.5, 5);
+  const spd = sk.ground ? sk.sp : vh; sk.crashed = true; sk.grind = null; sk.crashT = 0; sk.air = false; sk.ground = true; sk.sp = Math.max(spd * 0.5, 5);
   sk.rotV = (sk.flipAcc >= 0 ? 1 : -1) * 6; sk.tumZ = (Math.random() - 0.5) * 7; charging = false; popReq = false;
   popup("Wipeout", why); sfx("crash"); for (let i = 0; i < 36; i++) spray(sk.p, 3 + Math.random() * 5, (Math.random() - 0.5) * 6, sk.v);
 }
@@ -67,6 +67,7 @@ function readSurface() {
   const m = maskAt(sk.p.x, sk.p.z), s = sk.surf; s.groom = m[0]; s.road = m[2]; s.mogul = m[3]; s.rock = sstep(0.215, 0.33, 1 - nrm.y) * (1 - m[0]) * sstep(0.35, 0.75, rockAt(sk.p.x, sk.p.z));   // only true cliff bands count as rock under the skis
   s.powder = (1 - m[0]) * (1 - m[2]) * (1 - s.rock) * (wx.snow ? 1 : 0.6); return s;
 }
+function railAt(x, y, z) { const c = parkCell(x, z); if (!c) return null; for (const f of c) { if (f.k !== "rail") continue; const rx = x - f.x, rz = z - f.z, s = rx * f.dx + rz * f.dz; if (s < -0.6 || s > f.len - 0.5 || Math.abs(-rx * f.dz + rz * f.dx) > 0.9) continue; const ry = lerp(f.y0, f.y1, clamp(s / f.len, 0, 1)); if (y <= ry + 0.45 && y >= ry - 1.4) return f; } return null; }
 function landing() {
   const p = sk.p, v = sk.v, vh = Math.hypot(v.x, v.z), head = vh > 0.5 ? Math.atan2(v.x, v.z) : sk.yaw;
   p.y = H(p.x, p.z); const sA = tangent(head), diff = wrap(sk.rot - sA), real = sk.airT > 0.3, PH = KR.PHYS;
@@ -81,6 +82,7 @@ function landing() {
     if (tr.flips) pts += 400 * tr.flips * (1 + 0.5 * (tr.flips - 1));
     pts += tr.halves * 150; if (tr.grab) pts += Math.min(sk.grabT, 2) * 250;
     if (tr.flips && tr.halves) pts *= 1.3; if (perfect) pts *= 1.25; if (odd) pts *= 1.15;
+    if (sk.featLaunch === false) pts *= 0.35;   // tricks off flat ground count for less
     const drop = sk.peakY - p.y, label = (tr.label || (sk.airT > 0.8 ? (drop > 4 ? Math.round(units === "imp" ? drop * FT : drop) + (units === "imp" ? " ft drop" : " m drop") : "Clean air") : "")) + (odd ? (tr.label ? " · " : "") + "Switch" : "");
     payout(pts, label, perfect, tr.flips && tr.halves); if (tr.flips || tr.halves) focusM = Math.min(1, focusM + 0.2);
     sfx(tr.flips || tr.halves || tr.grab ? "land" : "thump", clamp(sk.airT, 0.4, 1.2)); for (let i = 0; i < 22; i++) spray(p, 2 + Math.random() * 4, (Math.random() - 0.5) * 7, v);
@@ -98,8 +100,8 @@ function stepSki(dt) {
     sk.rot += sk.rotV * dt; sk.rotV *= Math.exp(-1.1 * dt); sk.tumZ *= Math.exp(-0.8 * dt);
     if (treeHit(p.x, p.z, 0.3)) sk.sp *= 0.5; if (sk.crashT > 1.8) standUp(); popReq = false; return;
   }
-  if (sk.parked) { if (K.left || K.right || K.up || K.down || K.spinL || K.spinR || K.boost || charging || popReq) sk.parked = false; else { sk.sp = 0; popReq = false; return; } }   // stay put after a spawn until the first input
-  const onGr = sk.ground, butterNow = onGr && sk.sp > 2 && (K.down || K.up);
+  if (sk.parked) { if (K.left || K.right || K.up || K.down || K.spinL || K.spinR || charging || popReq) sk.parked = false; else { sk.sp = 0; popReq = false; return; } }   // stay put after a spawn until the first input
+  const onGr = sk.ground && !sk.grind, butterNow = onGr && sk.sp > 2 && K.down;   // W drives forward on snow; only the tail butter remains
   const steer = butterNow ? 0 : onGr ? ((K.spinR || K.right) ? 1 : 0) - ((K.spinL || K.left) ? 1 : 0) : (K.right ? 1 : 0) - (K.left ? 1 : 0);
   if (!onGr) sk.butSpun = false;
   if (butterNow) { const spI = (K.spinR ? 1 : 0) - (K.spinL ? 1 : 0); if (spI) sk.spinV += clamp(spI * 6 - sk.spinV, -30 * dt, 30 * dt); else sk.spinV *= Math.exp(-6 * dt); sk.spin += sk.spinV * dt; sk.butSpun = true; }
@@ -107,33 +109,52 @@ function stepSki(dt) {
   if (sk.stumT > 0) { sk.stumT -= dt; popReq = false; charging = false; }
   const stK = sk.stumT > 0 ? Math.min(1, sk.stumT / 0.9) : 0, steerS = stK ? lerp(steer, sk.stumD * Math.sin(sk.stumT * 7.5 * Math.PI / 1.3 * 2) * 0.9, stK) : steer;
   sk.turn = lerp(sk.turn, steerS, Math.min(1, 10 * dt));
-  if (onGr) {
+  if (sk.grind) { // on a rail: slide its length, A/D spin, Space pops off
+    const r = sk.grind; sk.grindT += dt; const spIn = (K.spinR ? 1 : 0) - (K.spinL ? 1 : 0);
+    if (spIn) sk.spinV += clamp(spIn * 9 - sk.spinV, -60 * dt, 60 * dt); else { sk.spinV *= Math.exp(-5 * dt); const tgt = Math.round(sk.spin / Math.PI) * Math.PI; sk.spin += (tgt - sk.spin) * Math.min(1, 4 * dt); }
+    sk.spin += sk.spinV * dt; const sA = Math.atan2(r.y1 - r.y0, r.len);
+    sk.sp = clamp(sk.sp + (-G * Math.sin(sA) - 0.1 * sk.sp - 0.0025 * sk.sp * sk.sp) * dt, 6, MAXV); sk.gs += sk.sp * Math.cos(sA) * dt;
+    const u = sk.gs / r.len; p.set(r.x + r.dx * sk.gs, lerp(r.y0, r.y1, u), r.z + r.dz * sk.gs); sk.yaw = Math.atan2(r.dx, r.dz); sk.slope = sA; sk.carve = 0;
+    if (sk.grindT > 0.2 && Math.random() < 0.6) spray(p, 1 + Math.random() * 2, (Math.random() - 0.5) * 3, v, 0.3);
+    if (popReq || sk.gs >= r.len) {
+      const pop = popReq ? 10.5 * (0.35 + 0.65 * popPow) : 1, spins = Math.abs(Math.round(sk.spin / Math.PI)); v.set(r.dx * sk.sp * Math.cos(sA), sk.sp * Math.sin(sA) + pop, r.dz * sk.sp * Math.cos(sA));
+      if (spins % 2 === 1) sk.sw = !sk.sw; payout(sk.grindT * 420 + 450 + spins * 550, spins ? "Rail " + spins * 180 : "Rail grind", false, false); sfx("land");
+      sk.grind = null; sk.noRail = 0.5; sk.ground = false; sk.air = true; sk.rot = sA; sk.vside = 0; sk.peakY = p.y; sk.airT = 0; sk.flipAcc = 0; sk.flipB = 0; sk.flipF = 0; sk.spin = 0; sk.spinV = 0; sk.grabT = 0; sk.rotV = 0; sk.featLaunch = true;
+    }
+    popReq = false;
+  } else if (onGr) {
     // carving: the longer you hold a turn the more the edges bite, which turns tighter and scrubs less speed
     sk.carve = steer ? Math.min(1, sk.carve + dt / 0.55) : Math.max(0, sk.carve - dt * 2.5);
-    sk.yaw -= steer * (1.15 + 0.95 * sk.carve) * dt * PH.turn * clamp(1.25 / (1 + Math.pow(sk.sp / 32, 2)), 0.55, 1);   // faster means wider arcs
+    const slash = K.boost && steer !== 0;   // Shift while turning: throw the skis round hard, scrub speed, spray
+    sk.yaw -= steer * (1.15 + 0.95 * sk.carve) * dt * PH.turn * (slash ? 1.5 : clamp(1.25 / (1 + Math.pow(sk.sp / 32, 2)), 0.55, 1));   // faster means wider arcs
     const sA = tangent(sk.yaw), sn = Math.sin(sA), s = readSurface(); sk.slope = sA;
     // linear scrub from turning plus air drag that grows with speed, so there is no hard cap
-    const lin = (0.1 * s.powder + 0.05 + Math.abs(steer) * (0.34 - 0.24 * sk.carve) * (0.85 + sk.sp / 90) * PH.scrub + s.rock * 0.9 + s.road * 0.25) * (0.5 + 0.5 * PH.drag), quad = (K.down || K.boost ? 0.0052 : 0.0072) * PH.drag, push = K.boost ? 7 : 0, brk = K.brake ? 16 : 0;
+    const lin = (0.1 * s.powder + 0.05 + Math.abs(steer) * (0.34 - 0.24 * sk.carve) * (0.85 + sk.sp / 90) * PH.scrub + s.road * 0.25 + (slash ? 0.6 : 0)) * (0.5 + 0.5 * PH.drag), quad = (K.down || K.up ? 0.0052 : 0.0072) * PH.drag, push = K.up && !slash ? 7 : 0, brk = K.brake ? 16 : 0;
     const acc = -G * sn - lin * sk.sp - quad * sk.sp * sk.sp + push - brk;
     sk.sp = sk.sp < 0.25 && acc < 0.6 && !push ? 0 : clamp(sk.sp + acc * dt, 0, MAXV);   // unlike the course runs, here you can stop: across the hill, on the flat, or with J
-    sk.brakeK = lerp(sk.brakeK, brk && sk.sp > 1 ? 1 : 0, Math.min(1, 8 * dt));
+    sk.brakeK = lerp(sk.brakeK, (brk || slash) && sk.sp > 1 ? 1 : 0, Math.min(1, 8 * dt));
     if (brk && sk.sp > 4 && Math.random() < 0.7) for (let i = 0; i < 3; i++) spray(p, 1 + Math.random() * 3, (Math.random() - 0.5) * 5, v, 0.6);
+    if (slash && sk.sp > 3) for (let i = 0; i < 4; i++) spray(p, 1.2 + Math.random() * (2 + sk.sp * 0.08), -steer * (3 + sk.sp * 0.3) * (0.4 + Math.random() * 0.8), v, 0.55, 0.5 + 0.5 * s.powder);
     const popNow = popReq, pw = 0.35 + 0.65 * popPow;
     if (popNow) { sk.sp += 0.9 * pw * Math.max(0, 1 - sk.sp / 45); for (let i = 0; i < 4; i++) spray(p, 1 + Math.random() * 2, (Math.random() - 0.5) * 3, v); sfx("pop"); }
     v.copy(fw).multiplyScalar(sk.sp);
     const nx = p.x + v.x * dt, nz = p.z + v.z * dt, yp = p.y + v.y * dt, hn = H(nx, nz);
+    if (hn - p.y > 0.9 && sk.sp > 0.5) { // a cliff face dead ahead: you do not ski up it
+      if (sk.sp > 9) crash("Hit a cliff"); else { sk.sp = 0; toast("Cliff", 1); } popReq = false; return;
+    }
     if (popNow || yp > hn + 0.12) { // the snow dropped away, or a pop: airborne
-      sk.ground = false; sk.air = true; if (popNow) { v.y += 5.2 * pw + 3.0; sk.popT = 0.2; }
+      const lip = kickerLip(p.x, p.z); sk.featLaunch = !!lip;
+      sk.ground = false; sk.air = true; if (popNow) { v.y += (lip ? 6.5 : 5.2) * pw + 3.0; sk.popT = 0.2; } if (lip && !lip.lip) { const L2 = lip.Lr + lip.T + lip.Ld, hill = Math.atan2(H(lip.x + lip.dx * (L2 + 3), lip.z + lip.dz * (L2 + 3)) - H(lip.x - lip.dx * 3, lip.z - lip.dz * 3), L2 + 6); v.y = Math.max(v.y, sk.sp * Math.sin(hill + Math.atan(2 * lip.hK / lip.Lr))) + (popNow ? 0 : 3.0); }   // leave along the lip's own angle, with the lift Kicker Run's kickers give
       p.set(nx, popNow ? Math.max(yp, hn) + 0.02 : yp, nz); sk.rot = sA; sk.vside = 0; sk.peakY = p.y;
       sk.airT = 0; sk.flipAcc = 0; sk.flipB = 0; sk.flipF = 0; sk.spin = 0; sk.spinV = 0; sk.grabT = 0; sk.rotV = 0; sk.spinTarget = 0;
     } else {
       p.set(nx, hn, nz);
       if (!butterNow && !sk.butSpun) { sk.spin += (sk.spinTarget - sk.spin) * Math.min(1, 9 * dt); if (Math.abs(sk.spin - sk.spinTarget) < 0.02) { sk.spin = 0; sk.spinTarget = 0; } }
       const t = sk.sp > 1 ? treeHit(p.x, p.z, 0.22) : null; if (t) stumble(t);
+      { const rl = sk.sp > 4 ? railAt(p.x, p.y + 0.5, p.z) : null; if (rl && (p.x - rl.x) * rl.dx + (p.z - rl.z) * rl.dz < 2.5) { sk.grind = rl; sk.gs = Math.max(0, (p.x - rl.x) * rl.dx + (p.z - rl.z) * rl.dz); sk.grindT = 0; sk.spin = 0; sk.featLaunch = true; sfx("thump", 0.3); } }
       if (sk.sp > 1) {
         for (const th of towerHits) { const dx = p.x - th.x, dz = p.z - th.z; if (dx * dx + dz * dz < (th.r + 0.25) * (th.r + 0.25)) { if (sk.sp > 6) crash("Hit a lift tower"); else { tmp.set(dx, 0, dz).normalize(); p.addScaledVector(tmp, 0.25); sk.sp *= 0.3; } break; } }
         const bd = buildingAt(p.x, p.z); if (bd && p.y < bd.top) { if (sk.sp > 6) crash("Hit a building"); else { tmp.set(p.x - bd.cx, 0, p.z - bd.cz).normalize(); p.addScaledVector(tmp, 0.4); sk.sp *= 0.2; } }
-        if (s.rock > 0.7 && sk.sp > 14 && Math.random() < dt * 2.5) crash("Hit a rock");
       }
     }
     popReq = false;
@@ -155,7 +176,10 @@ function stepSki(dt) {
     if (steer) { const want = clamp(sk.vside + steer * 7 * dt, -9, 9); v.addScaledVector(rt, want - sk.vside); sk.vside = want; }   // arrows slide you side to side in the air
     v.y -= G * dt; p.addScaledVector(v, dt); if (p.y > sk.peakY) sk.peakY = p.y;
     sk.sp = Math.hypot(v.x, v.z); sk.carve = Math.max(0, sk.carve - dt * 2.5); sk.brakeK = 0; popReq = false;
-    if (p.y <= H(p.x, p.z)) landing();
+    if (sk.noRail > 0) sk.noRail -= dt;
+    const rl = !(sk.noRail > 0) && v.y <= 2.4 ? railAt(p.x, p.y, p.z) : null;
+    if (rl) { sk.grind = rl; sk.gs = clamp((p.x - rl.x) * rl.dx + (p.z - rl.z) * rl.dz, 0, rl.len - 0.1); sk.grindT = 0; sk.sp = Math.max(6, Math.hypot(v.x, v.z)); sk.ground = true; sk.air = false; sk.rot = 0; sk.rotV = 0; sk.spin -= Math.round(sk.spin / Math.PI) * Math.PI; sk.landT = 0.2; sfx("thump", 0.3); }
+    else if (p.y <= H(p.x, p.z)) landing();
     else if (sk.airT > 0.1 && treeHit(p.x, p.z, 0.2) && p.y - H(p.x, p.z) < 6) crash("Hit a tree");
   }
   sk.vx = v.x; sk.vs = v.z;
@@ -166,6 +190,15 @@ function stepSki(dt) {
   if (!inWorld(p.x, p.z, 70)) { toast("Ski area boundary"); placeSkier(sk.safe.x, sk.safe.z, sk.safeYaw + Math.PI); }
 }
 
+/* ---------- rewind: hold R and the last half minute runs backwards; let go and ski on from there ---------- */
+const REW = [], REW_KEYS = ["yaw", "sp", "ground", "air", "airT", "turn", "carve", "sw", "spin", "spinV", "rot", "rotV", "flipAcc", "flipB", "flipF", "grabT", "crashed", "crashT", "tumZ", "stumT", "pts", "vert", "slope", "gs", "grindT", "vside", "peakY"]; let rewT = 0, rewinding = false, rewKey = false;
+function recordRewind(dt) {
+  rewT += dt; if (rewT < 1 / 30) return; rewT = 0; const o = { p: sk.p.clone(), v: sk.v.clone(), grind: sk.grind }; for (const k of REW_KEYS) o[k] = sk[k]; REW.push(o); if (REW.length > 900) REW.shift();
+}
+function stepRewind(dt) {
+  rewT += dt * 2; let o = null; while (rewT >= 1 / 30 && REW.length > 1) { rewT -= 1 / 30; o = REW.pop(); } if (!o) return REW.length > 1;
+  sk.p.copy(o.p); sk.v.copy(o.v); sk.grind = o.grind; for (const k of REW_KEYS) sk[k] = o[k]; sk.parked = false; sk.lastY = sk.p.y; charging = false; popReq = false; trkPrev[0] = trkPrev[1] = null; return REW.length > 1;
+}
 /* ---------- on foot: skis off and carried, to boot-pack up to the ridges and summits no lift reaches ---------- */
 function toggleWalk() {
   if (sk.mode === "walk") { sk.mode = "ski"; sk.parked = true; sk.sp = 0; sk.v.set(0, 0, 0); toast("Skis on"); }
@@ -255,7 +288,7 @@ function emitSpray(dt) {
   const s = sk.surf, pw = 0.5 + 0.7 * s.powder, steer = sk.turn, n = (sk.sp > 18 ? 3 : 2) * pw * dt * 60 * 0.5, cnt = Math.floor(n + Math.random());
   for (let i = 0; i < Math.min(cnt, 12); i++) spray(sk.p, 0.5 + Math.random() * (0.8 + 1.2 * s.powder), (Math.random() - 0.5) * (1.5 + 2 * s.powder), sk.v, 0.3 + 0.2 * s.powder, 0.25 * s.powder);
   if (Math.abs(steer) > 0.3 && sk.sp > 6 && sk.carve > 0.2) { const k = Math.floor((2 + sk.sp / 10) * (1 + 3.5 * s.powder) * dt * 60 * 0.5 + Math.random()); for (let i = 0; i < k; i++) spray(sk.p, (1.5 + sk.sp * 0.05 + Math.random() * 2) * (1 + 0.8 * s.powder), -Math.sign(steer) * (3 + sk.carve * 4 + sk.sp * 0.12) * (0.5 + Math.random() * 0.6), sk.v, 0.3 + 0.2 * s.powder, s.powder); }   // a real cloud off every powder turn
-  if ((K.down || K.up) && sk.sp > 3 && Math.random() < 0.4) spray(sk.p, 2, 0, sk.v, 0.4);
+  if (K.down && sk.sp > 3 && Math.random() < 0.4) spray(sk.p, 2, 0, sk.v, 0.4);
 }
 /* ski tracks: two ribbons pressed into the new snow. They stay where you left them until it is topped up, every five minutes. */
 const TRK = 32000, TRACK_LIFE = 300, trkPos = new Float32Array(TRK * 12), trkA = new Float32Array(TRK * 4); let trkN = 0, trkMesh = null, trkClock = 0, trkLast = [new THREE.Vector3(1e9, 0, 0), new THREE.Vector3(1e9, 0, 0)], trkPrev = [null, null];
@@ -328,13 +361,14 @@ function poseRider(R, q, keys, slope, dt, time, snap) {
   R.pivot.rotation.x = (q.crashed ? q.rot : q.ground ? 0 : q.rot - 0) + wob * (0.28 * Math.sin(time * 9) - 0.12) - (seated ? 0.25 : 0);
   R.pivot.rotation.z = (q.crashed ? q.tumZ : -(R.pose.vt !== undefined ? R.pose.vt : q.turn) * (0.3 + 0.32 * q.carve) * (q.air ? 0.3 : 1)) + (wob ? wob * (q.stumD || 1) * 0.45 * Math.sin(time * 12) : 0);
 }
-const NOKEYS = Object.assign({}, K);
+const NOKEYS = Object.assign({}, K), PK = Object.assign({}, K);
 function updateRig(dt, time) {
   const R = rig, onLift = sk.mode === "lift", seated = onLift && sk.lift && sk.lift.type.startsWith("chair"), cabin = onLift && sk.lift && !sk.lift.carpet && !seated;
   R.hold.visible = !cabin; sk.air = !sk.ground && sk.mode === "ski";
   if (seated) { sk.chg = 0.85; sk.turn = 0; sk.carve = 0; }   // sit: Kicker Run's deep crouch reads as a seat on the chair
   sk.poseSlope = camSnap ? sk.slope : (sk.poseSlope || 0) + (sk.slope - (sk.poseSlope || 0)) * Math.min(1, 3 * dt);   // legs follow the hill, not every ripple
-  poseRider(R, sk, sk.mode === "ski" ? K : NOKEYS, sk.poseSlope, dt, time, camSnap);
+  Object.assign(PK, K); if (sk.ground) { PK.boost = K.up; PK.up = 0; } else PK.boost = 0;   // on snow W is the tuck, not a nose butter
+  poseRider(R, sk, sk.mode === "ski" ? PK : NOKEYS, sk.poseSlope, dt, time, camSnap);
   if (seated) R.hold.position.y += 0.2;
   R.head.visible = !(fpv && !cabin);
 }
@@ -345,11 +379,11 @@ function updateCamera(dt) {
   if (sk.mode === "ski" && !sk.ground && vh > 2.5) heading = Math.atan2(sk.v.x, sk.v.z);
   const cur = Math.atan2(camDir.x, camDir.z), nh = cur + wrap(heading - cur) * (camSnap ? 1 : Math.min(1, (sk.ground ? 3.2 : 1.6) * dt)); camDir.set(Math.sin(nh), 0, Math.cos(nh));
   const cy = nh + look.yaw, dx = Math.sin(cy), dz = Math.cos(cy);
-  camera.fov = lerp(camera.fov, fpv ? 100 : 60 + 13 * smooth(sp / 36), Math.min(1, 3 * dt)); camera.near = fpv ? 0.12 : 0.25; camera.updateProjectionMatrix();
+  camera.fov = lerp(camera.fov, fpv ? 76 + 8 * smooth(sp / 36) : 60 + 13 * smooth(sp / 36), Math.min(1, 3 * dt)); camera.near = fpv ? 0.1 : 0.25; camera.updateProjectionMatrix();
   if (fpv && !sk.crashed) {
-    const eye = cabin ? tmp.set(p.x, p.y + 1.7, p.z) : rig.head.getWorldPosition(tmp); if (!cabin) { eye.y += 0.06; eye.x += Math.sin(nh) * 0.2; eye.z += Math.cos(nh) * 0.2; }   // just ahead of the goggles, like a helmet mount
-    camera.position.copy(eye); const slope = sk.ground && sk.mode === "ski" ? Math.atan2(fw.y, Math.hypot(fw.x, fw.z)) : 0, pit = clamp(slope * 0.7 - (onLift ? 0.1 : 0.62) + look.pit, -1.45, 1.3);   // tipped down far enough to keep the front of the skis in frame
-    camTgt.set(eye.x + dx * Math.cos(pit), eye.y + Math.sin(pit), eye.z + dz * Math.cos(pit)); camera.up.set(0, 1, 0); camera.lookAt(camTgt);
+    const eye = cabin ? tmp.set(p.x, p.y + 1.7, p.z) : rig.head.getWorldPosition(tmp); if (!cabin) { eye.y += 0.03; eye.x += Math.sin(nh) * 0.09; eye.z += Math.cos(nh) * 0.09; }   // the rider's own eyes
+    camera.position.copy(eye); const slope = sk.ground && sk.mode === "ski" ? Math.atan2(fw.y, Math.hypot(fw.x, fw.z)) : 0, pit = clamp(slope * 0.85 - (onLift ? 0.08 : 0.2) + look.pit, -1.45, 1.3), hy = sk.mode === "ski" && sk.ground ? -sk.turn * 0.3 : 0;   // looking where you are going, a little down the hill and into the turn; glance down (drag) to see your skis
+    camTgt.set(eye.x + Math.sin(cy + hy) * Math.cos(pit), eye.y + Math.sin(pit), eye.z + Math.cos(cy + hy) * Math.cos(pit)); camera.up.set(0, 1, 0); camera.lookAt(camTgt);
     camera.rotateZ(rig.pivot.rotation.z * 0.3); camSnap = false; return;
   }
   if (onLift && !sk.lift.carpet) { // ride cam: behind and a little above the carrier, looking up the line

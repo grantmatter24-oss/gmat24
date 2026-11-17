@@ -177,25 +177,29 @@ function polyArea(P) { let a = 0; for (let i = 0, j = P.length - 1; i < P.length
 function initBuildings() {
   const pos = [], nor = [], col = [], uv = [];
   const WALLS = [[0.44, 0.36, 0.28], [0.30, 0.25, 0.21], [0.50, 0.47, 0.42], [0.36, 0.30, 0.25], [0.26, 0.28, 0.30], [0.42, 0.33, 0.24]];
+  const LODGE = [[0.60, 0.48, 0.33], [0.52, 0.40, 0.25], [0.42, 0.45, 0.36], [0.66, 0.60, 0.50], [0.36, 0.26, 0.18]];   // the village's stucco, timber and sage
   WORLD.blds = WORLD.blds.filter(bd => !/lifthouse|lift base|express base|funitel base|venture base|exhibition base|silverado base|lady base|chair base|shirley/i.test(bd.n || ""));
   WORLD.blds.forEach((bd, bi) => {
     const P = bd.p, n = P.length; let lo = 1e9, hi = -1e9, cx = 0, cz = 0;
     for (const q of P) { const g = Hsmooth(q[0], q[1]); lo = Math.min(lo, g); hi = Math.max(hi, g); cx += q[0] / n; cz += q[1] / n; }
-    const top = hi + bd.h, wc = WALLS[bi % WALLS.length], sn = [0.9, 0.92, 0.95]; let per = 0;
-    const bx = polyBox(P), gable = bx && polyArea(P) / bx.area > 0.76 && bx.hv * 2 < 26 && bd.h < 15;
+    const area = polyArea(P), lodge = bd.h >= 9 || area > 700, top = hi + bd.h, wc = lodge ? LODGE[bi % LODGE.length] : WALLS[bi % WALLS.length], sn = [0.9, 0.92, 0.95]; let per = lodge ? 10000 : 0;
+    const bx = polyBox(P), gable = bx && area / bx.area > 0.76 && bx.hv * 2 < 26 && bd.h < 15 && !lodge;
     for (let i = 0; i < n; i++) {
       const a = P[i], b = P[(i + 1) % n], ex = b[0] - a[0], ez = b[1] - a[1], len = Math.hypot(ex, ez), nx = -ez / len, nz = ex / len;
       const quad = (y0, y1, c, o, u0, u1, v0, v1) => { const ax = a[0] + nx * o, az = a[1] + nz * o, bx = b[0] + nx * o, bz = b[1] + nz * o; pos.push(ax, y0, az, bx, y0, bz, bx, y1, bz, ax, y0, az, bx, y1, bz, ax, y1, az); for (let k = 0; k < 6; k++) { nor.push(nx, 0, nz); col.push(...c); } uv.push(u0, v0, u1, v0, u1, v1, u0, v0, u1, v1, u0, v1); };
-      quad(lo - 1.5, top, wc, 0, per, per + len, lo - hi, bd.h); if (!gable) quad(top, top + 0.55, sn, 0.3, 0, 0, -9, -9); per += len;
+      quad(lo - 1.5, top, wc, 0, per, per + len, lo - hi, bd.h); per += len;
     }
     if (gable) { // pitched roof under a slab of snow, ridge along the long side
       const { ux, uz, cu, cv, hu, hv } = bx, rh = hv * 0.62, ov = 0.7, W = (u, v, y) => [u * ux - v * uz, y, u * uz + v * ux];
       const tri = (a, b, c, cc) => { const e1 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], e2 = [c[0] - a[0], c[1] - a[1], c[2] - a[2]]; let n = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]]; const l = Math.hypot(...n) || 1; if (n[1] < 0) n = n.map(q => -q); for (const q of [a, b, c]) { pos.push(...q); nor.push(n[0] / l, n[1] / l, n[2] / l); col.push(...cc); uv.push(0, -9); } };
       for (const sv of [-1, 1]) { const e0 = W(cu - hu - ov, cv + sv * (hv + ov), top - 0.25), e1 = W(cu + hu + ov, cv + sv * (hv + ov), top - 0.25), r0 = W(cu - hu - ov, cv, top + rh + 0.45), r1 = W(cu + hu + ov, cv, top + rh + 0.45); tri(e0, e1, r1, sn); tri(e0, r1, r0, sn); }
       for (const su of [-1, 1]) tri(W(cu + su * hu, cv - hv, top), W(cu + su * hu, cv + hv, top), W(cu + su * hu, cv, top + rh), wc);
-    } else {
+    } else { // hipped roof: eaves out past the walls, slopes drawn in toward the middle, a flat snow-loaded top
+      const rh = clamp(0.2 * Math.sqrt(area), 2.6, 9), E = P.map(q => [cx + (q[0] - cx) * 1.035, top - 0.15, cz + (q[1] - cz) * 1.035]), Uq = P.map(q => [cx + (q[0] - cx) * 0.42, top + rh, cz + (q[1] - cz) * 0.42]);
+      for (let i = 0; i < n; i++) { const j = (i + 1) % n, a = E[i], b = E[j], c = Uq[j], d = Uq[i], e1 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], e2 = [d[0] - a[0], d[1] - a[1], d[2] - a[2]]; let nn = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]]; const l = Math.hypot(...nn) || 1; if (nn[1] < 0) nn = nn.map(q => -q);
+        for (const q of [a, b, c, a, c, d]) { pos.push(...q); nor.push(nn[0] / l, nn[1] / l, nn[2] / l); col.push(...sn); uv.push(0, -7); } }
       const tris = THREE.ShapeUtils.triangulateShape(P.map(q => new THREE.Vector2(q[0], q[1])), []);
-      for (const t of tris) for (const k of [t[0], t[2], t[1]]) { pos.push(P[k][0], top + 0.55, P[k][1]); nor.push(0, 1, 0); col.push(...sn); uv.push(0, -9); }
+      for (const t of tris) for (const k of [t[0], t[2], t[1]]) { pos.push(Uq[k][0], top + rh, Uq[k][2]); nor.push(0, 1, 0); col.push(...sn); uv.push(0, -9); }
     }
     bd.cx = cx; bd.cz = cz; bd.top = top;
     const key = Math.floor(cx / 60) + "," + Math.floor(cz / 60); if (!BLD_GRID.has(key)) BLD_GRID.set(key, []); BLD_GRID.get(key).push(bd);
@@ -205,11 +209,16 @@ function initBuildings() {
     patch(sh) {
       sh.uniforms.uLamp = uLamp;
       sh.fragmentShader = "uniform float uLamp; float bWin = 0.0; float bLit = 0.0;\n" + sh.fragmentShader.replace("#include <color_fragment>", `#include <color_fragment>
-        { vec2 w = vUv / vec2(2.6, 3.0); vec2 f = fract(w); float up = step(0.4, vUv.y) * step(-8.0, vUv.y);
-          bWin = step(0.30, f.x) * step(f.x, 0.70) * step(0.36, f.y) * step(f.y, 0.78) * up * step(0.18, texture2D(uNoise, (floor(w) + 0.5) / 256.0 + 0.37, -8.0).g);
-          bLit = bWin * step(0.62, texture2D(uNoise, (floor(w) + 0.5) / 256.0, -8.0).r);
-          diffuseColor.rgb = mix(diffuseColor.rgb * (0.9 + 0.2 * texture2D(uNoise, vWp.xz * 0.05 + vWp.y * 0.07).r), vec3(0.05, 0.07, 0.10), bWin);
-          diffuseColor.rgb *= 1.0 - 0.25 * step(-8.0, vUv.y) * step(fract(vUv.y / 3.0), 0.05); }`)
+        { float lodge = step(5000.0, vUv.x), wall = step(-6.0, vUv.y), roofS = step(-8.0, vUv.y) * (1.0 - wall); vec2 uvw = vec2(vUv.x - lodge * 10000.0, vUv.y);
+          vec2 w = uvw / vec2(2.6, 3.0); vec2 f = fract(w); float up = step(0.4, uvw.y) * wall, base = lodge * wall * step(uvw.y, 3.6);
+          bWin = step(0.30, f.x) * step(f.x, 0.70) * step(0.36, f.y) * step(f.y, 0.78) * up * step(0.18, texture2D(uNoise, (floor(w) + 0.5) / 256.0 + 0.37, -8.0).g) * (1.0 - base);
+          vec2 sf = fract(uvw / vec2(4.2, 3.6)); float shop = base * step(0.1, sf.x) * step(sf.x, 0.9) * step(0.2, sf.y) * step(sf.y, 0.82); bWin = max(bWin, shop);   // shopfronts along the plaza
+          bLit = max(bWin * (1.0 - shop) * step(0.62, texture2D(uNoise, (floor(w) + 0.5) / 256.0, -8.0).r), shop * 0.8);
+          vec3 wallC = diffuseColor.rgb * (0.9 + 0.2 * texture2D(uNoise, vWp.xz * 0.05 + vWp.y * 0.07).r);
+          wallC = mix(wallC, vec3(0.30, 0.28, 0.26) * (0.7 + 0.6 * texture2D(uNoise, vec2(uvw.x * 0.9, uvw.y * 1.4) * 0.11).r), base);                 // stone ground floor
+          wallC = mix(wallC, vec3(0.13, 0.09, 0.06), wall * (1.0 - base) * step(fract(uvw.y / 3.0), mix(0.05, 0.13, lodge)) * step(0.4, uvw.y));        // floor lines; timber balconies on the lodges
+          diffuseColor.rgb = mix(wallC, vec3(0.05, 0.07, 0.10), bWin);
+          diffuseColor.rgb = mix(diffuseColor.rgb, mix(vec3(0.05, 0.11, 0.09), vec3(0.9, 0.92, 0.95), step(0.38, texture2D(uNoise, vWp.xz * 0.07).r + (texture2D(uNoise, vWp.xz * 0.6).g - 0.5) * 0.3)), roofS); }`)
         .replace("#include <roughnessmap_fragment>", "float roughnessFactor = mix(roughness, 0.06, bWin);").replace("#include <metalnessmap_fragment>", "float metalnessFactor = bWin * 0.9;")
         .replace("#include <emissivemap_fragment>", "totalEmissiveRadiance += vec3(1.0, 0.62, 0.28) * bLit * uLamp;");
     }
@@ -308,4 +317,36 @@ function initSlow() {
   if (!pos.length) return; const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute("normal", new THREE.Float32BufferAttribute(nor, 3)); geo.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2)); geo.setIndex(idx);
   const m = new THREE.Mesh(geo, worldShade(new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6 }))); m.frustumCulled = false; scene.add(m);
   const pm = new THREE.Mesh(posts.build(), liftMat); pm.frustumCulled = false; scene.add(pm);
+}
+
+/* ---------- the village: the tram building's Olympic rings and the clock tower ---------- */
+function initVillage() {
+  const b = new GeoBag(), tram = LIFTS.find(l => l.type === "tram");
+  if (tram) { const fx = Math.sin(tram.dir), fz = Math.cos(tram.dir), x0 = tram.bot.x - fx * 12.25, z0 = tram.bot.z - fz * 12.25, y0 = tram.bot.g + 9.2, rx = -fz, rz = fx, yaw = Math.atan2(-fx, -fz);
+    [[-2.5, 0, [0.02, 0.2, 0.62]], [0, 0, [0.02, 0.02, 0.02]], [2.5, 0, [0.72, 0.03, 0.05]], [-1.25, -1.1, [0.85, 0.6, 0.02]], [1.25, -1.1, [0.02, 0.42, 0.14]]].forEach(([u, v, c]) => b.add(new THREE.TorusGeometry(1.05, 0.13, 8, 28), _gm.compose(_gp.set(x0 + rx * u, y0 + v, z0 + rz * u), _gq.setFromEuler(_ge.set(0, yaw, 0, "YXZ")), _gs.set(1, 1, 1)), c)); }
+  const ct = WORLD.blds.find(bd => /clock tower/i.test(bd.n || ""));
+  if (ct) { const x = ct.cx, z = ct.cz, g = Hsmooth(x, z); b.box(4.6, 17, 4.6, x, g + 8.5, z, [0.36, 0.33, 0.30]); b.box(5.4, 0.6, 5.4, x, g + 17.2, z, [0.2, 0.15, 0.1]); b.add(new THREE.ConeGeometry(3.9, 5, 4), _gm.compose(_gp.set(x, g + 20, z), _gq.setFromEuler(_ge.set(0, Math.PI / 4, 0)), _gs.set(1, 1, 1)), [0.05, 0.11, 0.09]);
+    for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2, px = x + Math.sin(a) * 2.34, pz = z + Math.cos(a) * 2.34; b.add(new THREE.CircleGeometry(1.25, 20), _gm.compose(_gp.set(px, g + 14.4, pz), _gq.setFromEuler(_ge.set(0, a, 0)), _gs.set(1, 1, 1)), [0.9, 0.88, 0.8]); b.box(0.09, 0.95, 0.04, px + Math.sin(a) * 0.03, g + 14.8, pz + Math.cos(a) * 0.03, DARK, a); b.box(0.09, 0.65, 0.04, px + Math.sin(a) * 0.03 + Math.cos(a) * 0.25, g + 14.5, pz + Math.cos(a) * 0.03 - Math.sin(a) * 0.25, DARK, a, 0, 1.1); } }
+  if (b.p.length) { const m = new THREE.Mesh(b.build(), liftMat); m.castShadow = true; m.frustumCulled = false; scene.add(m); }
+}
+/* ---------- terrain park hardware: rails with their posts, lip markers, and a banner at the top of each line ---------- */
+function initParkMeshes() {
+  const b = new GeoBag(), COL = [[0.9, 0.33, 0.06], [0.08, 0.3, 0.75], [0.85, 0.7, 0.05]]; let k = 0, first = true;
+  for (const f of PARK) {
+    const yaw = Math.atan2(f.dx, f.dz), rx = -f.dz, rz = f.dx;
+    if (f.k === "rail") { f.y0 = H(f.x, f.z) + f.hgt; f.y1 = H(f.x + f.dx * f.len, f.z + f.dz * f.len) + f.hgt; const c = COL[k++ % 3], mx = f.x + f.dx * f.len / 2, mz = f.z + f.dz * f.len / 2, pit = Math.atan2(f.y1 - f.y0, f.len);
+      b.box(0.16, 0.1, Math.hypot(f.len, f.y1 - f.y0), mx, (f.y0 + f.y1) / 2 - 0.05, mz, c, yaw, -pit);
+      for (const u of [0.08, 0.5, 0.92]) { const px = f.x + f.dx * f.len * u, pz = f.z + f.dz * f.len * u, gy = H(px, pz); b.box(0.08, lerp(f.y0, f.y1, u) - gy, 0.08, px, (lerp(f.y0, f.y1, u) + gy) / 2 - 0.05, pz, DARK, yaw); } }
+    else if (!f.lip) { for (const sd of [-1, 1]) { const px = f.x + f.dx * f.Lr + rx * sd * (f.W / 2 + 0.5), pz = f.z + f.dz * f.Lr + rz * sd * (f.W / 2 + 0.5); b.cyl(0.05, 0.05, 1.5, px, H(px, pz) + 0.6, pz, [0.9, 0.33, 0.06], 5); }
+      if (first || f.hK === 1.3 && PARK.indexOf(f) > 3 && !f.seen) { /* banner drawn below */ } }
+    first = false;
+  }
+  if (b.p.length) { const m = new THREE.Mesh(b.build(), liftMat); m.castShadow = true; m.frustumCulled = false; scene.add(m); }
+  // banner at the head of each park line
+  const cv = document.createElement("canvas"); cv.width = 1024; cv.height = 160; const g = cv.getContext("2d"); g.fillStyle = "#e8580c"; g.fillRect(0, 0, 1024, 160); g.fillStyle = "#fff"; g.textAlign = "center"; g.textBaseline = "middle"; g.font = "900 112px 'Big Shoulders Display', 'Arial Narrow', Impact, sans-serif"; g.fillText("TERRAIN PARK", 512, 86);
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; const mat = worldShade(new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6, side: THREE.DoubleSide })), posts = new GeoBag(); let last = null;
+  for (const f of PARK) { if (f.k !== "kick" || f.lip) continue; if (last && Math.hypot(f.x - last.x, f.z - last.z) < 200) { last = f; continue; } last = f;
+    const x = f.x - f.dx * 14, z = f.z - f.dz * 14, y = H(x, z), rx = -f.dz, rz = f.dx, m = new THREE.Mesh(new THREE.PlaneGeometry(9, 1.4), mat); m.position.set(x, y + 4.2, z); m.rotation.y = Math.atan2(-f.dx, -f.dz); scene.add(m);
+    for (const sd of [-1, 1]) { posts.cyl(0.09, 0.1, 5.2, x + rx * sd * 4.6, y + 2.3, z + rz * sd * 4.6, STEEL, 6); towerHits.push({ x: x + rx * sd * 4.6, z: z + rz * sd * 4.6, r: 0.18 }); } }
+  if (posts.p.length) { const pm = new THREE.Mesh(posts.build(), liftMat); pm.frustumCulled = false; scene.add(pm); }
 }

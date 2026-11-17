@@ -101,7 +101,8 @@ for f in load("land_use"):
     if not any(inb(x, z) for x, z in pts): continue
     hs = Hat([q[0] for q in pts], [q[1] for q in pts])
     if hs[0] < hs[-1]: pts = pts[::-1]
-    groomed = 1 if (gr == "classic" or (gr is None and d <= 1)) else 0
+    hs3 = Hat([q[0] for q in pts], [q[1] for q in pts]); grade = abs(float(hs3[0] - hs3[-1])) / max(ls.length, 1)
+    groomed = 1 if (gr == "classic" or (gr is None and (d <= 1 or (d == 2 and grade < 0.36)))) else 0   # ridge and road-cut blacks such as Red Dog Ridge are groomed too
     mog = 1 if (gr == "mogul" or (gr is None and d == 2)) else 0
     hs2 = Hat([q[0] for q in pts], [q[1] for q in pts]); cat = 1 if (groomed and d <= 1 and ls.length > 250 and abs(float(hs2[0] - hs2[-1])) / ls.length < 0.115) else 0
     runs.append({"n": name, "d": d, "g": groomed, "m": mog, "c": cat, "len": round(ls.length), "pts": rnd(pts)})

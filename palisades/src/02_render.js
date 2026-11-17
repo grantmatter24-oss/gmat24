@@ -144,7 +144,12 @@ function buildTerrainTex() {
     const gi = clamp(i >> 1, 3, NX - 4), gj = clamp(j >> 1, 3, NZ - 4), c = HM[gj * NX + gi];
     const av = (HM[gj * NX + gi - 3] + HM[gj * NX + gi + 3] + HM[(gj - 3) * NX + gi] + HM[(gj + 3) * NX + gi] + HM[(gj - 2) * NX + gi - 2] + HM[(gj - 2) * NX + gi + 2] + HM[(gj + 2) * NX + gi - 2] + HM[(gj + 2) * NX + gi + 2]) / 8;
     MB[(j * MW + i) * 4 + 3] = Math.round(255 * (1 - clamp((av - c) / 16, 0, 0.42)));
-    MA[(j * MW + i) * 4 + 3] = Math.round(255 * clamp(0.5 + (c - av) / 14, 0, 1));   // how much a point stands proud of its surroundings: rock shows on knobs and ribs
+  }
+  // where the cliff faces are, for shading them from a distance (up close the geometry itself says)
+  for (let j = 0; j < MH; j++) for (let i = 0; i < MW; i++) {
+    const k = (j * MW + i) * 4, x = X0 + i * MCELL, z = Z0 + j * MCELL; if (ROCK[clamp(j >> 1, 0, NZ - 1) * NX + clamp(i >> 1, 0, NX - 1)] < 0.08 || edgeW(x, z) > 0.5) { MA[k + 3] = 0; continue; }
+    let a = 0; for (let q = 0; q < 4; q++) { const sx = x + (q & 1 ? 1.25 : -1.25), sz = z + (q & 2 ? 1.25 : -1.25), c = cliffAt(sx, sz, hBase(sx, sz)); a += c[0] * sstep(0.79, 0.84, c[1]) * (1 - sstep(0.97, 1.0, c[1])); }
+    MA[k + 3] = Math.round(255 * clamp(a / 4 * 1.6, 0, 1));
   }
   const mk = d => { const t = new THREE.DataTexture(d, MW, MH, THREE.RGBAFormat); t.magFilter = THREE.LinearFilter; t.minFilter = THREE.LinearMipmapLinearFilter; t.generateMipmaps = true; t.needsUpdate = true; return t; };
   U.uMA.value = mk(MA); U.uMB.value = mk(MB);
@@ -199,7 +204,7 @@ float glint(vec3 p, vec3 V, float scale) {
 `;
 const TERRAIN_FRAG_COLOR = `
   float tDist = length(cameraPosition - vWp); vec3 tV = (cameraPosition - vWp) / tDist;
-  vec4 tt = vec4(0.0, 0.0, 1.0, 1.0); vec4 mA = vec4(0.0, 0.0, 0.0, 0.5), mB = vec4(0.0, 0.5, 0.5, 1.0);
+  vec4 tt = vec4(0.0, 0.0, 1.0, 1.0); vec4 mA = vec4(0.0), mB = vec4(0.0, 0.5, 0.5, 1.0);
   #ifndef OUTER
     tt = texture2D(uTT, ttUV(vWp)); mA = texture2D(uMA, mkUV(vWp)); mB = texture2D(uMB, mkUV(vWp));
   #endif
@@ -211,8 +216,15 @@ const TERRAIN_FRAG_COLOR = `
   float groom = mA.r, tree = mA.g, road = mA.b;
   float nA = texture2D(uNoise, vWp.xz * 0.0031).r, nB = texture2D(uNoise, vWp.xz * 0.021).g, nC = texture2D(uNoise, vWp.xz * 0.19).b;
   float slope = 1.0 - Nw.y;
-  float proud = (mA.a - 0.5) * 2.0;
-  float rock = smoothstep(0.205, 0.255, slope + proud * 0.07 + (nB - 0.5) * 0.16 + (nC - 0.5) * 0.10 + (texture2D(uNoise, vWp.xz * 0.006).a - 0.5) * 0.09);   // ragged, crisp snow line; outcrops scattered through the steeps
+  // rock is only ever a cliff face: the standing walls of the bands, never bare ground
+  float cliffM = smoothstep(0.22, 0.5, mA.a + (nC - 0.5) * 0.22);
+  #ifdef OUTER
+    float rock = smoothstep(0.30, 0.38, slope + (nB - 0.5) * 0.14);
+  #elif defined(FAR_N)
+    float rock = cliffM;
+  #else
+    float rock = max(smoothstep(0.36, 0.5, 1.0 - normalize(vWn).y), cliffM * smoothstep(240.0, 520.0, tDist));
+  #endif
   #ifdef OUTER
     float forest = smoothstep(0.42, 0.62, nB * 0.6 + nA * 0.5 + texture2D(uNoise, vWp.xz * 0.0009).g * 0.3) * smoothstep(2650.0, 2350.0, vWp.y + nA * 200.0) * smoothstep(0.30, 0.16, slope);
     tree = forest * (1.0 - vLake);
@@ -250,14 +262,12 @@ const TERRAIN_FRAG_COLOR = `
   vec3 rk = mix(vec3(0.085, 0.062, 0.045), vec3(0.37, 0.285, 0.20), blk * 0.55 + strata * 0.45);      // tan and ochre, as the faces above the valley are
   rk = mix(rk, vec3(0.22, 0.215, 0.21), smoothstep(0.45, 0.8, nA) * 0.4);                         // greyer bands
   rk = mix(rk, vec3(0.13, 0.15, 0.11), smoothstep(0.62, 0.8, nB) * smoothstep(0.45, 0.7, blk) * 0.35);   // lichen
-  rk *= (0.82 + 0.36 * grain * rFar + 0.18 * (nC - 0.5)) * 0.72;
+  rk *= (0.82 + 0.36 * grain * rFar + 0.18 * (nC - 0.5)) * 1.05;
   float streak = RT(vec2(0.07, 0.006), g);
   rk *= 1.0 - 0.3 * smoothstep(0.5, 0.8, streak) * smoothstep(600.0, 120.0, tDist);                                               // dark water streaks
   rk = mix(rk, vec3(0.04, 0.03, 0.025), clamp(j1 * 0.8 + j2 * 0.65 + j3 * 0.5, 0.0, 0.85));     // joints and cracks
   float ledge = smoothstep(0.5, 0.72, RT(vec2(0.017, 0.13), b)) * (1.0 - smoothstep(0.36, 0.52, slope));
-  rock *= 1.0 - max(ledge * 0.75, j1 * 0.35 * (1.0 - smoothstep(0.4, 0.55, slope)));
-  { float cover = texture2D(uNoise, rp.xz * 0.0135 + 0.37).r * 0.55 + RT(0.047, g) * 0.45;
-    rock *= smoothstep(0.43, 0.47, cover + (slope - 0.27) * 1.5); }                                  // faces hold as much snow as rock: outcrops in clusters, pillows between              // snow on ledges and packed into the big cracks
+  rock *= 1.0 - ledge * 0.35;
   { vec3 bp = (vec3(RT(0.06, r), RT(0.06, g), RT(0.06, b)) - 0.5) * 0.55 + (vec3(RT(0.4, g), RT(0.4, b), RT(0.4, r)) - 0.5) * 0.4 * rFar;
     Nw = normalize(Nw + bp * rock); }                                                              // broken, faceted faces
   vec3 alb = mix(snow, rk, rock);

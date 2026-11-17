@@ -5,9 +5,9 @@
 - `shell.html`: page, HUD and menus. `src/*.js`: the game, concatenated in name order. `data/world.json`: the baked world.
 - `python3 build.py` assembles `../palisades.html`.
 
-## Controls beyond Kicker Run
+## Controls that differ from Kicker Run
 
-`E` load a lift, `F` fast-forward, `Enter` skip, `B` skis off to walk, `V` helmet camera, `M` map (click to drop in), `1`-`4` weather.
+On snow `W` drives forward (no nose butter) and `Shift` + turn is a hard slash turn. `R` rewinds, `B` takes the skis off to walk, `E` loads a lift (`F` fast-forward, `Enter` skip), `V` first person, `M` map (click to drop in), `1`-`4` weather.
 
 ## Rider
 

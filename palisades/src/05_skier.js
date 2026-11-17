@@ -7,6 +7,21 @@ const sA_ = () => slopeNow, spray = () => { };
 const OUTFIT_DEFAULT = { helmet: "redbull", jacket: "vest", pants: "blue", accessory: "scarf", skis: "current", poles: "metal", skibend: "slight", wax: "std", grip: "std", len: "mid", style: "simple" };
 let outfit = Object.assign({}, OUTFIT_DEFAULT);
 function canvasTex(w, h, draw) { const c = document.createElement("canvas"); c.width = w; c.height = h; draw(c.getContext("2d"), w, h); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; }
+const OUTFIT_OPTS = {
+  helmet: { frog: "Frog hat", beanie: "Beanie with ball", redbull: "Red Bull helmet", santa: "Santa hat", purple: "Purple beanie + shades", camo: "Camo beanie" },
+  jacket: { trench: "Black trench coat", vest: "Grey vest, white long sleeve", santa: "Red Santa coat", black: "Black jacket", forest: "Forest green anorak", block: "Orange and navy jacket", navy: "Navy shell, cream sleeves", piped: "Black piped jacket", greenc: "Green and cream shell" },
+  skis: { black: "Black wider skis", purple: "Purple skis", current: "Current skis", red: "Red skis", pink: "Pink skis", stripes: "Retro stripes", camo: "Snow camo", flames: "Flames" },
+  song: { off: "No music", hypa: "Hypa · Silva Bumpa", yosemite: "Yosemite · KETTAMA", think: "Think of You · KETTAMA & Prospa", fly: "Fly Away XTC · KETTAMA", nite: "On 2nite · Silva Bumpa", doin: "Doin' it ft. MC DT · Silva Bumpa", youtube: "My YouTube link" },
+  style: { simple: "Simple mannequin", detailed: "Detailed" },
+  gfx: { auto: "Auto", low: "Low", med: "Medium", high: "High" },
+  accessory: { scarf: "Scarf", ninja: "Ninja headband", cape: "Cape", phones: "Headphones", wired: "Wired headphones" },
+  pants: { cream: "Cream pants", santa: "Red Santa pants", suit: "Black suit pants", shorts: "Grey shorts", blue: "Blue pants", khaki: "Khakis", brown: "Brown pants" },
+  poles: { metal: "Metal poles", bamboo: "Bamboo poles" },
+  wax: { slow: "Cold grip wax", std: "All-round wax", fast: "Hot speed wax" },
+  grip: { loose: "Loose edges", std: "Standard edges", sharp: "Razor edges" },
+  len: { short: "Short · 150 cm", mid: "Medium · 170 cm", long: "Long · 190 cm" },
+  skibend: { flat: "Flat · no bend", slight: "Slight bend", medium: "Medium bend", full: "Full bend (old)" }
+};
 const JACKETS = { trench: { j: 0x15171b, t: 0x0c0d10, arm: 0x15171b, cuff: 0x0c0d10, sc: [0x7a1f26, 0x2a2a2e] }, vest: { j: 0x80868e, t: 0x5d636b, arm: 0xf2f3f5, cuff: 0xe4e6ea, sc: [0xf2f3f5, 0x80868e] }, santa: { j: 0xc4161c, t: 0xf6f6f2, arm: 0xc4161c, cuff: 0xf6f6f2, sc: [0xf6f6f2, 0xc4161c] }, black: { j: 0x16181c, t: 0x2a2d33, arm: 0x16181c, cuff: 0x0b0c0e, sc: [0x2a2d33, 0x16181c] }, forest: { j: 0x2f5e3f, t: 0x1e3a28, arm: 0x2f5e3f, cuff: 0x16261b, sc: [0xd9b45a, 0x2f5e3f] }, block: { j: 0xe0702a, t: 0x1f2a44, arm: 0x1f2a44, cuff: 0x141c2e, sc: [0x1f2a44, 0xe0702a] }, navy: { j: 0x22305c, t: 0x18234a, arm: 0x22305c, cuff: 0x18234a, sc: [0xe3d9c3, 0x22305c], up: 0xe3d9c3, lo: 0x22305c, tex: "navy", baggy: true }, piped: { j: 0x121315, t: 0x0b0b0c, arm: 0x121315, cuff: 0x0b0b0c, sc: [0xf2f2f2, 0x121315], up: 0xffffff, lo: 0xffffff, armTex: true, tex: "piped", baggy: true }, greenc: { j: 0x24564a, t: 0x1b4038, arm: 0x24564a, cuff: 0xd8cdb5, sc: [0xe3d9c3, 0x24564a], up: 0x24564a, lo: 0xe3d9c3, tex: "greenc", baggy: true } };
 const PANTS = { santa: [0xc4161c, 0xc4161c], suit: [0x17191e, 0x17191e], shorts: [0x7d838b, -1], blue: [0x2f5fa8, 0x2f5fa8], khaki: [0xb59f72, 0xb59f72], brown: [0x6b4a2f, 0x6b4a2f], cream: [0xe3d9c3, 0xd8cdb5] };
 const _cv = new THREE.Vector3(), _cp = [];
@@ -374,7 +389,7 @@ function poseSkier(dt, time) {
 }
 
 return {
-  JACKETS, PANTS, OUTFIT_DEFAULT, PHYS,
+  JACKETS, PANTS, OUTFIT_OPTS, OUTFIT_DEFAULT, PHYS,
   build(of) { outfit = Object.assign({}, OUTFIT_DEFAULT, of || {}); const R = buildSkier(); R.outfit = outfit; applyOutfit(R); R.root.traverse(o => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } }); return R; },
   dress(R, of) { outfit = R.outfit = Object.assign({}, OUTFIT_DEFAULT, of || {}); applyOutfit(R); },
   pose(R, state, keys, slope, dt, time) { sk = state; K = keys; skierRig = R; outfit = R.outfit; slopeNow = slope; poseSkier(dt, time); }
