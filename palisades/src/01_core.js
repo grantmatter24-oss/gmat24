@@ -100,27 +100,39 @@ function detailH(x, z) {
 const CATC = 40, CATW = Math.ceil((X1 - X0) / CATC), CATH = Math.ceil((Z1 - Z0) / CATC); let CATG = null, PARKG = null; const PARK = [];
 function gridAdd(G, x0, z0, x1, z1, item) { for (let cz = Math.max(0, Math.floor((z0 - Z0) / CATC)); cz <= Math.min(CATH - 1, Math.floor((z1 - Z0) / CATC)); cz++) for (let cx = Math.max(0, Math.floor((x0 - X0) / CATC)); cx <= Math.min(CATW - 1, Math.floor((x1 - X0) / CATC)); cx++) (G[cz * CATW + cx] || (G[cz * CATW + cx] = [])).push(item); }
 function initCat() {
-  const G = new Array(CATW * CATH), RG = new Array(CATW * CATH);
-  // Where a cat track meets an ordinary groomed run the cat blends the two together: no cut bank and no windrow across the run.
-  for (const r of WORLD.runs) { if (r.c || !r.g) continue; const hw = ([46, 42, 30, 18][r.d] || 30) / 2; for (let i = 0; i < r.pts.length - 1; i++) { const a = r.pts[i], b = r.pts[i + 1]; gridAdd(RG, Math.min(a[0], b[0]) - hw - 30, Math.min(a[1], b[1]) - hw - 30, Math.max(a[0], b[0]) + hw + 30, Math.max(a[1], b[1]) + hw + 30, [a[0], a[1], b[0], b[1], hw]); } }
-  const joinK = (x, z) => { const c = RG[((z - Z0) / CATC | 0) * CATW + ((x - X0) / CATC | 0)]; if (!c) return 0; let k = 0;
-    for (const s of c) { const ex = s[2] - s[0], ez = s[3] - s[1], t = clamp(((x - s[0]) * ex + (z - s[1]) * ez) / (ex * ex + ez * ez || 1), 0, 1), d = Math.hypot(x - s[0] - ex * t, z - s[1] - ez * t); k = Math.max(k, 1 - sstep(s[4] + 6, s[4] + 28, d)); } return k; };
-  for (const r of WORLD.runs) {
-    if (!r.c) continue; const core = 6, outer = 9.5, str = 1, P = [];   // only the cat tracks are levelled: ordinary groomed runs keep the survey's own grading
+  const G = new Array(CATW * CATH), RG = new Array(CATW * CATH), WID = [46, 42, 30, 18];
+  /* Benches. A groomed run that crosses the hill is a road cut into it: level from edge to edge, with a cut bank above and a fill slope
+     below. Cat tracks are always benched; any other groomed run is benched in proportion to how much the hill slopes across it, so a run
+     that goes straight down the fall line keeps its natural shape. Where two groomed runs meet, the bench fades out over a long distance
+     with no bank and no windrow, so one run flows into the other. */
+  WORLD.runs.forEach((r, ri) => { if (!r.g) return; const hw = (WID[r.d] || 30) / 2; for (let i = 0; i < r.pts.length - 1; i++) { const a = r.pts[i], b = r.pts[i + 1]; gridAdd(RG, Math.min(a[0], b[0]) - hw - 30, Math.min(a[1], b[1]) - hw - 30, Math.max(a[0], b[0]) + hw + 30, Math.max(a[1], b[1]) + hw + 30, [a[0], a[1], b[0], b[1], hw, ri]); } });
+  const joinK = (x, z, self) => { const c = RG[((z - Z0) / CATC | 0) * CATW + ((x - X0) / CATC | 0)]; if (!c) return 0; let k = 0;
+    for (const s of c) { if (s[5] === self) continue; const ex = s[2] - s[0], ez = s[3] - s[1], t = clamp(((x - s[0]) * ex + (z - s[1]) * ez) / (ex * ex + ez * ez || 1), 0, 1), d = Math.hypot(x - s[0] - ex * t, z - s[1] - ez * t); k = Math.max(k, 1 - sstep(s[4] + 6, s[4] + 28, d)); } return k; };
+  const sm = (a, n) => { for (let it = 0; it < n; it++) a = a.map((h, i) => i === 0 || i === a.length - 1 ? h : (a[i - 1] + 2 * h + a[i + 1]) / 4); return a; };
+  WORLD.runs.forEach((r, ri) => {
+    if (!r.g || r.len < 120) return; const core = r.c ? 6 : Math.min(7.5, (WID[r.d] || 30) * 0.18), outer = core + 4.5, P = [];
     for (let i = 0; i < r.pts.length - 1; i++) { const a = r.pts[i], b = r.pts[i + 1], n = Math.max(1, Math.round(Math.hypot(b[0] - a[0], b[1] - a[1]) / 14)); for (let k = 0; k < n; k++) P.push([lerp(a[0], b[0], k / n), lerp(a[1], b[1], k / n)]); }
-    P.push(r.pts[r.pts.length - 1].slice()); let hs = P.map(q => hBase(q[0], q[1]));
-    for (let it = 0; it < 14; it++) hs = hs.map((h, i) => i === 0 || i === hs.length - 1 ? h : (hs[i - 1] + 2 * h + hs[i + 1]) / 4);   // even out the grade along the run
-    let jk = P.map(q => joinK(q[0], q[1])); for (let it = 0; it < 2; it++) jk = jk.map((j, i) => i === 0 || i === jk.length - 1 ? j : (jk[i - 1] + 2 * j + jk[i + 1]) / 4);
-    for (let i = 0; i < P.length - 1; i++) { const om = outer + 18 * Math.max(jk[i], jk[i + 1]), sg = [P[i][0], P[i][1], P[i + 1][0], P[i + 1][1], hs[i], hs[i + 1], core, om, str, jk[i], jk[i + 1]]; gridAdd(G, Math.min(sg[0], sg[2]) - om, Math.min(sg[1], sg[3]) - om, Math.max(sg[0], sg[2]) + om, Math.max(sg[1], sg[3]) + om, sg); }
-  }
+    P.push(r.pts[r.pts.length - 1].slice()); if (P.length < 4) return;
+    const hs = sm(P.map(q => hBase(q[0], q[1])), 14), jk = sm(P.map(q => joinK(q[0], q[1], ri)), 2);   // an even grade along the run
+    const st = sm(P.map((q, i) => { if (r.c) return 1; const a = P[Math.max(0, i - 1)], b = P[Math.min(P.length - 1, i + 1)], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, nx = -(b[1] - a[1]) / l, nz = (b[0] - a[0]) / l;
+      return sstep(0.05, 0.15, Math.abs(hBase(q[0] + nx * 9, q[1] + nz * 9) - hBase(q[0] - nx * 9, q[1] - nz * 9)) / 18); }), 4).map((v, i, a) => v * Math.min(1, i / 3, (a.length - 1 - i) / 3));   // a bench fades out at each end of its run
+    if (Math.max(...st) < 0.02) return;
+    for (let i = 0; i < P.length - 1; i++) { if (Math.max(st[Math.max(0, i - 1)], st[i], st[i + 1], st[Math.min(P.length - 1, i + 2)]) < 0.01) continue;   // no bench anywhere near this stretch
+      const om = outer + 18 * Math.max(jk[i], jk[i + 1]) + 1.5, sg = [P[i][0], P[i][1], P[i + 1][0], P[i + 1][1], hs[i], hs[i + 1], core, om, st[i], jk[i], jk[i + 1], st[i + 1], r.c ? 1 : 0, outer, ri, hs[Math.max(0, i - 1)], hs[Math.min(P.length - 1, i + 2)], st[Math.max(0, i - 1)], st[Math.min(P.length - 1, i + 2)], om * om]; gridAdd(G, Math.min(sg[0], sg[2]) - om, Math.min(sg[1], sg[3]) - om, Math.max(sg[0], sg[2]) + om, Math.max(sg[1], sg[3]) + om, sg); }
+  });
   CATG = G; initPark();
 }
+const crom = (a, b, c, d, t) => 0.5 * (2 * b + (c - a) * t + (2 * a - 5 * b + 4 * c - d) * t * t + (3 * b - a - 3 * c + d) * t * t * t);   // a smooth curve through the run's levels, so the grade does not break at each point
 function catBench(x, z, h) {
-  const c = CATG && CATG[((z - Z0) / CATC | 0) * CATW + ((x - X0) / CATC | 0)]; if (!c) return h; let sw = 0, st = 0, mw = 0, berm = 0;
-  for (const s of c) { const ex = s[2] - s[0], ez = s[3] - s[1], t = clamp(((x - s[0]) * ex + (z - s[1]) * ez) / (ex * ex + ez * ez || 1), 0, 1), dx = x - s[0] - ex * t, dz = z - s[1] - ez * t, d2 = dx * dx + dz * dz, jn = s[9] + (s[10] - s[9]) * t, outer = 9.5 + 18 * jn; if (d2 >= outer * outer) continue;
-    const d = Math.sqrt(d2), w = s[8] * (1 - sstep(s[6], outer, d)); if (w <= 0) continue; sw += w; st += w * (s[4] + (s[5] - s[4]) * t); if (w > mw) mw = w;
-    if (s[8] === 1 && d > s[6] - 0.4 && d < s[6] + 2.2) berm = Math.max(berm, 0.38 * (1 - jn) * Math.sin((d - s[6] + 0.4) / 2.6 * Math.PI)); }   // the windrow the cat leaves along each edge
-  return mw > 0 ? lerp(h, st / sw, mw) + berm : h;
+  const c = CATG && CATG[((z - Z0) / CATC | 0) * CATW + ((x - X0) / CATC | 0)]; if (!c) return h;
+  // Each run gives one level (set by its nearest stretch) and one strength; runs that cross are then averaged by strength, so there is no crease where they meet.
+  let run = -1, sw = 0, st = 0, sm = 0, TW = 0, TH = 0, M = 0, berm = 0;
+  for (let k = 0; k <= c.length; k++) { const s = c[k];
+    if (!s || s[14] !== run) { if (sm > 0) { const mw = sm / sw, m3 = mw * mw * mw; TW += m3; TH += m3 * st / sw; if (mw > M) M = mw; } /* the run you are on wins over one passing nearby at another height */ if (!s) break; run = s[14]; sw = st = sm = 0; }
+    const ex = s[2] - s[0], ez = s[3] - s[1], tu = ((x - s[0]) * ex + (z - s[1]) * ez) / (ex * ex + ez * ez || 1), t = clamp(tu, 0, 1), te = clamp(tu, -0.6, 1.6), dx = x - s[0] - ex * t, dz = z - s[1] - ez * t, d2 = dx * dx + dz * dz; if (d2 >= s[19]) continue; const jn = s[9] + (s[10] - s[9]) * t, outer = s[13] + 18 * jn;
+    const d = Math.sqrt(d2), fade = 1 - d / s[7], w = clamp(crom(s[17], s[8], s[11], s[18], te), 0, 1) * (1 - sstep(s[6], outer, d)), wq = fade * fade / ((d2 + 0.5) * (d2 + 0.5)); sw += wq; st += wq * crom(s[15], s[4], s[5], s[16], te); sm += wq * w;   // te runs a little past each end, so neighbouring stretches agree where they meet   // level and strength both come from the nearest stretch of that run
+    if (s[12] && t > 0 && t < 1 && d > s[6] - 0.4 && d < s[6] + 2.2) berm = Math.max(berm, 0.38 * (1 - sstep(0, 0.25, jn)) * Math.sin((d - s[6] + 0.4) / 2.6 * Math.PI)); }   // the windrow the cat leaves along each edge of a cat track, never across another run
+  return M > 0 ? lerp(h, TH / TW, M) + berm : h;
 }
 /* Terrain parks where the resort builds them (Belmont, and the Gold Coast line), cut the way the park crew cuts them: a takeoff
    wedge with square sides and a clean lip, a flat deck, a knuckle and a long landing. Sizes are taken from photographs of the
