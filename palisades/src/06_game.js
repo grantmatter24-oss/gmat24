@@ -348,22 +348,29 @@ function initTracks() {
 function clearTracks(say) { trkN = 0; trkClock = 0; trkPrev = null; trkMesh.geometry.setDrawRange(0, 0); if (say) toast("Fresh snow has filled in your tracks"); }
 function layTracks(dt) {
   trkClock += dt; if (trkClock > TRACK_LIFE) clearTracks(trkN > 40);
-  const walking = sk.mode === "walk";
-  if (!(sk.mode === "ski" || walking) || !sk.ground || sk.crashed) { trkPrev = null; return; }
-  const yawM = sk.yaw - sk.spin, x = sk.p.x - Math.sin(yawM) * 0.3, z = sk.p.z - Math.cos(yawM) * 0.3; if (Math.hypot(x - trkLast.x, z - trkLast.z) < 0.45) return;
-  const s = sk.surf, pv = trkPrev, d = ((walking ? 0.04 : 0.016) + (sk.sink || 0) + 0.03 * sk.brakeK) * (1 - s.rock) * (1 - s.road); trkLast.set(x, 0, z);
-  if (d < 0.008) { trkPrev = null; return; }
-  const cur = { x, z, P: new Float32Array(21), N: new Float32Array(21) }; trkPrev = cur;
-  let dx = pv ? x - pv.x : Math.sin(yawM), dz = pv ? z - pv.z : Math.cos(yawM); const l = Math.hypot(dx, dz) || 1, px = -dz / l, pz = dx / l;
-  const gap = walking ? 0.12 : 0.16, hw = walking ? 0.075 : 0.05 + 0.03 * sk.carve + 0.07 * sk.brakeK + 0.2 * Math.abs(Math.sin(sk.slip || 0)), wall = 0.03 + d * 0.55, ridge = -d * 0.55 * clamp(d / 0.12, 0, 1), ao = 1 - Math.min(0.36, d * 1.8);
-  const O = [-(gap + hw + wall), -(gap + hw), -(gap - hw), 0, gap - hw, gap + hw, gap + hw + wall], Y = [0.004, -d, -d, ridge, -d, -d, 0.004], Tl = [0.3, 0.8, -0.45, 0, 0.45, -0.8, -0.3], A = [1, ao, ao, 1 - (1 - ao) * 0.5, ao, ao, 1];
-  normalAt(x, z, 0.8, _tn); const sd = U.uSunDir.value, sxp = sd.x * px + sd.z * pz, tanE = sd.y / Math.max(0.05, Math.abs(sxp)), rimO = sxp > 0 ? O[6] : O[0];   // which parts of the trench the sun reaches
-  for (let j = 0; j < 7; j++) { const X = x + px * O[j], Z = z + pz * O[j]; cur.P[j * 3] = X; cur.P[j * 3 + 1] = H(X, Z) + Y[j]; cur.P[j * 3 + 2] = Z;
-    const t = Tl[j] * Math.min(1, d / 0.05), nx = _tn.x + px * t, ny = _tn.y, nz = _tn.z + pz * t, il = A[j] * (-Y[j] <= Math.abs(rimO - O[j]) * tanE + 0.01 ? 1 : 0.45) / Math.hypot(nx, ny, nz); cur.N[j * 3] = nx * il; cur.N[j * 3 + 1] = ny * il; cur.N[j * 3 + 2] = nz * il; }
-  if (!pv || l > 3) return;   // the first cross-section of a run only starts the trench
-  const q = trkN % TRK, k = q * TV * 3; trkN++; trkPos.set(pv.P, k); trkPos.set(cur.P, k + 21); trkNor.set(pv.N, k); trkNor.set(cur.N, k + 21);
-  const pa = trkMesh.geometry.attributes.position, na = trkMesh.geometry.attributes.normal; pa.addUpdateRange(k, 42); na.addUpdateRange(k, 42); pa.needsUpdate = true; na.needsUpdate = true;
-  trkMesh.geometry.setDrawRange(0, Math.min(trkN, TRK) * 36);
+  const walking = sk.mode === "walk", sled = sk.mode === "sled";
+  if (!(sk.mode === "ski" || walking || sled) || !sk.ground || sk.crashed) { trkPrev = null; return; }
+  const yawM = sled ? sk.yaw : sk.yaw - sk.spin, back = sled ? 0.9 : 0.3, x = sk.p.x - Math.sin(yawM) * back, z = sk.p.z - Math.cos(yawM) * back; if (Math.hypot(x - trkLast.x, z - trkLast.z) < 0.45) return;
+  const s = sk.surf, pv = trkPrev, open = (1 - s.rock) * (1 - s.road), d = ((walking ? 0.04 : 0.016) + (sk.sink || 0) + 0.03 * sk.brakeK) * open; trkLast.set(x, 0, z);
+  if (!sled && d < 0.008) { trkPrev = null; return; }
+  let dx = pv ? x - pv.x : Math.sin(yawM), dz = pv ? z - pv.z : Math.cos(yawM); const l = Math.hypot(dx, dz) || 1, px = -dz / l, pz = dx / l, cur = { x, z, R: [] }; trkPrev = cur;
+  normalAt(x, z, 0.8, _tn); const sd = U.uSunDir.value, sxp = sd.x * px + sd.z * pz, tanE = sd.y / Math.max(0.05, Math.abs(sxp));   // which parts of a trench the sun reaches
+  const strip = (O, Y, Tl, A, dd) => { const P = new Float32Array(21), N = new Float32Array(21), rimO = sxp > 0 ? O[6] : O[0];
+    for (let j = 0; j < 7; j++) { const X = x + px * O[j], Z = z + pz * O[j]; P[j * 3] = X; P[j * 3 + 1] = H(X, Z) + Y[j]; P[j * 3 + 2] = Z;
+      const t = Tl[j] * Math.min(1, dd / 0.05), nx = _tn.x + px * t, ny = _tn.y, nz = _tn.z + pz * t, il = A[j] * (-Y[j] <= Math.abs(rimO - O[j]) * tanE + 0.01 ? 1 : 0.45) / Math.hypot(nx, ny, nz); N[j * 3] = nx * il; N[j * 3 + 1] = ny * il; N[j * 3 + 2] = nz * il; }
+    cur.R.push({ P, N }); };
+  const groove = (c, w, dd) => { const wall = 0.03 + dd * 0.5, ao = 1 - Math.min(0.36, dd * 1.8); strip([c - w - wall, c - w, c - w / 3, c, c + w / 3, c + w, c + w + wall], [0.004, -dd, -dd, -dd, -dd, -dd, 0.004], [0.3, 0.8, 0, 0, 0, -0.8, -0.3], [1, ao, ao, ao, ao, ao, 1], dd); };   // one flat-bottomed trench
+  if (sled) { // a snowmobile leaves three: a narrow groove under each ski and the wide, deeper band of the track between them
+    const deep = s.deep || 0, ds = (0.025 + 0.07 * deep) * open, dt2 = (0.04 + 0.13 * deep) * open; if (dt2 < 0.01) { trkPrev = null; return; }
+    groove(-0.53, 0.075, ds); groove(0.53, 0.075, ds); groove(0, 0.2, dt2);
+  } else {
+    const gap = walking ? 0.12 : 0.16, hw = walking ? 0.075 : 0.05 + 0.03 * sk.carve + 0.07 * sk.brakeK + 0.2 * Math.abs(Math.sin(sk.slip || 0)), wall = 0.03 + d * 0.55, ridge = -d * 0.55 * clamp(d / 0.12, 0, 1), ao = 1 - Math.min(0.36, d * 1.8);
+    strip([-(gap + hw + wall), -(gap + hw), -(gap - hw), 0, gap - hw, gap + hw, gap + hw + wall], [0.004, -d, -d, ridge, -d, -d, 0.004], [0.3, 0.8, -0.45, 0, 0.45, -0.8, -0.3], [1, ao, ao, 1 - (1 - ao) * 0.5, ao, ao, 1], d);
+  }
+  if (!pv || l > 3 || pv.R.length !== cur.R.length) return;   // the first cross-section of a run only starts the trench
+  const pa = trkMesh.geometry.attributes.position, na = trkMesh.geometry.attributes.normal;
+  for (let r = 0; r < cur.R.length; r++) { const q = trkN % TRK, k = q * TV * 3; trkN++; trkPos.set(pv.R[r].P, k); trkPos.set(cur.R[r].P, k + 21); trkNor.set(pv.R[r].N, k); trkNor.set(cur.R[r].N, k + 21); pa.addUpdateRange(k, 42); na.addUpdateRange(k, 42); }
+  pa.needsUpdate = true; na.needsUpdate = true; trkMesh.geometry.setDrawRange(0, Math.min(trkN, TRK) * 36);
 }
 function initSnowfall() {
   const n = 9000, pos = new Float32Array(n * 3), g = new THREE.BufferGeometry(); for (let i = 0; i < n * 3; i++) pos[i] = Math.random();

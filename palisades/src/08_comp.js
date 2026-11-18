@@ -25,8 +25,8 @@ function initComp() {
   const defs = [
     { id: "gs2", name: "Red Dog Giant Slalom", kind: "race", blurb: "Fastest time round the gates: pass each gate between its two flags, on the outside of the turning pole. Miss one and you are sent back to the start.", run: runBy(["Red Dog Face", "Lower Dog Leg", "Julia's Gold"]), s0: 25, max: 560, off: 0 },
     { id: "slope", name: "Gold Coast Slopestyle", kind: "style", blurb: "Most trick points down the big jump line. Crashes score nothing.", run: runBy(["Gold Coast"]), s0: 45, max: 800, off: 11 },
-    { id: "kt22b", name: "KT-22 Freeride", kind: "free", blurb: "Top to bottom beside the KT-22 chair, on the left of the lift line going down, between the ropes, with kickers on the way. Judged on air time, tricks and speed; a crash costs 200. Cross a rope and you are disqualified.", run: under("KT22 Express"), s0: 34, max: 5000, end: 92, off: COMP_OFFS["KT22 Express"], fence: 27.5, par: 2200 },
-    { id: "gchief", name: "Granite Chief Freeride", kind: "free", blurb: "Top to bottom under the Granite Chief chair, with four kickers. Judged on air time, tricks and speed; a crash costs 200.", run: under("Granite Chief"), s0: 22, max: 5000, end: 30, off: COMP_OFFS["Granite Chief"], par: 1800 }
+    { id: "kt22b", name: "KT-22 Freeride", kind: "free", blurb: "Top to bottom beside the KT-22 chair, on the left of the lift line going down, between the ropes, with kickers on the way. Judged on air time, tricks and speed; a crash costs 200. Cross a rope and you are disqualified.", run: under("KT22 Express"), s0: 34, max: 5000, end: 92, off: COMP_OFFS["KT22 Express"], fence: 27.5, par: 3800 },
+    { id: "gchief", name: "Granite Chief Freeride", kind: "free", blurb: "Top to bottom under the Granite Chief chair, with four kickers. Judged on air time, tricks and speed; a crash costs 200.", run: under("Granite Chief"), s0: 22, max: 5000, end: 30, off: COMP_OFFS["Granite Chief"], par: 3000 }
   ];
   const b = new GeoBag(), banner = (txt, col) => { const cv = document.createElement("canvas"); cv.width = 1024; cv.height = 128; const g = cv.getContext("2d"); g.fillStyle = col; g.fillRect(0, 0, 1024, 128); g.fillStyle = "#fff"; g.textAlign = "center"; g.textBaseline = "middle"; let fs = 84; g.font = "800 " + fs + "px 'Big Shoulders Display', 'Arial Narrow', Impact, sans-serif"; while (g.measureText(txt).width > 970 && fs > 28) { fs -= 4; g.font = "800 " + fs + "px 'Big Shoulders Display', 'Arial Narrow', Impact, sans-serif"; } g.fillText(txt, 512, 66); const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return worldShade(new THREE.MeshStandardMaterial({ map: t, roughness: 0.6 })); };
   const arch = (x, z, yaw, txt, col, rgb) => { const rx = Math.cos(yaw), rz = -Math.sin(yaw), g = H(x, z), mat = banner(txt, col); // two posts in the snow and a banner across, lettered on both faces
@@ -34,7 +34,7 @@ function initComp() {
     b.box(9.0, 1.05, 0.16, x, g + 3.7, z, rgb, yaw); for (const sd of [-1, 1]) { const m = new THREE.Mesh(new THREE.PlaneGeometry(8.7, 0.95), mat); m.position.set(x + Math.sin(yaw) * sd * 0.09, g + 3.7, z + Math.cos(yaw) * sd * 0.09); m.rotation.y = yaw + (sd < 0 ? Math.PI : 0); scene.add(m); } };
   for (const d of defs) { if (!d.run) continue; const path = compPath(d.run.pts, d.s0, Math.min(d.run.len - (d.end || 20), d.s0 + d.max), d.off); if (path.length < 20) continue;
     const S = [0]; for (let i = 1; i < path.length; i++) S.push(S[i - 1] + Math.hypot(path[i][0] - path[i - 1][0], path[i][1] - path[i - 1][1]));
-    const v = { id: d.id, name: d.name, kind: d.kind, blurb: d.blurb, path, S, len: S[S.length - 1], gates: [], fence: d.fence || 0, par: d.par || (d.kind === "race" ? S[S.length - 1] / 15 : d.kind === "style" ? 1500 : 1200) };
+    const v = { id: d.id, name: d.name, kind: d.kind, blurb: d.blurb, path, S, len: S[S.length - 1], gates: [], fence: d.fence || 0, par: d.par || (d.kind === "race" ? S[S.length - 1] / 16.5 : d.kind === "style" ? 3200 : 2400) };
     const dir = i => { const a = path[Math.max(0, i - 1)], c = path[Math.min(path.length - 1, i + 1)], l = Math.hypot(c[0] - a[0], c[1] - a[1]) || 1; return [(c[0] - a[0]) / l, (c[1] - a[1]) / l]; };
     const d0 = dir(0), d1 = dir(path.length - 1); v.start = { x: path[0][0], z: path[0][1], yaw: Math.atan2(d0[0], d0[1]) };
     arch(v.start.x - d0[0] * 2, v.start.z - d0[1] * 2, v.start.yaw, "START · " + d.name.toUpperCase(), "#b3261e", [0.6, 0.08, 0.06]);
@@ -59,10 +59,13 @@ function gearLocks() { // lock the better clothes and gear until the medal point
     for (const o of sl.options) { const need = lk[o.value] || 0, locked = need > pts && outfit[cat] !== o.value; o.disabled = locked; o.textContent = KR.OUTFIT_OPTS[cat][o.value] + (locked ? "  (locked: " + need + " medal pts)" : ""); } });
 }
 const GATE_IN = 3.8, GATE_W = 8;   // the turning pole stands this far off the line, the outside pole this much further
-function compSynth(v) { // a par run down the course line, for riders to follow until you have set a run of your own
-  const S = [], vp = v.kind === "race" ? 15 : 12.5; let t = 0;
+function compSynth(v) { compSynth.last = -9; // a par run down the course line, for riders to follow until you have set a run of your own
+  const S = [], vp = v.kind === "race" ? 16.5 : 14; let t = 0, air = null;
   for (let i = 0; i < v.path.length; i++) { const a = v.path[Math.max(0, i - 1)], c = v.path[Math.min(v.path.length - 1, i + 1)], l = Math.hypot(c[0] - a[0], c[1] - a[1]) || 1, dx = (c[0] - a[0]) / l, dz = (c[1] - a[1]) / l, ph = Math.PI * (v.S[i] - 48) / 30, amp = (GATE_IN + 1.7) * sstep(8, 44, v.S[i]), wg = v.kind === "race" ? -amp * Math.cos(ph) : 0, x = v.path[i][0] - dz * wg, z = v.path[i][1] + dx * wg;   // a clean line round every gate
-    S.push({ t, x, y: H(x, z), z, yaw: Math.atan2(dx, dz) - (v.kind === "race" ? Math.atan(amp * Math.PI / 30 * Math.sin(ph)) : 0), spin: 0, rot: 0, rotV: 0, sw: false, gr: true, cr: false, tz: 0, turn: v.kind === "race" ? Math.cos(ph) : 0, carve: 0.7, sp: vp, chg: 0, st: 0, k: 0, gd: 0, sl: 0 }); t += 6 / vp; }
+    let y = H(x, z), gr = true; // off every kicker and jump on the line, landing where the arc meets the snow again
+    if (air) { const ta = t - air.t0; y = air.y0 + air.vy * ta - 0.5 * G * ta * ta; if (y <= H(x, z) && ta > 0.25) { air = null; y = H(x, z); } else gr = false; }
+    else if (v.kind !== "race") { const f = kickerLip(x, z); if (f && !f.lip && i - (compSynth.last || -9) > 4) { compSynth.last = i; air = { t0: t, y0: y, vy: vp * Math.sin(Math.atan(1.7 * f.hK / f.Lr)) + 4.5 }; } }
+    S.push({ t, x, y, z, yaw: Math.atan2(dx, dz) - (v.kind === "race" ? Math.atan(amp * Math.PI / 30 * Math.sin(ph)) : 0), spin: 0, rot: 0, rotV: 0, sw: false, gr, cr: false, tz: 0, turn: v.kind === "race" ? Math.cos(ph) : 0, carve: 0.7, sp: vp, chg: 0, st: 0, k: 0, gd: 0, sl: 0 }); t += 6 / vp; }
   return { T: t - 6 / vp, S };
 }
 function compEnter(v) {
@@ -71,10 +74,12 @@ function compEnter(v) {
   if (!COMP.ghosts.length) { const pick = (cat, i) => { const ks = Object.keys(KR.OUTFIT_OPTS[cat]); return ks[(i * 3 + cat.length) % ks.length]; };
     BOTS.forEach((n, i) => { const of = Object.assign({}, outfit, { helmet: pick("helmet", i), jacket: pick("jacket", i), pants: pick("pants", i), skis: pick("skis", i), accessory: pick("accessory", i) }), R = makeRider(of), tag = mpTag(R); mpTagText(tag, n); COMP.ghosts.push({ n, R, tag, q: null, keys: Object.assign({}, NOKEYS), st: null }); }); KR.dress(rig, outfit); }
   COMP.ghosts.forEach((g, i) => { const rn = Math.pow(hash2(h * 7 + 1, i, 201), 1.3);
-    if (v.kind === "race") { g.res = +(own ? sv.best * (0.985 + 0.17 * rn) : v.par * (1.02 + 0.25 * rn)).toFixed(2); g.dur = g.res; }   // a racer crosses the line at exactly the time on the board
-    else { g.res = Math.round((own ? sv.best * (1.04 - 0.4 * rn) : v.par * (1.1 - 0.6 * rn)) / 10) * 10; g.dur = rec.T * (0.97 + 0.14 * hash2(h, i, 202)); }
+    if (v.kind === "race") { g.res = +(own ? sv.best * (0.955 + 0.13 * rn) : v.par * (0.97 + 0.2 * rn)).toFixed(2); g.dur = g.res; }   // a racer crosses the line at exactly the time on the board
+    else { g.res = Math.round(Math.max(own ? sv.best * (1.22 - 0.36 * rn) : 0, v.par * (1.15 - 0.45 * rn)) / 10) * 10; g.dur = rec.T * (0.93 + 0.12 * hash2(h, i, 202)); }   // strong riders: they score at least a good par run, and more than you if you are ahead of par
+    g.skill = 1 + Math.round(2 * (1 - rn)); g.ai = 0;
     g.off = v.kind === "race" ? 0 : (i - 2) * 1.5 + (hash2(h, i, 203) - 0.5); g.k = 0; /* racers hold the racing line so they go round every gate */ g.q = null; g.endT = 0; });
-  COMP.run = { v, rec, t: -3.2, S: [], recT: 0, pts0: sk.pts, air: 0, vsum: 0, vn: 0, crash: 0, wasCr: false, gate: 0, miss: 0, idx: 0, sP: 0, lastX: sk.p.x, lastZ: sk.p.z, done: false };
+  const airs = []; { let a0 = null; rec.S.forEach((q, i) => { if (!q.gr && a0 === null) a0 = q.t; if ((q.gr || i === rec.S.length - 1) && a0 !== null) { if (q.t - a0 > 0.4) airs.push([a0, q.t]); a0 = null; } }); }   // every time the run leaves the ground
+  COMP.run = { v, rec, airs, t: -3.2, S: [], recT: 0, pts0: sk.pts, air: 0, vsum: 0, vn: 0, crash: 0, wasCr: false, gate: 0, miss: 0, idx: 0, sP: 0, lastX: sk.p.x, lastZ: sk.p.z, done: false };
   setOverlay("comp", false); setOverlay("compList", false); if (!$("menu").hidden) startPlay(); paused = false; $("compHud").hidden = false;
 }
 function compEnd(msg) { COMP.run = null; COMP.hold = false; $("compHud").hidden = true; for (const g of COMP.ghosts) g.R.hold.visible = false; if (msg) toast(msg, 3); }
@@ -101,7 +106,11 @@ function compTick(dt, time) {
   for (const g of COMP.ghosts) { const tau = r.t * r.rec.T / g.dur; while (g.k < S.length - 2 && S[g.k + 1].t < tau) g.k++;
     const A = S[g.k], B = S[g.k + 1], u = clamp((tau - A.t) / (B.t - A.t || 1), 0, 1), yaw = A.yaw + wrap(B.yaw - A.yaw) * u, ox = lerp(A.x, B.x, u), oz = lerp(A.z, B.z, u), x = ox + Math.cos(yaw) * g.off, z = oz - Math.sin(yaw) * g.off;
     if (tau > r.rec.T) { g.endT += dt; if (g.endT > 2.5) { g.R.hold.visible = false; continue; } }
-    g.st = Object.assign({}, A, { x, y: lerp(A.y, B.y, u) + H(x, z) - H(ox, oz), z, yaw, spin: lerp(A.spin, B.spin, u), rot: lerp(A.rot, B.rot, u), md: "ski", play: true, li: -1, res: "palisades", sp: tau > r.rec.T ? 0 : A.sp }); poseRemote(g, dt, time, a); }
+    g.st = Object.assign({}, A, { x, y: lerp(A.y, B.y, u) + H(x, z) - H(ox, oz), z, yaw, spin: lerp(A.spin, B.spin, u), rot: lerp(A.rot, B.rot, u), md: "ski", play: true, li: -1, res: "palisades", sp: tau > r.rec.T ? 0 : A.sp });
+    // They throw tricks off every jump: spins by skill and air time, a flip when there is room, a grab through the middle.
+    if (v.kind !== "race") { while (g.ai < r.airs.length - 1 && tau > r.airs[g.ai][1]) g.ai++; const ar = r.airs[g.ai]; if (ar && tau > ar[0] && tau < ar[1]) { const ua = (tau - ar[0]) / (ar[1] - ar[0]), du = ar[1] - ar[0], e = smooth(ua), n = Math.min(g.skill + 1, Math.max(1, Math.floor(du / 0.45))), sgn = (g.ai + g.skill) % 2 ? 1 : -1;
+      g.st.spin += sgn * TAU * n * e; if (du > 0.95 && g.skill >= 2) g.st.rot += TAU * e * ((g.ai % 2) ? -1 : 1); if (ua > 0.2 && ua < 0.8) g.st.k |= 1 << MP_KEYS.indexOf(g.skill > 2 ? "grabS" : "grab"); } }
+    poseRemote(g, dt, time, a); }
   const trick = sk.pts - r.pts0;
   hud.textContent = v.name + " · " + (v.kind === "race" ? fmtRes(v, r.t) + " · gate " + r.gate + "/" + v.gates.length : fmtRes(v, compScore(r)) + " · " + Math.max(0, Math.round(v.len - r.sP)) + " m to go");
   if (r.sP >= v.len - 2) compFinish();
