@@ -50,7 +50,7 @@ function stepSled(dt) {
     if (sledDriver(S)) { p.set(S.x, H(S.x, S.z), S.z); sk.yaw = S.yaw; sk.sp = Math.abs(S.v); sk.slope = tangent(S.yaw); sk.v.set(Math.sin(S.yaw) * S.v, 0, Math.cos(S.yaw) * S.v); sk.turn = 0; S.thr = 0; return; }
     sk.sledRole = 1; S.v = 0; toast("The driver got off: you take the bars", 3); }
   const steer = ((K.spinR || K.right) ? 1 : 0) - ((K.spinL || K.left) ? 1 : 0), thr = (K.up ? 1 : 0) - (K.down ? 1 : 0); S.thr = thr;
-  S.yaw -= steer * 1.9 * clamp(Math.abs(S.v) / 5, 0, 1) / (1 + Math.abs(S.v) / 26) * (S.v < 0 ? -1 : 1) * dt;   // wide arcs at speed sk.yaw = S.yaw; sk.turn = lerp(sk.turn, steer, Math.min(1, 6 * dt));
+  S.yaw -= steer * 1.9 * clamp(Math.abs(S.v) / 5, 0, 1) / (1 + Math.abs(S.v) / 26) * (S.v < 0 ? -1 : 1) * dt; sk.yaw = S.yaw; sk.turn = lerp(sk.turn, steer, Math.min(1, 6 * dt));
   const sA = tangent(S.yaw), s = readSurface(), grade = Math.sin(sA);   // positive when the nose points uphill
   // Top speed is 80 mph on the flat and downhill, 60 mph on a climb; it pulls hard up to either.
   const vcap = lerp(80, 60, sstep(0.02, 0.1, grade)) / MPH;
