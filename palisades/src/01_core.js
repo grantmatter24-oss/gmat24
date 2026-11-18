@@ -187,7 +187,7 @@ function edgeW(x, z) { return smooth(1 - Math.min(x - X0, X1 - x, z - Z0, Z1 - z
 /* Creeks, from the mapped streams. They are drawn into a distance field (255 on the centreline, falling to zero twelve metres out,
    scaled by the size of the stream) that the ground height, the snow shader, the trees and the skier all read. */
 const CRES = 2.5, CRW = Math.round((X1 - X0) / CRES), CRH = Math.round((Z1 - Z0) / CRES), CRSPAN = 12; let CRK = null;
-let creekStyle = +(QS.get("creek") || store.get("pal-creek", 1));
+let creekStyle = +(QS.get("creek") || store.get("pal-creek", 2));   // 2: snowed over, open in pools; 1: open running water
 function initCreeks() {
   const cs = WORLD.creeks; U.uCrkPool.value = creekStyle === 2 ? 1 : 0;
   if (!cs || !cs.length) { U.uCrk.value = new THREE.DataTexture(new Uint8Array([0]), 1, 1, THREE.RedFormat); U.uCrk.value.needsUpdate = true; return; }

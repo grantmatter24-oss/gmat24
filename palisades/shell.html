@@ -46,6 +46,18 @@
   #riders { font-size: 13px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--dim); text-align: right; max-width: 260px; }
   #riders .r { display: flex; justify-content: flex-end; gap: 8px; align-items: center; white-space: nowrap; }
   #riders .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  #riders, #menuRiders { pointer-events: auto; }
+  #riders .where, #menuRiders .where { color: var(--dim); font-weight: 500; text-transform: none; letter-spacing: 0; }
+  .join { font: 700 11px/1 var(--display); letter-spacing: .08em; text-transform: uppercase; color: #fff; background: var(--accent); border: 0; border-radius: 7px; padding: 6px 9px; cursor: pointer; }
+  .join:hover { filter: brightness(1.15); }
+  #menuRiders { font-size: 14px; font-weight: 600; color: var(--dim); }
+  #menuRiders .r { display: flex; gap: 9px; align-items: center; margin-top: 7px; white-space: nowrap; }
+  #menuRiders .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  #menuRiders b { color: var(--text); }
+  /* the jump bar, as in Kicker Run: fills while Space is held */
+  #chg { position: absolute; left: 50%; bottom: 76px; width: 150px; height: 9px; margin-left: -75px; border-radius: 6px; background: rgba(20,24,31,.6); border: 1px solid rgba(255,255,255,.4); pointer-events: none; }
+  #chg i { display: block; height: 100%; width: 0; border-radius: 5px; background: linear-gradient(90deg, #5ec8ff, #ffd447 70%, #ff7a2f); }
+  #chg[hidden] { display: none; }
   #riders b { color: var(--text); }
   #mpsign { font: 700 13px/1 var(--display); letter-spacing: .06em; text-transform: uppercase; padding: 10px 13px; border-radius: 9px; border: 0; background: var(--accent); color: #fff; cursor: pointer; }
   #mini { right: 18px; bottom: 18px; width: 210px; height: 210px; border-radius: 50%; overflow: hidden; border: 2px solid rgba(255, 255, 255, .55); box-shadow: 0 6px 22px rgba(0, 0, 0, .4); background: #dfe8f0; }
@@ -107,6 +119,7 @@
     <div class="hud" id="runBox" hidden><div id="runName"></div><div id="runSub"></div></div>
     <div class="hud" id="toast"></div>
     <div class="hud" id="rew" hidden>◀◀ Rewind</div>
+    <div id="chg" hidden><i></i></div>
     <div class="hud" id="trick"><div id="trickN"></div><div id="trickP"></div></div>
     <div class="hud" id="speedBox">
       <div><span id="speed">0</span><span id="speedU">MPH</span></div>
@@ -130,6 +143,7 @@
       <div class="row"><span class="lab">Weather</span><div class="seg" id="wxMenu"><button data-w="bluebird">Bluebird</button><button data-w="golden">Golden hour</button><button data-w="overcast">Flat light</button><button data-w="storm">Snowing</button></div></div>
       <div class="row"><span class="lab">Rider</span><button class="btn ghost" id="fitBtn" style="padding:9px 14px;font-size:14px">Outfit and ski setup</button></div>
       <div class="row"><span class="lab">Graphics</span><div class="seg" id="gfx"><button data-q="low">Low</button><button data-q="med">Medium</button><button data-q="high">High</button><button data-q="ultra">Ultra</button></div></div>
+      <div class="row"><span class="lab">Friends</span><div id="menuRiders"></div></div>
       <div class="row" style="margin-top:26px"><button class="btn" id="go">Drop in</button><button class="btn ghost" id="howBtn">Controls</button></div>
     </div>
   </div>
@@ -142,7 +156,7 @@
       <dt>S · ↓</dt><dd>Tail butter on snow (A D spin you while you butter). Back flip in the air</dd>
       <dt>Shift + turn</dt><dd>Slash: a hard, sharp turn that scrubs speed and throws snow</dd>
       <dt>J</dt><dd>Brake</dd>
-      <dt>Space</dt><dd>Hold to charge a jump, release to pop. In the air, hold for a tail grab. On a rail it pops you off</dd>
+      <dt>Space</dt><dd>Hold to charge a jump (the bar fills), release to pop. In the air, hold for a tail grab. On a rail it pops you off</dd>
       <dt>Q · E · C · F</dt><dd>Japan, nose, indy and safety grabs in the air. X is also a nose grab</dd>
       <dt>G</dt><dd>Slow-motion in the air</dd>
       <dt>R</dt><dd>Hold to rewind, up to the last 30 seconds</dd>

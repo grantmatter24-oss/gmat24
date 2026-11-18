@@ -13,7 +13,7 @@ function tick(t) {
   const now = t / 1000, dt = Math.min(0.05, Math.max(0.001, now - lastT)); lastT = now; frame++; U.uTime.value = now;
   if (sk.mode === "menu") { // slow drift over the valley, looking up at KT-22 and Headwall
     menuA += dt * 0.012; camera.position.set(2350 + Math.cos(menuA) * 260, 2105 + Math.sin(menuA * 0.7) * 25, -820 + Math.sin(menuA) * 260); camera.up.set(0, 1, 0); camera.lookAt(700, 2230, 760); if (camFix) { camera.position.set(camFix[0], camFix[1], camFix[2]); camera.lookAt(camFix[3], camFix[4], camFix[5]); }
-    camDir.set(-0.7, 0, 0.7); if (camFix) { sk.p.set(camFix[3], camFix[4], camFix[5]); camDir.set(0, 0, 0); } else sk.p.set(1500, 2000, 0); updateLifts(dt, camera.position, frame); updateNPCs(dt, camera.position);
+    camDir.set(-0.7, 0, 0.7); if (camFix) { sk.p.set(camFix[3], camFix[4], camFix[5]); camDir.set(0, 0, 0); } else sk.p.set(1500, 2000, 0); updateLifts(dt, camera.position, frame); updateNPCs(dt, camera.position); updateRemotes(dt, now);   // keep the friends list live on the home screen
   } else if (!paused) {
     const riding = sk.mode === "wait" || sk.mode === "lift", ff = riding && K.grabS ? 10 : 1;
     // G in the air: Kicker Run's slow-motion, on a meter that drains in 3.4 s and refills on snow

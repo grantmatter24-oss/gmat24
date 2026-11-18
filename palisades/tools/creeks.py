@@ -26,19 +26,27 @@ def smooth(pts, n=2):
     for _ in range(n):
         b = a.copy(); b[1:-1] = (a[:-2] + 2 * a[1:-1] + a[2:]) / 4; a = b
     return a
+# No creek is drawn on the Granite Chief terrain: the headwaters there lie under the snowpack all winter.
+GC = next((l["pts"] for l in W["lifts"] if l["n"] == "Granite Chief"), None)
+def near_gc(x, z, R=520):
+    if not GC: return False
+    for a, b in zip(GC, GC[1:]):
+        ex, ez = b[0] - a[0], b[1] - a[1]; t = max(0, min(1, ((x - a[0]) * ex + (z - a[1]) * ez) / ((ex * ex + ez * ez) or 1)))
+        if np.hypot(x - a[0] - ex * t, z - a[1] - ez * t) < R: return True
+    return False
 creeks = []
 for f in json.load(open(RAW + "water.json"))["features"]:
     g, p = f["geometry"], f["properties"]
     if g["type"] != "LineString" or p.get("subtype") not in ("stream", "river"): continue
     name = (p.get("names") or {}).get("primary") or ""
     ln = LineString([toXZ(c[0], c[1]) for c in g["coordinates"]])
-    if ln.length < 30: continue
+    if ln.length < 30 or name == "Granite Chief Creek": continue
     k = 2 if p.get("subtype") == "river" else 1 if name else 0
     pts = [ln.interpolate(s).coords[0] for s in np.arange(0, ln.length, 8.0)] + [ln.coords[-1]]
     if k < 2: pts = smooth(snap(smooth(snap(pts), 2)), 3)
     seg = []
     for x, z in pts:   # keep the parts inside the resort grid
-        if X0 + 60 < x < X1 - 60 and Z0 + 60 < z < Z1 - 60: seg.append((float(x), float(z)))
+        if X0 + 60 < x < X1 - 60 and Z0 + 60 < z < Z1 - 60 and not near_gc(x, z): seg.append((float(x), float(z)))
         else:
             if len(seg) > 3: creeks.append((name, k, seg))
             seg = []

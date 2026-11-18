@@ -13,6 +13,7 @@ function areaAt(x, z) { for (const a of WORLD.areas) if (a.p && inPoly(a.p, x, z
 /* ---------- HUD ---------- */
 let curRun = null, runShow = 0, hudT = 0, fpsAcc = 0, fpsN = 0;
 function updateHUD(dt) {
+  { const ce = $("chg"), on = sk.chg > 0.02 && sk.mode === "ski"; if (ce.hidden === on) ce.hidden = !on; if (on) ce.firstElementChild.style.width = Math.round(sk.chg * 100) + "%"; }   // jump bar
   hudT += dt; fpsAcc += dt; fpsN++;
   if (toastT > 0) { toastT -= dt; if (toastT <= 0) $("toast").style.opacity = 0; }
   if (trickT > 0) { trickT -= dt; if (trickT <= 0) $("trick").style.opacity = 0; }
@@ -198,10 +199,21 @@ async function mpList() {
   const box = $("riders"); MP.dirty = false; const ids = MP.others.map(o => o.by).filter(Boolean); let ps = {};
   try { if (MP.user && ids.length) ps = await MP.user.profiles([...new Set(ids)]); } catch (e) { }
   const nameOf = (id, fb) => { const q = id && ps[id]; if (!q) return MP.names[id] || fb; const em = typeof q.email === "string" && q.email.indexOf("@") > 0 ? q.email.slice(0, q.email.indexOf("@")) : ""; return em || q.name || MP.names[id] || fb; };
-  box.textContent = ""; let n = 0;
+  const mbox = $("menuRiders"); box.textContent = ""; mbox.textContent = ""; let n = 0;
+  // Finding friends: each rider is listed with where they are and how far away, and a Join button that drops you in beside them.
   for (const o of MP.others) { if (o.st.res !== "palisades") continue; n++; const nm = nameOf(o.by, o.isMe ? "You (other tab)" : "Rider " + n), r = MP.remotes.get(o.peer); if (r) mpTagText(r.tag, nm);
-    const d = document.createElement("div"); d.className = "r"; const dot = document.createElement("span"); dot.className = "dot"; dot.style.background = r ? r.col : "#ffd24a"; const b = document.createElement("b"); b.textContent = nm; const s = document.createElement("span"); s.textContent = o.st.md === "lift" && LIFTS[o.st.li] ? "on " + LIFTS[o.st.li].name : Math.round((o.st.sp || 0) * (units === "imp" ? MPH : KMH)) + (units === "imp" ? " mph" : " km/h"); d.append(dot, b, s); box.appendChild(d); }
-  const d = document.createElement("div"); d.textContent = MP.room ? (n ? n + (n === 1 ? " rider" : " riders") + " on the mountain with you" : "Share this link to ride together") : MP.status; box.prepend(d);
+    const st = o.st, rn = st.play === false ? null : runAt(st.x, st.z), ar = rn ? null : areaAt(st.x, st.z), dist = Math.hypot(st.x - sk.p.x, st.z - sk.p.z);
+    const where = st.play === false ? "at the home screen" : st.md === "lift" && LIFTS[st.li] ? "riding " + LIFTS[st.li].name : rn && rn.n ? "on " + rn.n : ar ? "in " + ar.n : "off piste";
+    for (const [bx, far] of [[box, true], [mbox, false]]) { const d = document.createElement("div"); d.className = "r"; const dot = document.createElement("span"); dot.className = "dot"; dot.style.background = r ? r.col : "#ffd24a"; const b = document.createElement("b"); b.textContent = nm;
+      const s = document.createElement("span"); s.className = "where"; s.textContent = where + (far && sk.mode !== "menu" ? " · " + (units === "imp" ? (dist * FT > 2640 ? (dist / 1609.34).toFixed(1) + " mi" : Math.round(dist * FT / 10) * 10 + " ft") : dist > 1000 ? (dist / 1000).toFixed(1) + " km" : Math.round(dist / 10) * 10 + " m") : "");
+      d.append(dot, b, s); if (st.play !== false) { const j = document.createElement("button"); j.className = "join"; j.textContent = "Join"; j.addEventListener("pointerdown", e => { e.preventDefault(); e.stopPropagation(); joinRider(o.peer, nm); }); d.append(j); } bx.appendChild(d); } }
+  const head = MP.room ? (n ? n + (n === 1 ? " rider" : " riders") + " on the mountain with you" : "Share this link to ride together") : MP.status;
+  const d = document.createElement("div"); d.textContent = head; box.prepend(d); const d2 = document.createElement("div"); d2.textContent = n ? head + ". Join drops you in beside them." : head; mbox.prepend(d2);
+}
+function joinRider(peer, nm) { // drop in a few metres uphill of a friend, facing the way they face
+  const o = MP.others.find(q => q.peer === peer); if (!o || !o.st) return; const st = o.st, yaw = st.yaw || 0;
+  let x = st.x - Math.sin(yaw) * 5, z = st.z - Math.cos(yaw) * 5; if (H(x, z) < H(st.x, st.z) - 6 || cliffK(x, z) > 0.3) { x = st.x + 2.5; z = st.z + 2.5; }
+  if (sk.mode === "menu" || !$("menu").hidden) startPlay(); if (!$("map").hidden) toggleMap(false); placeSkier(x, z, yaw, 0); toast("Joined " + nm, 2.5); MP.dirty = true;
 }
 const _rs = { p: new THREE.Vector3() };
 function updateRemotes(dt, time) {

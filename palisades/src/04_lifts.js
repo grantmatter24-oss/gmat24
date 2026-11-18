@@ -176,30 +176,54 @@ function polyBox(P) { // tightest box aligned with one of the outline's edges: {
 function polyArea(P) { let a = 0; for (let i = 0, j = P.length - 1; i < P.length; j = i++) a += P[j][0] * P[i][1] - P[i][0] * P[j][1]; return Math.abs(a) / 2; }
 function initBuildings() {
   const pos = [], nor = [], col = [], uv = [];
-  const WALLS = [[0.44, 0.36, 0.28], [0.30, 0.25, 0.21], [0.50, 0.47, 0.42], [0.36, 0.30, 0.25], [0.26, 0.28, 0.30], [0.42, 0.33, 0.24]];
-  const LODGE = [[0.60, 0.48, 0.33], [0.52, 0.40, 0.25], [0.42, 0.45, 0.36], [0.66, 0.60, 0.50], [0.36, 0.26, 0.18]];   // the village's stucco, timber and sage
+  /* The valley is built like an alpine village: stone or pale stucco at the ground, dark timber above, steep snow-loaded gables with wide eaves,
+     gabled dormers along the eaves of the big lodges, timber balconies on every upper floor, and stone chimneys. */
+  const WALLS = [[0.30, 0.19, 0.11], [0.24, 0.15, 0.09], [0.38, 0.25, 0.14], [0.20, 0.13, 0.08], [0.34, 0.22, 0.13], [0.27, 0.20, 0.14]];   // chalet timber
+  const LODGE = [[0.72, 0.58, 0.38], [0.56, 0.27, 0.17], [0.40, 0.46, 0.33], [0.78, 0.71, 0.58], [0.62, 0.45, 0.26]];   // the village's ochre, barn red, sage and cream stucco
+  const TIMBER = [0.17, 0.10, 0.06], STUCCO = [0.80, 0.76, 0.68], STONE = [0.33, 0.31, 0.29], sn = [0.9, 0.92, 0.95];
+  const V = (a, b, c, cc, hint, u) => { // one triangle facing 'hint'; plain colour unless wall uvs are given
+    const e1 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], e2 = [c[0] - a[0], c[1] - a[1], c[2] - a[2]]; let n = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]]; const l = Math.hypot(n[0], n[1], n[2]) || 1; n = [n[0] / l, n[1] / l, n[2] / l];
+    let T = [a, b, c], UV = u; if (n[0] * hint[0] + n[1] * hint[1] + n[2] * hint[2] < 0) { n = [-n[0], -n[1], -n[2]]; T = [a, c, b]; if (u) UV = [u[0], u[2], u[1]]; }
+    for (let k = 0; k < 3; k++) { pos.push(T[k][0], T[k][1], T[k][2]); nor.push(n[0], n[1], n[2]); col.push(cc[0], cc[1], cc[2]); if (UV) uv.push(UV[k][0], UV[k][1]); else uv.push(0, -9); } };
+  const Q = (a, b, c, d, cc, hint, u) => { V(a, b, c, cc, hint, u && [u[0], u[1], u[2]]); V(a, c, d, cc, hint, u && [u[0], u[2], u[3]]); };
+  const obox = (cx, cy, cz, ax, az, hl, hh, hw, cc) => { const px = -az, pz = ax, K = (i, j, k) => [cx + ax * hl * i + px * hw * k, cy + hh * j, cz + az * hl * i + pz * hw * k];   // a box lying along (ax, az)
+    Q(K(-1, -1, -1), K(1, -1, -1), K(1, 1, -1), K(-1, 1, -1), cc, [-px, 0, -pz]); Q(K(-1, -1, 1), K(1, -1, 1), K(1, 1, 1), K(-1, 1, 1), cc, [px, 0, pz]);
+    Q(K(-1, -1, -1), K(-1, -1, 1), K(-1, 1, 1), K(-1, 1, -1), cc, [-ax, 0, -az]); Q(K(1, -1, -1), K(1, -1, 1), K(1, 1, 1), K(1, 1, -1), cc, [ax, 0, az]);
+    Q(K(-1, 1, -1), K(1, 1, -1), K(1, 1, 1), K(-1, 1, 1), sn, [0, 1, 0]); Q(K(-1, -1, -1), K(1, -1, -1), K(1, -1, 1), K(-1, -1, 1), cc, [0, -1, 0]); };   // snow lies on top of everything
   WORLD.blds = WORLD.blds.filter(bd => !/lifthouse|lift base|express base|funitel base|venture base|exhibition base|silverado base|lady base|chair base|shirley/i.test(bd.n || ""));
   WORLD.blds.forEach((bd, bi) => {
     const P = bd.p, n = P.length; let lo = 1e9, hi = -1e9, cx = 0, cz = 0;
     for (const q of P) { const g = Hsmooth(q[0], q[1]); lo = Math.min(lo, g); hi = Math.max(hi, g); cx += q[0] / n; cz += q[1] / n; }
-    const area = polyArea(P), lodge = bd.h >= 9 || area > 700, top = hi + bd.h, wc = lodge ? LODGE[bi % LODGE.length] : WALLS[bi % WALLS.length], sn = [0.9, 0.92, 0.95]; let per = lodge ? 10000 : 0;
-    const bx = polyBox(P), gable = bx && area / bx.area > 0.76 && bx.hv * 2 < 26 && bd.h < 15 && !lodge;
+    const area = polyArea(P), lodge = bd.h >= 9 || area > 700, top = hi + bd.h, wc = lodge ? LODGE[bi % LODGE.length] : WALLS[bi % WALLS.length], lo0 = lodge ? 10000 : 0; let per = lo0;
+    const bx = polyBox(P), gable = bx && area / bx.area > 0.76 && bx.hv * 2 < 26 && bd.h < 15 && area > 16, chalet = !lodge && bd.h >= 4.6, rhG = gable ? Math.min(bx.hv * (lodge ? 0.56 : 0.62), 8.5) : 0;
     for (let i = 0; i < n; i++) {
-      const a = P[i], b = P[(i + 1) % n], ex = b[0] - a[0], ez = b[1] - a[1], len = Math.hypot(ex, ez), nx = -ez / len, nz = ex / len;
+      const a = P[i], b = P[(i + 1) % n], ex = b[0] - a[0], ez = b[1] - a[1], len = Math.hypot(ex, ez); if (len < 0.05) continue; const nx = -ez / len, nz = ex / len, tx = ex / len, tz = ez / len;
       const quad = (y0, y1, c, o, u0, u1, v0, v1) => { const ax = a[0] + nx * o, az = a[1] + nz * o, bx = b[0] + nx * o, bz = b[1] + nz * o; pos.push(ax, y0, az, bx, y0, bz, bx, y1, bz, ax, y0, az, bx, y1, bz, ax, y1, az); for (let k = 0; k < 6; k++) { nor.push(nx, 0, nz); col.push(...c); } uv.push(u0, v0, u1, v0, u1, v1, u0, v0, u1, v1, u0, v1); };
-      quad(lo - 1.5, top, wc, 0, per, per + len, lo - hi, bd.h); per += len;
+      if (chalet) { quad(lo - 1.5, hi + 2.7, STUCCO, 0, per, per + len, lo - hi, 2.7); quad(hi + 2.7, top, wc, 0, per, per + len, 2.7, bd.h); }   // pale ground floor, timber above
+      else quad(lo - 1.5, top, wc, 0, per, per + len, lo - hi, bd.h);
+      const mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2, sgn = inPoly(P, mx + nx * 0.4, mz + nz * 0.4) ? -1 : 1, ox = nx * sgn, oz = nz * sgn, along = !gable || Math.abs(tx * bx.ux + tz * bx.uz) > 0.7;
+      if (lodge && len >= 9) for (let y = hi + 6; y < top - 1.2; y += 3) { obox(mx + ox * 0.6, y - 0.07, mz + oz * 0.6, tx, tz, len / 2 - 0.9, 0.07, 0.6, TIMBER); obox(mx + ox * 1.16, y + 0.5, mz + oz * 1.16, tx, tz, len / 2 - 0.9, 0.5, 0.05, TIMBER); }   // a balcony along every upper floor
+      if (lodge && len >= 7 && along && bd.h >= 6) { // gabled dormers standing on the eaves
+        const nD = Math.max(1, Math.floor(len / 9.5)), dw = 2.0, eh = 2.3, gh = 1.7, dd = 5.2, y0 = top - 0.25, y1 = top + eh, y2 = y1 + gh;
+        for (let k = 0; k < nD; k++) { const sK = (k + 0.5) / nD * len, c0 = a[0] + tx * sK, c1 = a[1] + tz * sK, F = (u, d, y) => [c0 + tx * u + ox * d, y, c1 + tz * u + oz * d], u0 = lo0 + 2.6 * (3 + 7 * k + 13 * i);
+          Q(F(-dw, 0.06, y0), F(dw, 0.06, y0), F(dw, 0.06, y1), F(-dw, 0.06, y1), wc, [ox, 0, oz], [[u0, 6.02], [u0 + 2.6, 6.02], [u0 + 2.6, 8.98], [u0, 8.98]]);   // the face, with its window
+          V(F(-dw, 0.06, y1), F(dw, 0.06, y1), F(0, 0.06, y2), TIMBER, [ox, 0, oz]); V(F(-dw, -dd, y1), F(dw, -dd, y1), F(0, -dd, y2), wc, [-ox, 0, -oz]); Q(F(-dw, -dd, y0), F(dw, -dd, y0), F(dw, -dd, y1), F(-dw, -dd, y1), wc, [-ox, 0, -oz]);
+          for (const sd of [-1, 1]) { Q(F(sd * dw, 0.06, y0), F(sd * dw, -dd, y0), F(sd * dw, -dd, y1), F(sd * dw, 0.06, y1), wc, [tx * sd, 0, tz * sd]); Q(F(sd * (dw + 0.45), 0.7, y1 - 0.3), F(sd * (dw + 0.45), -dd - 0.2, y1 - 0.3), F(0, -dd - 0.2, y2 + 0.14), F(0, 0.7, y2 + 0.14), sn, [tx * sd, 1, tz * sd]); } } }
     }
-    if (gable) { // pitched roof under a slab of snow, ridge along the long side
-      const { ux, uz, cu, cv, hu, hv } = bx, rh = hv * 0.62, ov = 0.7, W = (u, v, y) => [u * ux - v * uz, y, u * uz + v * ux];
-      const tri = (a, b, c, cc) => { const e1 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], e2 = [c[0] - a[0], c[1] - a[1], c[2] - a[2]]; let n = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]]; const l = Math.hypot(...n) || 1; if (n[1] < 0) n = n.map(q => -q); for (const q of [a, b, c]) { pos.push(...q); nor.push(n[0] / l, n[1] / l, n[2] / l); col.push(...cc); uv.push(0, -9); } };
-      for (const sv of [-1, 1]) { const e0 = W(cu - hu - ov, cv + sv * (hv + ov), top - 0.25), e1 = W(cu + hu + ov, cv + sv * (hv + ov), top - 0.25), r0 = W(cu - hu - ov, cv, top + rh + 0.45), r1 = W(cu + hu + ov, cv, top + rh + 0.45); tri(e0, e1, r1, sn); tri(e0, r1, r0, sn); }
-      for (const su of [-1, 1]) tri(W(cu + su * hu, cv - hv, top), W(cu + su * hu, cv + hv, top), W(cu + su * hu, cv, top + rh), wc);
-    } else { // hipped roof: eaves out past the walls, slopes drawn in toward the middle, a flat snow-loaded top
-      const rh = clamp(0.2 * Math.sqrt(area), 2.6, 9), E = P.map(q => [cx + (q[0] - cx) * 1.035, top - 0.15, cz + (q[1] - cz) * 1.035]), Uq = P.map(q => [cx + (q[0] - cx) * 0.42, top + rh, cz + (q[1] - cz) * 0.42]);
+    if (gable) { // a steep pitched roof under a slab of snow, wide eaves, ridge along the long side
+      const { ux, uz, cu, cv, hu, hv } = bx, rh = rhG, ov = lodge ? 1.1 : 1.25, og = 0.9, W = (u, v, y) => [u * ux - v * uz, y, u * uz + v * ux], drop = ov * rh / hv;
+      for (const sv of [-1, 1]) { Q(W(cu - hu - og, cv + sv * (hv + ov), top - drop), W(cu + hu + og, cv + sv * (hv + ov), top - drop), W(cu + hu + og, cv, top + rh + 0.4), W(cu - hu - og, cv, top + rh + 0.4), sn, [-uz * sv, 1.2, ux * sv]);
+        Q(W(cu - hu - og, cv + sv * (hv + ov), top - drop - 0.16), W(cu + hu + og, cv + sv * (hv + ov), top - drop - 0.16), W(cu + hu + og, cv, top + rh + 0.24), W(cu - hu - og, cv, top + rh + 0.24), TIMBER, [uz * sv, -1.2, -ux * sv]); }   // timber underside of the eaves
+      for (const su of [-1, 1]) { V(W(cu + su * hu, cv - hv, top), W(cu + su * hu, cv + hv, top), W(cu + su * hu, cv, top + rh), lodge ? wc : TIMBER, [ux * su, 0, uz * su]); }
+      if (chalet && bd.h >= 5.4) { const su = (bi & 1) ? 1 : -1, c = W(cu + su * (hu + 0.55), cv, 0), r = W(cu + su * (hu + 1.06), cv, 0); obox(c[0], hi + 2.78, c[2], -uz, ux, hv - 0.3, 0.07, 0.55, TIMBER); obox(r[0], hi + 3.33, r[2], -uz, ux, hv - 0.3, 0.48, 0.05, TIMBER); }   // the balcony across the gable end
+      const ch = W(cu + hu * 0.45 * ((bi & 2) ? 1 : -1), cv + hv * 0.3, 0); if (bd.h >= 3.5) obox(ch[0], top + (rh * 0.7 + 1.0) / 2 - 0.5, ch[2], ux, uz, 0.45, (rh * 0.7 + 1.0) / 2 + 0.5, 0.45, STONE);
+    } else { // hipped roof: eaves out past the walls, slopes drawn in toward the middle, a snow-loaded top
+      const rh = clamp(0.24 * Math.sqrt(area), 3, 10), E = P.map(q => [cx + (q[0] - cx) * 1.04, top - 0.2, cz + (q[1] - cz) * 1.04]), Uq = P.map(q => [cx + (q[0] - cx) * 0.36, top + rh, cz + (q[1] - cz) * 0.36]);
       for (let i = 0; i < n; i++) { const j = (i + 1) % n, a = E[i], b = E[j], c = Uq[j], d = Uq[i], e1 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], e2 = [d[0] - a[0], d[1] - a[1], d[2] - a[2]]; let nn = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]]; const l = Math.hypot(...nn) || 1; if (nn[1] < 0) nn = nn.map(q => -q);
         for (const q of [a, b, c, a, c, d]) { pos.push(...q); nor.push(nn[0] / l, nn[1] / l, nn[2] / l); col.push(...sn); uv.push(0, -7); } }
       const tris = THREE.ShapeUtils.triangulateShape(P.map(q => new THREE.Vector2(q[0], q[1])), []);
       for (const t of tris) for (const k of [t[0], t[2], t[1]]) { pos.push(Uq[k][0], top + rh, Uq[k][2]); nor.push(0, 1, 0); col.push(...sn); uv.push(0, -9); }
+      if (bd.h >= 4) for (let k = 0; k < (lodge ? 2 : 1); k++) { const q = P[(bi + k * (n >> 1)) % n], x = cx + (q[0] - cx) * 0.3, z = cz + (q[1] - cz) * 0.3; obox(x, top + rh / 2 + 0.6, z, 1, 0, 0.55, rh / 2 + 1.0, 0.55, STONE); }   // stone chimneys
     }
     bd.cx = cx; bd.cz = cz; bd.top = top;
     const key = Math.floor(cx / 60) + "," + Math.floor(cz / 60); if (!BLD_GRID.has(key)) BLD_GRID.set(key, []); BLD_GRID.get(key).push(bd);
