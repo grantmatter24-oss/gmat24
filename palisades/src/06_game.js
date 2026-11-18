@@ -98,6 +98,7 @@ function landing() {
 }
 function stepSki(dt) {
   const p = sk.p, v = sk.v, PH = KR.PHYS;
+  if (COMP.hold) { sk.sp = 0; v.set(0, 0, 0); popReq = false; return; }   // in the start gate, waiting for the count
   if (charging) { if (!sk.ground || sk.crashed) { charging = false; chargeT = 0; } else chargeT += dt; }
   sk.chg = charging ? Math.min(1, chargeT / 0.5) : 0;
   sk.pumpT = Math.max(0, sk.pumpT - dt); sk.landT = Math.max(0, sk.landT - dt); sk.popT = Math.max(0, sk.popT - dt);

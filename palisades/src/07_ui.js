@@ -32,7 +32,8 @@ function updateHUD(dt) {
       else set("", "Off-piste", _runNear && _runK < 8 ? "Powder · near " + _runNear.n : "Powder"); } }
   // lift prompt and ride bar
   const pr = $("prompt"), lb = $("liftBar");
-  if (sk.mode === "ski" && nearLift) { pr.hidden = false; pr.innerHTML = "<kbd>E</kbd> Load " + nearLift.name; } else pr.hidden = true;
+  if (sk.mode === "ski" && COMP.near && !COMP.run) { pr.hidden = false; pr.innerHTML = "<kbd>E</kbd> Enter the " + COMP.near.name; }
+  else if (sk.mode === "ski" && nearLift && !COMP.run) { pr.hidden = false; if (liftLocked(nearLift)) pr.textContent = nearLift.name + " is locked: needs " + LIFT_LOCK[nearLift.name] + " medal points, you have " + medalPoints() + ". Win trophies in competitions (L)."; else pr.innerHTML = "<kbd>E</kbd> Load " + nearLift.name; } else pr.hidden = true;
   if (sk.mode === "wait" || sk.mode === "lift") {
     const L = sk.lift; lb.hidden = false; $("liftName").textContent = L.name;
     if (sk.mode === "wait") { $("liftFill").style.width = "0%"; $("liftSub").innerHTML = (L.type === "tram" ? "Next cabin in " : "Next chair in ") + fmtTime(sk.wait) + ' · hold <span class="kb">F</span> to fast-forward · <span class="kb">Enter</span> skip to top'; }
@@ -130,8 +131,10 @@ function initInput() {
     else if (key === "b") toggleWalk();
     else if (key === "v") { fpv = !fpv; store.set("pal-fpv", fpv); camSnap = true; }
     else if (key === "n") { muted = !muted; store.set("pal-mute", muted); toast(muted ? "Sound off" : "Sound on", 1.2); }
-    else if (key === "r") rewKey = true;
-    else if (key === "e" && sk.mode === "ski" && nearLift && sk.ground) boardLift(nearLift);
+    else if (key === "r") { rewKey = !COMP.run; if (COMP.run) toast("No rewinding in a competition", 1.5); }
+    else if (key === "e" && sk.mode === "ski" && COMP.near && !COMP.run && sk.ground) compEnter(COMP.near);
+    else if (key === "e" && sk.mode === "ski" && nearLift && sk.ground && !COMP.run) { if (liftLocked(nearLift)) toast(nearLift.name + " is locked", 2); else boardLift(nearLift); }
+    else if (key === "l" && sk.mode !== "menu") compList($("compList").hidden);
     else if (key === "Enter" && (sk.mode === "wait" || sk.mode === "lift")) { const L = sk.lift; unloadAt(L); toast("Top of " + L.name + " · " + fmtAlt(sk.p.y)); }
     else if ("1234".includes(key) && key.length === 1) setWeather(["bluebird", "golden", "overcast", "storm"][+key - 1]);
   });
@@ -160,8 +163,8 @@ function initInput() {
   // outfit and ski setup: Kicker Run's own options, everything unlocked
   const FIT = [["helmet", "Headwear"], ["jacket", "Jacket"], ["pants", "Pants"], ["accessory", "Accessory"], ["skis", "Skis"], ["poles", "Poles"], ["style", "Figure"], ["skibend", "Ski rocker"], ["len", "Ski length"], ["grip", "Edges"], ["wax", "Wax"]];
   for (const [cat, label] of FIT) { const l = document.createElement("label"); l.textContent = label; l.htmlFor = "fit-" + cat; const sl = document.createElement("select"); sl.id = "fit-" + cat;
-    for (const k in KR.OUTFIT_OPTS[cat]) { const o = document.createElement("option"); o.value = k; o.textContent = KR.OUTFIT_OPTS[cat][k]; sl.appendChild(o); } sl.value = outfit[cat];
-    sl.addEventListener("change", () => { outfit[cat] = sl.value; store.set("pal-outfit", outfit); KR.dress(rig, outfit); }); $("fitRows").append(l, sl); }
+    for (const k in KR.OUTFIT_OPTS[cat]) { const o = document.createElement("option"); o.value = k; o.textContent = KR.OUTFIT_OPTS[cat][k]; sl.appendChild(o); } sl.value = outfit[cat]; sl.dataset.cat = cat;
+    sl.addEventListener("change", () => { if (sl.selectedOptions[0] && sl.selectedOptions[0].disabled) { sl.value = outfit[cat]; return; } outfit[cat] = sl.value; store.set("pal-outfit", outfit); KR.dress(rig, outfit); }); $("fitRows").append(l, sl); }
   const openFit = () => { setOverlay("pause", false); setOverlay("fit", true); if (sk.mode !== "menu") paused = true; };
   $("fitBtn").addEventListener("click", openFit); $("pFit").addEventListener("click", openFit); $("fitOk").addEventListener("click", () => { setOverlay("fit", false); if (sk.mode !== "menu") paused = false; });
   { const ni = $("nameIn"); ni.value = MP.myName; ni.addEventListener("input", () => { MP.myName = ni.value.replace(/[<>]/g, "").trim().slice(0, 20); store.set("pal-name", MP.myName); MP.dirty = true; }); }
@@ -223,17 +226,18 @@ const _rs = { p: new THREE.Vector3() };
 function updateRemotes(dt, time) {
   MP.listT += dt; if (MP.dirty && MP.listT > 0.5) { MP.listT = 0; mpList(); } else if (MP.listT > 2 && MP.remotes.size) { MP.listT = 0; mpList(); }
   const a = 1 - Math.exp(-12 * dt);
-  for (const r of MP.remotes.values()) {
-    const st = r.st, R = r.R; if (!st) continue; const far = Math.hypot(st.x - sk.p.x, st.z - sk.p.z);
+  for (const r of MP.remotes.values()) poseRemote(r, dt, time, a);
+}
+function poseRemote(r, dt, time, a) { // stand a rider (a friend, or a competition rival) where their state says, in the pose it implies
+    const st = r.st, R = r.R; if (!st) return; const far = Math.hypot(st.x - sk.p.x, st.z - sk.p.z);
     const L = st.md === "lift" ? LIFTS[st.li] : null, cabin = L && !L.carpet && !L.type.startsWith("chair");
-    R.hold.visible = st.play !== false && far < 2500 && !cabin; if (!R.hold.visible) continue;
+    R.hold.visible = st.play !== false && far < 2500 && !cabin; if (!R.hold.visible) return;
     const jump = !r.q || Math.hypot(st.x - r.q.p.x, st.z - r.q.p.z) > 30;
     if (jump) r.q = { p: new THREE.Vector3(st.x, st.y, st.z), yaw: st.yaw, spin: st.spin, rot: st.rot, grind: null, boxT: 0, bike: false, finished: false, bikeJump: false, pumpT: 0, landT: 0, popT: 0, airT: 1, vx: 0, vs: 0 };
     const q = r.q; q.p.x += (st.x - q.p.x) * a; q.p.y += (st.y - q.p.y) * a; q.p.z += (st.z - q.p.z) * a; q.yaw += wrap(st.yaw - q.yaw) * a; q.spin += (st.spin - q.spin) * a; q.rot += (st.rot - q.rot) * a;
     q.rotV = st.rotV || 0; q.sw = st.sw; q.ground = st.gr; q.air = !st.gr && st.md === "ski"; q.crashed = st.cr; q.tumZ = st.tz || 0; q.turn = st.turn; q.carve = st.carve; q.sp = st.sp; q.vs = st.sp; q.chg = L && L.type.startsWith("chair") ? 0.85 : st.chg || 0; q.stumT = st.st || 0; q.stumD = 1; q.mode = st.md; q.walkPh = st.wp || 0; q.grind = st.gd ? 1 : null;
     MP_KEYS.forEach((n, i) => { r.keys[n] = st.k & (1 << i) ? 1 : 0; });
     poseRider(R, q, st.md === "ski" ? r.keys : NOKEYS, st.sl || 0, dt, time, jump); if (L && L.type.startsWith("chair")) R.hold.position.y += 0.2;
-  }
 }
 const FIREBASE_CONFIG = { apiKey: "AIzaSyDP_rgi4dWZqVax_c5Ob5Hg4dilLS9Bchc", authDomain: "kicker-run.firebaseapp.com", databaseURL: "https://kicker-run-default-rtdb.firebaseio.com", projectId: "kicker-run", storageBucket: "kicker-run.firebasestorage.app", messagingSenderId: "149808173020", appId: "1:149808173020:web:744be18f442c535fe54919" };
 const fbLoad = src => new Promise((ok, no) => { const e = document.createElement("script"); e.src = src; e.onload = ok; e.onerror = no; document.head.appendChild(e); });

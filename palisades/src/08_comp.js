@@ -1,0 +1,134 @@
+/* ---------- competitions, trophies and unlocks ----------
+   Three venues on the mountain. Ski to the start arch (or pick one from the Competitions list) and press E to enter a heat against five riders.
+   The other riders ski like you: each one replays your own best run on that course, a little faster or slower and a little to one side,
+   so beating them means beating yourself. Before you have a run on record they ski the course line at a par pace.
+   Placing in a heat wins a trophy; trophies are worth medal points (gold 3, silver 2, bronze 1, best per venue), and medal points open
+   the upper lifts and the better clothes and gear. */
+const COMP = { venues: [], near: null, run: null, hold: false, ghosts: [], save: store.get("pal-comp", {}) || {} };
+const TROPHY = ["No trophy", "Bronze", "Silver", "Gold"], TROPHY_COL = ["#7d8a96", "#c27a3a", "#c9d1d8", "#f0c23b"], BOTS = ["Koda", "Juniper", "Rook", "Sierra", "Aspen"];
+const LIFT_LOCK = { "KT22 Express": 1, "Shirley Lake Express": 1, "Solitude": 2, "Headwall Express": 2, "Siberia Express": 2, "Summit Six": 2, "Emigrant": 3, "Broken Arrow": 3, "Olympic Lady": 3, "Sherwood Express": 3, "Alpine Bowl": 3, "Granite Chief": 4, "Scott": 4, "Lakeview": 4, "Silverado": 5 };
+const GEAR_LOCK = { helmet: { camo: 1, redbull: 2, santa: 4 }, jacket: { block: 1, navy: 2, greenc: 3, santa: 4, trench: 5 }, skis: { stripes: 1, camo: 2, pink: 2, flames: 3 }, accessory: { ninja: 1, cape: 3 }, pants: { khaki: 1, santa: 4 }, wax: { fast: 2 } };
+const compSave = v => COMP.save[v.id] || (COMP.save[v.id] = { best: null, trophy: 0, board: [], rec: null, runs: 0 });
+const medalPoints = () => COMP.venues.reduce((a, v) => a + (compSave(v).trophy || 0), 0);
+const liftLocked = L => (LIFT_LOCK[L.name] || 0) > medalPoints();
+const fmtRes = (v, r) => r == null ? "—" : v.kind === "race" ? (Math.floor(r / 60) + ":" + (r % 60 < 10 ? "0" : "") + (r % 60).toFixed(2)) : Math.round(r).toLocaleString() + " pts";
+const better = (v, a, b) => b == null || (v.kind === "race" ? a < b : a > b);
+
+function compPath(pts, s0, s1, off = 0) { // the stretch of a run between two distances, resampled every 6 m, shifted sideways by off
+  const S = [0]; for (let i = 1; i < pts.length; i++) S.push(S[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+  const out = []; let k = 0; for (let s = s0; s <= s1; s += 6) { while (k < pts.length - 2 && s > S[k + 1]) k++; const l = S[k + 1] - S[k] || 1, u = (s - S[k]) / l, dx = (pts[k + 1][0] - pts[k][0]) / l, dz = (pts[k + 1][1] - pts[k][1]) / l; out.push([lerp(pts[k][0], pts[k + 1][0], u) - dz * off, lerp(pts[k][1], pts[k + 1][1], u) + dx * off]); }
+  return out;
+}
+function initComp() {
+  const runBy = names => { for (const n of names) { const r = WORLD.runs.filter(q => q.n === n).sort((a, b) => b.len - a.len)[0]; if (r) return r; } return null; };
+  const defs = [
+    { id: "gs", name: "Red Dog Giant Slalom", kind: "race", blurb: "Fastest time through the gates. A missed gate costs 1.5 seconds.", run: runBy(["Red Dog Face", "Lower Dog Leg", "Julia's Gold"]), s0: 25, max: 560, off: 0 },
+    { id: "slope", name: "Gold Coast Slopestyle", kind: "style", blurb: "Most trick points down the big jump line. Crashes score nothing.", run: runBy(["Gold Coast"]), s0: 45, max: 800, off: 11 },
+    { id: "free", name: "KT-22 Freeride", kind: "free", blurb: "Judged on air time, tricks and speed down the West Face. A crash costs 200.", run: runBy(["Moseley's (aka West Face)", "75 Chute", "Nose", "Dead Tree", "Rock Garden"]), s0: 12, max: 600, off: 0 }
+  ];
+  const b = new GeoBag(), banner = (txt, col) => { const cv = document.createElement("canvas"); cv.width = 1024; cv.height = 128; const g = cv.getContext("2d"); g.fillStyle = col; g.fillRect(0, 0, 1024, 128); g.fillStyle = "#fff"; g.textAlign = "center"; g.textBaseline = "middle"; let fs = 84; g.font = "800 " + fs + "px 'Big Shoulders Display', 'Arial Narrow', Impact, sans-serif"; while (g.measureText(txt).width > 970 && fs > 28) { fs -= 4; g.font = "800 " + fs + "px 'Big Shoulders Display', 'Arial Narrow', Impact, sans-serif"; } g.fillText(txt, 512, 66); const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return worldShade(new THREE.MeshStandardMaterial({ map: t, roughness: 0.6 })); };
+  const arch = (x, z, yaw, txt, col, rgb) => { const rx = Math.cos(yaw), rz = -Math.sin(yaw), g = H(x, z), mat = banner(txt, col); // two posts in the snow and a banner across, lettered on both faces
+    for (const sd of [-1, 1]) { const px = x + rx * sd * 4.4, pz = z + rz * sd * 4.4, gp = H(px, pz); b.box(0.22, 5.2, 0.22, px, gp + 1.6, pz, STEEL, yaw); b.box(0.9, 1.4, 0.04, px + rx * sd * 0.5, gp + 5.0, pz + rz * sd * 0.5, rgb, yaw); b.cyl(0.03, 0.03, 2.4, px + rx * sd * 0.06, gp + 4.6, pz + rz * sd * 0.06, STEEL, 5); towerHits.push({ x: px, z: pz, r: 0.25 }); }
+    b.box(9.0, 1.05, 0.16, x, g + 3.7, z, rgb, yaw); for (const sd of [-1, 1]) { const m = new THREE.Mesh(new THREE.PlaneGeometry(8.7, 0.95), mat); m.position.set(x + Math.sin(yaw) * sd * 0.09, g + 3.7, z + Math.cos(yaw) * sd * 0.09); m.rotation.y = yaw + (sd < 0 ? Math.PI : 0); scene.add(m); } };
+  for (const d of defs) { if (!d.run) continue; const path = compPath(d.run.pts, d.s0, Math.min(d.run.len - 20, d.s0 + d.max), d.off); if (path.length < 20) continue;
+    const S = [0]; for (let i = 1; i < path.length; i++) S.push(S[i - 1] + Math.hypot(path[i][0] - path[i - 1][0], path[i][1] - path[i - 1][1]));
+    const v = { id: d.id, name: d.name, kind: d.kind, blurb: d.blurb, path, S, len: S[S.length - 1], gates: [], par: d.kind === "race" ? S[S.length - 1] / 15 : d.kind === "style" ? 1500 : 1200 };
+    const dir = i => { const a = path[Math.max(0, i - 1)], c = path[Math.min(path.length - 1, i + 1)], l = Math.hypot(c[0] - a[0], c[1] - a[1]) || 1; return [(c[0] - a[0]) / l, (c[1] - a[1]) / l]; };
+    const d0 = dir(0), d1 = dir(path.length - 1); v.start = { x: path[0][0], z: path[0][1], yaw: Math.atan2(d0[0], d0[1]) };
+    arch(v.start.x - d0[0] * 2, v.start.z - d0[1] * 2, v.start.yaw, "START · " + d.name.toUpperCase(), "#b3261e", [0.6, 0.08, 0.06]);
+    arch(path[path.length - 1][0], path[path.length - 1][1], Math.atan2(d1[0], d1[1]), "FINISH", "#14532d", [0.05, 0.3, 0.14]);
+    if (d.kind === "race") for (let s = 48, k = 0; s < v.len - 30; s += 28, k++) { const i = Math.round(s / 6), q = dir(i), sd = k % 2 ? 1 : -1, x = path[i][0] - q[1] * sd * 4.6, z = path[i][1] + q[0] * sd * 4.6, yaw = Math.atan2(q[0], q[1]), g = H(x, z), col = k % 2 ? [0.05, 0.2, 0.65] : [0.75, 0.08, 0.06];
+      for (const e of [-0.36, 0.36]) b.cyl(0.018, 0.018, 1.9, x + Math.cos(yaw) * e, g + 0.75, z - Math.sin(yaw) * e, col, 5); b.box(0.74, 0.5, 0.02, x, g + 1.42, z, col, yaw); v.gates.push({ s: S[i], sd }); }
+    COMP.venues.push(v); compSave(v);
+  }
+  if (b.p.length) { const m = new THREE.Mesh(b.build(), liftMat); m.castShadow = true; m.frustumCulled = false; scene.add(m); }
+  // interface
+  $("compBtn").addEventListener("click", () => compList(true)); $("pComp").addEventListener("click", () => { setOverlay("pause", false); compList(true); });
+  gearLocks();
+}
+function gearLocks() { // lock the better clothes and gear until the medal points are there; whatever you already wear stays yours
+  const pts = medalPoints();
+  document.querySelectorAll("#fitRows select").forEach(sl => { const cat = sl.dataset.cat, lk = GEAR_LOCK[cat]; if (!lk) return;
+    for (const o of sl.options) { const need = lk[o.value] || 0, locked = need > pts && outfit[cat] !== o.value; o.disabled = locked; o.textContent = KR.OUTFIT_OPTS[cat][o.value] + (locked ? "  (locked: " + need + " medal pts)" : ""); } });
+}
+function compSynth(v) { // a par run down the course line, for riders to follow until you have set a run of your own
+  const S = [], vp = v.kind === "race" ? 15 : 12.5; let t = 0;
+  for (let i = 0; i < v.path.length; i++) { const a = v.path[Math.max(0, i - 1)], c = v.path[Math.min(v.path.length - 1, i + 1)], l = Math.hypot(c[0] - a[0], c[1] - a[1]) || 1, dx = (c[0] - a[0]) / l, dz = (c[1] - a[1]) / l, wg = v.kind === "race" ? 3.2 * Math.sin(v.S[i] / 9) : 0, x = v.path[i][0] - dz * wg, z = v.path[i][1] + dx * wg;
+    S.push({ t, x, y: H(x, z), z, yaw: Math.atan2(dx, dz) + (v.kind === "race" ? 0.35 * Math.cos(v.S[i] / 9) : 0), spin: 0, rot: 0, rotV: 0, sw: false, gr: true, cr: false, tz: 0, turn: v.kind === "race" ? Math.cos(v.S[i] / 9) : 0, carve: 0.7, sp: vp, chg: 0, st: 0, k: 0, gd: 0, sl: 0 }); t += 6 / vp; }
+  return { T: t - 6 / vp, S };
+}
+function compEnter(v) {
+  const sv = compSave(v), rec = sv.rec && sv.rec.S && sv.rec.S.length > 8 ? sv.rec : compSynth(v), own = rec === sv.rec, h = sv.runs || 0;
+  placeSkier(v.start.x, v.start.z, v.start.yaw, 0); clearTracks(); COMP.hold = true; COMP.near = null;
+  if (!COMP.ghosts.length) { const pick = (cat, i) => { const ks = Object.keys(KR.OUTFIT_OPTS[cat]); return ks[(i * 3 + cat.length) % ks.length]; };
+    BOTS.forEach((n, i) => { const of = Object.assign({}, outfit, { helmet: pick("helmet", i), jacket: pick("jacket", i), pants: pick("pants", i), skis: pick("skis", i), accessory: pick("accessory", i) }), R = makeRider(of), tag = mpTag(R); mpTagText(tag, n); COMP.ghosts.push({ n, R, tag, q: null, keys: Object.assign({}, NOKEYS), st: null }); }); KR.dress(rig, outfit); }
+  COMP.ghosts.forEach((g, i) => { const rn = Math.pow(hash2(h * 7 + 1, i, 201), 1.3);
+    if (v.kind === "race") { g.res = own ? sv.best * (0.985 + 0.17 * rn) : v.par * (1.02 + 0.25 * rn); g.dur = rec.T * (g.res / (own ? sv.best : v.par)); }
+    else { g.res = Math.round((own ? sv.best * (1.04 - 0.4 * rn) : v.par * (1.1 - 0.6 * rn)) / 10) * 10; g.dur = rec.T * (0.97 + 0.14 * hash2(h, i, 202)); }
+    g.off = (i - 2) * 1.5 + (hash2(h, i, 203) - 0.5); g.k = 0; g.q = null; g.endT = 0; });
+  COMP.run = { v, rec, t: -3.2, S: [], recT: 0, pts0: sk.pts, air: 0, vsum: 0, vn: 0, crash: 0, wasCr: false, gate: 0, miss: 0, idx: 0, sP: 0, lastX: sk.p.x, lastZ: sk.p.z, done: false };
+  setOverlay("comp", false); setOverlay("compList", false); if (!$("menu").hidden) startPlay(); paused = false; $("compHud").hidden = false;
+}
+function compEnd(msg) { COMP.run = null; COMP.hold = false; $("compHud").hidden = true; for (const g of COMP.ghosts) g.R.hold.visible = false; if (msg) toast(msg, 3); }
+function compTick(dt, time) {
+  const r = COMP.run;
+  if (!r) { COMP.near = null; if (sk.mode === "ski" && sk.sp < 9) for (const v of COMP.venues) if (Math.hypot(sk.p.x - v.start.x, sk.p.z - v.start.z) < 15) COMP.near = v; return; }
+  const v = r.v, hud = $("compHud"); if (r.done) return;
+  if (sk.mode !== "ski" || Math.hypot(sk.p.x - r.lastX, sk.p.z - r.lastZ) > 40) return compEnd("Heat abandoned");
+  r.lastX = sk.p.x; r.lastZ = sk.p.z; r.t += dt;
+  if (r.t < 0) { hud.textContent = v.name + " · " + Math.ceil(-r.t); return; }
+  if (COMP.hold) { COMP.hold = false; toast("Go!", 1.2); sfx("pop"); }
+  // where you are along the course
+  let bd = 1e9, bi = r.idx, bt = 0, lat = 0; for (let i = Math.max(0, r.idx - 3); i < Math.min(v.path.length - 1, r.idx + 14); i++) { const a = v.path[i], c = v.path[i + 1], ex = c[0] - a[0], ez = c[1] - a[1], u = clamp(((sk.p.x - a[0]) * ex + (sk.p.z - a[1]) * ez) / (ex * ex + ez * ez || 1), 0, 1), dx = sk.p.x - a[0] - ex * u, dz = sk.p.z - a[1] - ez * u, d = Math.hypot(dx, dz); if (d < bd) { bd = d; bi = i; bt = u; lat = (ex * dz - ez * dx) / (Math.hypot(ex, ez) || 1); } }
+  r.idx = bi; r.sP = v.S[bi] + bt * (v.S[bi + 1] - v.S[bi]);
+  if (bd > 110) return compEnd("You left the course");
+  if (r.t > (v.kind === "race" ? v.par * 4 : 180)) return compEnd("Out of time");
+  // the run is recorded so the others can ski it back at you next heat
+  r.recT += dt; if (r.recT >= 1 / 6) { r.recT = 0; const p = mpPack(); r.S.push({ t: +r.t.toFixed(2), x: p.x, y: p.y, z: p.z, yaw: p.yaw, spin: p.spin, rot: p.rot, rotV: p.rotV, sw: p.sw, gr: p.gr, cr: p.cr, tz: p.tz, turn: p.turn, carve: p.carve, sp: p.sp, chg: p.chg, st: p.st, k: p.k, gd: p.gd, sl: p.sl }); }
+  if (!sk.ground) r.air += dt; r.vsum += sk.sp; r.vn++; if (sk.crashed && !r.wasCr) r.crash++; r.wasCr = sk.crashed;
+  while (r.gate < v.gates.length && r.sP > v.gates[r.gate].s) { const g = v.gates[r.gate++]; if (lat * g.sd > 4.4) { r.miss++; toast("Missed a gate  +1.5 s", 1.6); } }
+  // the other riders
+  const a = 1 - Math.exp(-12 * dt), S = r.rec.S;
+  for (const g of COMP.ghosts) { const tau = r.t * r.rec.T / g.dur; while (g.k < S.length - 2 && S[g.k + 1].t < tau) g.k++;
+    const A = S[g.k], B = S[g.k + 1], u = clamp((tau - A.t) / (B.t - A.t || 1), 0, 1), yaw = A.yaw + wrap(B.yaw - A.yaw) * u, ox = lerp(A.x, B.x, u), oz = lerp(A.z, B.z, u), x = ox + Math.cos(yaw) * g.off, z = oz - Math.sin(yaw) * g.off;
+    if (tau > r.rec.T) { g.endT += dt; if (g.endT > 2.5) { g.R.hold.visible = false; continue; } }
+    g.st = Object.assign({}, A, { x, y: lerp(A.y, B.y, u) + H(x, z) - H(ox, oz), z, yaw, spin: lerp(A.spin, B.spin, u), rot: lerp(A.rot, B.rot, u), md: "ski", play: true, li: -1, res: "palisades", sp: tau > r.rec.T ? 0 : A.sp }); poseRemote(g, dt, time, a); }
+  const trick = sk.pts - r.pts0;
+  hud.textContent = v.name + " · " + (v.kind === "race" ? fmtRes(v, r.t) + " · gate " + r.gate + "/" + v.gates.length + (r.miss ? " · " + r.miss + " missed" : "") : fmtRes(v, compScore(r)) + " · " + Math.max(0, Math.round(v.len - r.sP)) + " m to go");
+  if (r.sP >= v.len - 2) compFinish();
+}
+function compScore(r) { const tr = sk.pts - r.pts0; return Math.max(0, r.v.kind === "style" ? (r.crash ? 0 : tr) : tr + Math.round(100 * r.air) + Math.round(15 * (r.vn ? r.vsum / r.vn : 0) * MPH) - 200 * r.crash); }
+function compFinish() {
+  const r = COMP.run, v = r.v, sv = compSave(v), before = medalPoints(); r.done = true;
+  const mine = v.kind === "race" ? +(r.t + 1.5 * r.miss).toFixed(2) : compScore(r), me = MP.myName || "You";
+  const heat = COMP.ghosts.map(g => ({ n: g.n, r: v.kind === "race" ? +g.res.toFixed(2) : g.res })).concat([{ n: me, r: mine, me: true }]).sort((a, b) => v.kind === "race" ? a.r - b.r : b.r - a.r);
+  const place = heat.findIndex(e => e.me) + 1, trophy = place <= 3 ? 4 - place : 0, pb = better(v, mine, sv.best);
+  if (pb || !sv.rec) { if (pb) sv.best = mine; sv.rec = { T: +r.t.toFixed(2), S: r.S }; }
+  sv.trophy = Math.max(sv.trophy || 0, trophy); sv.runs = (sv.runs || 0) + 1;
+  for (const e of heat) { const n = e.me ? "You" : e.n, old = sv.board.find(q => q.n === n); if (!old) sv.board.push({ n, r: e.r }); else if (better(v, e.r, old.r)) old.r = e.r; }
+  sv.board.sort((a, b) => v.kind === "race" ? a.r - b.r : b.r - a.r); sv.board.length = Math.min(sv.board.length, 8);
+  store.set("pal-comp", COMP.save); gearLocks(); sk.sp = Math.min(sk.sp, 6); $("compHud").hidden = true;
+  // results card
+  const card = $("compCard"), el = (tag, txt, cls) => { const e = document.createElement(tag); if (txt != null) e.textContent = txt; if (cls) e.className = cls; return e; }; card.textContent = "";
+  card.append(el("h3", v.name), el("p", place === 1 ? "You won the heat." : "You placed " + place + " of " + heat.length + ".", "compLead"));
+  const tr = el("div", (trophy ? TROPHY[trophy] + " trophy" : "No trophy this heat") + (pb ? "  ·  personal best" : ""), "trophy"); tr.style.color = TROPHY_COL[trophy]; card.append(tr);
+  const tb = el("table", null, "board"); heat.forEach((e, i) => { const row = el("tr", null, e.me ? "me" : ""); row.append(el("td", String(i + 1)), el("td", e.n), el("td", fmtRes(v, e.r))); tb.append(row); }); card.append(tb);
+  const after = medalPoints(), news = []; if (after > before) { for (const n in LIFT_LOCK) if (LIFT_LOCK[n] > before && LIFT_LOCK[n] <= after) news.push(n + " lift"); for (const c in GEAR_LOCK) for (const k in GEAR_LOCK[c]) if (GEAR_LOCK[c][k] > before && GEAR_LOCK[c][k] <= after) news.push(KR.OUTFIT_OPTS[c][k]); }
+  card.append(el("p", "Medal points: " + after + (news.length ? "  ·  Unlocked: " + news.join(", ") : ""), "compLead"));
+  const row = el("div", null, "row"), again = el("button", "Run again", "btn"), free = el("button", "Free ski", "btn ghost"), all = el("button", "All competitions", "btn ghost"); row.style.justifyContent = "center";
+  again.addEventListener("click", () => compEnter(v)); free.addEventListener("click", () => { setOverlay("comp", false); compEnd(); }); all.addEventListener("click", () => { setOverlay("comp", false); compEnd(); compList(true); });
+  row.append(again, free, all); card.append(row); setOverlay("comp", true);
+}
+function compList(on) { // every venue with your best, your trophy and its leaderboard, and what the medal points open
+  setOverlay("compList", on); if (!on) return; const card = $("compListCard"), pts = medalPoints(), el = (tag, txt, cls) => { const e = document.createElement(tag); if (txt != null) e.textContent = txt; if (cls) e.className = cls; return e; }; card.textContent = "";
+  card.append(el("h3", "Competitions"), el("p", "Medal points: " + pts + " of " + COMP.venues.length * 3 + ".  Gold 3, silver 2, bronze 1, counting your best trophy at each venue.", "compLead"));
+  for (const v of COMP.venues) { const sv = compSave(v), box = el("div", null, "venue"), head = el("div", null, "row"), go = el("button", "Go to the start", "btn"); go.style.cssText = "padding:8px 13px;font-size:13px;margin-left:auto";
+    const tn = el("b", v.name), tp = el("span", TROPHY[sv.trophy || 0], "trophy"); tp.style.color = TROPHY_COL[sv.trophy || 0]; head.append(tn, tp, go); box.append(head, el("p", v.blurb + "  Your best: " + fmtRes(v, sv.best) + ".", "compLead"));
+    go.addEventListener("click", () => { compList(false); if (!$("menu").hidden) startPlay(); paused = false; const q = v.path[0], d = Math.atan2(v.path[1][0] - q[0], v.path[1][1] - q[1]); placeSkier(q[0] - Math.sin(d) * 8, q[1] - Math.cos(d) * 8, d, 0); toast("Press E under the start arch to enter", 3.5); });
+    if (sv.board.length) { const tb = el("table", null, "board"); sv.board.forEach((e, i) => { const row = el("tr", null, e.n === "You" ? "me" : ""); row.append(el("td", String(i + 1)), el("td", e.n === "You" ? (MP.myName || "You") : e.n), el("td", fmtRes(v, e.r))); tb.append(row); }); box.append(tb); }
+    card.append(box); }
+  const un = el("div", null, "venue"); un.append(el("b", "Unlocks")); const lst = el("p", null, "compLead"), items = [];
+  for (const n in LIFT_LOCK) items.push([LIFT_LOCK[n], n + " lift"]); for (const c in GEAR_LOCK) for (const k in GEAR_LOCK[c]) items.push([GEAR_LOCK[c][k], KR.OUTFIT_OPTS[c][k]]);
+  items.sort((a, b) => a[0] - b[0]); for (let p = 1; p <= 5; p++) { const row = el("div", (p <= pts ? "Open" : "Locked") + " at " + p + (p === 1 ? " point: " : " points: ") + items.filter(i => i[0] === p).map(i => i[1]).join(", ")); row.style.opacity = p <= pts ? 1 : 0.6; lst.append(row); }
+  un.append(lst); card.append(un); const close = el("button", "Close", "btn ghost"); close.addEventListener("click", () => compList(false)); const rw = el("div", null, "row"); rw.style.justifyContent = "center"; rw.append(close); card.append(rw);
+}
