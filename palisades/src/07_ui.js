@@ -121,8 +121,8 @@ function updateAudio() {
   if (!ac) return; const t = ac.currentTime, live = !muted && !paused && sk.mode !== "menu", sp = sk.sp;
   windG.gain.setTargetAtTime(live ? clamp(sp / 34, 0, 1) ** 1.6 * 0.5 + (wx.wind * 0.02) : 0, t, 0.1); windF.frequency.setTargetAtTime(280 + sp * 34, t, 0.1);
   const on = sk.mode === "ski" && sk.ground && !sk.crashed;
-  carveG.gain.setTargetAtTime(live && on ? clamp(sp / 28, 0, 1) * (0.018 + sk.carve * Math.abs(sk.turn) * 0.09 + sk.brakeK * 0.2 + Math.min(0.1, Math.abs(sk.slip || 0) * 0.08)) * (1 - 0.5 * sk.surf.powder) : 0, t, 0.04);
-  carveF.frequency.setTargetAtTime(1800 + sk.surf.groom * 1600 + sk.brakeK * 900, t, 0.08);
+  carveG.gain.setTargetAtTime(live && on ? clamp(sp / 28, 0, 1) * (0.018 + sk.carve * Math.abs(sk.turn) * 0.09 + sk.brakeK * 0.2 + Math.min(0.1, Math.abs(sk.slip || 0) * 0.08) + (sk.surf.rock || 0) * 0.3) * (1 - 0.5 * sk.surf.powder) : 0, t, 0.04);
+  carveF.frequency.setTargetAtTime(1800 + sk.surf.groom * 1600 + sk.brakeK * 900 - (sk.surf.rock || 0) * 900, t, 0.08);   // rock scrapes lower and louder than snow
   liftAudio(t, live);
   const S = sk.mode === "sled" ? sk.sled : null; sledG.gain.setTargetAtTime(live && S ? 0.05 + 0.05 * Math.abs(S.thr) + 0.02 * clamp(Math.abs(S.v) / 20, 0, 1) : 0, t, 0.08); if (S) sledO.frequency.setTargetAtTime(46 + Math.abs(S.v) * 4.2 + (S.thr > 0 ? 24 : 0), t, 0.12);
 }

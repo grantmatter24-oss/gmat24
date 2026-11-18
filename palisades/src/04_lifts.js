@@ -490,7 +490,7 @@ function buildCut(f) {
   for (let j = 0; j < ns; j++) for (let i = 0; i < nu; i++) { const x = f.x + f.dx * S[j] - f.dz * Uu[i], z = f.z + f.dz * S[j] + f.dx * Uu[i], h = H(x, z), k = (j * nu + i) * 3; hg[j * nu + i] = h; pos[k] = x - cx; pos[k + 1] = h + 0.05 - cy; pos[k + 2] = z - cz; }
   for (let j = 0; j < ns; j++) for (let i = 0; i < nu; i++) { const j0 = Math.max(0, j - 1), j1 = Math.min(ns - 1, j + 1), i0 = Math.max(0, i - 1), i1 = Math.min(nu - 1, i + 1);
     const hs = (hg[j1 * nu + i] - hg[j0 * nu + i]) / (S[j1] - S[j0]), hu = (hg[j * nu + i1] - hg[j * nu + i0]) / (Uu[i1] - Uu[i0]), nx = -hs * f.dx + hu * f.dz, nz = -hs * f.dz - hu * f.dx, il = 1 / Math.hypot(nx, 1, nz), k = (j * nu + i) * 3; nor[k] = nx * il; nor[k + 1] = il; nor[k + 2] = nz * il; }
-  for (let j = 0; j < ns - 1; j++) for (let i = 0; i < nu - 1; i++) { const a = j * nu + i, b = a + 1, c = a + nu, d = c + 1; idx.push(a, c, b, b, c, d); }
+  for (let j = 0; j < ns - 1; j++) for (let i = 0; i < nu - 1; i++) { const a = j * nu + i, b = a + 1, c = a + nu, d = c + 1; idx.push(a, b, c, b, d, c); }   // wound to face up: the other way round you see straight through the near side of the jump
   const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(pos, 3)); g.setAttribute("normal", new THREE.BufferAttribute(nor, 3)); g.setIndex(idx); g.computeBoundingSphere();
   const m = new THREE.Mesh(g, matNear); m.position.set(cx, cy, cz); m.matrixAutoUpdate = false; m.updateMatrix(); m.receiveShadow = true; m.castShadow = true; m.renderOrder = -2; scene.add(m); cutMeshes.push(m);
 }

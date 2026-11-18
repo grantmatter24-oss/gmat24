@@ -3,10 +3,10 @@
    The other riders ski like you: each one replays your own best run on that course, a little faster or slower and a little to one side,
    so beating them means beating yourself. Before you have a run on record they ski the course line at a par pace.
    Placing in a heat wins a trophy; trophies are worth medal points (gold 3, silver 2, bronze 1, best per venue), and medal points open
-   the upper lifts and the better clothes and gear. */
+   the better clothes and gear. Every lift and run is open from the start. */
 const COMP = { venues: [], near: null, run: null, hold: false, ghosts: [], save: store.get("pal-comp", {}) || {} };
 const TROPHY = ["No trophy", "Bronze", "Silver", "Gold"], TROPHY_COL = ["#7d8a96", "#c27a3a", "#c9d1d8", "#f0c23b"], BOTS = ["Koda", "Juniper", "Rook", "Sierra", "Aspen"];
-const LIFT_LOCK = { "KT22 Express": 1, "Shirley Lake Express": 1, "Solitude": 2, "Headwall Express": 2, "Siberia Express": 2, "Summit Six": 2, "Emigrant": 3, "Broken Arrow": 3, "Olympic Lady": 3, "Sherwood Express": 3, "Alpine Bowl": 3, "Granite Chief": 4, "Scott": 4, "Lakeview": 4, "Silverado": 5 };
+const LIFT_LOCK = {};   // every lift and run is open to everyone; medal points only unlock clothes and gear
 const GEAR_LOCK = { helmet: { camo: 1, redbull: 2, santa: 4 }, jacket: { block: 1, navy: 2, greenc: 3, santa: 4, trench: 5 }, skis: { stripes: 1, camo: 2, pink: 2, flames: 3 }, accessory: { ninja: 1, cape: 3 }, pants: { khaki: 1, santa: 4 }, wax: { fast: 2 } };
 const compSave = v => COMP.save[v.id] || (COMP.save[v.id] = { best: null, trophy: 0, board: [], rec: null, runs: 0 });
 const medalPoints = () => COMP.venues.reduce((a, v) => a + (compSave(v).trophy || 0), 0);
