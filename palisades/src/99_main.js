@@ -41,7 +41,7 @@ async function boot() {
   await progress("Shaping the mountain", 0.2); initCreeks(); initCat(); initRocks(); buildTerrainTex(); buildComposer(); initTrees();
   await progress("Setting the light", 0.35); setWeather(wxName);
   await progress("Laying snow", 0.45); initChunks(); buildOuter();
-  await progress("Stringing the lifts", 0.6); initLifts(); initBuildings(); initRuns(); initCars(); initSigns(); initSlow(); initNPCs(); initVillage(); initParkMeshes();
+  await progress("Stringing the lifts", 0.6); initLifts(); initBuildings(); initRuns(); initCars(); initSigns(); initSlow(); initNPCs(); initVillage(); initParkMeshes(); initSnowGuns();
   await progress("Planting the forest", 0.72); buildBillboards();
   await progress("Drawing the trail map", 0.88); rig = makeRider(outfit); initParticles(); initTracks(); initSnowfall(); buildMap(); initInput(); mpInit();
   await progress("Ready", 1);

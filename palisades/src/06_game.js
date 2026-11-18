@@ -23,7 +23,7 @@ function tangent(yaw) { normalAt(sk.p.x, sk.p.z, 0.7, nrm); fwdOf(yaw, fw).addSc
 function placeSkier(x, z, yaw, speed = 0) {
   sk.p.set(x, H(x, z), z); sk.yaw = yaw; sk.sp = speed; sk.v.set(0, 0, 0); sk.slope = tangent(yaw);
   sk.ground = true; sk.air = false; sk.airT = 0; sk.crashed = false; sk.sw = false; sk.spin = sk.spinV = sk.rot = sk.rotV = sk.spinTarget = 0; sk.turn = sk.carve = 0; sk.mode = "ski"; sk.lift = null; sk.car = -1; sk.stumT = 0; sk.butSpun = false;
-  sk.grind = null; REW.length = 0; sk.safe.copy(sk.p); sk.safeYaw = yaw; camSnap = true; sk.parked = !speed; sk.lastY = sk.p.y; charging = false; popReq = false;
+  sk.slip = 0; sk.grind = null; REW.length = 0; sk.safe.copy(sk.p); sk.safeYaw = yaw; camSnap = true; sk.parked = !speed; sk.lastY = sk.p.y; charging = false; popReq = false;
 }
 function spawnAt(key) {
   if (key === "village") { const L = LIFTS.find(l => l.name === "KT22 Express") || LIFTS[0]; placeSkier(L.bot.x - Math.sin(L.dir) * 16, L.bot.z - Math.cos(L.dir) * 16, L.dir); return; }
@@ -78,7 +78,7 @@ function landing() {
   const p = sk.p, v = sk.v, vh = Math.hypot(v.x, v.z), head = vh > 0.5 ? Math.atan2(v.x, v.z) : sk.yaw;
   p.y = H(p.x, p.z); const sA = tangent(head), diff = wrap(sk.rot - sA), real = sk.airT > 0.3, PH = KR.PHYS;
   if (real && Math.abs(diff) > 1.6 + PH.land) return crash("Bad landing");   // a sideways spin never crashes: the skis swing round to the nearest forward or backward
-  sk.yaw = head; let vt = vh * Math.cos(sA) + v.y * Math.sin(sA);
+  sk.yaw = head; sk.slip = 0; let vt = vh * Math.cos(sA) + v.y * Math.sin(sA);
   if (real) vt *= 1 - 0.07 * sk.surf.powder;
   if (real && Math.abs(diff) > 0.65) { vt *= 1 - 0.45 * clamp((Math.abs(diff) - 0.65) / 0.95, 0, 1); for (let i = 0; i < 10; i++) spray(p, 2 + Math.random() * 2, (Math.random() - 0.5) * 5, v); }   // sloppy pitch only scrubs speed
   sk.sp = clamp(vt, 0, MAXV); sk.ground = true; sk.air = false; if (sk.airT > 0.15) sk.landT = 0.35;
@@ -132,15 +132,18 @@ function stepSki(dt) {
     // carving: the longer you hold a turn the more the edges bite, which turns tighter and scrubs less speed
     sk.carve = steer ? Math.min(1, sk.carve + dt / 0.55) : Math.max(0, sk.carve - dt * 2.5);
     const slash = K.boost && steer !== 0;   // Shift while turning: throw the skis round hard, scrub speed, spray
-    sk.yaw -= steer * (1.15 + 0.95 * sk.carve) * dt * PH.turn * (slash ? 1.5 : clamp(1.25 / (1 + Math.pow(sk.sp / 32, 2)), 0.55, 1));   // faster means wider arcs
-    const sA = tangent(sk.yaw), sn = Math.sin(sA), s = readSurface(); sk.slope = sA;
+    const dyaw = -steer * (1.15 + 0.95 * sk.carve) * dt * PH.turn * (slash ? 1.5 : clamp(1.25 / (1 + Math.pow(sk.sp / 32, 2)), 0.55, 1)) * (1 - 0.18 * (sk.surf.deep || 0)); sk.yaw += dyaw;   // faster means wider arcs; deep snow turns slower
+    // A Shift turn throws the skis round faster than the edges can hold: the skis point one way while you slide another, scrubbing speed.
+    sk.slip = slash ? clamp(sk.slip * Math.exp(-0.7 * dt) + dyaw * 0.42, -0.5, 0.5) : sk.slip * Math.exp(-4.5 * dt);
+    const sA = tangent(sk.yaw - sk.slip), sn = Math.sin(sA), s = readSurface(); sk.slope = sA;   // gravity and travel follow the way you are sliding, not the way the skis point
     // linear scrub from turning plus air drag that grows with speed, so there is no hard cap
-    const lin = ((0.1 + 0.07 * (1 - clamp(sk.sp / 12, 0, 1))) * s.powder + 0.05 + Math.abs(steer) * (0.34 - 0.24 * sk.carve) * (0.85 + sk.sp / 90) * PH.scrub + s.road * 0.25 + (slash ? 0.6 : 0)) * (0.5 + 0.5 * PH.drag), quad = (K.down || K.up ? 0.0052 : 0.0072) * PH.drag, push = K.up && !slash ? 7 : 0, brk = K.brake ? 16 : 0;
+    const lin = ((0.1 + 0.07 * (1 - clamp(sk.sp / 12, 0, 1))) * s.powder + 0.05 + Math.abs(steer) * (0.34 - 0.24 * sk.carve) * (0.85 + sk.sp / 90) * PH.scrub * (1 + 0.5 * (s.deep || 0)) + s.road * 0.25 + (slash ? 0.6 : 0) + 0.55 * Math.abs(Math.sin(sk.slip))) * (0.5 + 0.5 * PH.drag), quad = (K.down || K.up ? 0.0052 : 0.0072) * PH.drag, push = K.up && !slash ? 7 : 0, brk = K.brake ? 16 : 0;
     const acc = -G * sn - lin * sk.sp - quad * sk.sp * sk.sp + push - brk;
     sk.sp = sk.sp < 0.25 && acc < 0.6 && !push ? 0 : clamp(sk.sp + acc * dt, 0, MAXV);   // unlike the course runs, here you can stop: across the hill, on the flat, or with J
     if (sk.sp > 1 && creekWet(p.x, p.z)) { sk.sp *= Math.exp(-2.6 * dt); if (Math.random() < 0.8) for (let i = 0; i < 3; i++) spray(p, 1 + Math.random() * 3, (Math.random() - 0.5) * 4, v, 0.6); }   // open water drags hard
     sk.brakeK = lerp(sk.brakeK, (brk || slash) && sk.sp > 1 ? 1 : 0, Math.min(1, 8 * dt));
     if (brk && sk.sp > 4 && Math.random() < 0.7) for (let i = 0; i < 3; i++) spray(p, 1 + Math.random() * 3, (Math.random() - 0.5) * 5, v, 0.6);
+    if (!slash && Math.abs(sk.slip) > 0.1 && sk.sp > 3) for (let i = 0; i < 2; i++) spray(p, 1 + Math.random() * 2, Math.sign(sk.slip) * (2.5 + sk.sp * 0.25) * (0.4 + Math.random() * 0.8), v, 0.55, 0.5);
     if (slash && sk.sp > 3) for (let i = 0; i < 4; i++) spray(p, 1.2 + Math.random() * (2 + sk.sp * 0.08), -steer * (3 + sk.sp * 0.3) * (0.4 + Math.random() * 0.8), v, 0.55, 0.5 + 0.5 * s.powder);
     const popNow = popReq, pw = 0.35 + 0.65 * popPow;
     if (popNow) { sk.sp += 0.9 * pw * Math.max(0, 1 - sk.sp / 45); for (let i = 0; i < 4; i++) spray(p, 1 + Math.random() * 2, (Math.random() - 0.5) * 3, v); sfx("pop"); }
@@ -224,7 +227,7 @@ function toggleWalk() {
 function stepWalk(dt) {
   const p = sk.p, steer = ((K.spinR || K.right) ? 1 : 0) - ((K.spinL || K.left) ? 1 : 0), go = (K.up ? 1 : 0) - (K.down ? 1 : 0); sk.yaw -= steer * 1.9 * dt;
   const sA = tangent(sk.yaw); sk.slope = sA; readSurface();
-  let v = go > 0 ? (K.boost ? 2.7 : 1.75) : go < 0 ? -1.0 : 0; v *= clamp(1 - Math.sin(sA) * go * 0.9, 0.45, 1.2) * (1 - 0.25 * sk.surf.powder);   // slower up the steeps and in deep snow
+  let v = go > 0 ? (K.boost ? 3.9 : 2.5) : go < 0 ? -1.4 : 0; v *= clamp(1 - Math.sin(sA) * go * 0.9, 0.45, 1.2) * (1 - 0.25 * sk.surf.powder);   // slower up the steeps and in deep snow
   const nx = p.x + Math.sin(sk.yaw) * v * dt, nz = p.z + Math.cos(sk.yaw) * v * dt;
   if (!buildingAt(nx, nz) && !treeHit(nx, nz, 0.15) && inWorld(nx, nz, 75)) { p.x = nx; p.z = nz; } else v = 0;
   p.y = H(p.x, p.z); sk.sp = Math.abs(v); sk.walkPh = (sk.walkPh || 0) + v * dt * 4.3; sk.turn = lerp(sk.turn, 0, Math.min(1, 8 * dt));
@@ -300,9 +303,10 @@ function updateParticles(dt) {
 }
 function emitSpray(dt) {
   if (sk.mode !== "ski" || !sk.ground || sk.crashed || sk.sp < 4) return;
-  const s = sk.surf, pw = 0.5 + 0.7 * s.powder, steer = sk.turn, n = (sk.sp > 18 ? 3 : 2) * pw * dt * 60 * 0.5, cnt = Math.floor(n + Math.random());
+  const s0 = sk.surf, pd = Math.max(s0.powder, s0.deep || 0), s = { powder: pd }, pw = 0.5 + 0.7 * pd, steer = sk.turn, n = (sk.sp > 18 ? 3 : 2) * pw * dt * 60 * 0.5, cnt = Math.floor(n + Math.random());
   for (let i = 0; i < Math.min(cnt, 12); i++) spray(sk.p, 0.5 + Math.random() * (0.8 + 1.2 * s.powder), (Math.random() - 0.5) * (1.5 + 2 * s.powder), sk.v, 0.3 + 0.2 * s.powder, 0.25 * s.powder);
   if (Math.abs(steer) > 0.3 && sk.sp > 6 && sk.carve > 0.2) { const k = Math.floor((2 + sk.sp / 10) * (1 + 3.5 * s.powder) * dt * 60 * 0.5 + Math.random()); for (let i = 0; i < k; i++) spray(sk.p, (1.5 + sk.sp * 0.05 + Math.random() * 2) * (1 + 0.8 * s.powder), -Math.sign(steer) * (3 + sk.carve * 4 + sk.sp * 0.12) * (0.5 + Math.random() * 0.6), sk.v, 0.3 + 0.2 * s.powder, s.powder); }   // a real cloud off every powder turn
+  if (pd > 0.7 && Math.abs(steer) > 0.35 && sk.sp > 9) { const k = Math.floor((1.5 + sk.sp / 14) * dt * 60 * 0.5 + Math.random()); for (let i = 0; i < k; i++) spray(sk.p, 3.2 + Math.random() * 2.4, -Math.sign(steer) * (1 + Math.random() * 2.5), sk.v, 0.12, 1); }   // face shots: deep snow thrown head high on every turn
   if (K.down && sk.sp > 3 && Math.random() < 0.4) spray(sk.p, 2, 0, sk.v, 0.4);
 }
 /* Ski tracks are trenches in the new snow, not marks on it: a groove for each ski, cut to the depth you were riding at, with a ridge between them.
@@ -324,7 +328,7 @@ function layTracks(dt) {
   if (d < 0.008) { trkPrev = null; return; }
   const cur = { x, z, P: new Float32Array(21), N: new Float32Array(21) }; trkPrev = cur;
   let dx = pv ? x - pv.x : Math.sin(yawM), dz = pv ? z - pv.z : Math.cos(yawM); const l = Math.hypot(dx, dz) || 1, px = -dz / l, pz = dx / l;
-  const gap = walking ? 0.12 : 0.16, hw = walking ? 0.075 : 0.05 + 0.03 * sk.carve + 0.07 * sk.brakeK, wall = 0.03 + d * 0.55, ridge = -d * 0.55 * clamp(d / 0.12, 0, 1), ao = 1 - Math.min(0.36, d * 1.8);
+  const gap = walking ? 0.12 : 0.16, hw = walking ? 0.075 : 0.05 + 0.03 * sk.carve + 0.07 * sk.brakeK + 0.2 * Math.abs(Math.sin(sk.slip || 0)), wall = 0.03 + d * 0.55, ridge = -d * 0.55 * clamp(d / 0.12, 0, 1), ao = 1 - Math.min(0.36, d * 1.8);
   const O = [-(gap + hw + wall), -(gap + hw), -(gap - hw), 0, gap - hw, gap + hw, gap + hw + wall], Y = [0.004, -d, -d, ridge, -d, -d, 0.004], Tl = [0.3, 0.8, -0.45, 0, 0.45, -0.8, -0.3], A = [1, ao, ao, 1 - (1 - ao) * 0.5, ao, ao, 1];
   normalAt(x, z, 0.8, _tn); const sd = U.uSunDir.value, sxp = sd.x * px + sd.z * pz, tanE = sd.y / Math.max(0.05, Math.abs(sxp)), rimO = sxp > 0 ? O[6] : O[0];   // which parts of the trench the sun reaches
   for (let j = 0; j < 7; j++) { const X = x + px * O[j], Z = z + pz * O[j]; cur.P[j * 3] = X; cur.P[j * 3 + 1] = H(X, Z) + Y[j]; cur.P[j * 3 + 2] = Z;

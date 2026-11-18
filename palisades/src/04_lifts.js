@@ -72,6 +72,7 @@ function buildStation(b, L, nd, sgn, yaw, plate) {
     plate(S(0, g + hgt, w - 0.13), wid - 0.2, 0.82, faceYaw(-1)); plate(S(0, g + hgt, w + 0.13), wid - 0.2, 0.82, faceYaw(1));
     if (gates) for (let k = -gates; k <= gates; k++) { B(0.2, 1.05, 0.75, k * 1.35, g + 0.4, w, STEEL); B(0.24, 0.12, 0.3, k * 1.35, g + 0.98, w - 0.2 , [0.1, 0.55, 0.2]); }
     for (const sd of [-1, 1]) { const lx = sd * (wid / 2 - 0.2); for (const ww of [w + 0.6, w + 3.2, w + 5.8]) post(0.06, 0.06, lx, ww, G(lx, ww) + 1.0, [0.9, 0.35, 0.08]); B(0.05, 0.05, 5.2, lx, g + 0.92, w + 3.2, [0.9, 0.35, 0.08]); } };
+  const patrol = () => { const lx = -(half + 8.5), w = -5.5, g = G(lx, w); hut(lx, w, [0.5, 0.08, 0.06]); B(0.95, 0.27, 0.06, lx, g + 2.05, w + 1.74, SNOWC); B(0.27, 0.95, 0.06, lx, g + 2.05, w + 1.74, SNOWC); B(2.4, 0.12, 0.5, lx, g + 0.25, w + 2.6, [0.75, 0.1, 0.08]); };   // ski patrol's shack at the top, with the white cross and a rescue sled outside
   const unloadSign = () => { const lx = -(half + 2.4), w = L.loadS + 2.5, g = G(lx, w); post(0.09, 0.09, lx, w, g + 2.5, STEEL, 0.15); B(1.5, 0.5, 0.06, lx, g + 2.2, w, [0.72, 0.08, 0.06]); B(1.3, 0.12, 0.07, lx, g + 2.2, w, SNOWC); };
   if (L.type === "chair_det") {
     const [shape, skin] = TERMINAL[L.name] || ["uni", [0.55, 0.57, 0.58]], W = T.gauge + 2.6, Lt = 21.5, wA = q - half - 1.2, wB = wA + Lt, mid = (wA + wB) / 2, y0 = nd.y + 0.45;   // the enclosure's floor is just above the rope, so the bullwheel and tyre banks show underneath
@@ -88,7 +89,7 @@ function buildStation(b, L, nd, sgn, yaw, plate) {
     for (const wm of [q + 4.4, wB - 4.2]) { const g = G(0, wm); post(0.95, 1.25, 0, wm, y0 + 0.1, STEEL, 0.95); B(2.3, 0.7, 2.7, 0, g + 0.1, wm, CONC); B(W - 1.0, 0.5, 0.8, 0, y0 - 0.05, wm, STEEL); }   // masts on concrete footings
     hut(half + 3.7, q + 2.2, skin.map(v => v * 0.8 + 0.03));
     for (const sd of [-1, 1]) plate(S(sd * (W / 2 + (shape === "uni" ? 0.06 : 0.09)), y0 + 0.62, mid + 1.5), 7.6, 0.84, outYaw(sd));   // the name along both sides of the terminal
-    if (bot) { frame(-7.5, W + 1.4, 3.6, 2); loadLine([0.75, 0.1, 0.08]); } else { loadLine([0.92, 0.45, 0.08]); unloadSign(); }
+    if (bot) { frame(-7.5, W + 1.4, 3.6, 2); loadLine([0.75, 0.1, 0.08]); } else { loadLine([0.92, 0.45, 0.08]); unloadSign(); if (L.len > 600) patrol(); }
   } else if (L.type === "chair_fixed") {
     const yan = [0.12, 0.19, 0.15], gv = G(0, q);
     B(1.9, 2.5, 4.2, 0, gv + 0.25, q - 0.2, CONC); B(1.8, 0.2, 4.1, 0, gv + 1.58, q - 0.2, SNOWC);                                  // the concrete vault
@@ -99,7 +100,7 @@ function buildStation(b, L, nd, sgn, yaw, plate) {
     B(2 * half + 3.6, 0.32, 0.32, 0, nd.y + 0.72, q + 5.4, STEEL); for (const sd of [-1, 1]) post(0.26, 0.26, sd * (half + 1.65), q + 5.4, nd.y + 0.88, STEEL, 0.3);   // carried on a portal frame
     hut(half + 3.6, q + 1.4, [0.30, 0.22, 0.15]);
     for (const sd of [-1, 1]) plate(S(sd * 1.24, nd.y + 1.45, q + 0.4), 3.9, 0.5, outYaw(sd));
-    if (bot) { frame(-6, 5.6, 2.9, 0); loadLine([0.75, 0.1, 0.08]); } else { loadLine([0.92, 0.45, 0.08]); unloadSign(); }
+    if (bot) { frame(-6, 5.6, 2.9, 0); loadLine([0.75, 0.1, 0.08]); } else { loadLine([0.92, 0.45, 0.08]); unloadSign(); if (L.len > 600) patrol(); }
   } else if (L.type === "gondola") { // a glazed terminal on a concrete deck, open at the end the cabins run in through
     const W = T.gauge + 7.6, w0 = -4, w1 = 30, mid = (w0 + w1) / 2, len = w1 - w0, fl = g0 + 0.12, col = [0.14, 0.15, 0.165];
     B(W, 1.6, len, 0, fl - 0.8, mid, CONC); B(4, 0.5, 5, -(W / 2 + 2), g0 + 0.05, 6, CONC);
@@ -260,16 +261,16 @@ function initBuildings() {
   WORLD.blds.forEach((bd, bi) => {
     const P = bd.p, n = P.length; let lo = 1e9, hi = -1e9, cx = 0, cz = 0;
     for (const q of P) { const g = Hsmooth(q[0], q[1]); lo = Math.min(lo, g); hi = Math.max(hi, g); cx += q[0] / n; cz += q[1] / n; }
-    const area = polyArea(P), lodge = bd.h >= 9 || area > 700, top = hi + bd.h, wc = lodge ? LODGE[bi % LODGE.length] : WALLS[bi % WALLS.length], lo0 = lodge ? 10000 : 0; let per = lo0;
-    const bx = polyBox(P), gable = bx && area / bx.area > 0.76 && bx.hv * 2 < 26 && bd.h < 15 && area > 16, chalet = !lodge && bd.h >= 4.6, rhG = gable ? Math.min(bx.hv * (lodge ? 0.56 : 0.62), 8.5) : 0;
+    const area = polyArea(P), gc = /gold coast lodge/i.test(bd.n || ""), lodge = gc || bd.h >= 9 || area > 700, top = hi + bd.h, wc = gc ? [0.25, 0.18, 0.12] : lodge ? LODGE[bi % LODGE.length] : WALLS[bi % WALLS.length], lo0 = lodge ? 10000 : 0; let per = lo0;
+    const bx = polyBox(P), gable = !gc && bx && area / bx.area > 0.76 && bx.hv * 2 < 26 && bd.h < 15 && area > 16, chalet = !lodge && bd.h >= 4.6, rhG = gable ? Math.min(bx.hv * (lodge ? 0.56 : 0.62), 8.5) : 0;
     for (let i = 0; i < n; i++) {
       const a = P[i], b = P[(i + 1) % n], ex = b[0] - a[0], ez = b[1] - a[1], len = Math.hypot(ex, ez); if (len < 0.05) continue; const nx = -ez / len, nz = ex / len, tx = ex / len, tz = ez / len;
       const quad = (y0, y1, c, o, u0, u1, v0, v1) => { const ax = a[0] + nx * o, az = a[1] + nz * o, bx = b[0] + nx * o, bz = b[1] + nz * o; pos.push(ax, y0, az, bx, y0, bz, bx, y1, bz, ax, y0, az, bx, y1, bz, ax, y1, az); for (let k = 0; k < 6; k++) { nor.push(nx, 0, nz); col.push(...c); } uv.push(u0, v0, u1, v0, u1, v1, u0, v0, u1, v1, u0, v1); };
       if (chalet) { quad(lo - 1.5, hi + 2.7, STUCCO, 0, per, per + len, lo - hi, 2.7); quad(hi + 2.7, top, wc, 0, per, per + len, 2.7, bd.h); }   // pale ground floor, timber above
       else quad(lo - 1.5, top, wc, 0, per, per + len, lo - hi, bd.h);
       const mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2, sgn = inPoly(P, mx + nx * 0.4, mz + nz * 0.4) ? -1 : 1, ox = nx * sgn, oz = nz * sgn, along = !gable || Math.abs(tx * bx.ux + tz * bx.uz) > 0.7;
-      if (lodge && len >= 9) for (let y = hi + 6; y < top - 1.2; y += 3) { obox(mx + ox * 0.6, y - 0.07, mz + oz * 0.6, tx, tz, len / 2 - 0.9, 0.07, 0.6, TIMBER); obox(mx + ox * 1.16, y + 0.5, mz + oz * 1.16, tx, tz, len / 2 - 0.9, 0.5, 0.05, TIMBER); }   // a balcony along every upper floor
-      if (lodge && len >= 7 && along && bd.h >= 6) { // gabled dormers standing on the eaves
+      if (lodge && !gc && len >= 9) for (let y = hi + 6; y < top - 1.2; y += 3) { obox(mx + ox * 0.6, y - 0.07, mz + oz * 0.6, tx, tz, len / 2 - 0.9, 0.07, 0.6, TIMBER); obox(mx + ox * 1.16, y + 0.5, mz + oz * 1.16, tx, tz, len / 2 - 0.9, 0.5, 0.05, TIMBER); }   // a balcony along every upper floor
+      if (lodge && !gc && len >= 7 && along && bd.h >= 6) { // gabled dormers standing on the eaves
         const nD = Math.max(1, Math.floor(len / 9.5)), dw = 2.0, eh = 2.3, gh = 1.7, dd = 5.2, y0 = top - 0.25, y1 = top + eh, y2 = y1 + gh;
         for (let k = 0; k < nD; k++) { const sK = (k + 0.5) / nD * len, c0 = a[0] + tx * sK, c1 = a[1] + tz * sK, F = (u, d, y) => [c0 + tx * u + ox * d, y, c1 + tz * u + oz * d], u0 = lo0 + 2.6 * (3 + 7 * k + 13 * i);
           Q(F(-dw, 0.06, y0), F(dw, 0.06, y0), F(dw, 0.06, y1), F(-dw, 0.06, y1), wc, [ox, 0, oz], [[u0, 6.02], [u0 + 2.6, 6.02], [u0 + 2.6, 8.98], [u0, 8.98]]);   // the face, with its window
@@ -284,12 +285,22 @@ function initBuildings() {
       if (chalet && bd.h >= 5.4) { const su = (bi & 1) ? 1 : -1, c = W(cu + su * (hu + 0.55), cv, 0), r = W(cu + su * (hu + 1.06), cv, 0); obox(c[0], hi + 2.78, c[2], -uz, ux, hv - 0.3, 0.07, 0.55, TIMBER); obox(r[0], hi + 3.33, r[2], -uz, ux, hv - 0.3, 0.48, 0.05, TIMBER); }   // the balcony across the gable end
       const ch = W(cu + hu * 0.45 * ((bi & 2) ? 1 : -1), cv + hv * 0.3, 0); if (bd.h >= 3.5) obox(ch[0], top + (rh * 0.7 + 1.0) / 2 - 0.5, ch[2], ux, uz, 0.45, (rh * 0.7 + 1.0) / 2 + 0.5, 0.45, STONE);
     } else { // hipped roof: eaves out past the walls, slopes drawn in toward the middle, a snow-loaded top
-      const rh = clamp(0.24 * Math.sqrt(area), 3, 10), E = P.map(q => [cx + (q[0] - cx) * 1.04, top - 0.2, cz + (q[1] - cz) * 1.04]), Uq = P.map(q => [cx + (q[0] - cx) * 0.36, top + rh, cz + (q[1] - cz) * 0.36]);
+      const rh = gc ? 1.6 : clamp(0.24 * Math.sqrt(area), 3, 10), up = gc ? 0.82 : 0.36, E = P.map(q => [cx + (q[0] - cx) * 1.04, top - 0.2, cz + (q[1] - cz) * 1.04]), Uq = P.map(q => [cx + (q[0] - cx) * up, top + rh, cz + (q[1] - cz) * up]);   // Gold Coast has a broad, nearly flat roof
       for (let i = 0; i < n; i++) { const j = (i + 1) % n, a = E[i], b = E[j], c = Uq[j], d = Uq[i], e1 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], e2 = [d[0] - a[0], d[1] - a[1], d[2] - a[2]]; let nn = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]]; const l = Math.hypot(...nn) || 1; if (nn[1] < 0) nn = nn.map(q => -q);
         for (const q of [a, b, c, a, c, d]) { pos.push(...q); nor.push(nn[0] / l, nn[1] / l, nn[2] / l); col.push(...sn); uv.push(0, -7); } }
       const tris = THREE.ShapeUtils.triangulateShape(P.map(q => new THREE.Vector2(q[0], q[1])), []);
       for (const t of tris) for (const k of [t[0], t[2], t[1]]) { pos.push(Uq[k][0], top + rh, Uq[k][2]); nor.push(0, 1, 0); col.push(...sn); uv.push(0, -9); }
-      if (bd.h >= 4) for (let k = 0; k < (lodge ? 2 : 1); k++) { const q = P[(bi + k * (n >> 1)) % n], x = cx + (q[0] - cx) * 0.3, z = cz + (q[1] - cz) * 0.3; obox(x, top + rh / 2 + 0.6, z, 1, 0, 0.55, rh / 2 + 1.0, 0.55, STONE); }   // stone chimneys
+      if (bd.h >= 4 && !gc) for (let k = 0; k < (lodge ? 2 : 1); k++) { const q = P[(bi + k * (n >> 1)) % n], x = cx + (q[0] - cx) * 0.3, z = cz + (q[1] - cz) * 0.3; obox(x, top + rh / 2 + 0.6, z, 1, 0, 0.55, rh / 2 + 1.0, 0.55, STONE); }   // stone chimneys
+    }
+    if (gc) { // Gold Coast Lodge: dark timber, a wall of glass toward the sun, and the big deck with its tables
+      let e0 = 0, bl = 0; for (let i = 0; i < n; i++) { const a = P[i], b = P[(i + 1) % n], l = Math.hypot(b[0] - a[0], b[1] - a[1]); if (l > bl) { bl = l; e0 = i; } }
+      const a = P[e0], b = P[(e0 + 1) % n], tx = (b[0] - a[0]) / bl, tz = (b[1] - a[1]) / bl, mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2, sg = inPoly(P, mx - tz * 0.4, mz + tx * 0.4) ? -1 : 1, ox = -tz * sg, oz = tx * sg, dk = hi + 0.6, D = 7.5, WOOD = [0.42, 0.3, 0.19];
+      obox(mx + ox * D / 2, dk, mz + oz * D / 2, tx, tz, bl / 2, 0.08, D / 2, WOOD);
+      for (let s = -bl / 2 + 0.4; s <= bl / 2; s += 4.2) for (const dd of [D - 0.3, D / 2]) { const x = mx + tx * s + ox * dd, z = mz + tz * s + oz * dd, g = Hsmooth(x, z); obox(x, (dk + g - 1) / 2, z, tx, tz, 0.13, (dk - g + 1) / 2, 0.13, TIMBER); }
+      obox(mx + ox * (D - 0.06), dk + 0.58, mz + oz * (D - 0.06), tx, tz, bl / 2, 0.5, 0.045, TIMBER); for (const e of [-1, 1]) obox(mx + tx * e * (bl / 2 - 0.06) + ox * D / 2, dk + 0.58, mz + tz * e * (bl / 2 - 0.06) + oz * D / 2, ox, oz, D / 2, 0.5, 0.045, TIMBER);
+      obox(mx + ox * 0.07, hi + 2.9, mz + oz * 0.07, tx, tz, bl / 2 - 0.8, 1.7, 0.05, [0.05, 0.08, 0.11]);
+      for (let s = -bl / 2 + 3; s <= bl / 2 - 3; s += 5) { const x = mx + tx * s + ox * D * 0.58, z = mz + tz * s + oz * D * 0.58; obox(x, dk + 0.8, z, tx, tz, 0.9, 0.04, 0.38, WOOD); obox(x, dk + 0.42, z, tx, tz, 0.07, 0.36, 0.28, TIMBER);
+        for (const e of [-1, 1]) { obox(x + ox * e * 0.66, dk + 0.5, z + oz * e * 0.66, tx, tz, 0.9, 0.03, 0.14, WOOD); obox(x + ox * e * 0.66, dk + 0.27, z + oz * e * 0.66, tx, tz, 0.06, 0.21, 0.1, TIMBER); } }
     }
     bd.cx = cx; bd.cz = cz; bd.top = top;
     const key = Math.floor(cx / 60) + "," + Math.floor(cz / 60); if (!BLD_GRID.has(key)) BLD_GRID.set(key, []); BLD_GRID.get(key).push(bd);
@@ -365,12 +376,13 @@ function initNPCs() {
   b.cyl(0.2, 0.19, 0.62, 0, 1.2, 0.05, W, 10, 0.22); b.add(new THREE.SphereGeometry(0.125, 10, 8), _gm.makeTranslation(0, 1.68, 0.14), [0.1, 0.1, 0.12]);
   npcMesh = new THREE.InstancedMesh(b.build(), worldShade(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8 })), NPC_N); npcMesh.castShadow = true; npcMesh.frustumCulled = false; scene.add(npcMesh);
   const JK = [0xd8362b, 0x1f6fd6, 0xf2b61b, 0x2a9d62, 0x8a4fd1, 0xe86a1c, 0x1b1e24, 0xe9edf2, 0x16a3a3, 0xd9438c], c = new THREE.Color();
-  for (let i = 0; i < NPC_N; i++) { let t = hash2(i, 3, 71) * tot, k = 0; while (k < npcRuns.length - 1 && t > npcRuns[k].len) t -= npcRuns[k++].len; npcs.push({ k, s: t, v: 3.2 + 3.8 * hash2(i, 5, 72), ph: hash2(i, 7, 73) * TAU, lam: 28 + 34 * hash2(i, 9, 74), seg: 0 }); npcMesh.setColorAt(i, c.setHex(JK[i % JK.length])); }
+  for (let i = 0; i < NPC_N; i++) { let t = hash2(i, 3, 71) * tot, k = 0; while (k < npcRuns.length - 1 && t > npcRuns[k].len) t -= npcRuns[k++].len; npcs.push({ k, s: t, v: 3.2 + 3.8 * hash2(i, 5, 72), ph: hash2(i, 7, 73) * TAU, lam: 28 + 34 * hash2(i, 9, 74), seg: 0 }); npcMesh.setColorAt(i, c.setHex(i % 11 === 5 ? 0xc8102e : JK[i % JK.length])); }
+  initQueues(npcMesh.geometry, npcMesh.material, JK);
 }
 const _ne = new THREE.Euler();
 let signT = 0;
 function updateNPCs(dt, cam) {
-  signT -= dt; if (signT <= 0) { signT = 0.5; for (const q of signs) q[0].visible = q[1].visible = Math.abs(q[2] - cam.x) + Math.abs(q[3] - cam.z) < 700; for (const q of liftSigns) q[0].visible = Math.abs(q[1] - cam.x) + Math.abs(q[2] - cam.z) < 900; }
+  signT -= dt; if (signT <= 0) { signT = 0.5; updateQueues(); for (const q of signs) q[0].visible = q[1].visible = Math.abs(q[2] - cam.x) + Math.abs(q[3] - cam.z) < 700; for (const q of liftSigns) q[0].visible = Math.abs(q[1] - cam.x) + Math.abs(q[2] - cam.z) < 900; }
   if (!npcMesh) return;
   for (let i = 0; i < NPC_N; i++) {
     const n = npcs[i]; let q = npcRuns[n.k]; n.s += n.v * dt;
@@ -410,6 +422,37 @@ function initSlow() {
 }
 
 /* ---------- the village: the tram building's Olympic rings and the clock tower ---------- */
+/* People waiting at the bottom of each lift. The lines fill and empty over a few minutes, lift by lift. */
+let queueMesh = null; const queues = [];
+function initQueues(geo, mat, JK) {
+  const c = new THREE.Color(); let n = 0;
+  for (const L of LIFTS) { if (L.carpet) continue; const cnt = clamp(Math.round((L.occ || 2) * 2.2), 4, 14), fx = Math.sin(L.dir), fz = Math.cos(L.dir), back = L.type === "chair_fixed" ? 7.2 : L.type === "chair_det" ? 8.8 : L.type === "tram" ? 13.5 : L.type === "funitel" ? 9.5 : 5.5;
+    queues.push({ L, i0: n, cnt, P: Array.from({ length: cnt }, (_, k) => { const lat = ((k % 4) - 1.5) * 1.25 + (hash2(L.id, k, 81) - 0.5) * 0.4, w = back + Math.floor(k / 4) * 1.7 + hash2(L.id, k, 82) * 0.5; return [L.bot.x - fx * w + fz * lat, L.bot.z - fz * w - fx * lat]; }) }); n += cnt; }
+  queueMesh = new THREE.InstancedMesh(geo, mat, n); queueMesh.castShadow = true; queueMesh.frustumCulled = false; scene.add(queueMesh);
+  for (let i = 0; i < n; i++) queueMesh.setColorAt(i, c.setHex(JK[(i * 7 + 3) % JK.length])); updateQueues();
+}
+function updateQueues() {
+  if (!queueMesh) return;
+  for (const q of queues) { const show = Math.round(q.cnt * (0.3 + 0.7 * (0.5 + 0.5 * Math.sin(liftTime / 75 + q.L.id * 1.7))));
+    for (let k = 0; k < q.cnt; k++) { const p = q.P[k]; if (k < show) { _lq.setFromAxisAngle(_up, q.L.dir + (hash2(q.L.id, k, 83) - 0.5) * 0.5); _lm.compose(_lp.set(p[0], H(p[0], p[1]), p[1]), _lq, _ls); } else _lm.makeScale(0, 0, 0); queueMesh.setMatrixAt(q.i0 + k, _lm); } }
+  queueMesh.instanceMatrix.needsUpdate = true;
+}
+/* Snowmaking guns along the edges of the lower groomed runs, and dead whitebark snags standing near treeline. */
+function initSnowGuns() {
+  const b = new GeoBag(), WID = [46, 42, 30, 18]; let n = 0;
+  for (const r of WORLD.runs) { if (!r.g || r.len < 300) continue; let acc = 35, k = 0;
+    for (let i = 0; i < r.pts.length - 1 && n < 170; i++) { const a = r.pts[i], c = r.pts[i + 1], l = Math.hypot(c[0] - a[0], c[1] - a[1]) || 1; acc += l; if (acc < 75) continue; acc = 0;
+      const sd = k++ % 2 ? 1 : -1, hw = (WID[r.d] || 30) / 2 + 1.5, x = a[0] - (c[1] - a[1]) / l * hw * sd, z = a[1] + (c[0] - a[0]) / l * hw * sd, y = H(x, z); if (y > 1985 || buildingAt(x, z) || cliffK(x, z) > 0.1) continue;
+      const yaw = Math.atan2(a[0] - x, a[1] - z), tilt = 0.32, len = 8.5, sx = Math.sin(yaw) * Math.sin(tilt), sz = Math.cos(yaw) * Math.sin(tilt), cy = Math.cos(tilt);
+      b.box(0.55, 0.9, 0.55, x, y + 0.25, z, [0.85, 0.66, 0.05], yaw); b.cyl(0.045, 0.06, len, x + sx * len / 2, y + 0.6 + cy * len / 2, z + sz * len / 2, STEEL, 6, tilt, 0, yaw);
+      b.box(0.3, 0.22, 0.55, x + sx * len, y + 0.6 + cy * len, z + sz * len, [0.85, 0.66, 0.05], yaw, tilt); towerHits.push({ x, z, r: 0.4 }); n++; } }
+  const tr = [0.42, 0.40, 0.37]; let m = 0;
+  for (let gz = Z0 + 80; gz < Z1 - 80 && m < 1100; gz += 34) for (let gx = X0 + 80; gx < X1 - 80; gx += 34) { const x = gx + hash2(gx, gz, 95) * 30, z = gz + hash2(gx, gz, 96) * 30, hr = hash2(gx, gz, 97); if (hr > 0.2) continue;
+    const y = H(x, z); if (y < 2380 || y > 2720 || clearMask(x, z) > 0.06 || cliffK(x, z) > 0.15 || hr > 0.05 + 0.15 * sstep(2450, 2650, y)) continue;
+    const h = 4 + 6 * hash2(gx, gz, 98), lean = (hash2(gx, gz, 99) - 0.5) * 0.25, yw = hr * 60; b.cyl(0.05, 0.2 + h * 0.012, h + 0.6, x, y + h / 2 - 0.3, z, tr, 6, lean, lean * 0.6, yw);
+    for (let k = 0; k < 3; k++) { const hy = h * (0.45 + 0.17 * k), a = yw + k * 2.2; b.cyl(0.02, 0.045, 1.3 - k * 0.25, x + Math.sin(a) * 0.5, y + hy, z + Math.cos(a) * 0.5, tr, 4, 1.15, 0, a); } m++; }
+  if (b.p.length) { const mesh = new THREE.Mesh(b.build(), worldShade(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85 }))); mesh.castShadow = true; mesh.frustumCulled = false; scene.add(mesh); }
+}
 function initVillage() {
   const b = new GeoBag(), tram = LIFTS.find(l => l.type === "tram");
   if (tram) { const fx = Math.sin(tram.dir), fz = Math.cos(tram.dir), x0 = tram.bot.x - fx * 12.25, z0 = tram.bot.z - fz * 12.25, y0 = tram.bot.g + 9.2, rx = -fz, rz = fx, yaw = Math.atan2(-fx, -fz);
@@ -417,6 +460,22 @@ function initVillage() {
   const ct = WORLD.blds.find(bd => /clock tower/i.test(bd.n || ""));
   if (ct) { const x = ct.cx, z = ct.cz, g = Hsmooth(x, z); b.box(4.6, 17, 4.6, x, g + 8.5, z, [0.36, 0.33, 0.30]); b.box(5.4, 0.6, 5.4, x, g + 17.2, z, [0.2, 0.15, 0.1]); b.add(new THREE.ConeGeometry(3.9, 5, 4), _gm.compose(_gp.set(x, g + 20, z), _gq.setFromEuler(_ge.set(0, Math.PI / 4, 0)), _gs.set(1, 1, 1)), [0.05, 0.11, 0.09]);
     for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2, px = x + Math.sin(a) * 2.34, pz = z + Math.cos(a) * 2.34; b.add(new THREE.CircleGeometry(1.25, 20), _gm.compose(_gp.set(px, g + 14.4, pz), _gq.setFromEuler(_ge.set(0, a, 0)), _gs.set(1, 1, 1)), [0.9, 0.88, 0.8]); b.box(0.09, 0.95, 0.04, px + Math.sin(a) * 0.03, g + 14.8, pz + Math.cos(a) * 0.03, DARK, a); b.box(0.09, 0.65, 0.04, px + Math.sin(a) * 0.03 + Math.cos(a) * 0.25, g + 14.5, pz + Math.cos(a) * 0.03 - Math.sin(a) * 0.25, DARK, a, 0, 1.1); } }
+  if (ct) { // the plaza: lamp posts, fire pits with benches, a row of flags, and the timber gateway toward the lifts
+    const x0 = ct.cx, z0 = ct.cz, WOOD = [0.36, 0.25, 0.15], FL = [[0.75, 0.08, 0.1], [0.05, 0.2, 0.55], [0.9, 0.9, 0.92], [0.9, 0.62, 0.05], [0.05, 0.4, 0.2], [0.05, 0.11, 0.2]];
+    for (let k = 0; k < 22; k++) { const a = k * 2.399, r = 14 + k * 3, x = x0 + Math.sin(a) * r, z = z0 + Math.cos(a) * r; if (buildingAt(x, z) || buildingAt(x + 1, z + 1)) continue; const g = H(x, z);
+      b.cyl(0.05, 0.075, 3.9, x, g + 1.55, z, DARK, 6); b.box(0.34, 0.42, 0.34, x, g + 3.6, z, [0.95, 0.86, 0.6]); b.box(0.46, 0.07, 0.46, x, g + 3.84, z, DARK); towerHits.push({ x, z, r: 0.2 }); }
+    for (let k = 0; k < 3; k++) { const a = 0.8 + k * 2.1, x = x0 + Math.sin(a) * 12, z = z0 + Math.cos(a) * 12; if (buildingAt(x, z)) continue; const g = H(x, z);
+      b.cyl(0.95, 1.05, 0.7, x, g + 0.1, z, [0.33, 0.31, 0.29], 12); b.cyl(0.72, 0.72, 0.06, x, g + 0.46, z, [0.95, 0.42, 0.06], 10); towerHits.push({ x, z, r: 1.1 });
+      for (let j = 0; j < 3; j++) { const ba = a + 1 + j * 2.09, bx2 = x + Math.sin(ba) * 2.3, bz2 = z + Math.cos(ba) * 2.3, gb = H(bx2, bz2); b.box(1.7, 0.08, 0.46, bx2, gb + 0.46, bz2, WOOD, ba + Math.PI / 2); b.box(1.5, 0.62, 0.1, bx2, gb + 0.12, bz2, DARK, ba + Math.PI / 2); } }
+    for (let k = 0; k < 6; k++) { const x = x0 - 12 + k * 4.5, z = z0 - 24; if (buildingAt(x, z)) continue; const g = H(x, z); b.cyl(0.04, 0.06, 9, x, g + 4, z, STEEL, 6); b.box(1.5, 0.95, 0.03, x + 0.8, g + 7.9, z, FL[k]); towerHits.push({ x, z, r: 0.2 }); }
+    const fu = LIFTS.find(l => l.type === "funitel");
+    if (fu) { const dx = fu.bot.x - x0, dz = fu.bot.z - z0, l = Math.hypot(dx, dz) || 1, ux = dx / l, uz = dz / l, px = x0 + ux * Math.min(36, l * 0.5), pz = z0 + uz * Math.min(36, l * 0.5), yaw = Math.atan2(ux, uz), g = H(px, pz);
+      if (!buildingAt(px, pz)) { for (const sd of [-1, 1]) { const x = px + uz * sd * 5.2, z = pz - ux * sd * 5.2, gp = H(x, z); b.box(0.42, 6.4, 0.42, x, gp + 2.2, z, WOOD, yaw); towerHits.push({ x, z, r: 0.4 }); }
+        b.box(11.4, 0.95, 0.36, px, g + 4.75, pz, WOOD, yaw); b.box(11.8, 0.2, 0.6, px, g + 5.33, pz, [0.9, 0.92, 0.95], yaw);
+        const cv = document.createElement("canvas"); cv.width = 1024; cv.height = 80; const c2 = cv.getContext("2d"); c2.fillStyle = "#2a1a0e"; c2.fillRect(0, 0, 1024, 80); c2.fillStyle = "#f1e6cf"; c2.textAlign = "center"; c2.textBaseline = "middle"; c2.font = "800 50px 'Big Shoulders Display', 'Arial Narrow', Impact, sans-serif"; c2.fillText("THE VILLAGE AT PALISADES TAHOE", 512, 42);
+        const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8; const sm = worldShade(new THREE.MeshStandardMaterial({ map: tex, roughness: 0.7 }));
+        for (const sd of [-1, 1]) { const m = new THREE.Mesh(new THREE.PlaneGeometry(10.6, 0.82), sm); m.position.set(px + ux * sd * 0.19, g + 4.75, pz + uz * sd * 0.19); m.rotation.y = yaw + (sd < 0 ? Math.PI : 0); scene.add(m); } } }
+  }
   if (b.p.length) { const m = new THREE.Mesh(b.build(), liftMat); m.castShadow = true; m.frustumCulled = false; scene.add(m); }
 }
 /* ---------- terrain park hardware: rails with their posts, lip markers, and a banner at the top of each line ---------- */

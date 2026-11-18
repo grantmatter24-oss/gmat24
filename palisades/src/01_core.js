@@ -194,6 +194,11 @@ function initPads() {
     [[0, 1, 1], [n - 1, n - 2, 0]].forEach(([i, j, bot]) => { const a = P[i], b = P[j], d = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, ux = (b[0] - a[0]) / d, uz = (b[1] - a[1]) / d;   // u points along the rope, away from the terminal
       const r0 = [9, 8, 10, 15][k], r1 = r0 + [8, 9, 12, 14][k], w0 = -[10, 9, 11, 14][k], w1 = k === 3 ? 28 : k === 0 ? 6 : bot ? [0, 9, 21][k] : 9;
       list.push({ x0: a[0] + ux * w0, z0: a[1] + uz * w0, x1: a[0] + ux * w1, z1: a[1] + uz * w1, h: Hsmooth(a[0], a[1]), r0, r1 }); }); }
+  // The cats keep every station's pad groomed: packed corduroy and no trees, right up to the terminal.
+  for (const p of list) { const ex = p.x1 - p.x0, ez = p.z1 - p.z0, a2 = 2 * Math.atan2(ez, ex), R = p.r0 + 5;
+    for (let j = Math.max(0, Math.floor((Math.min(p.z0, p.z1) - R - Z0) / MCELL)); j <= Math.min(MH - 1, Math.ceil((Math.max(p.z0, p.z1) + R - Z0) / MCELL)); j++) for (let i = Math.max(0, Math.floor((Math.min(p.x0, p.x1) - R - X0) / MCELL)); i <= Math.min(MW - 1, Math.ceil((Math.max(p.x0, p.x1) + R - X0) / MCELL)); i++) {
+      const x = X0 + i * MCELL, z = Z0 + j * MCELL, t = clamp(((x - p.x0) * ex + (z - p.z0) * ez) / (ex * ex + ez * ez || 1), 0, 1), d = Math.hypot(x - p.x0 - ex * t, z - p.z0 - ez * t), w = 1 - sstep(p.r0 - 1, R, d); if (w <= 0) continue; const k = (j * MW + i) * 4;
+      if (MA[k] < 255 * w) { MA[k] = 255 * w; MB[k + 1] = 128 + 127 * Math.cos(a2); MB[k + 2] = 128 + 127 * Math.sin(a2); } MA[k + 1] *= 1 - w; } }
   for (const p of list) gridAdd(G, Math.min(p.x0, p.x1) - p.r1, Math.min(p.z0, p.z1) - p.r1, Math.max(p.x0, p.x1) + p.r1, Math.max(p.z0, p.z1) + p.r1, p);
   PADG = G;
 }

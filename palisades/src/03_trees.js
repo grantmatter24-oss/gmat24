@@ -17,8 +17,11 @@ function tileTrees(cx, cz) { // -> Float32Array of [x, y, z, height, width, rot,
     if (cliffK(x, z) > 0.25) continue;
     if (!inWorld(x, z, 30)) continue;
     const y = H(x, z), hi = sstep(2330, 2640, y), big = hash2(gx, gz, 4); if (lone && y > 2640 + 60 * (hr * 200 % 1)) continue;
-    const h = Math.max(9.5, (9 + 19 * big * big + 6 * tm) * lerp(1.1, 0.62, hi)), v = hash2(gx, gz, 5) < lerp(0.35, 0.75, hi) ? 1 : 0;
-    out.push(x, y - 0.3, z, h, h * (v ? 0.34 : 0.25) * (0.85 + 0.3 * hash2(gx, gz, 6)), hash2(gx, gz, 7) * TAU, v, 0.8 + 0.4 * hash2(gx, gz, 8));
+    // Species by elevation, as on the real mountain: tall red fir and Jeffrey pine in the valley, mixed fir on the middle slopes,
+    // and short, broad whitebark pine at treeline, rimed white where the wind hits the ridges.
+    const low = 1 - sstep(1900, 2080, y), top = sstep(2480, 2700, y), rime = top * sstep(0.45, 0.7, vnoise(x * 0.006, z * 0.006, 93));
+    const h = Math.max(lerp(9.5, 4.2, top), (9 + 19 * big * big + 6 * tm) * lerp(1.1, 0.62, hi) * (1 + 0.28 * low) * (1 - 0.45 * top)), v = hash2(gx, gz, 5) < lerp(0.35, 0.75, hi) ? 1 : 0;
+    out.push(x, y - 0.3, z, h, h * (v ? 0.34 : 0.25) * (0.85 + 0.3 * hash2(gx, gz, 6)) * (1 + 0.55 * top), hash2(gx, gz, 7) * TAU, v, (0.8 + 0.4 * hash2(gx, gz, 8)) * (1 - 0.12 * low) * (1 + 1.3 * rime));
   }
   t = new Float32Array(out); treeTiles.set(key, t); return t;
 }

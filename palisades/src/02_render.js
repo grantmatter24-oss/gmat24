@@ -324,7 +324,8 @@ const TERRAIN_FRAG_COLOR = `
     tRough = mix(tRough, 0.08 + 0.3 * riffle, wat); tRough = mix(tRough, 0.6, rim); snowAmt *= 1.0 - max(wat, rim); }
   #endif
   #ifdef OUTER
-    alb = mix(alb, vec3(0.012, 0.045, 0.10), vLake); tRough = mix(tRough, 0.12, vLake); snowAmt *= 1.0 - vLake;
+    { vec2 wv = texture2D(uNoise, vWp.xz * 0.0009 + uTime * 0.002).rg - 0.5;   // Lake Tahoe: deep cobalt, lighter toward the shore, a little wind on the water
+      alb = mix(alb, mix(vec3(0.010, 0.060, 0.170), vec3(0.03, 0.16, 0.26), smoothstep(0.75, 0.2, vLake)), smoothstep(0.1, 0.6, vLake)); tRough = mix(tRough, 0.07 + 0.1 * abs(wv.x), vLake); Nw = normalize(mix(Nw, vec3(wv.x * 0.08, 1.0, wv.y * 0.08), vLake)); snowAmt *= 1.0 - vLake; }
   #endif
   #ifdef TRENCH
     { float tl = length(vWn); trLit = smoothstep(0.47, 0.6, tl); alb *= min(mix(tl / 0.45, tl, trLit), 1.0); }   // pressed snow is a little darker; the side of the trench away from the sun is in its own shadow
