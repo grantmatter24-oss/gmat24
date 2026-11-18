@@ -2,6 +2,9 @@
    A few are parked at the base, beside the bottom of the Base to Base gondola. Ski up to one and press E to get on; W is the throttle,
    S the brake and reverse, A D steer; press E again (when slow) to step off, and it stays where you left it. */
 const SLEDS = []; let nearSled = null;
+/* Two up. A snowmobile carries a driver and one passenger. The driver's game moves the machine and everyone else's follows it; if another
+   player is driving, E puts you on the back, and if they get off while you are aboard you slide forward and take the bars. */
+const sledDriver = S => S.remote && performance.now() - S.remoteT < 1500 ? S.remote : null;   // the other player driving this sled right now, if any
 function sledGeometry(body) { // a trail sled, about 3 m long: +z is forward, the origin is on the snow under the seat
   const b = new GeoBag(), Kc = [0.045, 0.05, 0.055], Al = [0.42, 0.44, 0.46], Gy = [0.16, 0.17, 0.19], PI2 = Math.PI / 2;
   // track and tunnel
@@ -32,24 +35,27 @@ function initSleds() {
 }
 const _sy = new THREE.Vector3(), _sz = new THREE.Vector3(), _sx = new THREE.Vector3(), _sm = new THREE.Matrix4();
 function sledPlace(S) { const up = normalAt(S.x, S.z, 0.9, _sy); _sz.set(Math.sin(S.yaw), 0, Math.cos(S.yaw)); _sx.crossVectors(up, _sz).normalize(); _sz.crossVectors(_sx, up).normalize(); S.mesh.quaternion.setFromRotationMatrix(_sm.makeBasis(_sx, up, _sz)); S.mesh.position.set(S.x, H(S.x, S.z), S.z); }
-function sledTick() { nearSled = null; if (sk.mode !== "ski" || sk.sp > 6 || !sk.ground) return; let bd = 3.6; for (const S of SLEDS) { const d = Math.hypot(S.x - sk.p.x, S.z - sk.p.z); if (d < bd) { bd = d; nearSled = S; } } }
+function sledTick() { nearSled = null; for (const S of SLEDS) if (S.remote && !sledDriver(S)) { S.remote = null; S.v = 0; } if (sk.mode !== "ski" || sk.sp > 6 || !sk.ground) return; let bd = 3.6; for (const S of SLEDS) { const d = Math.hypot(S.x - sk.p.x, S.z - sk.p.z); if (d < bd) { bd = d; nearSled = S; } } }
 function sledToggle() {
-  if (sk.mode === "sled") { const S = sk.sled; if (Math.abs(S.v) > 4) return toast("Slow down to get off", 1.5);
-    S.v = 0; S.thr = 0; sk.sled = null; let x = S.x - Math.cos(S.yaw) * 1.5, z = S.z + Math.sin(S.yaw) * 1.5; if (buildingAt(x, z) || treeHit(x, z, 0.3)) { x = S.x + Math.cos(S.yaw) * 1.5; z = S.z - Math.sin(S.yaw) * 1.5; }
+  if (sk.mode === "sled") { const S = sk.sled, pass = sk.sledRole === 2; if (Math.abs(S.v) > 4) return toast(pass ? "Wait until it slows down to hop off" : "Slow down to get off", 1.5);
+    if (!pass) { S.v = 0; S.thr = 0; } sk.sled = null; sk.sledRole = 0; let x = S.x - Math.cos(S.yaw) * 1.5, z = S.z + Math.sin(S.yaw) * 1.5; if (buildingAt(x, z) || treeHit(x, z, 0.3)) { x = S.x + Math.cos(S.yaw) * 1.5; z = S.z - Math.sin(S.yaw) * 1.5; }
     placeSkier(x, z, S.yaw, 0); toast("Off the snowmobile", 1.5); return; }
-  if (sk.mode !== "ski" || !nearSled) return; const S = nearSled;
-  sk.mode = "sled"; sk.sled = S; sk.p.set(S.x, H(S.x, S.z), S.z); sk.yaw = S.yaw; sk.sp = 0; sk.v.set(0, 0, 0); sk.ground = true; sk.air = false; sk.sw = false; sk.spin = sk.rot = 0; sk.turn = sk.carve = 0; sk.slip = 0; charging = false; popReq = false; nearSled = null; camSnap = true;
-  toast("Snowmobile · W throttle, S brake and reverse, A D steer · E to get off", 4);
+  if (sk.mode !== "ski" || !nearSled) return; const S = nearSled, drv = sledDriver(S); if (drv && Math.abs(S.v) > 4) return toast("It is moving too fast to hop on", 1.5);
+  sk.mode = "sled"; sk.sled = S; sk.sledRole = drv ? 2 : 1; sk.p.set(S.x, H(S.x, S.z), S.z); sk.yaw = S.yaw; sk.sp = 0; sk.v.set(0, 0, 0); sk.ground = true; sk.air = false; sk.sw = false; sk.spin = sk.rot = 0; sk.turn = sk.carve = 0; sk.slip = 0; charging = false; popReq = false; nearSled = null; camSnap = true;
+  toast(drv ? "On the back · the driver steers · E to hop off" : "Snowmobile · W throttle, S brake and reverse, A D steer · E to get off · a friend can press E to ride on the back", 4);
 }
 function stepSled(dt) {
   const S = sk.sled, p = sk.p; if (!S) { sk.mode = "ski"; return; }
+  if (sk.sledRole === 2) { // a passenger goes where the driver's machine goes
+    if (sledDriver(S)) { p.set(S.x, H(S.x, S.z), S.z); sk.yaw = S.yaw; sk.sp = Math.abs(S.v); sk.slope = tangent(S.yaw); sk.v.set(Math.sin(S.yaw) * S.v, 0, Math.cos(S.yaw) * S.v); sk.turn = 0; S.thr = 0; return; }
+    sk.sledRole = 1; S.v = 0; toast("The driver got off: you take the bars", 3); }
   const steer = ((K.spinR || K.right) ? 1 : 0) - ((K.spinL || K.left) ? 1 : 0), thr = (K.up ? 1 : 0) - (K.down ? 1 : 0); S.thr = thr;
   S.yaw -= steer * 1.9 * clamp(Math.abs(S.v) / 5, 0, 1) / (1 + Math.abs(S.v) / 26) * (S.v < 0 ? -1 : 1) * dt;   // wide arcs at speed sk.yaw = S.yaw; sk.turn = lerp(sk.turn, steer, Math.min(1, 6 * dt));
   const sA = tangent(S.yaw), s = readSurface(), grade = Math.sin(sA);   // positive when the nose points uphill
-  // Top speed is 75 mph on the flat and downhill, 55 mph on a climb; it pulls hard up to either.
-  const vcap = lerp(75, 55, sstep(0.02, 0.1, grade)) / MPH;
+  // Top speed is 80 mph on the flat and downhill, 60 mph on a climb; it pulls hard up to either.
+  const vcap = lerp(80, 60, sstep(0.02, 0.1, grade)) / MPH;
   let acc = thr > 0 ? (19 - 5 * (s.deep || 0)) * (1 - S.v / vcap) - G * Math.min(0, grade) * 0.7 * clamp(1 - S.v / vcap, 0, 1) :   /* deep snow only dulls the pull; it still reaches the same top speed */ (thr < 0 ? (S.v > 0.5 ? -20 : -6 * (1 + S.v / 6)) : 0) - G * grade * 0.7 - 0.05 * S.v - 0.0026 * S.v * Math.abs(S.v);
-  S.v = clamp(S.v + acc * dt, -7, 75 / MPH); if (!thr && Math.abs(S.v) < 0.5 && Math.abs(grade) < 0.35) S.v = 0;   // it sits still on all but the steepest ground
+  S.v = clamp(S.v + acc * dt, -7, 80 / MPH); if (!thr && Math.abs(S.v) < 0.5 && Math.abs(grade) < 0.35) S.v = 0;   // it sits still on all but the steepest ground
   const hx = Math.sin(S.yaw), hz = Math.cos(S.yaw), st = S.v * Math.cos(sA) * dt, nx = S.x + hx * st, nz = S.z + hz * st;
   if (buildingAt(nx, nz) || treeHit(nx, nz, 0.7) || !inWorld(nx, nz, 75) || H(nx, nz) - H(S.x, S.z) > 1.1 + Math.abs(st) || towerHits.some(t => Math.hypot(t.x - nx, t.z - nz) < t.r + 0.6)) { if (Math.abs(S.v) > 6) sfx("thump", 0.7); if (Math.abs(S.v) > 22) { const S0 = S; S0.v = 0; sk.sled = null; placeSkier(S0.x, S0.z, S0.yaw, 12); crash("Thrown off the snowmobile"); return; } S.v *= -0.15; }   // hit something flat out and you are thrown
   else { S.x = nx; S.z = nz; }

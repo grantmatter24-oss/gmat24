@@ -390,7 +390,8 @@ function poseRider(R, q, keys, slope, dt, time, snap) {
   const up = onSnow ? normalAt(q.p.x, q.p.z, 0.7, _y) : _y.set(0, 1, 0); fwdOf(q.yaw, _z); _x.crossVectors(up, _z).normalize(); _z.crossVectors(_x, up).normalize();
   _qa.setFromRotationMatrix(_m4.makeBasis(_x, up, _z)); if (snap) hold.quaternion.copy(_qa); else hold.quaternion.slerp(_qa, Math.min(1, (onSnow ? 7 : 16) * dt));
   hold.position.copy(q.p); if (onSnow && q !== sk && q.mode !== "sled") { q.sinkR = (q.sinkR || 0) + ((1 - maskAt(q.p.x, q.p.z)[0]) * (1 - maskAt(q.p.x, q.p.z)[2]) * (q.mode === "walk" ? 0.2 : 0.14) - (q.sinkR || 0)) * Math.min(1, 5 * dt); hold.position.y -= q.sinkR; }   // other riders sink too; your own depth is set in updateRig   // 20 cm of fresh: boots go to the bottom of it, skis float most of the way
-  KR.pose(R, q, keys, slope, dt, time);
+  q.bike = q.mode === "sled"; if (q.bike) { q.sw = false; q.spin = 0; }   // on a snowmobile you sit astride it like a bike, hands on the bars, facing the way it points
+  KR.pose(R, q, keys, slope, dt, time); if (q.bike) R.skiBack.visible = false;
   if (q.crashed) { // a falling body is loose: arms and legs fly while it tumbles and sprawl where it stops
     const k = clamp((q.sp || 0) / 8, 0, 1), s0 = 1 - k; R.arms.forEach((a, i) => { const sd = i ? 1 : -1; a.sh.rotation.x += k * 1.3 * Math.sin(time * 9 + i * 2.1) - s0 * 0.5; a.sh.rotation.z += sd * (k * 0.9 * Math.sin(time * 7 + i) + s0 * 0.9 + 0.3); a.el.rotation.x += k * 0.8 * Math.sin(time * 11 + i * 1.3) - 0.3; });
     R.legs.forEach((l, i) => { const sd = i ? 1 : -1; l.hip.rotation.x += k * 0.8 * Math.sin(time * 8 + i * Math.PI) + s0 * 0.25 * sd; l.hip.rotation.z = (l.hip.rotation.z || 0) + sd * (0.18 + 0.25 * k * Math.abs(Math.sin(time * 6 + i))); l.knee.rotation.x -= k * 0.7 * Math.abs(Math.sin(time * 10 + i * 2)) + s0 * 0.35; });
@@ -399,7 +400,7 @@ function poseRider(R, q, keys, slope, dt, time, snap) {
   R.rig.rotation.y = -(q.spin + (q.sw ? Math.PI : 0));
   const walking = q.mode === "walk"; R.carry.visible = walking; R.skiMeshes.forEach(m => { m.visible = !walking && q.mode !== "sled" && !q.lost; });
   if (walking) { const mv = clamp(q.sp / 1.2, 0, 1), ph = q.walkPh || 0; R.legs.forEach((l, i) => { const sw = Math.sin(ph + i * Math.PI) * 0.5 * mv; l.hip.rotation.x += sw; l.knee.rotation.x -= Math.max(0, -Math.cos(ph + i * Math.PI)) * 0.55 * mv; const sg = R.skiG[i]; sg.position.z -= Math.sin(sw) * 0.82; sg.position.y += Math.max(0, -Math.cos(ph + i * Math.PI)) * 0.12 * mv; sg.rotation.x = 0; sg.rotation.z = 0; }); }
-  const wob = q.stumT > 0 && !q.crashed ? Math.min(1, q.stumT / 0.9) : 0, seated = q.mode === "lift" || q.mode === "sled";
+  const wob = q.stumT > 0 && !q.crashed ? Math.min(1, q.stumT / 0.9) : 0, seated = q.mode === "lift";
   R.pivot.rotation.x = (q.crashed ? q.rot : q.ground ? 0 : q.rot - 0) + wob * (0.28 * Math.sin(time * 9) - 0.12) - (seated ? 0.25 : 0);
   R.pivot.rotation.z = (q.crashed ? q.tumZ : -(R.pose.vt !== undefined ? R.pose.vt : q.turn) * (0.3 + 0.32 * q.carve) * (q.air ? 0.3 : 1)) + (wob ? wob * (q.stumD || 1) * 0.45 * Math.sin(time * 12) : 0);
 }
@@ -407,11 +408,11 @@ const NOKEYS = Object.assign({}, K), PK = Object.assign({}, K);
 function updateRig(dt, time) {
   const R = rig, onLift = sk.mode === "lift", seated = onLift && sk.lift && sk.lift.type.startsWith("chair"), cabin = onLift && sk.lift && !sk.lift.carpet && !seated;
   R.hold.visible = !cabin; sk.air = !sk.ground && sk.mode === "ski";
-  if (seated || sk.mode === "sled") { sk.chg = 0.85; sk.turn = 0; sk.carve = 0; }   // sit: Kicker Run's deep crouch reads as a seat on the chair
+  if (seated) { sk.chg = 0.85; sk.turn = 0; sk.carve = 0; } if (sk.mode === "sled") { sk.chg = 0; sk.carve = 0; }   // sit: Kicker Run's deep crouch reads as a seat on the chair
   sk.poseSlope = camSnap ? sk.slope : (sk.poseSlope || 0) + (sk.slope - (sk.poseSlope || 0)) * Math.min(1, 3 * dt);   // legs follow the hill, not every ripple
   Object.assign(PK, K); if (sk.ground) { PK.boost = K.up; PK.up = 0; } else PK.boost = 0;   // on snow W is the tuck, not a nose butter
   poseRider(R, sk, sk.mode === "ski" ? PK : NOKEYS, sk.poseSlope, dt, time, camSnap);
-  if (seated) R.hold.position.y += 0.2; if (sk.mode === "sled") { R.hold.position.y += 0.36; R.hold.position.x -= Math.sin(sk.yaw) * 0.42; R.hold.position.z -= Math.cos(sk.yaw) * 0.42; }   // on the seat, behind the bars
+  if (seated) R.hold.position.y += 0.2; if (sk.mode === "sled") { const back = sk.sledRole === 2 ? 0.94 : 0.34; R.hold.position.y += sk.sledRole === 2 ? 0.18 : 0.12; R.hold.position.x -= Math.sin(sk.yaw) * back; R.hold.position.z -= Math.cos(sk.yaw) * back; }   // on the seat, behind the bars
   if (sk.lost && !sk.crashed) { clearLoose(); sk.lost = false; }
   if (sk.crashed) R.hold.position.y += 0.22 + (sk.crashHop || 0);
   { const on = sk.mode === "ski" && sk.ground && !sk.crashed, want = on || sk.crashed ? rockLift(sk.p.x, sk.p.z) : 0; sk.rkLift = (sk.rkLift || 0) + (want - (sk.rkLift || 0)) * Math.min(1, 9 * dt);   // the rock stands out from the surveyed slope: ride on its surface, not inside it

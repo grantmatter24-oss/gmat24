@@ -175,7 +175,7 @@
       <dt>S · ↓</dt><dd>Tail butter on snow (A D spin you while you butter). Back flip in the air</dd>
       <dt>Shift + turn</dt><dd>Slash: a hard, sharp turn that scrubs speed and throws snow</dd>
       <dt>J</dt><dd>Brake</dd>
-      <dt>E</dt><dd>Load a lift, enter a competition, or get on and off a snowmobile (parked beside the Base to Base gondola): W throttle, S brake and reverse, A D steer</dd>
+      <dt>E</dt><dd>Load a lift, enter a competition, or get on and off a snowmobile (parked beside the Base to Base gondola): W throttle, S brake and reverse, A D steer. Each carries two: if a friend is driving, E puts you on the back</dd>
       <dt>L</dt><dd>Competitions: venues, leaderboards, trophies and what they unlock. Press E under a start arch to enter a heat</dd>
       <dt>Space</dt><dd>Hold to charge a jump (the bar fills), release to pop. In the air, hold for a tail grab. On a rail it pops you off</dd>
       <dt>Q · E · C · F</dt><dd>Japan, nose, indy and safety grabs in the air. X is also a nose grab</dd>
@@ -2425,7 +2425,8 @@ function poseRider(R, q, keys, slope, dt, time, snap) {
   const up = onSnow ? normalAt(q.p.x, q.p.z, 0.7, _y) : _y.set(0, 1, 0); fwdOf(q.yaw, _z); _x.crossVectors(up, _z).normalize(); _z.crossVectors(_x, up).normalize();
   _qa.setFromRotationMatrix(_m4.makeBasis(_x, up, _z)); if (snap) hold.quaternion.copy(_qa); else hold.quaternion.slerp(_qa, Math.min(1, (onSnow ? 7 : 16) * dt));
   hold.position.copy(q.p); if (onSnow && q !== sk && q.mode !== "sled") { q.sinkR = (q.sinkR || 0) + ((1 - maskAt(q.p.x, q.p.z)[0]) * (1 - maskAt(q.p.x, q.p.z)[2]) * (q.mode === "walk" ? 0.2 : 0.14) - (q.sinkR || 0)) * Math.min(1, 5 * dt); hold.position.y -= q.sinkR; }   // other riders sink too; your own depth is set in updateRig   // 20 cm of fresh: boots go to the bottom of it, skis float most of the way
-  KR.pose(R, q, keys, slope, dt, time);
+  q.bike = q.mode === "sled"; if (q.bike) { q.sw = false; q.spin = 0; }   // on a snowmobile you sit astride it like a bike, hands on the bars, facing the way it points
+  KR.pose(R, q, keys, slope, dt, time); if (q.bike) R.skiBack.visible = false;
   if (q.crashed) { // a falling body is loose: arms and legs fly while it tumbles and sprawl where it stops
     const k = clamp((q.sp || 0) / 8, 0, 1), s0 = 1 - k; R.arms.forEach((a, i) => { const sd = i ? 1 : -1; a.sh.rotation.x += k * 1.3 * Math.sin(time * 9 + i * 2.1) - s0 * 0.5; a.sh.rotation.z += sd * (k * 0.9 * Math.sin(time * 7 + i) + s0 * 0.9 + 0.3); a.el.rotation.x += k * 0.8 * Math.sin(time * 11 + i * 1.3) - 0.3; });
     R.legs.forEach((l, i) => { const sd = i ? 1 : -1; l.hip.rotation.x += k * 0.8 * Math.sin(time * 8 + i * Math.PI) + s0 * 0.25 * sd; l.hip.rotation.z = (l.hip.rotation.z || 0) + sd * (0.18 + 0.25 * k * Math.abs(Math.sin(time * 6 + i))); l.knee.rotation.x -= k * 0.7 * Math.abs(Math.sin(time * 10 + i * 2)) + s0 * 0.35; });
@@ -2434,7 +2435,7 @@ function poseRider(R, q, keys, slope, dt, time, snap) {
   R.rig.rotation.y = -(q.spin + (q.sw ? Math.PI : 0));
   const walking = q.mode === "walk"; R.carry.visible = walking; R.skiMeshes.forEach(m => { m.visible = !walking && q.mode !== "sled" && !q.lost; });
   if (walking) { const mv = clamp(q.sp / 1.2, 0, 1), ph = q.walkPh || 0; R.legs.forEach((l, i) => { const sw = Math.sin(ph + i * Math.PI) * 0.5 * mv; l.hip.rotation.x += sw; l.knee.rotation.x -= Math.max(0, -Math.cos(ph + i * Math.PI)) * 0.55 * mv; const sg = R.skiG[i]; sg.position.z -= Math.sin(sw) * 0.82; sg.position.y += Math.max(0, -Math.cos(ph + i * Math.PI)) * 0.12 * mv; sg.rotation.x = 0; sg.rotation.z = 0; }); }
-  const wob = q.stumT > 0 && !q.crashed ? Math.min(1, q.stumT / 0.9) : 0, seated = q.mode === "lift" || q.mode === "sled";
+  const wob = q.stumT > 0 && !q.crashed ? Math.min(1, q.stumT / 0.9) : 0, seated = q.mode === "lift";
   R.pivot.rotation.x = (q.crashed ? q.rot : q.ground ? 0 : q.rot - 0) + wob * (0.28 * Math.sin(time * 9) - 0.12) - (seated ? 0.25 : 0);
   R.pivot.rotation.z = (q.crashed ? q.tumZ : -(R.pose.vt !== undefined ? R.pose.vt : q.turn) * (0.3 + 0.32 * q.carve) * (q.air ? 0.3 : 1)) + (wob ? wob * (q.stumD || 1) * 0.45 * Math.sin(time * 12) : 0);
 }
@@ -2442,11 +2443,11 @@ const NOKEYS = Object.assign({}, K), PK = Object.assign({}, K);
 function updateRig(dt, time) {
   const R = rig, onLift = sk.mode === "lift", seated = onLift && sk.lift && sk.lift.type.startsWith("chair"), cabin = onLift && sk.lift && !sk.lift.carpet && !seated;
   R.hold.visible = !cabin; sk.air = !sk.ground && sk.mode === "ski";
-  if (seated || sk.mode === "sled") { sk.chg = 0.85; sk.turn = 0; sk.carve = 0; }   // sit: Kicker Run's deep crouch reads as a seat on the chair
+  if (seated) { sk.chg = 0.85; sk.turn = 0; sk.carve = 0; } if (sk.mode === "sled") { sk.chg = 0; sk.carve = 0; }   // sit: Kicker Run's deep crouch reads as a seat on the chair
   sk.poseSlope = camSnap ? sk.slope : (sk.poseSlope || 0) + (sk.slope - (sk.poseSlope || 0)) * Math.min(1, 3 * dt);   // legs follow the hill, not every ripple
   Object.assign(PK, K); if (sk.ground) { PK.boost = K.up; PK.up = 0; } else PK.boost = 0;   // on snow W is the tuck, not a nose butter
   poseRider(R, sk, sk.mode === "ski" ? PK : NOKEYS, sk.poseSlope, dt, time, camSnap);
-  if (seated) R.hold.position.y += 0.2; if (sk.mode === "sled") { R.hold.position.y += 0.36; R.hold.position.x -= Math.sin(sk.yaw) * 0.42; R.hold.position.z -= Math.cos(sk.yaw) * 0.42; }   // on the seat, behind the bars
+  if (seated) R.hold.position.y += 0.2; if (sk.mode === "sled") { const back = sk.sledRole === 2 ? 0.94 : 0.34; R.hold.position.y += sk.sledRole === 2 ? 0.18 : 0.12; R.hold.position.x -= Math.sin(sk.yaw) * back; R.hold.position.z -= Math.cos(sk.yaw) * back; }   // on the seat, behind the bars
   if (sk.lost && !sk.crashed) { clearLoose(); sk.lost = false; }
   if (sk.crashed) R.hold.position.y += 0.22 + (sk.crashHop || 0);
   { const on = sk.mode === "ski" && sk.ground && !sk.crashed, want = on || sk.crashed ? rockLift(sk.p.x, sk.p.z) : 0; sk.rkLift = (sk.rkLift || 0) + (want - (sk.rkLift || 0)) * Math.min(1, 9 * dt);   // the rock stands out from the surveyed slope: ride on its surface, not inside it
@@ -2541,8 +2542,8 @@ function updateHUD(dt) {
   // lift prompt and ride bar
   const pr = $("prompt"), lb = $("liftBar");
   if (sk.mode === "ski" && COMP.near && !COMP.run) { pr.hidden = false; pr.innerHTML = "<kbd>E</kbd> Enter the " + COMP.near.name; }
-  else if (sk.mode === "sled") { pr.hidden = false; pr.innerHTML = "<kbd>E</kbd> Get off the snowmobile"; }
-  else if (sk.mode === "ski" && nearSled && !COMP.run) { pr.hidden = false; pr.innerHTML = "<kbd>E</kbd> Ride the snowmobile"; }
+  else if (sk.mode === "sled") { pr.hidden = false; pr.innerHTML = sk.sledRole === 2 ? "<kbd>E</kbd> Hop off" : "<kbd>E</kbd> Get off the snowmobile"; }
+  else if (sk.mode === "ski" && nearSled && !COMP.run) { pr.hidden = false; pr.innerHTML = sledDriver(nearSled) ? "<kbd>E</kbd> Hop on the back" : "<kbd>E</kbd> Ride the snowmobile"; }
   else if (sk.mode === "ski" && nearLift && !COMP.run) { pr.hidden = false; if (liftLocked(nearLift)) pr.textContent = nearLift.name + " is locked: needs " + LIFT_LOCK[nearLift.name] + " medal points, you have " + medalPoints() + ". Win trophies in competitions (L)."; else pr.innerHTML = "<kbd>E</kbd> Load " + nearLift.name; } else pr.hidden = true;
   if (sk.mode === "wait" || sk.mode === "lift") {
     const L = sk.lift; lb.hidden = false; $("liftName").textContent = L.name;
@@ -2716,7 +2717,7 @@ const MP = { myName: String(store.get("pal-name", "") || "").slice(0, 20), room:
 const r2 = v => Math.round(v * 100) / 100;
 function mpPack() {
   let k = 0; MP_KEYS.forEach((n, i) => { if (K[n]) k |= 1 << i; });
-  const o = mpPack0(k); if (MP.myName) o.nm = MP.myName; return o;
+  const o = mpPack0(k); if (MP.myName) o.nm = MP.myName; if (sk.mode === "sled" && sk.sled) { o.sdi = SLEDS.indexOf(sk.sled); o.sdr = sk.sledRole || 1; } return o;
 }
 function mpPack0(k) {
   return { v: 2, res: "palisades", id: MP.myId, play: sk.mode !== "menu", x: r2(sk.p.x), y: r2(sk.p.y), z: r2(sk.p.z), yaw: r2(sk.yaw), spin: r2(sk.spin), rot: r2(sk.rot), rotV: r2(sk.rotV), sw: !!sk.sw, gr: !!sk.ground, cr: !!sk.crashed, tz: r2(sk.tumZ), turn: r2(sk.turn), carve: r2(sk.carve), sp: r2(sk.sp), chg: r2(sk.chg), st: r2(Math.max(0, sk.stumT)), k, md: sk.mode, gd: sk.grind ? 1 : 0, wp: r2(sk.walkPh || 0), li: sk.lift ? sk.lift.id : -1, sl: r2(sk.slope), sc: sk.pts, vt: Math.round(sk.vert),
@@ -2773,9 +2774,12 @@ function poseRemote(r, dt, time, a) { // stand a rider (a friend, or a competiti
     const jump = !r.q || Math.hypot(st.x - r.q.p.x, st.z - r.q.p.z) > 30;
     if (jump) r.q = { p: new THREE.Vector3(st.x, st.y, st.z), yaw: st.yaw, spin: st.spin, rot: st.rot, grind: null, boxT: 0, bike: false, finished: false, bikeJump: false, pumpT: 0, landT: 0, popT: 0, airT: 1, vx: 0, vs: 0 };
     const q = r.q; q.p.x += (st.x - q.p.x) * a; q.p.y += (st.y - q.p.y) * a; q.p.z += (st.z - q.p.z) * a; q.yaw += wrap(st.yaw - q.yaw) * a; q.spin += (st.spin - q.spin) * a; q.rot += (st.rot - q.rot) * a;
-    q.rotV = st.rotV || 0; q.sw = st.sw; q.ground = st.gr; q.air = !st.gr && st.md === "ski"; q.crashed = st.cr; q.tumZ = st.tz || 0; q.turn = st.turn; q.carve = st.carve; q.sp = st.sp; q.vs = st.sp; q.chg = (L && L.type.startsWith("chair")) || st.md === "sled" ? 0.85 : st.chg || 0; q.stumT = st.st || 0; q.stumD = 1; q.mode = st.md; q.walkPh = st.wp || 0; q.grind = st.gd ? 1 : null;
+    q.rotV = st.rotV || 0; q.sw = st.sw; q.ground = st.gr; q.air = !st.gr && st.md === "ski"; q.crashed = st.cr; q.tumZ = st.tz || 0; q.turn = st.turn; q.carve = st.carve; q.sp = st.sp; q.vs = st.sp; q.chg = L && L.type.startsWith("chair") ? 0.85 : st.md === "sled" ? 0 : st.chg || 0; q.stumT = st.st || 0; q.stumD = 1; q.mode = st.md; q.walkPh = st.wp || 0; q.grind = st.gd ? 1 : null;
     MP_KEYS.forEach((n, i) => { r.keys[n] = st.k & (1 << i) ? 1 : 0; }); if (q.ground) { r.keys.boost = r.keys.up; r.keys.up = 0; } else r.keys.boost = 0;   // on snow W is the tuck, as it is for you: other riders do not nose butter along
     poseRider(R, q, st.md === "ski" ? r.keys : NOKEYS, st.sl || 0, dt, time, jump); if (L && L.type.startsWith("chair")) R.hold.position.y += 0.2;
+    if (st.md === "sled") { // another player on a snowmobile: the driver's state moves the machine itself; both riders sit on its seat
+      const S = SLEDS[st.sdi], pass = st.sdr === 2, back = pass ? 0.94 : 0.34; if (S && !pass && !(sk.sled === S && sk.sledRole === 1)) { S.x = q.p.x; S.z = q.p.z; S.yaw = q.yaw; S.v = st.sp || 0; S.remote = r; S.remoteT = performance.now(); sledPlace(S); }
+      R.hold.position.y += pass ? 0.18 : 0.12; R.hold.position.x -= Math.sin(q.yaw) * back; R.hold.position.z -= Math.cos(q.yaw) * back; }
 }
 const FIREBASE_CONFIG = { apiKey: "AIzaSyDP_rgi4dWZqVax_c5Ob5Hg4dilLS9Bchc", authDomain: "kicker-run.firebaseapp.com", databaseURL: "https://kicker-run-default-rtdb.firebaseio.com", projectId: "kicker-run", storageBucket: "kicker-run.firebasestorage.app", messagingSenderId: "149808173020", appId: "1:149808173020:web:744be18f442c535fe54919" };
 const fbLoad = src => new Promise((ok, no) => { const e = document.createElement("script"); e.src = src; e.onload = ok; e.onerror = no; document.head.appendChild(e); });
@@ -2959,6 +2963,9 @@ function compList(on) { // every venue with your best, your trophy and its leade
    A few are parked at the base, beside the bottom of the Base to Base gondola. Ski up to one and press E to get on; W is the throttle,
    S the brake and reverse, A D steer; press E again (when slow) to step off, and it stays where you left it. */
 const SLEDS = []; let nearSled = null;
+/* Two up. A snowmobile carries a driver and one passenger. The driver's game moves the machine and everyone else's follows it; if another
+   player is driving, E puts you on the back, and if they get off while you are aboard you slide forward and take the bars. */
+const sledDriver = S => S.remote && performance.now() - S.remoteT < 1500 ? S.remote : null;   // the other player driving this sled right now, if any
 function sledGeometry(body) { // a trail sled, about 3 m long: +z is forward, the origin is on the snow under the seat
   const b = new GeoBag(), Kc = [0.045, 0.05, 0.055], Al = [0.42, 0.44, 0.46], Gy = [0.16, 0.17, 0.19], PI2 = Math.PI / 2;
   // track and tunnel
@@ -2989,24 +2996,27 @@ function initSleds() {
 }
 const _sy = new THREE.Vector3(), _sz = new THREE.Vector3(), _sx = new THREE.Vector3(), _sm = new THREE.Matrix4();
 function sledPlace(S) { const up = normalAt(S.x, S.z, 0.9, _sy); _sz.set(Math.sin(S.yaw), 0, Math.cos(S.yaw)); _sx.crossVectors(up, _sz).normalize(); _sz.crossVectors(_sx, up).normalize(); S.mesh.quaternion.setFromRotationMatrix(_sm.makeBasis(_sx, up, _sz)); S.mesh.position.set(S.x, H(S.x, S.z), S.z); }
-function sledTick() { nearSled = null; if (sk.mode !== "ski" || sk.sp > 6 || !sk.ground) return; let bd = 3.6; for (const S of SLEDS) { const d = Math.hypot(S.x - sk.p.x, S.z - sk.p.z); if (d < bd) { bd = d; nearSled = S; } } }
+function sledTick() { nearSled = null; for (const S of SLEDS) if (S.remote && !sledDriver(S)) { S.remote = null; S.v = 0; } if (sk.mode !== "ski" || sk.sp > 6 || !sk.ground) return; let bd = 3.6; for (const S of SLEDS) { const d = Math.hypot(S.x - sk.p.x, S.z - sk.p.z); if (d < bd) { bd = d; nearSled = S; } } }
 function sledToggle() {
-  if (sk.mode === "sled") { const S = sk.sled; if (Math.abs(S.v) > 4) return toast("Slow down to get off", 1.5);
-    S.v = 0; S.thr = 0; sk.sled = null; let x = S.x - Math.cos(S.yaw) * 1.5, z = S.z + Math.sin(S.yaw) * 1.5; if (buildingAt(x, z) || treeHit(x, z, 0.3)) { x = S.x + Math.cos(S.yaw) * 1.5; z = S.z - Math.sin(S.yaw) * 1.5; }
+  if (sk.mode === "sled") { const S = sk.sled, pass = sk.sledRole === 2; if (Math.abs(S.v) > 4) return toast(pass ? "Wait until it slows down to hop off" : "Slow down to get off", 1.5);
+    if (!pass) { S.v = 0; S.thr = 0; } sk.sled = null; sk.sledRole = 0; let x = S.x - Math.cos(S.yaw) * 1.5, z = S.z + Math.sin(S.yaw) * 1.5; if (buildingAt(x, z) || treeHit(x, z, 0.3)) { x = S.x + Math.cos(S.yaw) * 1.5; z = S.z - Math.sin(S.yaw) * 1.5; }
     placeSkier(x, z, S.yaw, 0); toast("Off the snowmobile", 1.5); return; }
-  if (sk.mode !== "ski" || !nearSled) return; const S = nearSled;
-  sk.mode = "sled"; sk.sled = S; sk.p.set(S.x, H(S.x, S.z), S.z); sk.yaw = S.yaw; sk.sp = 0; sk.v.set(0, 0, 0); sk.ground = true; sk.air = false; sk.sw = false; sk.spin = sk.rot = 0; sk.turn = sk.carve = 0; sk.slip = 0; charging = false; popReq = false; nearSled = null; camSnap = true;
-  toast("Snowmobile · W throttle, S brake and reverse, A D steer · E to get off", 4);
+  if (sk.mode !== "ski" || !nearSled) return; const S = nearSled, drv = sledDriver(S); if (drv && Math.abs(S.v) > 4) return toast("It is moving too fast to hop on", 1.5);
+  sk.mode = "sled"; sk.sled = S; sk.sledRole = drv ? 2 : 1; sk.p.set(S.x, H(S.x, S.z), S.z); sk.yaw = S.yaw; sk.sp = 0; sk.v.set(0, 0, 0); sk.ground = true; sk.air = false; sk.sw = false; sk.spin = sk.rot = 0; sk.turn = sk.carve = 0; sk.slip = 0; charging = false; popReq = false; nearSled = null; camSnap = true;
+  toast(drv ? "On the back · the driver steers · E to hop off" : "Snowmobile · W throttle, S brake and reverse, A D steer · E to get off · a friend can press E to ride on the back", 4);
 }
 function stepSled(dt) {
   const S = sk.sled, p = sk.p; if (!S) { sk.mode = "ski"; return; }
+  if (sk.sledRole === 2) { // a passenger goes where the driver's machine goes
+    if (sledDriver(S)) { p.set(S.x, H(S.x, S.z), S.z); sk.yaw = S.yaw; sk.sp = Math.abs(S.v); sk.slope = tangent(S.yaw); sk.v.set(Math.sin(S.yaw) * S.v, 0, Math.cos(S.yaw) * S.v); sk.turn = 0; S.thr = 0; return; }
+    sk.sledRole = 1; S.v = 0; toast("The driver got off: you take the bars", 3); }
   const steer = ((K.spinR || K.right) ? 1 : 0) - ((K.spinL || K.left) ? 1 : 0), thr = (K.up ? 1 : 0) - (K.down ? 1 : 0); S.thr = thr;
   S.yaw -= steer * 1.9 * clamp(Math.abs(S.v) / 5, 0, 1) / (1 + Math.abs(S.v) / 26) * (S.v < 0 ? -1 : 1) * dt;   // wide arcs at speed sk.yaw = S.yaw; sk.turn = lerp(sk.turn, steer, Math.min(1, 6 * dt));
   const sA = tangent(S.yaw), s = readSurface(), grade = Math.sin(sA);   // positive when the nose points uphill
-  // Top speed is 75 mph on the flat and downhill, 55 mph on a climb; it pulls hard up to either.
-  const vcap = lerp(75, 55, sstep(0.02, 0.1, grade)) / MPH;
+  // Top speed is 80 mph on the flat and downhill, 60 mph on a climb; it pulls hard up to either.
+  const vcap = lerp(80, 60, sstep(0.02, 0.1, grade)) / MPH;
   let acc = thr > 0 ? (19 - 5 * (s.deep || 0)) * (1 - S.v / vcap) - G * Math.min(0, grade) * 0.7 * clamp(1 - S.v / vcap, 0, 1) :   /* deep snow only dulls the pull; it still reaches the same top speed */ (thr < 0 ? (S.v > 0.5 ? -20 : -6 * (1 + S.v / 6)) : 0) - G * grade * 0.7 - 0.05 * S.v - 0.0026 * S.v * Math.abs(S.v);
-  S.v = clamp(S.v + acc * dt, -7, 75 / MPH); if (!thr && Math.abs(S.v) < 0.5 && Math.abs(grade) < 0.35) S.v = 0;   // it sits still on all but the steepest ground
+  S.v = clamp(S.v + acc * dt, -7, 80 / MPH); if (!thr && Math.abs(S.v) < 0.5 && Math.abs(grade) < 0.35) S.v = 0;   // it sits still on all but the steepest ground
   const hx = Math.sin(S.yaw), hz = Math.cos(S.yaw), st = S.v * Math.cos(sA) * dt, nx = S.x + hx * st, nz = S.z + hz * st;
   if (buildingAt(nx, nz) || treeHit(nx, nz, 0.7) || !inWorld(nx, nz, 75) || H(nx, nz) - H(S.x, S.z) > 1.1 + Math.abs(st) || towerHits.some(t => Math.hypot(t.x - nx, t.z - nz) < t.r + 0.6)) { if (Math.abs(S.v) > 6) sfx("thump", 0.7); if (Math.abs(S.v) > 22) { const S0 = S; S0.v = 0; sk.sled = null; placeSkier(S0.x, S0.z, S0.yaw, 12); crash("Thrown off the snowmobile"); return; } S.v *= -0.15; }   // hit something flat out and you are thrown
   else { S.x = nx; S.z = nz; }
@@ -3072,7 +3082,7 @@ async function boot() {
   for (let i = 0; i < 300; i++) if (!updateTerrain(camera.position, 40)) break;
   for (let i = 0; i < 40; i++) { updateTrees(camera.position); updateRocks(camera.position); }
   $("load").hidden = true; renderer.info.autoReset = false; requestAnimationFrame(tick);
-  window.__pal = { drawMap, mapPick, poseRemote, updateFriendArrows, camYaw: () => Math.atan2(camDir.x, camDir.z), LOOSE, crash, rockLift, updateLoose, CLIFFS2: 0, SLEDS, sledToggle, stepSled, sledTick, COMP, compEnter, compTick, compFinish, medalPoints, liftLocked, treeMask, trkMesh: () => trkMesh, updateRig, layTracks, getCat: () => CATG, creekD, onRock, catBench, viewFrom: a => { camFix = a; }, CLIFFS, buildCliff, updateTerrain, setCam: a => { camFix = a; sk.mode = "menu"; $("menu").hidden = true; $("hud").hidden = true; }, cliffK, hBase, PARK, REW, stepRewind, recordRewind, toggleWalk, stepWalk, clearTracks, goHome, toggleMap, runAt, npcs, KR, gDown, gUp, landing, stepSki, stepLift, updateLifts, findNearLift, nrm, sk, K, LIFTS, WORLD, H, camera, scene, renderer, setWeather, placeSkier, boardLift, unloadAt, spawnAt, MP, chunks, nearTiles, treeTiles, Q };
+  window.__pal = { mpPack, makeGhost: () => ({ R: makeRider(outfit), tag: null, q: null, keys: Object.assign({}, NOKEYS), st: null }), drawMap, mapPick, poseRemote, updateFriendArrows, camYaw: () => Math.atan2(camDir.x, camDir.z), LOOSE, crash, rockLift, updateLoose, CLIFFS2: 0, SLEDS, sledToggle, stepSled, sledTick, COMP, compEnter, compTick, compFinish, medalPoints, liftLocked, treeMask, trkMesh: () => trkMesh, updateRig, layTracks, getCat: () => CATG, creekD, onRock, catBench, viewFrom: a => { camFix = a; }, CLIFFS, buildCliff, updateTerrain, setCam: a => { camFix = a; sk.mode = "menu"; $("menu").hidden = true; $("hud").hidden = true; }, cliffK, hBase, PARK, REW, stepRewind, recordRewind, toggleWalk, stepWalk, clearTracks, goHome, toggleMap, runAt, npcs, KR, gDown, gUp, landing, stepSki, stepLift, updateLifts, findNearLift, nrm, sk, K, LIFTS, WORLD, H, camera, scene, renderer, setWeather, placeSkier, boardLift, unloadAt, spawnAt, MP, chunks, nearTiles, treeTiles, Q };
   window.__info = () => ({ mode: sk.mode, p: [Math.round(sk.p.x), Math.round(sk.p.y), Math.round(sk.p.z)], sp: +sk.sp.toFixed(1), ground: sk.ground, crashed: sk.crashed, trees: treeCount, calls: renderer.info.render.calls, tris: renderer.info.render.triangles, lift: sk.lift && sk.lift.name, liftS: Math.round(sk.liftS) });
 }
 boot().catch(e => { const d = document.createElement("div"); d.id = "err"; d.textContent = String(e && e.stack || e); document.body.appendChild(d); console.error(e); });
