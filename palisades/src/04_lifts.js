@@ -41,6 +41,87 @@ function cabinGeometry(w, h, d, drop, twin, body = [0.62, 0.64, 0.67], cap = [0.
   b.box(w * 0.9, 0.12, d * 0.9, 0, y + h * 0.55, 0, [0.9, 0.92, 0.95]);   // snow on the roof
   return b.build();
 }
+/* ---------- lift stations ----------
+   Each terminal is modelled on the kind of lift it is and stands on its own graded pad; every part reaches the ground or is carried by one that does.
+   - Detachable chairs: the long enclosed terminal over the rope, on central masts, with the bullwheel and tyre banks inside. Doppelmayr UNI terminals
+     (KT-22, Gold Coast, Shirley Lake, Summit, Sherwood) are round-ended capsules with a window band; Leitner-Poma (Siberia, Big Blue, Red Dog, Treeline
+     Cirque) and Garaventa CTEC (Headwall, Wa She Shu, Far East, Roundhouse) terminals are square-cut with a tapered nose.
+   - Fixed-grip chairs (Yan and the other older lifts): a bullwheel on a single mast over a concrete vault, an angular machinery hood, sheave arms on a portal frame.
+   - Gondola, Funitel and Tram: station buildings with open portals the cabins run into.
+   The lift's name is on the gate gantry or sign frame skiers pass under at the bottom, and on the sides of the terminal at both ends. */
+const SNOWC = [0.9, 0.92, 0.95], CONC = [0.46, 0.46, 0.45], NAVY = [0.05, 0.11, 0.2];
+const TERMINAL = { // [shape, skin colour]
+  "KT22 Express": ["uni", [0.10, 0.21, 0.15]], "Gold Coast Express": ["uni", [0.10, 0.21, 0.15]], "Shirley Lake Express": ["uni", [0.10, 0.21, 0.15]], "Summit Six": ["uni", [0.16, 0.24, 0.2]], "Sherwood Express": ["uni", [0.55, 0.57, 0.58]],
+  "Siberia Express": ["lpa", [0.62, 0.64, 0.66]], "Big Blue Express": ["lpa", [0.62, 0.64, 0.66]], "Red Dog Express": ["lpa", [0.13, 0.14, 0.155]], "Treeline Cirque Lower": ["lpa", [0.62, 0.64, 0.66]], "Treeline Cirque Upper": ["lpa", [0.62, 0.64, 0.66]],
+  "Headwall Express": ["ctec", [0.74, 0.75, 0.74]], "Wa She Shu": ["ctec", [0.74, 0.75, 0.74]], "Far East Express": ["ctec", [0.74, 0.75, 0.74]], "Roundhouse": ["ctec", [0.74, 0.75, 0.74]]
+};
+function buildStation(b, L, nd, sgn, yaw, plate) {
+  const T = L.T, half = T.gauge / 2, cs = Math.cos(yaw), sn = Math.sin(yaw), rx = cs, rz = -sn, bot = sgn > 0, q = L.q, g0 = nd.g;
+  const S = (lx, y, w) => [nd.x + rx * lx + sn * sgn * w, y, nd.z + rz * lx + cs * sgn * w];        // lx: across the line; w: metres from the end of the lift toward the other end
+  const G = (lx, w) => { const p = S(lx, 0, w); return H(p[0], p[2]); };
+  const B = (wx, h, lw, lx, y, w, c) => { const p = S(lx, y, w); b.box(wx, h, lw, p[0], p[1], p[2], c, yaw); };
+  const post = (wx, lw, lx, w, yTop, c, hit) => { const g = G(lx, w), p = S(lx, 0, w); b.box(wx, yTop - g + 1.2, lw, p[0], (yTop + g - 1.2) / 2, p[2], c, yaw); if (hit) towerHits.push({ x: p[0], z: p[2], r: hit }); };   // stands on the ground, footed below it
+  const outYaw = sd => Math.atan2(rx * sd, rz * sd), faceYaw = dir => Math.atan2(sn * sgn * dir, cs * sgn * dir);   // which way a plate on a side wall / end wall looks
+  const hut = (lx, w, c) => { const g = Math.min(G(lx - 1.5, w - 1.7), G(lx + 1.5, w + 1.7), G(lx - 1.5, w + 1.7), G(lx + 1.5, w - 1.7)); // the operator's house: windows all round, a door, snow on the roof
+    B(3.0, 3.6, 3.4, lx, g + 0.8, w, c); B(3.06, 0.95, 2.4, lx, g + 1.6, w, GLASS); B(2.2, 0.95, 3.46, lx, g + 1.6, w, GLASS); B(0.9, 1.95, 0.08, lx - 0.8, g + 1.0, w - 1.71, DARK);
+    B(3.7, 0.22, 4.1, lx, g + 2.71, w, DARK); B(3.6, 0.3, 4.0, lx, g + 2.97, w, SNOWC); const p = S(lx, 0, w); towerHits.push({ x: p[0], z: p[2], r: 2.4 }); };
+  const wheel = (y, w) => { const p = S(0, y, w); b.cyl(half, half, 0.2, p[0], p[1], p[2], DARK, 28); b.cyl(half - 0.25, half - 0.25, 0.26, p[0], p[1], p[2], STEEL, 20); b.cyl(0.42, 0.42, 1.0, p[0], p[1] + 0.35, p[2], STEEL, 10); };
+  const loadLine = c => B(Math.min(3.4, T.gauge - 1.6), 0.05, 0.32, -half, G(-half, L.loadS) + 0.03, L.loadS, c);
+  const frame = (w, wid, hgt, gates) => { // the gantry or sign frame skiers pass under on the way to load: posts in the snow, the lift's name on both faces
+    const g = G(0, w); for (const sd of [-1, 1]) post(0.24, 0.24, sd * wid / 2, w, g + hgt + 0.5, STEEL, 0.25); B(wid + 0.5, 0.95, 0.24, 0, g + hgt, w, NAVY);
+    plate(S(0, g + hgt, w - 0.13), wid - 0.2, 0.82, faceYaw(-1)); plate(S(0, g + hgt, w + 0.13), wid - 0.2, 0.82, faceYaw(1));
+    if (gates) for (let k = -gates; k <= gates; k++) { B(0.2, 1.05, 0.75, k * 1.35, g + 0.4, w, STEEL); B(0.24, 0.12, 0.3, k * 1.35, g + 0.98, w - 0.2 , [0.1, 0.55, 0.2]); }
+    for (const sd of [-1, 1]) { const lx = sd * (wid / 2 - 0.2); for (const ww of [w + 0.6, w + 3.2, w + 5.8]) post(0.06, 0.06, lx, ww, G(lx, ww) + 1.0, [0.9, 0.35, 0.08]); B(0.05, 0.05, 5.2, lx, g + 0.92, w + 3.2, [0.9, 0.35, 0.08]); } };
+  const unloadSign = () => { const lx = -(half + 2.4), w = L.loadS + 2.5, g = G(lx, w); post(0.09, 0.09, lx, w, g + 2.5, STEEL, 0.15); B(1.5, 0.5, 0.06, lx, g + 2.2, w, [0.72, 0.08, 0.06]); B(1.3, 0.12, 0.07, lx, g + 2.2, w, SNOWC); };
+  if (L.type === "chair_det") {
+    const [shape, skin] = TERMINAL[L.name] || ["uni", [0.55, 0.57, 0.58]], W = T.gauge + 2.6, Lt = 21.5, wA = q - half - 1.2, wB = wA + Lt, mid = (wA + wB) / 2, y0 = nd.y + 0.45;   // the enclosure's floor is just above the rope, so the bullwheel and tyre banks show underneath
+    if (shape === "uni") { // a capsule: skirt, window band, rounded crown
+      const cap = (w, h, y, c) => { B(w, h, Lt - W, 0, y, mid, c); for (const e of [wA + W / 2, wB - W / 2]) { const p = S(0, y, e); b.cyl(w / 2, w / 2, h, p[0], p[1], p[2], c, 18); } };
+      cap(W, 1.2, y0 + 0.6, skin); cap(W + 0.05, 0.85, y0 + 1.62, GLASS); cap(W, 0.3, y0 + 2.2, skin); cap(W - 0.7, 0.4, y0 + 2.55, skin); cap(W - 2.0, 0.3, y0 + 2.9, skin); cap(W - 2.2, 0.28, y0 + 3.15, SNOWC);
+      for (let w = wA + W / 2; w <= wB - W / 2 + 0.01; w += (Lt - W) / 8) for (const sd of [-1, 1]) B(0.1, 0.85, 0.14, sd * (W / 2 + 0.03), y0 + 1.62, w, skin);
+    } else { // square-cut, with a nose tapering toward the line
+      const ctec = shape === "ctec"; B(W, 1.25, Lt - 2.4, 0, y0 + 0.62, mid - 0.2, skin); B(W + 0.05, 0.9, Lt - 3.6, 0, y0 + 1.7, mid - 0.2, GLASS); B(W, 0.35, Lt - 2.4, 0, y0 + 2.32, mid - 0.2, skin); B(W - 0.6, 0.3, Lt - 3, 0, y0 + 2.64, mid - 0.2, SNOWC);
+      B(W - 1.4, ctec ? 1.0 : 1.25, 1.5, 0, y0 + (ctec ? 0.5 : 0.62), wB - 0.9, skin); B(W - 3.0, 0.8, 1.2, 0, y0 + 0.4, wB + 0.1, skin); B(W - 1.4, 1.25, 1.2, 0, y0 + 0.62, wA + 0.5, skin); B(W - 1.4, 1.4, 1.5, 0, y0 + 1.95, wB - 0.9, skin); B(W - 1.4, 1.4, 1.2, 0, y0 + 1.95, wA + 0.5, skin);
+      for (let w = wA + 2.2; w <= wB - 2.6; w += (Lt - 4.8) / 7) for (const sd of [-1, 1]) B(0.12, 0.9, 0.16, sd * (W / 2 + 0.03), y0 + 1.7, w, skin);
+    }
+    wheel(nd.y, q); for (const sd of [-1, 1]) { B(0.36, 0.3, wB - 1.2 - q, sd * half, nd.y + 0.36, (q + wB - 1.2) / 2, STEEL); for (let w = q + 0.7; w < wB - 1.4; w += 1.15) { const p = S(sd * half, nd.y + 0.06, w); b.cyl(0.21, 0.21, 0.17, p[0], p[1], p[2], DARK, 7, 0, Math.PI / 2, yaw); } }   // tyre banks that slow and launch the chairs
+    for (const wm of [q + 4.4, wB - 4.2]) { const g = G(0, wm); post(0.95, 1.25, 0, wm, y0 + 0.1, STEEL, 0.95); B(2.3, 0.7, 2.7, 0, g + 0.1, wm, CONC); B(W - 1.0, 0.5, 0.8, 0, y0 - 0.05, wm, STEEL); }   // masts on concrete footings
+    hut(half + 3.7, q + 2.2, skin.map(v => v * 0.8 + 0.03));
+    for (const sd of [-1, 1]) plate(S(sd * (W / 2 + (shape === "uni" ? 0.06 : 0.09)), y0 + 0.62, mid + 1.5), 7.6, 0.84, outYaw(sd));   // the name along both sides of the terminal
+    if (bot) { frame(-7.5, W + 1.4, 3.6, 2); loadLine([0.75, 0.1, 0.08]); } else { loadLine([0.92, 0.45, 0.08]); unloadSign(); }
+  } else if (L.type === "chair_fixed") {
+    const yan = [0.12, 0.19, 0.15], gv = G(0, q);
+    B(1.9, 2.5, 4.2, 0, gv + 0.25, q - 0.2, CONC); B(1.8, 0.2, 4.1, 0, gv + 1.58, q - 0.2, SNOWC);                                  // the concrete vault
+    { const p = S(0, 0, q); b.cyl(0.34, 0.46, nd.y - gv - 1.4, p[0], (nd.y + gv + 1.4) / 2, p[2], STEEL, 12); towerHits.push({ x: p[0], z: p[2], r: 1.6 }); B(0.42, nd.y - gv - 1.7, 0.06, 0, (nd.y + gv + 1.5) / 2, q - 0.5, DARK); }   // mast and ladder
+    wheel(nd.y, q); for (let k = 0; k < 3; k++) { const p = S(0, nd.y + 0.02, q); b.box(2 * half - 0.3, 0.1, 0.16, p[0], p[1], p[2], STEEL, yaw + k * Math.PI / 3); }
+    B(2.4, 1.3, 4.4, 0, nd.y + 1.1, q + 0.4, yan); B(1.9, 0.5, 3.4, 0, nd.y + 2.0, q + 0.4, yan); B(1.8, 0.22, 3.3, 0, nd.y + 2.36, q + 0.4, SNOWC); B(2.46, 0.5, 1.6, 0, nd.y + 1.2, q + 0.4, GLASS);   // the machinery hood
+    B(2 * half + 0.5, 0.3, 0.3, 0, nd.y + 0.5, q + 1.2, STEEL); for (const sd of [-1, 1]) { B(0.22, 0.3, 4.6, sd * half, nd.y + 0.5, q + 3.3, STEEL); for (const w of [q + 2.6, q + 3.4, q + 4.2, q + 5.0]) { const p = S(sd * half, nd.y + 0.16, w); b.cyl(0.2, 0.2, 0.12, p[0], p[1], p[2], DARK, 8, 0, Math.PI / 2, yaw); } }   // sheave arms
+    B(2 * half + 3.6, 0.32, 0.32, 0, nd.y + 0.72, q + 5.4, STEEL); for (const sd of [-1, 1]) post(0.26, 0.26, sd * (half + 1.65), q + 5.4, nd.y + 0.88, STEEL, 0.3);   // carried on a portal frame
+    hut(half + 3.6, q + 1.4, [0.30, 0.22, 0.15]);
+    for (const sd of [-1, 1]) plate(S(sd * 1.24, nd.y + 1.45, q + 0.4), 3.9, 0.5, outYaw(sd));
+    if (bot) { frame(-6, 5.6, 2.9, 0); loadLine([0.75, 0.1, 0.08]); } else { loadLine([0.92, 0.45, 0.08]); unloadSign(); }
+  } else if (L.type === "gondola") { // a glazed terminal on a concrete deck, open at the end the cabins run in through
+    const W = T.gauge + 7.6, w0 = -4, w1 = 30, mid = (w0 + w1) / 2, len = w1 - w0, fl = g0 + 0.12, col = [0.14, 0.15, 0.165];
+    B(W, 1.6, len, 0, fl - 0.8, mid, CONC); B(4, 0.5, 5, -(W / 2 + 2), g0 + 0.05, 6, CONC);
+    for (const sd of [-1, 1]) { for (let w = w0 + 0.3; w <= w1; w += (len - 0.6) / 5) post(0.5, 0.5, sd * (W / 2 - 0.25), w, nd.y + 0.7, col, 0); B(0.14, nd.y + 0.6 - fl, len - 0.6, sd * (W / 2 - 0.25), (nd.y + 0.6 + fl) / 2, mid, GLASS); }
+    B(W, nd.y + 0.6 - fl, 0.4, 0, (nd.y + 0.6 + fl) / 2, w0 + 0.2, col); B(W + 0.5, 1.9, len + 0.5, 0, nd.y + 1.55, mid, col); B(W + 0.2, 0.35, len + 0.2, 0, nd.y + 2.67, mid, SNOWC); wheel(nd.y, q);
+    for (const sd of [-1, 1]) plate(S(sd * (W / 2 + 0.27), nd.y + 1.55, mid), 11, 1.3, outYaw(sd)); plate(S(0, nd.y + 1.55, w1 + 0.27), 9, 1.1, faceYaw(1));
+    for (const sd of [-1, 1]) { const p = S(sd * W / 2, 0, mid); towerHits.push({ x: p[0], z: p[2], r: 1.2 }); }
+  } else if (L.type === "funitel") { // a big hall with concrete walls, a metal upper storey and an arched roof; both cabin lanes run in through the open end
+    const W = T.gauge + 8, w0 = -8, w1 = 28, mid = (w0 + w1) / 2, len = w1 - w0, hp = T.station + 1.9, blue = [0.2, 0.27, 0.33];
+    for (const sd of [-1, 1]) { B(0.7, hp + 2, len, sd * (W / 2 - 0.35), g0 + hp / 2 - 1, mid, CONC); B(0.74, 1.4, len - 3, sd * (W / 2 - 0.35), g0 + hp - 1.6, mid, GLASS); }
+    B(W, hp + 2, 0.7, 0, g0 + hp / 2 - 1, w0 + 0.35, CONC); B(1.4, hp + 2, 6, 0, g0 + hp / 2 - 1, w1 - 3, CONC);
+    B(W + 0.4, 3.4, len + 0.4, 0, g0 + hp + 1.7, mid, blue); B(W - 2.4, 0.9, len + 0.4, 0, g0 + hp + 3.85, mid, blue); B(W - 6.5, 0.7, len + 0.4, 0, g0 + hp + 4.65, mid, blue); B(W - 7, 0.3, len, 0, g0 + hp + 5.15, mid, SNOWC);
+    for (const sd of [-1, 1]) B(1.9, 0.3, len, sd * (W / 2 - 1.3), g0 + hp + 3.55, mid, SNOWC);
+    plate(S(0, g0 + hp + 1.7, w1 + 0.22), 13, 1.6, faceYaw(1)); for (const sd of [-1, 1]) { plate(S(sd * (W / 2 + 0.22), g0 + hp + 1.7, mid), 13, 1.6, outYaw(sd)); const p = S(sd * W / 2, 0, mid); towerHits.push({ x: p[0], z: p[2], r: 1.4 }); }
+  } else { // the cable car building: a concrete machine hall behind, and a roofed dock with a bay for each cabin
+    const W = T.gauge + 6, hgt = T.station + 3.5;
+    B(W, hgt + 2, 8, 0, g0 + hgt / 2 - 1, -8, [0.36, 0.35, 0.34]); B(W - 3, 1.2, 0.3, 0, g0 + hgt - 2.6, -12.05, GLASS);
+    for (const lx of [-(W / 2 - 0.5), 0, W / 2 - 0.5]) B(lx ? 1.0 : 1.6, hgt + 2, 11, lx, g0 + hgt / 2 - 1, 1.5, [0.36, 0.35, 0.34]);
+    B(W + 1.2, 1.3, 20.6, 0, g0 + hgt + 0.65, -1.7, [0.3, 0.29, 0.28]); B(W + 1.0, 0.4, 20.4, 0, g0 + hgt + 1.5, -1.7, SNOWC); B(W + 1.2, 1.7, 0.4, 0, g0 + hgt - 0.85, 6.8, NAVY);
+    plate(S(0, g0 + hgt - 0.85, 7.03), 12, 1.5, faceYaw(1)); for (const sd of [-1, 1]) { const p = S(sd * W / 2, 0, -3); towerHits.push({ x: p[0], z: p[2], r: 1.5 }); }
+  }
+}
 function buildLift(l, id) {
   const T = LT[l.t], P = l.pts, n = P.length, L = { id, name: l.n, type: l.t, occ: l.occ, v: l.v, T, nodes: [], carpet: l.t === "carpet" };
   for (let i = 0; i < n; i++) { const g = Hsmooth(P[i][0], P[i][1]); L.nodes.push({ x: P[i][0], z: P[i][1], g, y: g + (i === 0 || i === n - 1 ? T.station : T.tower), st: i === 0 || i === n - 1 }); }
@@ -50,7 +131,7 @@ function buildLift(l, id) {
       const u = k / 14, y = lerp(a.y, b.y, u) - T.sag * span * 4 * u * (1 - u), gy = Hsmooth(lerp(a.x, b.x, u), lerp(a.z, b.z, u)), def = T.drop + 3.4 - (y - gy); if (def <= 0) continue;
       if (a.st && !b.st) { if (u > 0.1) nb = Math.max(nb, def / u); else na = Math.max(na, def); } else if (b.st && !a.st) { if (u < 0.9) na = Math.max(na, def / (1 - u)); else nb = Math.max(nb, def); } else both = Math.max(both, def);
     }
-    a.y += Math.min(28, na + both); b.y += Math.min(28, nb + both);
+    if (!a.st || L.type === "tram") a.y += Math.min(28, na + both); if (!b.st || L.type === "tram") b.y += Math.min(28, nb + both);   // only towers grow: a terminal keeps its rope at loading height above its pad
   }
   // dense centreline samples for O(1) lookup
   const S = [0]; for (let i = 1; i < n; i++) S.push(S[i - 1] + Math.hypot(L.nodes[i].x - L.nodes[i - 1].x, L.nodes[i].z - L.nodes[i - 1].z));
@@ -73,6 +154,15 @@ function buildLift(l, id) {
   }
   // towers, ropes, stations in one static mesh
   const b = new GeoBag(), half = T.gauge / 2;
+  L.q = L.carpet || L.type === "tram" ? 0 : Math.PI * half / 2;   // the bullwheel's centre sits this far in from each end, so the turn round it is as long as the rope it replaces
+  L.loadS = L.carpet ? 0.5 : L.type === "tram" ? 2.5 : L.q + 3;
+  let plate = null;
+  if (!L.carpet) { // the lift's name, lettered once and mounted wherever the real lifts carry it
+    const cv = document.createElement("canvas"); cv.width = 1024; cv.height = 128; const g = cv.getContext("2d"); g.fillStyle = "#0e2a47"; g.fillRect(0, 0, 1024, 128); g.fillStyle = "#e9eef3"; g.fillRect(0, 118, 1024, 10); g.fillRect(0, 0, 1024, 6);
+    g.fillStyle = "#fff"; g.textAlign = "center"; g.textBaseline = "middle"; let fs = 86; const label = L.name.toUpperCase(); g.font = "800 " + fs + "px 'Big Shoulders Display', 'Arial Narrow', Impact, sans-serif"; while (g.measureText(label).width > 960 && fs > 30) { fs -= 4; g.font = "800 " + fs + "px 'Big Shoulders Display', 'Arial Narrow', Impact, sans-serif"; } g.fillText(label, 512, 64);
+    const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8; const nm = worldShade(new THREE.MeshStandardMaterial({ map: tex, roughness: 0.55 }));
+    plate = (p, w, h, yaw) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), nm); m.position.set(p[0], p[1], p[2]); m.rotation.y = yaw; scene.add(m); liftSigns.push([m, p[0], p[2]]); };
+  }
   for (let i = 0; i < n; i++) {
     const nd = L.nodes[i], pa = L.nodes[Math.max(0, i - 1)], pb = L.nodes[Math.min(n - 1, i + 1)], yaw = Math.atan2(pb.x - pa.x, pb.z - pa.z), cs = Math.cos(yaw), sn = Math.sin(yaw), rx = cs, rz = -sn;
     const at = (lx, ly, lz) => [nd.x + rx * lx + sn * lz, ly, nd.z + rz * lx + cs * lz];
@@ -84,49 +174,20 @@ function buildLift(l, id) {
         b.cyl(0.26, 0.46, ht + 2.2, nd.x, nd.g + ht / 2 - 0.9, nd.z, STEEL, 10);
         const p = at(0, nd.y + 0.42, 0); b.box(T.gauge + 1.4, 0.34, 0.42, p[0], p[1], p[2], STEEL, yaw);
         for (const sx of [-1, 1]) { const q = at(sx * half, nd.y + 0.2, 0); b.box(0.32, 0.26, 3.0, q[0], q[1], q[2], DARK, yaw); for (const sz of [-1.1, -0.37, 0.37, 1.1]) { const w = at(sx * half, nd.y + 0.02, sz); b.cyl(0.19, 0.19, 0.1, w[0], w[1], w[2], DARK, 8, 0, Math.PI / 2, yaw); } }
-        const q = at(0, nd.y + 1.2, 0); b.box(T.gauge + 0.6, 0.08, 0.08, q[0], q[1], q[2], STEEL, yaw); b.box(0.5, 0.1, 0.5, nd.x, nd.y + 0.72, nd.z, [0.9, 0.92, 0.95], yaw);
+        const q = at(0, nd.y + 1.2, 0); b.box(T.gauge + 0.6, 0.08, 0.08, q[0], q[1], q[2], STEEL, yaw); for (const sx of [-1, 1]) { const u = at(sx * half, nd.y + 0.9, 0); b.box(0.07, 0.62, 0.07, u[0], u[1], u[2], STEEL, yaw); }   // the lifting frame stands on the crossarm
+        b.box(0.5, 0.1, 0.5, nd.x, nd.y + 0.64, nd.z, [0.9, 0.92, 0.95], yaw);
       }
       towerHits.push({ x: nd.x, z: nd.z, r: L.type === "tram" ? 4.2 : 0.75 });
-    } else {
-      const sgn = i === 0 ? 1 : -1, col = L.type === "chair_fixed" ? [0.16, 0.2, 0.18] : [0.13, 0.16, 0.2];
-      if (L.type === "tram" || L.type === "funitel" || L.type === "gondola") { const len = L.type === "tram" ? 18 : 24, hgt = T.station + 3.5, p = at(0, nd.g + hgt / 2 - 1, -sgn * 3); b.box(T.gauge + 6, hgt + 2, len, p[0], p[1], p[2], [0.28, 0.27, 0.26], yaw); const r = at(0, nd.g + hgt + 0.3, -sgn * 3); b.box(T.gauge + 6.6, 0.5, len + 0.6, r[0], r[1], r[2], [0.9, 0.92, 0.95], yaw); }
-      else if (L.type === "chair_det") { // detachable terminal: a long rounded shed over the rope, on two columns
-        const W = T.gauge + 2.4, zc = -sgn * 4.5, body = [0.70, 0.72, 0.74], band = [0.05, 0.065, 0.085], roof = [0.9, 0.92, 0.95];
-        const part = (w, h, len, y, c) => { const p = at(0, y, zc); b.box(w, h, len, p[0], p[1], p[2], c, yaw); for (const e of [-1, 1]) { const q = at(0, y, zc + e * len / 2); b.cyl(w / 2, w / 2, h, q[0], q[1], q[2], c, 14); } };
-        part(W, 0.9, 13, nd.y + 0.6, body); part(W + 0.08, 0.75, 13, nd.y + 1.4, band); part(W, 0.5, 13, nd.y + 2.0, body); part(W - 0.5, 0.3, 12.6, nd.y + 2.4, roof);
-        const st = at(0, nd.y + 1.4, zc); b.box(W + 0.14, 0.75, 1.4, st[0], st[1], st[2], col, yaw);
-        for (const sz of [-4, 4.5]) { const q = at(0, nd.g + (nd.y - nd.g) / 2 - 0.5, zc + sz); b.cyl(0.42, 0.5, nd.y - nd.g + 1.4, q[0], q[1], q[2], STEEL, 10); towerHits.push({ x: q[0], z: q[2], r: 0.9 }); }
-        const h = at(sgn > 0 ? 6.4 : -6.4, nd.g + 1.4, -sgn * 1.5); b.box(3, 2.8, 3.4, h[0], h[1], h[2], [0.30, 0.24, 0.18], yaw); const hr = at(sgn > 0 ? 6.4 : -6.4, nd.g + 3.0, -sgn * 1.5); b.box(3.5, 0.45, 3.9, hr[0], hr[1], hr[2], roof, yaw); towerHits.push({ x: h[0], z: h[2], r: 2.3 });
-      } else {
-        const q = at(0, nd.g + (nd.y - nd.g) / 2, -sgn * 2.2); b.cyl(0.3, 0.42, nd.y - nd.g + 1.4, q[0], q[1], q[2], STEEL, 10); towerHits.push({ x: q[0], z: q[2], r: 0.8 });
-        const w = at(0, nd.y + 0.1, -sgn * 0.4); b.cyl(half, half, 0.16, w[0], w[1], w[2], DARK, 20); const f = at(0, nd.y + 0.45, -sgn * 1.4); b.box(1.0, 0.5, 4.4, f[0], f[1], f[2], col, yaw);
-        const h = at(sgn > 0 ? 5.2 : -5.2, nd.g + 1.4, -sgn * 1.5); b.box(3, 2.8, 3.4, h[0], h[1], h[2], [0.32, 0.25, 0.19], yaw); const hr = at(sgn > 0 ? 5.2 : -5.2, nd.g + 3.0, -sgn * 1.5); b.box(3.5, 0.45, 3.9, hr[0], hr[1], hr[2], [0.9, 0.92, 0.95], yaw); towerHits.push({ x: h[0], z: h[2], r: 2.3 });
-      }
-    }
+    } else buildStation(b, L, nd, i === 0 ? 1 : -1, yaw, plate);
   }
   if (L.carpet) { // belt with low side walls
     for (let k = 0; k < ns - 1; k++) { const x = (L.px[k] + L.px[k + 1]) / 2, y = (L.py[k] + L.py[k + 1]) / 2, z = (L.pz[k] + L.pz[k + 1]) / 2, pit = Math.atan2(L.py[k + 1] - L.py[k], L.ds); b.box(0.9, 0.06, L.ds + 0.05, x, y - 0.03, z, DARK, L.dir, -pit); for (const sx of [-1, 1]) b.box(0.06, 0.34, L.ds + 0.05, x + L.rx[k] * sx * 0.55, y + 0.12, z + L.rz[k] * sx * 0.55, [0.25, 0.42, 0.62], L.dir, -pit); }
   } else {
     const offs = L.type === "funitel" ? [half - 1.6, half + 1.6, -half - 1.6, -half + 1.6] : L.type === "tram" ? [half - 0.5, half + 0.5, -half - 0.5, -half + 0.5] : [half, -half], rr = L.type === "tram" ? 0.045 : 0.03;
-    for (const o of offs) for (let k = 0; k < ns - 1; k += 2) {
+    const kq = Math.round(L.q / L.ds);   // the rope runs from bullwheel to bullwheel
+    for (const o of offs) for (let k = kq; k < ns - 1 - kq; k += 2) {
       const k2 = Math.min(ns - 1, k + 2), ax = L.px[k] + L.rx[k] * o, az = L.pz[k] + L.rz[k] * o, bx = L.px[k2] + L.rx[k2] * o, bz = L.pz[k2] + L.rz[k2] * o, dy = L.py[k2] - L.py[k], len = Math.hypot(bx - ax, dy, bz - az);
       b.add(new THREE.CylinderGeometry(rr, rr, len, 3, 1, true), _gm.compose(_gp.set((ax + bx) / 2, (L.py[k] + L.py[k2]) / 2, (az + bz) / 2), _gq.setFromEuler(_ge.set(Math.PI / 2 - Math.atan2(dy, Math.hypot(bx - ax, bz - az)), Math.atan2(bx - ax, bz - az), 0, "YXZ")), _gs.set(1, 1, 1)), DARK);
-    }
-  }
-  if (!L.carpet) { // the base: an entry arch carrying the lift's name, queue rails, and the name again on the terminal
-    const cv = document.createElement("canvas"); cv.width = 1024; cv.height = 128; const g = cv.getContext("2d"); g.fillStyle = "#0e2a47"; g.fillRect(0, 0, 1024, 128); g.fillStyle = "#e9eef3"; g.fillRect(0, 118, 1024, 10); g.fillRect(0, 0, 1024, 6);
-    g.fillStyle = "#fff"; g.textAlign = "center"; g.textBaseline = "middle"; let fs = 86; const label = L.name.toUpperCase(); g.font = "800 " + fs + "px 'Big Shoulders Display', 'Arial Narrow', Impact, sans-serif"; while (g.measureText(label).width > 960 && fs > 30) { fs -= 4; g.font = "800 " + fs + "px 'Big Shoulders Display', 'Arial Narrow', Impact, sans-serif"; } g.fillText(label, 512, 64);
-    const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8; const nm = worldShade(new THREE.MeshStandardMaterial({ map: tex, roughness: 0.55 }));
-    const plate = (x, y, z, w, h, yaw) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), nm); m.position.set(x, y, z); m.rotation.y = yaw; scene.add(m); liftSigns.push([m, x, z]); };
-    for (const [nd, sgn] of [[L.bot, 1], [L.top, -1]]) {
-      const fx = Math.sin(L.dir), fz = Math.cos(L.dir), rx = -fz, rz = fx, ex = nd.x - fx * sgn * 13, ez = nd.z - fz * sgn * 13, gy = Hsmooth(ex, ez), W = T.gauge + 3, face = Math.atan2(-fx * sgn, -fz * sgn);
-      if (sgn > 0) {
-        for (const sd of [-1, 1]) { b.cyl(0.11, 0.13, 4.6, ex + rx * sd * W / 2, gy + 1.9, ez + rz * sd * W / 2, STEEL, 8); towerHits.push({ x: ex + rx * sd * W / 2, z: ez + rz * sd * W / 2, r: 0.2 }); }
-        b.box(W + 0.4, 1.0, 0.16, ex, gy + 3.75, ez, [0.05, 0.11, 0.2], L.dir); plate(ex - fx * 0.1, gy + 3.75, ez - fz * 0.1, W, 0.86, face); plate(ex + fx * 0.1, gy + 3.75, ez + fz * 0.1, W, 0.86, face + Math.PI);
-        for (let k = -2; k <= 2; k++) { const ox = rx * k * 1.5, oz = rz * k * 1.5; b.box(0.05, 0.05, 9, ex + ox + fx * 5, gy + 0.95, ez + oz + fz * 5, [0.9, 0.35, 0.08], L.dir); for (const t of [0.5, 5, 9.5]) b.cyl(0.03, 0.03, 1.1, ex + ox + fx * t, gy + 0.5, ez + oz + fz * t, [0.9, 0.35, 0.08], 5); }
-      }
-      if (L.type === "chair_det") for (const sd of [-1, 1]) plate(nd.x - fx * sgn * 4.5 + rx * sd * (T.gauge / 2 + 1.27), nd.y + 1.4, nd.z - fz * sgn * 4.5 + rz * sd * (T.gauge / 2 + 1.27), 7.5, 0.7, L.dir + sd * -Math.PI / 2 + Math.PI);
-      else if (sgn < 0 || L.type === "chair_fixed") { const px = nd.x + rx * 5.2 * sgn - fx * sgn * 1.5 - fx * sgn * 1.75, pz = nd.z + rz * 5.2 * sgn - fz * sgn * 1.5 - fz * sgn * 1.75; if (L.type === "chair_fixed") plate(px, nd.g + 2.2, pz, 3.0, 0.4, face); }
     }
   }
   const sm = new THREE.Mesh(b.build(), liftMat); sm.castShadow = true; sm.receiveShadow = true; sm.geometry.boundingSphere = sphere; sm.matrixAutoUpdate = false; scene.add(sm);
@@ -157,8 +218,13 @@ function updateLifts(dt, cam, frame) {
     if (!L.mesh) continue;
     const dl = Math.hypot(L.cx - cam.x, L.cz - cam.z) - L.len / 2, far = dl > 2600; L.mesh.castShadow = dl < Q.shadowR + 60; if (far && (frame + L.id) % 6) continue;
     for (let k = 0; k < L.count; k++) {
-      carrierAt(L, k, liftTime, _co); liftPoint(L, _co.s, _co.side, _lp);
-      _lq.setFromAxisAngle(_up, L.dir + (_co.side < 0 ? Math.PI : 0)); _lm.compose(_lp, _lq, _ls); L.mesh.setMatrixAt(k, _lm);
+      carrierAt(L, k, liftTime, _co); const q = L.q, s = _co.s; let ang = L.dir + (_co.side < 0 ? Math.PI : 0);
+      if (q > 0 && (s < q || s > L.len - q)) { // round the bullwheel at the end of the line
+        const top = s > q, hf = L.T.gauge / 2, a = top ? (_co.side > 0 ? s - (L.len - q) : q + L.len - s) : (_co.side < 0 ? q - s : q + s), th = a / (2 * q) * Math.PI, e = top ? 1 : -1;
+        liftPoint(L, top ? L.len - q : q, 0, _lp); const kk = top ? L.ns - 1 : 0, dx = L.rz[kk], dz = -L.rx[kk];
+        _lp.x += e * (L.rx[kk] * hf * Math.cos(th) + dx * hf * Math.sin(th)); _lp.z += e * (L.rz[kk] * hf * Math.cos(th) + dz * hf * Math.sin(th)); ang = L.dir + (top ? th : Math.PI + th);
+      } else liftPoint(L, s, _co.side, _lp);
+      _lq.setFromAxisAngle(_up, ang); _lm.compose(_lp, _lq, _ls); L.mesh.setMatrixAt(k, _lm);
     }
     L.mesh.instanceMatrix.needsUpdate = true;
   }

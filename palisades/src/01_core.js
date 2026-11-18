@@ -120,7 +120,7 @@ function initCat() {
     for (let i = 0; i < P.length - 1; i++) { if (Math.max(st[Math.max(0, i - 1)], st[i], st[i + 1], st[Math.min(P.length - 1, i + 2)]) < 0.01) continue;   // no bench anywhere near this stretch
       const om = outer + 18 * Math.max(jk[i], jk[i + 1]) + 1.5, sg = [P[i][0], P[i][1], P[i + 1][0], P[i + 1][1], hs[i], hs[i + 1], core, om, st[i], jk[i], jk[i + 1], st[i + 1], r.c ? 1 : 0, outer, ri, hs[Math.max(0, i - 1)], hs[Math.min(P.length - 1, i + 2)], st[Math.max(0, i - 1)], st[Math.min(P.length - 1, i + 2)], om * om]; gridAdd(G, Math.min(sg[0], sg[2]) - om, Math.min(sg[1], sg[3]) - om, Math.max(sg[0], sg[2]) + om, Math.max(sg[1], sg[3]) + om, sg); }
   });
-  CATG = G; initPark();
+  CATG = G; initPads(); initPark();
 }
 const crom = (a, b, c, d, t) => 0.5 * (2 * b + (c - a) * t + (2 * a - 5 * b + 4 * c - d) * t * t + (3 * b - a - 3 * c + d) * t * t * t);   // a smooth curve through the run's levels, so the grade does not break at each point
 function catBench(x, z, h) {
@@ -184,6 +184,24 @@ function kickerLip(x, z) { const c = parkCell(x, z); if (!c) return null; for (c
 const EDGE = 220;
 function edgeW(x, z) { return smooth(1 - Math.min(x - X0, X1 - x, z - Z0, Z1 - z) / EDGE); }
 /* Ground height. Inside the resort grid it is survey + detail, blending to the coarse backdrop at the rim so the two meshes meet exactly. */
+/* Station pads: every lift terminal stands on a graded, level pad cut into or built out from the hill, as the real ones do.
+   A bottom terminal's pad runs under the whole terminal; a top terminal's pad is the unloading area and the ground behind it,
+   and the front of the terminal reaches out over the slope the chairs come up. */
+let PADG = null;
+function initPads() {
+  const G = new Array(CATW * CATH), list = [];
+  for (const l of WORLD.lifts) { if (l.t === "carpet") continue; const P = l.pts, n = P.length, k = l.t === "tram" ? 0 : l.t === "funitel" || l.t === "gondola" ? 3 : l.t === "chair_det" ? 2 : 1;
+    [[0, 1, 1], [n - 1, n - 2, 0]].forEach(([i, j, bot]) => { const a = P[i], b = P[j], d = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, ux = (b[0] - a[0]) / d, uz = (b[1] - a[1]) / d;   // u points along the rope, away from the terminal
+      const r0 = [9, 8, 10, 15][k], r1 = r0 + [8, 9, 12, 14][k], w0 = -[10, 9, 11, 14][k], w1 = k === 3 ? 28 : k === 0 ? 6 : bot ? [0, 9, 21][k] : 9;
+      list.push({ x0: a[0] + ux * w0, z0: a[1] + uz * w0, x1: a[0] + ux * w1, z1: a[1] + uz * w1, h: Hsmooth(a[0], a[1]), r0, r1 }); }); }
+  for (const p of list) gridAdd(G, Math.min(p.x0, p.x1) - p.r1, Math.min(p.z0, p.z1) - p.r1, Math.max(p.x0, p.x1) + p.r1, Math.max(p.z0, p.z1) + p.r1, p);
+  PADG = G;
+}
+function padH(x, z, h) {
+  const c = PADG && PADG[((z - Z0) / CATC | 0) * CATW + ((x - X0) / CATC | 0)]; if (!c) return h;
+  for (const p of c) { const ex = p.x1 - p.x0, ez = p.z1 - p.z0, t = clamp(((x - p.x0) * ex + (z - p.z0) * ez) / (ex * ex + ez * ez || 1), 0, 1), d = Math.hypot(x - p.x0 - ex * t, z - p.z0 - ez * t); if (d < p.r1) h = lerp(h, p.h, 1 - sstep(p.r0, p.r1, d)); }
+  return h;
+}
 /* Creeks, from the mapped streams. They are drawn into a distance field (255 on the centreline, falling to zero twelve metres out,
    scaled by the size of the stream) that the ground height, the snow shader, the trees and the skier all read. */
 const CRES = 2.5, CRW = Math.round((X1 - X0) / CRES), CRH = Math.round((Z1 - Z0) / CRES), CRSPAN = 12; let CRK = null;
@@ -208,11 +226,11 @@ function creekWet(x, z) { return creekStyle === 1 && creekD(x, z) < 1.6 && maskC
 function H(x, z, bare) {
   if (!(x > X0 && x < X1 && z > Z0 && z < Z1)) return hOuter(x, z);
   const w = edgeW(x, z); if (w >= 1) return hOuter(x, z);
-  const h = catBench(x, z, hBase(x, z) + detailH(x, z)) + parkH(x, z, bare) - creekCut(x, z); return w > 0 ? lerp(h, hOuter(x, z), w) : h;
+  const h = padH(x, z, catBench(x, z, hBase(x, z) + detailH(x, z)) + parkH(x, z, bare) - creekCut(x, z)); return w > 0 ? lerp(h, hOuter(x, z), w) : h;
 }
 function Hsmooth(x, z) { // no cliffs or drifts: far terrain, lift profiles, building pads
   if (!(x > X0 && x < X1 && z > Z0 && z < Z1)) return hOuter(x, z);
-  const w = edgeW(x, z); if (w >= 1) return hOuter(x, z); const h = catBench(x, z, hBase(x, z)); return w > 0 ? lerp(h, hOuter(x, z), w) : h;
+  const w = edgeW(x, z); if (w >= 1) return hOuter(x, z); const h = padH(x, z, catBench(x, z, hBase(x, z))); return w > 0 ? lerp(h, hOuter(x, z), w) : h;
 }
 const _n = new THREE.Vector3();
 const cliffK = (x, z) => bil(CL, NX, NZ, (x - X0) / CELL, (z - Z0) / CELL);

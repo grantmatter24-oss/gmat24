@@ -29,7 +29,11 @@ function spawnAt(key) {
   if (key === "village") { const L = LIFTS.find(l => l.name === "KT22 Express") || LIFTS[0]; placeSkier(L.bot.x - Math.sin(L.dir) * 16, L.bot.z - Math.cos(L.dir) * 16, L.dir); return; }
   const L = LIFTS[+key]; if (L) unloadAt(L);
 }
-function unloadAt(L) { const d = L.carpet ? 3 : 15; placeSkier(L.top.x + Math.sin(L.dir) * d, L.top.z + Math.cos(L.dir) * d, L.dir, L.carpet ? 1 : 3); }
+function unloadAt(L) {
+  if (L.type.startsWith("chair")) { // off the chair at the unload line and away to the outside of the terminal, as you do on the real ones
+    liftPoint(L, L.len - L.loadS + 3, 1, _cp); const o = 4.2; placeSkier(_cp.x + L.rx[L.ns - 1] * o, _cp.z + L.rz[L.ns - 1] * o, L.dir - 0.75, 3); return; }
+  const d = L.carpet ? 3 : L.type === "tram" ? 16 : 20; placeSkier(L.top.x + Math.sin(L.dir) * d, L.top.z + Math.cos(L.dir) * d, L.dir, L.carpet ? 1 : 3);
+}
 function toast(msg, t = 2.6) { const e = $("toast"); e.textContent = msg; e.style.opacity = 1; toastT = t; }
 let trickT = 0;
 function popup(name, sub) { $("trickN").textContent = name; $("trickP").textContent = sub || ""; $("trick").style.opacity = 1; trickT = 2.2; }
@@ -235,7 +239,7 @@ function findNearLift() {
 function nextCarrier(L) { // the carrier that reaches the load point soonest, and how long that takes
   if (L.type === "tram") { for (let k = 0; k < 2; k++) if (carrierAt(L, k, liftTime, _cq).docked === -1) return [k, 0]; const run = L.len / L.v + 8, cyc = 2 * (run + TRAM_DWELL), ph = liftTime % cyc; return [ph < run + TRAM_DWELL ? 1 : 0, ph < run + TRAM_DWELL ? run + TRAM_DWELL - ph : cyc - ph]; }
   let bk = 0, bt = 1e9; const loop = 2 * L.len;
-  for (let k = 0; k < L.count; k++) { const u = (((k * L.spacing + (liftTime + L.phase) * L.v) % loop) + loop) % loop, t = ((loop + 2.5 - u) % loop) / L.v; if (t < bt) { bt = t; bk = k; } }
+  for (let k = 0; k < L.count; k++) { const u = (((k * L.spacing + (liftTime + L.phase) * L.v) % loop) + loop) % loop, t = ((loop + L.loadS - u) % loop) / L.v; if (t < bt) { bt = t; bk = k; } }
   return [bk, bt];
 }
 function boardLift(L) {
@@ -244,18 +248,18 @@ function boardLift(L) {
   sk.car = nextCarrier(L)[0];
 }
 function stepLift(dt) {
-  const L = sk.lift, lp = liftPoint(L, 2.5, 1, _cp), p = sk.p;
+  const L = sk.lift, lp = liftPoint(L, L.loadS, 1, _cp), p = sk.p;
   if (sk.mode === "wait") {
     const tx = lp.x, tz = lp.z, d = Math.hypot(tx - p.x, tz - p.z); if (d > 0.05) { const st = Math.min(d, 3.2 * dt); p.x += (tx - p.x) / d * st; p.z += (tz - p.z) / d * st; } p.y = H(p.x, p.z);
     sk.yaw += wrap(L.dir - sk.yaw) * Math.min(1, 5 * dt);
     const c = carrierAt(L, sk.car, liftTime, _cq), eta = nextCarrier(L)[1];
     if (L.type === "tram") { sk.wait = eta; if (c.docked === -1 && d < 1.5) { sk.mode = "lift"; } }
-    else { sk.wait = eta; if (c.side === 1 && Math.abs(c.s - 2.5) < Math.max(0.6, L.v * dt * 1.5) && d < 1.5) sk.mode = "lift"; else if (c.side === 1 && c.s > 4 && c.s < L.len * 0.5) sk.car = nextCarrier(L)[0]; }
+    else { sk.wait = eta; if (c.side === 1 && Math.abs(c.s - L.loadS) < Math.max(0.6, L.v * dt * 1.5) && d < 1.5) sk.mode = "lift"; else if (c.side === 1 && c.s > L.loadS + 1.5 && c.s < L.len * 0.5) sk.car = nextCarrier(L)[0]; }
     return;
   }
   let s, done = false;
   if (L.carpet) { sk.liftS += L.v * dt; s = sk.liftS; liftPoint(L, s, 0, p); p.y += 0.02; done = s >= L.len - 0.5; }
-  else { const c = carrierAt(L, sk.car, liftTime, _cq); s = c.s; liftPoint(L, s, 1, p); p.y -= L.T.drop + (L.type.startsWith("chair") ? 0.5 : -0.12); done = L.type === "tram" ? c.docked === 1 : (c.side === -1 || s >= L.len - 2.2); }
+  else { const c = carrierAt(L, sk.car, liftTime, _cq); s = c.s; liftPoint(L, s, 1, p); p.y -= L.T.drop + (L.type.startsWith("chair") ? 0.5 : -0.12); done = L.type === "tram" ? c.docked === 1 : (c.side === -1 || s >= L.len - L.loadS); }
   sk.liftS = s; sk.yaw = L.dir; sk.sp = L.v; sk.v.set(0, 0, 0);
   if (done) { unloadAt(L); toast("Top of " + L.name + " · " + fmtAlt(sk.p.y)); }
 }
