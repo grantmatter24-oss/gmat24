@@ -426,7 +426,7 @@ function updateCamera(dt) {
   if (!look.drag) { look.idle += dt; if (look.idle > 1.2 && (sp > 2 || onLift)) { const k = Math.exp(-2.5 * dt); look.yaw *= k; look.pit *= k; } }
   const vh = Math.hypot(sk.v.x, sk.v.z); let heading = sk.yaw;
   if (sk.mode === "ski" && !sk.ground && vh > 2.5) heading = Math.atan2(sk.v.x, sk.v.z);
-  const cur = Math.atan2(camDir.x, camDir.z), nh = cur + wrap(heading - cur) * (camSnap ? 1 : Math.min(1, (sk.ground ? 3.2 : 1.6) * dt)); camDir.set(Math.sin(nh), 0, Math.cos(nh));
+  const cur = Math.atan2(camDir.x, camDir.z), nh = cur + wrap(heading - cur) * (camSnap || sk.mode === "sled" ? 1 : Math.min(1, (sk.ground ? 3.2 : 1.6) * dt));   // on a snowmobile the view is locked to the way it points camDir.set(Math.sin(nh), 0, Math.cos(nh));
   const cy = nh + look.yaw, dx = Math.sin(cy), dz = Math.cos(cy);
   camera.fov = lerp(camera.fov, fpv ? 76 + 8 * smooth(sp / 36) : 60 + 13 * smooth(sp / 36), Math.min(1, 3 * dt)); camera.near = fpv ? 0.1 : 0.25; camera.updateProjectionMatrix();
   if (fpv && !sk.crashed) {
