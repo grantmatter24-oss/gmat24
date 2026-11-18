@@ -200,7 +200,7 @@
   <div class="overlay" id="compList" hidden><div class="card" id="compListCard" style="min-width:min(560px,92vw)"></div></div>
 
   <div class="overlay" id="map" hidden><div id="mapWrap">
-    <div id="mapHead"><h3>Trail map</h3><span id="mapHint">Click anywhere to drop in there · click a lift end to go to it · M or Esc to close</span></div>
+    <div id="mapHead"><h3>Trail map</h3><span id="mapHint">Click anywhere to drop in there · click a lift end or a red competition flag to go to it · M or Esc to close</span></div>
     <canvas id="mapC"></canvas><div id="mapTip"></div>
   </div></div>
 
@@ -355,7 +355,7 @@ function catBench(x, z, h) {
    wedge with square sides and a clean lip, a flat deck, a knuckle and a long landing. Sizes are taken from photographs of the
    Gold Coast park against the people in them: the big tables stand about two riders high at the lip and six or seven wide.
    Side hits are the little lips and banks skiers wear into the edges of the groomed runs. */
-const COMP_OFF = 6;   // the freeride courses run this far to the side of the lift line, clear of the towers
+const COMP_OFFS = { "KT22 Express": -30, "Granite Chief": 6 };   // how far to the side of its lift line each freeride course runs (positive is skier's right going down): KT-22's is all to the left of the chair
 let parkLayout = +(QS.get("park") || store.get("pal-park", 2)), hitStyle = +(QS.get("hits") || store.get("pal-hits", 1));
 const TABLE = { big: { hK: 3.6, Lr: 11, T: 16, Ld: 26, W: 12 }, mid: { hK: 2.4, Lr: 8.5, T: 10, Ld: 17, W: 8.5 }, wedge: { hK: 1.7, Lr: 5.2, T: 0, Ld: 0.7, W: 3.2 } };
 function initPark() {
@@ -377,7 +377,7 @@ function initPark() {
     } }
   // Competition jumps: snow kickers built on the freeride courses that run under the KT-22 and Granite Chief chairs, top to bottom.
   for (const [name, fr] of [["KT22 Express", [0.2, 0.47, 0.73]], ["Granite Chief", [0.18, 0.38, 0.58, 0.8]]]) { const l = WORLD.lifts.find(q => q.n === name); if (!l) continue; const p = path(l.pts.slice().reverse(), 0);
-    for (const f of fr) { let best = null; for (let ds = 0; ds <= 60 && !best; ds += 6) for (const sg of [1, -1]) { const s = f * p.len + sg * ds, o = p.at(s, COMP_OFF), o2 = p.at(s + 14, COMP_OFF), drop = (hBase(o.x, o.z) - hBase(o2.x, o2.z)) / 14; if (drop < 0.18 || drop > 0.62 || CL[clamp(Math.round((o.z - Z0) / CELL), 0, NZ - 1) * NX + clamp(Math.round((o.x - X0) / CELL), 0, NX - 1)] > 0.1 || CL[clamp(Math.round((o2.z - Z0) / CELL), 0, NZ - 1) * NX + clamp(Math.round((o2.x - X0) / CELL), 0, NX - 1)] > 0.1) continue; if (l.pts.some(t => Math.hypot(t[0] - o.x, t[1] - o.z) < 13)) continue; best = o; break; }
+    for (const f of fr) { let best = null; for (let ds = 0; ds <= 60 && !best; ds += 6) for (const sg of [1, -1]) { const s = f * p.len + sg * ds, o = p.at(s, COMP_OFFS[name]), o2 = p.at(s + 14, COMP_OFFS[name]), drop = (hBase(o.x, o.z) - hBase(o2.x, o2.z)) / 14; if (drop < 0.18 || drop > 0.62 || CL[clamp(Math.round((o.z - Z0) / CELL), 0, NZ - 1) * NX + clamp(Math.round((o.x - X0) / CELL), 0, NX - 1)] > 0.1 || CL[clamp(Math.round((o2.z - Z0) / CELL), 0, NZ - 1) * NX + clamp(Math.round((o2.x - X0) / CELL), 0, NX - 1)] > 0.1) continue; if (l.pts.some(t => Math.hypot(t[0] - o.x, t[1] - o.z) < 13)) continue; best = o; break; }
       if (best) PARK.push(Object.assign({ k: "table", kind: "hit", hK: 1.9, Lr: 7, T: 0, Ld: 3, W: 7.5, deck: 0, soft: true, comp: true }, best)); } }
   // side hits on the busier groomed runs, alternating edges
   for (const r of WORLD.runs) { if (!r.g || r.c || r.d > 1 || r.len < 500 || r.n === "Gold Coast") continue; const p = path(r.pts, 0), W = [46, 42, 30, 18][r.d]; let s = 90 + 60 * hash2(r.len, 3, 41), n = 0;
@@ -2430,6 +2430,7 @@ function poseRider(R, q, keys, slope, dt, time, snap) {
     const k = clamp((q.sp || 0) / 8, 0, 1), s0 = 1 - k; R.arms.forEach((a, i) => { const sd = i ? 1 : -1; a.sh.rotation.x += k * 1.3 * Math.sin(time * 9 + i * 2.1) - s0 * 0.5; a.sh.rotation.z += sd * (k * 0.9 * Math.sin(time * 7 + i) + s0 * 0.9 + 0.3); a.el.rotation.x += k * 0.8 * Math.sin(time * 11 + i * 1.3) - 0.3; });
     R.legs.forEach((l, i) => { const sd = i ? 1 : -1; l.hip.rotation.x += k * 0.8 * Math.sin(time * 8 + i * Math.PI) + s0 * 0.25 * sd; l.hip.rotation.z = (l.hip.rotation.z || 0) + sd * (0.18 + 0.25 * k * Math.abs(Math.sin(time * 6 + i))); l.knee.rotation.x -= k * 0.7 * Math.abs(Math.sin(time * 10 + i * 2)) + s0 * 0.35; });
     if (q.lost) R.arms.forEach(a => { a.pole.visible = false; }); }
+  if (q.mode === "sled" || q.lost) { R.arms.forEach(a => { a.pole.visible = false; }); R.skiG.forEach(sg => { sg.visible = false; }); }   // on a snowmobile the skis and poles are off; in a yard sale they are gone
   R.rig.rotation.y = -(q.spin + (q.sw ? Math.PI : 0));
   const walking = q.mode === "walk"; R.carry.visible = walking; R.skiMeshes.forEach(m => { m.visible = !walking && q.mode !== "sled" && !q.lost; });
   if (walking) { const mv = clamp(q.sp / 1.2, 0, 1), ph = q.walkPh || 0; R.legs.forEach((l, i) => { const sw = Math.sin(ph + i * Math.PI) * 0.5 * mv; l.hip.rotation.x += sw; l.knee.rotation.x -= Math.max(0, -Math.cos(ph + i * Math.PI)) * 0.55 * mv; const sg = R.skiG[i]; sg.position.z -= Math.sin(sw) * 0.82; sg.position.y += Math.max(0, -Math.cos(ph + i * Math.PI)) * 0.12 * mv; sg.rotation.x = 0; sg.rotation.z = 0; }); }
@@ -2445,7 +2446,7 @@ function updateRig(dt, time) {
   sk.poseSlope = camSnap ? sk.slope : (sk.poseSlope || 0) + (sk.slope - (sk.poseSlope || 0)) * Math.min(1, 3 * dt);   // legs follow the hill, not every ripple
   Object.assign(PK, K); if (sk.ground) { PK.boost = K.up; PK.up = 0; } else PK.boost = 0;   // on snow W is the tuck, not a nose butter
   poseRider(R, sk, sk.mode === "ski" ? PK : NOKEYS, sk.poseSlope, dt, time, camSnap);
-  if (seated) R.hold.position.y += 0.2; if (sk.mode === "sled") R.hold.position.y += 0.34;
+  if (seated) R.hold.position.y += 0.2; if (sk.mode === "sled") { R.hold.position.y += 0.36; R.hold.position.x -= Math.sin(sk.yaw) * 0.42; R.hold.position.z -= Math.cos(sk.yaw) * 0.42; }   // on the seat, behind the bars
   if (sk.lost && !sk.crashed) { clearLoose(); sk.lost = false; }
   if (sk.crashed) R.hold.position.y += 0.22 + (sk.crashHop || 0);
   { const on = sk.mode === "ski" && sk.ground && !sk.crashed, want = on || sk.crashed ? rockLift(sk.p.x, sk.p.z) : 0; sk.rkLift = (sk.rkLift || 0) + (want - (sk.rkLift || 0)) * Math.min(1, 9 * dt);   // the rock stands out from the surveyed slope: ride on its surface, not inside it
@@ -2574,11 +2575,16 @@ function buildMap() {
 function drawMap() {
   const c = $("mapC"); if (c.width !== MAPW) { c.width = MAPW; c.height = MAPH; } const g = c.getContext("2d"); g.drawImage(mapBase, 0, 0);
   const dot = (x, z, col, r) => { g.fillStyle = col; g.strokeStyle = "#fff"; g.lineWidth = 2.5; g.beginPath(); g.arc(mx(x), mz(z), r, 0, TAU); g.fill(); g.stroke(); };
+  // competitions: the course in red, a flag at the start with its name
+  for (const v of COMP.venues) { g.strokeStyle = "rgba(214,40,30,0.9)"; g.lineWidth = 2.2; g.setLineDash([5, 4]); g.beginPath(); v.path.forEach((p, i) => i ? g.lineTo(mx(p[0]), mz(p[1])) : g.moveTo(mx(p[0]), mz(p[1]))); g.stroke(); g.setLineDash([]);
+    const x = mx(v.start.x), y = mz(v.start.z); g.strokeStyle = "#fff"; g.lineWidth = 2; g.beginPath(); g.moveTo(x, y); g.lineTo(x, y - 17); g.stroke(); g.fillStyle = "#d6281e"; g.beginPath(); g.moveTo(x, y - 17); g.lineTo(x + 12, y - 13); g.lineTo(x, y - 9); g.closePath(); g.fill(); g.stroke();
+    g.font = "700 12px system-ui, sans-serif"; g.textAlign = "left"; g.textBaseline = "middle"; g.lineWidth = 3; g.strokeStyle = "rgba(10,22,34,0.85)"; g.strokeText(v.name, x + 15, y - 13); g.fillStyle = "#fff"; g.fillText(v.name, x + 15, y - 13); }
   for (const r of MP.remotes.values()) if (r.st) dot(r.st.x, r.st.z, r.col || "#ffd24a", 5);
   const x = mx(sk.p.x), y = mz(sk.p.z), a = Math.atan2(Math.sin(sk.yaw), -Math.cos(sk.yaw)); g.save(); g.translate(x, y); g.rotate(a); g.fillStyle = "#ff5a36"; g.strokeStyle = "#fff"; g.lineWidth = 2.5; g.beginPath(); g.moveTo(0, -11); g.lineTo(7.5, 8); g.lineTo(0, 4); g.lineTo(-7.5, 8); g.closePath(); g.fill(); g.stroke(); g.restore();
 }
 function mapPick(ev) { // a lift end if the click is on one, otherwise the spot itself
   const c = $("mapC"), r = c.getBoundingClientRect(), x = X0 + (ev.clientX - r.left) / r.width * (X1 - X0), z = Z0 + (ev.clientY - r.top) / r.height * (Z1 - Z0); let best = null, bd = 55;
+  for (const v of COMP.venues) if (Math.hypot(v.start.x - x, v.start.z - z) < 60) return { x: v.start.x - Math.sin(v.start.yaw) * 8, z: v.start.z - Math.cos(v.start.yaw) * 8 };   // a click on a competition flag puts you just above its start arch
   for (const L of LIFTS) for (const [n, top] of [[L.bot, false], [L.top, true]]) { const d = Math.hypot(n.x - x, n.z - z); if (d < bd) { bd = d; best = { L, top }; } }
   return best || (inWorld(x, z, 240) && !buildingAt(x, z) ? { x, z } : null);
 }
@@ -2768,7 +2774,7 @@ function poseRemote(r, dt, time, a) { // stand a rider (a friend, or a competiti
     if (jump) r.q = { p: new THREE.Vector3(st.x, st.y, st.z), yaw: st.yaw, spin: st.spin, rot: st.rot, grind: null, boxT: 0, bike: false, finished: false, bikeJump: false, pumpT: 0, landT: 0, popT: 0, airT: 1, vx: 0, vs: 0 };
     const q = r.q; q.p.x += (st.x - q.p.x) * a; q.p.y += (st.y - q.p.y) * a; q.p.z += (st.z - q.p.z) * a; q.yaw += wrap(st.yaw - q.yaw) * a; q.spin += (st.spin - q.spin) * a; q.rot += (st.rot - q.rot) * a;
     q.rotV = st.rotV || 0; q.sw = st.sw; q.ground = st.gr; q.air = !st.gr && st.md === "ski"; q.crashed = st.cr; q.tumZ = st.tz || 0; q.turn = st.turn; q.carve = st.carve; q.sp = st.sp; q.vs = st.sp; q.chg = (L && L.type.startsWith("chair")) || st.md === "sled" ? 0.85 : st.chg || 0; q.stumT = st.st || 0; q.stumD = 1; q.mode = st.md; q.walkPh = st.wp || 0; q.grind = st.gd ? 1 : null;
-    MP_KEYS.forEach((n, i) => { r.keys[n] = st.k & (1 << i) ? 1 : 0; });
+    MP_KEYS.forEach((n, i) => { r.keys[n] = st.k & (1 << i) ? 1 : 0; }); if (q.ground) { r.keys.boost = r.keys.up; r.keys.up = 0; } else r.keys.boost = 0;   // on snow W is the tuck, as it is for you: other riders do not nose butter along
     poseRider(R, q, st.md === "ski" ? r.keys : NOKEYS, st.sl || 0, dt, time, jump); if (L && L.type.startsWith("chair")) R.hold.position.y += 0.2;
 }
 const FIREBASE_CONFIG = { apiKey: "AIzaSyDP_rgi4dWZqVax_c5Ob5Hg4dilLS9Bchc", authDomain: "kicker-run.firebaseapp.com", databaseURL: "https://kicker-run-default-rtdb.firebaseio.com", projectId: "kicker-run", storageBucket: "kicker-run.firebasestorage.app", messagingSenderId: "149808173020", appId: "1:149808173020:web:744be18f442c535fe54919" };
@@ -2831,8 +2837,8 @@ function initComp() {
   const defs = [
     { id: "gs2", name: "Red Dog Giant Slalom", kind: "race", blurb: "Fastest time round the gates: pass each gate between its two flags, on the outside of the turning pole. Miss one and you are sent back to the start.", run: runBy(["Red Dog Face", "Lower Dog Leg", "Julia's Gold"]), s0: 25, max: 560, off: 0 },
     { id: "slope", name: "Gold Coast Slopestyle", kind: "style", blurb: "Most trick points down the big jump line. Crashes score nothing.", run: runBy(["Gold Coast"]), s0: 45, max: 800, off: 11 },
-    { id: "kt22", name: "KT-22 Freeride", kind: "free", blurb: "Top to bottom under the KT-22 chair, between the ropes, with kickers on the way. Judged on air time, tricks and speed; a crash costs 200. Cross a rope and you are disqualified.", run: under("KT22 Express"), s0: 34, max: 5000, end: 42, off: COMP_OFF, fence: 22.5, par: 2200 },
-    { id: "gchief", name: "Granite Chief Freeride", kind: "free", blurb: "Top to bottom under the Granite Chief chair, with four kickers. Judged on air time, tricks and speed; a crash costs 200.", run: under("Granite Chief"), s0: 22, max: 5000, end: 30, off: COMP_OFF, par: 1800 }
+    { id: "kt22b", name: "KT-22 Freeride", kind: "free", blurb: "Top to bottom beside the KT-22 chair, on the left of the lift line going down, between the ropes, with kickers on the way. Judged on air time, tricks and speed; a crash costs 200. Cross a rope and you are disqualified.", run: under("KT22 Express"), s0: 34, max: 5000, end: 92, off: COMP_OFFS["KT22 Express"], fence: 27.5, par: 2200 },
+    { id: "gchief", name: "Granite Chief Freeride", kind: "free", blurb: "Top to bottom under the Granite Chief chair, with four kickers. Judged on air time, tricks and speed; a crash costs 200.", run: under("Granite Chief"), s0: 22, max: 5000, end: 30, off: COMP_OFFS["Granite Chief"], par: 1800 }
   ];
   const b = new GeoBag(), banner = (txt, col) => { const cv = document.createElement("canvas"); cv.width = 1024; cv.height = 128; const g = cv.getContext("2d"); g.fillStyle = col; g.fillRect(0, 0, 1024, 128); g.fillStyle = "#fff"; g.textAlign = "center"; g.textBaseline = "middle"; let fs = 84; g.font = "800 " + fs + "px 'Big Shoulders Display', 'Arial Narrow', Impact, sans-serif"; while (g.measureText(txt).width > 970 && fs > 28) { fs -= 4; g.font = "800 " + fs + "px 'Big Shoulders Display', 'Arial Narrow', Impact, sans-serif"; } g.fillText(txt, 512, 66); const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return worldShade(new THREE.MeshStandardMaterial({ map: t, roughness: 0.6 })); };
   const arch = (x, z, yaw, txt, col, rgb) => { const rx = Math.cos(yaw), rz = -Math.sin(yaw), g = H(x, z), mat = banner(txt, col); // two posts in the snow and a banner across, lettered on both faces
@@ -2953,16 +2959,25 @@ function compList(on) { // every venue with your best, your trophy and its leade
    A few are parked at the base, beside the bottom of the Base to Base gondola. Ski up to one and press E to get on; W is the throttle,
    S the brake and reverse, A D steer; press E again (when slow) to step off, and it stays where you left it. */
 const SLEDS = []; let nearSled = null;
-function sledGeometry(body) {
-  const b = new GeoBag(), Kc = [0.05, 0.055, 0.06], Gy = [0.2, 0.22, 0.24];   // +z is forward; the origin is on the snow under the seat
-  b.box(0.42, 0.24, 1.3, 0, 0.14, -0.42, [0.03, 0.03, 0.035]);                 // track
-  b.box(0.6, 0.3, 1.95, 0, 0.42, 0.02, Kc);                                    // tunnel and chassis
-  b.box(0.72, 0.3, 1.0, 0, 0.6, 0.74, body, 0, 0.2);                           // hood, sloping down to the nose
-  b.box(0.5, 0.16, 0.85, 0, 0.66, -0.4, Kc); b.box(0.5, 0.22, 0.12, 0, 0.78, -0.86, Kc);   // seat and backrest
-  b.box(0.54, 0.34, 0.05, 0, 0.92, 0.36, [0.1, 0.14, 0.18], 0, -0.55);         // windshield
-  b.cyl(0.025, 0.025, 0.42, 0, 0.8, 0.22, Kc, 6, -0.45); b.box(0.64, 0.04, 0.04, 0, 0.97, 0.12, Kc);   // steering post and bars
-  b.box(0.56, 0.1, 0.22, 0, 0.5, -1.02, body); b.box(0.3, 0.1, 0.05, 0, 0.6, 1.24, [0.95, 0.9, 0.7]);   // tail and headlight
-  for (const sx of [-1, 1]) { b.box(0.15, 0.04, 1.1, sx * 0.5, 0.03, 0.82, Kc); b.box(0.15, 0.04, 0.24, sx * 0.5, 0.09, 1.44, Kc, 0, -0.5); b.cyl(0.03, 0.03, 0.46, sx * 0.44, 0.27, 0.84, Gy, 6, 0, sx * 0.3); b.box(0.36, 0.05, 0.08, sx * 0.3, 0.46, 0.84, Gy); }   // skis on their struts
+function sledGeometry(body) { // a trail sled, about 3 m long: +z is forward, the origin is on the snow under the seat
+  const b = new GeoBag(), Kc = [0.045, 0.05, 0.055], Al = [0.42, 0.44, 0.46], Gy = [0.16, 0.17, 0.19], PI2 = Math.PI / 2;
+  // track and tunnel
+  b.box(0.38, 0.22, 1.5, 0, 0.14, -0.55, [0.025, 0.025, 0.03]); b.cyl(0.13, 0.13, 0.38, 0, 0.15, 0.2, [0.025, 0.025, 0.03], 12, 0, PI2); b.cyl(0.12, 0.12, 0.38, 0, 0.14, -1.3, [0.025, 0.025, 0.03], 12, 0, PI2);
+  for (let k = 0; k < 9; k++) b.box(0.4, 0.035, 0.05, 0, 0.02, -1.25 + k * 0.17, Kc);                                   // track lugs
+  for (const z of [-0.2, -0.6, -1.0]) for (const sx of [-1, 1]) b.cyl(0.07, 0.07, 0.03, sx * 0.14, 0.13, z, Al, 10, 0, PI2);   // bogie wheels
+  b.box(0.44, 0.1, 1.6, 0, 0.36, -0.55, Al); for (const sx of [-1, 1]) { b.box(0.03, 0.2, 1.5, sx * 0.215, 0.28, -0.55, Al); b.box(0.17, 0.03, 1.05, sx * 0.31, 0.3, -0.2, Kc); b.box(0.03, 0.06, 1.05, sx * 0.39, 0.33, -0.2, Kc); }   // tunnel, running boards with toe rails
+  b.box(0.42, 0.24, 0.02, 0, 0.2, -1.4, Kc, 0, -0.25); b.box(0.5, 0.03, 0.03, 0, 0.5, -1.36, Al); for (const sx of [-1, 1]) b.box(0.03, 0.03, 0.34, sx * 0.24, 0.47, -1.2, Al, 0, 0.2);   // snow flap, rear grab bar
+  // seat, tank and tail
+  b.box(0.36, 0.2, 0.95, 0, 0.52, -0.52, Kc); b.box(0.34, 0.16, 0.34, 0, 0.66, -0.88, Kc, 0, -0.18); b.box(0.36, 0.16, 0.36, 0, 0.56, 0.02, body); b.box(0.2, 0.06, 0.05, 0, 0.6, -1.08, [0.7, 0.05, 0.04]);
+  // engine bay, hood and nose
+  b.box(0.66, 0.26, 0.95, 0, 0.36, 0.55, Kc); b.box(0.62, 0.2, 0.8, 0, 0.6, 0.5, body, 0, 0.24); b.box(0.52, 0.18, 0.44, 0, 0.43, 1.03, body, 0, 0.6); b.box(0.2, 0.012, 0.62, 0, 0.708, 0.5, [0.92, 0.93, 0.95], 0, 0.24);
+  for (const sx of [-1, 1]) { b.box(0.02, 0.1, 0.34, sx * 0.335, 0.4, 0.52, Gy); b.box(0.022, 0.03, 0.3, sx * 0.34, 0.44, 0.52, Al); }   // side vents
+  b.box(0.3, 0.085, 0.05, 0, 0.56, 0.95, [0.95, 0.93, 0.78], 0, 0.5); b.box(0.52, 0.03, 0.03, 0, 0.33, 1.24, Al); b.box(0.54, 0.1, 0.3, 0, 0.73, 0.2, Kc);   // headlight, bumper, dash
+  b.box(0.5, 0.36, 0.025, 0, 0.93, 0.31, [0.07, 0.1, 0.13], 0, -0.52);                                                 // windshield
+  b.cyl(0.02, 0.02, 0.3, 0, 0.84, 0.03, Al, 6, -0.35); b.cyl(0.017, 0.017, 0.66, 0, 0.975, -0.03, Al, 6, 0, PI2); for (const sx of [-1, 1]) { b.cyl(0.026, 0.026, 0.13, sx * 0.31, 0.975, -0.03, Kc, 8, 0, PI2); b.box(0.05, 0.06, 0.02, sx * 0.2, 1.02, 0.0, Kc); }   // bars, grips, mirrors' stubs
+  // front suspension and skis
+  for (const sx of [-1, 1]) { b.box(0.3, 0.03, 0.05, sx * 0.39, 0.3, 0.76, Al, 0, 0, -sx * 0.37); b.box(0.3, 0.03, 0.05, sx * 0.39, 0.2, 0.7, Al, 0, 0, -sx * 0.2); b.cyl(0.028, 0.028, 0.4, sx * 0.4, 0.34, 0.74, [0.8, 0.62, 0.05], 8, 0, sx * 0.56);
+    b.cyl(0.026, 0.026, 0.26, sx * 0.53, 0.16, 0.73, Al, 6); b.box(0.13, 0.035, 1.15, sx * 0.53, 0.025, 0.72, Kc); b.box(0.13, 0.03, 0.32, sx * 0.53, 0.105, 1.42, Kc, 0, -0.55); b.box(0.02, 0.02, 0.3, sx * 0.53, 0.2, 1.36, Al, 0, -0.2); b.box(0.02, 0.14, 0.02, sx * 0.53, 0.12, 1.22, Al); b.box(0.03, 0.05, 1.0, sx * 0.53, 0.0, 0.7, Al); }
   return b.build();
 }
 function initSleds() {
@@ -2986,13 +3001,13 @@ function sledToggle() {
 function stepSled(dt) {
   const S = sk.sled, p = sk.p; if (!S) { sk.mode = "ski"; return; }
   const steer = ((K.spinR || K.right) ? 1 : 0) - ((K.spinL || K.left) ? 1 : 0), thr = (K.up ? 1 : 0) - (K.down ? 1 : 0); S.thr = thr;
-  S.yaw -= steer * 1.7 * clamp(Math.abs(S.v) / 5, 0, 1) * (S.v < 0 ? -1 : 1) * dt; sk.yaw = S.yaw; sk.turn = lerp(sk.turn, steer, Math.min(1, 6 * dt));
+  S.yaw -= steer * 1.9 * clamp(Math.abs(S.v) / 5, 0, 1) / (1 + Math.abs(S.v) / 26) * (S.v < 0 ? -1 : 1) * dt;   // wide arcs at speed sk.yaw = S.yaw; sk.turn = lerp(sk.turn, steer, Math.min(1, 6 * dt));
   const sA = tangent(S.yaw), s = readSurface(), grade = Math.sin(sA);   // positive when the nose points uphill
-  let acc = thr > 0 ? 9.5 * (1 - Math.max(0, S.v) / 25) : thr < 0 ? (S.v > 0.5 ? -13 : -5 * (1 + S.v / 6)) : 0;
-  acc -= G * grade * 0.8 + (0.22 + 0.5 * (s.deep || 0)) * S.v + 0.004 * S.v * Math.abs(S.v);
-  S.v = clamp(S.v + acc * dt, -6, 27); if (!thr && Math.abs(S.v) < 0.5 && Math.abs(grade) < 0.35) S.v = 0;   // it sits still on all but the steepest ground
+  let acc = thr > 0 ? 19 * (1 - Math.max(0, S.v) / 50) : thr < 0 ? (S.v > 0.5 ? -20 : -6 * (1 + S.v / 6)) : 0;   // a big two-stroke: 0 to 60 mph in about four seconds, 90 flat out on a groomed run
+  acc -= G * (thr > 0 ? Math.min(0, grade) : grade) * 0.7 + (0.05 + 0.16 * (s.deep || 0)) * S.v + 0.0026 * S.v * Math.abs(S.v);   // under power it climbs as fast as it runs on the flat
+  S.v = clamp(S.v + acc * dt, -7, 50); if (!thr && Math.abs(S.v) < 0.5 && Math.abs(grade) < 0.35) S.v = 0;   // it sits still on all but the steepest ground
   const hx = Math.sin(S.yaw), hz = Math.cos(S.yaw), st = S.v * Math.cos(sA) * dt, nx = S.x + hx * st, nz = S.z + hz * st;
-  if (buildingAt(nx, nz) || treeHit(nx, nz, 0.7) || !inWorld(nx, nz, 75) || H(nx, nz) - H(S.x, S.z) > 1.1 + Math.abs(st) || towerHits.some(t => Math.hypot(t.x - nx, t.z - nz) < t.r + 0.6)) { if (Math.abs(S.v) > 6) sfx("thump", 0.7); S.v *= -0.15; }
+  if (buildingAt(nx, nz) || treeHit(nx, nz, 0.7) || !inWorld(nx, nz, 75) || H(nx, nz) - H(S.x, S.z) > 1.1 + Math.abs(st) || towerHits.some(t => Math.hypot(t.x - nx, t.z - nz) < t.r + 0.6)) { if (Math.abs(S.v) > 6) sfx("thump", 0.7); if (Math.abs(S.v) > 22) { const S0 = S; S0.v = 0; sk.sled = null; placeSkier(S0.x, S0.z, S0.yaw, 12); crash("Thrown off the snowmobile"); return; } S.v *= -0.15; }   // hit something flat out and you are thrown
   else { S.x = nx; S.z = nz; }
   p.set(S.x, H(S.x, S.z), S.z); sk.sp = Math.abs(S.v); sk.slope = sA; sk.v.set(hx * S.v, 0, hz * S.v); sledPlace(S);
   if (Math.abs(S.v) > 3 && Math.random() < 0.7) for (let i = 0; i < 2; i++) spray(p, 0.6 + Math.random() * 1.6, (Math.random() - 0.5) * 3, sk.v, 0.8, 0.5 * (s.deep || 0));
@@ -3056,7 +3071,7 @@ async function boot() {
   for (let i = 0; i < 300; i++) if (!updateTerrain(camera.position, 40)) break;
   for (let i = 0; i < 40; i++) { updateTrees(camera.position); updateRocks(camera.position); }
   $("load").hidden = true; renderer.info.autoReset = false; requestAnimationFrame(tick);
-  window.__pal = { updateFriendArrows, camYaw: () => Math.atan2(camDir.x, camDir.z), LOOSE, crash, rockLift, updateLoose, CLIFFS2: 0, SLEDS, sledToggle, stepSled, sledTick, COMP, compEnter, compTick, compFinish, medalPoints, liftLocked, treeMask, trkMesh: () => trkMesh, updateRig, layTracks, getCat: () => CATG, creekD, onRock, catBench, viewFrom: a => { camFix = a; }, CLIFFS, buildCliff, updateTerrain, setCam: a => { camFix = a; sk.mode = "menu"; $("menu").hidden = true; $("hud").hidden = true; }, cliffK, hBase, PARK, REW, stepRewind, recordRewind, toggleWalk, stepWalk, clearTracks, goHome, toggleMap, runAt, npcs, KR, gDown, gUp, landing, stepSki, stepLift, updateLifts, findNearLift, nrm, sk, K, LIFTS, WORLD, H, camera, scene, renderer, setWeather, placeSkier, boardLift, unloadAt, spawnAt, MP, chunks, nearTiles, treeTiles, Q };
+  window.__pal = { drawMap, mapPick, poseRemote, updateFriendArrows, camYaw: () => Math.atan2(camDir.x, camDir.z), LOOSE, crash, rockLift, updateLoose, CLIFFS2: 0, SLEDS, sledToggle, stepSled, sledTick, COMP, compEnter, compTick, compFinish, medalPoints, liftLocked, treeMask, trkMesh: () => trkMesh, updateRig, layTracks, getCat: () => CATG, creekD, onRock, catBench, viewFrom: a => { camFix = a; }, CLIFFS, buildCliff, updateTerrain, setCam: a => { camFix = a; sk.mode = "menu"; $("menu").hidden = true; $("hud").hidden = true; }, cliffK, hBase, PARK, REW, stepRewind, recordRewind, toggleWalk, stepWalk, clearTracks, goHome, toggleMap, runAt, npcs, KR, gDown, gUp, landing, stepSki, stepLift, updateLifts, findNearLift, nrm, sk, K, LIFTS, WORLD, H, camera, scene, renderer, setWeather, placeSkier, boardLift, unloadAt, spawnAt, MP, chunks, nearTiles, treeTiles, Q };
   window.__info = () => ({ mode: sk.mode, p: [Math.round(sk.p.x), Math.round(sk.p.y), Math.round(sk.p.z)], sp: +sk.sp.toFixed(1), ground: sk.ground, crashed: sk.crashed, trees: treeCount, calls: renderer.info.render.calls, tris: renderer.info.render.triangles, lift: sk.lift && sk.lift.name, liftS: Math.round(sk.liftS) });
 }
 boot().catch(e => { const d = document.createElement("div"); d.id = "err"; d.textContent = String(e && e.stack || e); document.body.appendChild(d); console.error(e); });

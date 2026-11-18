@@ -138,7 +138,7 @@ function catBench(x, z, h) {
    wedge with square sides and a clean lip, a flat deck, a knuckle and a long landing. Sizes are taken from photographs of the
    Gold Coast park against the people in them: the big tables stand about two riders high at the lip and six or seven wide.
    Side hits are the little lips and banks skiers wear into the edges of the groomed runs. */
-const COMP_OFF = 6;   // the freeride courses run this far to the side of the lift line, clear of the towers
+const COMP_OFFS = { "KT22 Express": -30, "Granite Chief": 6 };   // how far to the side of its lift line each freeride course runs (positive is skier's right going down): KT-22's is all to the left of the chair
 let parkLayout = +(QS.get("park") || store.get("pal-park", 2)), hitStyle = +(QS.get("hits") || store.get("pal-hits", 1));
 const TABLE = { big: { hK: 3.6, Lr: 11, T: 16, Ld: 26, W: 12 }, mid: { hK: 2.4, Lr: 8.5, T: 10, Ld: 17, W: 8.5 }, wedge: { hK: 1.7, Lr: 5.2, T: 0, Ld: 0.7, W: 3.2 } };
 function initPark() {
@@ -160,7 +160,7 @@ function initPark() {
     } }
   // Competition jumps: snow kickers built on the freeride courses that run under the KT-22 and Granite Chief chairs, top to bottom.
   for (const [name, fr] of [["KT22 Express", [0.2, 0.47, 0.73]], ["Granite Chief", [0.18, 0.38, 0.58, 0.8]]]) { const l = WORLD.lifts.find(q => q.n === name); if (!l) continue; const p = path(l.pts.slice().reverse(), 0);
-    for (const f of fr) { let best = null; for (let ds = 0; ds <= 60 && !best; ds += 6) for (const sg of [1, -1]) { const s = f * p.len + sg * ds, o = p.at(s, COMP_OFF), o2 = p.at(s + 14, COMP_OFF), drop = (hBase(o.x, o.z) - hBase(o2.x, o2.z)) / 14; if (drop < 0.18 || drop > 0.62 || CL[clamp(Math.round((o.z - Z0) / CELL), 0, NZ - 1) * NX + clamp(Math.round((o.x - X0) / CELL), 0, NX - 1)] > 0.1 || CL[clamp(Math.round((o2.z - Z0) / CELL), 0, NZ - 1) * NX + clamp(Math.round((o2.x - X0) / CELL), 0, NX - 1)] > 0.1) continue; if (l.pts.some(t => Math.hypot(t[0] - o.x, t[1] - o.z) < 13)) continue; best = o; break; }
+    for (const f of fr) { let best = null; for (let ds = 0; ds <= 60 && !best; ds += 6) for (const sg of [1, -1]) { const s = f * p.len + sg * ds, o = p.at(s, COMP_OFFS[name]), o2 = p.at(s + 14, COMP_OFFS[name]), drop = (hBase(o.x, o.z) - hBase(o2.x, o2.z)) / 14; if (drop < 0.18 || drop > 0.62 || CL[clamp(Math.round((o.z - Z0) / CELL), 0, NZ - 1) * NX + clamp(Math.round((o.x - X0) / CELL), 0, NX - 1)] > 0.1 || CL[clamp(Math.round((o2.z - Z0) / CELL), 0, NZ - 1) * NX + clamp(Math.round((o2.x - X0) / CELL), 0, NX - 1)] > 0.1) continue; if (l.pts.some(t => Math.hypot(t[0] - o.x, t[1] - o.z) < 13)) continue; best = o; break; }
       if (best) PARK.push(Object.assign({ k: "table", kind: "hit", hK: 1.9, Lr: 7, T: 0, Ld: 3, W: 7.5, deck: 0, soft: true, comp: true }, best)); } }
   // side hits on the busier groomed runs, alternating edges
   for (const r of WORLD.runs) { if (!r.g || r.c || r.d > 1 || r.len < 500 || r.n === "Gold Coast") continue; const p = path(r.pts, 0), W = [46, 42, 30, 18][r.d]; let s = 90 + 60 * hash2(r.len, 3, 41), n = 0;

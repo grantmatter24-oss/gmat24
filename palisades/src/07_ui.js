@@ -78,11 +78,16 @@ function buildMap() {
 function drawMap() {
   const c = $("mapC"); if (c.width !== MAPW) { c.width = MAPW; c.height = MAPH; } const g = c.getContext("2d"); g.drawImage(mapBase, 0, 0);
   const dot = (x, z, col, r) => { g.fillStyle = col; g.strokeStyle = "#fff"; g.lineWidth = 2.5; g.beginPath(); g.arc(mx(x), mz(z), r, 0, TAU); g.fill(); g.stroke(); };
+  // competitions: the course in red, a flag at the start with its name
+  for (const v of COMP.venues) { g.strokeStyle = "rgba(214,40,30,0.9)"; g.lineWidth = 2.2; g.setLineDash([5, 4]); g.beginPath(); v.path.forEach((p, i) => i ? g.lineTo(mx(p[0]), mz(p[1])) : g.moveTo(mx(p[0]), mz(p[1]))); g.stroke(); g.setLineDash([]);
+    const x = mx(v.start.x), y = mz(v.start.z); g.strokeStyle = "#fff"; g.lineWidth = 2; g.beginPath(); g.moveTo(x, y); g.lineTo(x, y - 17); g.stroke(); g.fillStyle = "#d6281e"; g.beginPath(); g.moveTo(x, y - 17); g.lineTo(x + 12, y - 13); g.lineTo(x, y - 9); g.closePath(); g.fill(); g.stroke();
+    g.font = "700 12px system-ui, sans-serif"; g.textAlign = "left"; g.textBaseline = "middle"; g.lineWidth = 3; g.strokeStyle = "rgba(10,22,34,0.85)"; g.strokeText(v.name, x + 15, y - 13); g.fillStyle = "#fff"; g.fillText(v.name, x + 15, y - 13); }
   for (const r of MP.remotes.values()) if (r.st) dot(r.st.x, r.st.z, r.col || "#ffd24a", 5);
   const x = mx(sk.p.x), y = mz(sk.p.z), a = Math.atan2(Math.sin(sk.yaw), -Math.cos(sk.yaw)); g.save(); g.translate(x, y); g.rotate(a); g.fillStyle = "#ff5a36"; g.strokeStyle = "#fff"; g.lineWidth = 2.5; g.beginPath(); g.moveTo(0, -11); g.lineTo(7.5, 8); g.lineTo(0, 4); g.lineTo(-7.5, 8); g.closePath(); g.fill(); g.stroke(); g.restore();
 }
 function mapPick(ev) { // a lift end if the click is on one, otherwise the spot itself
   const c = $("mapC"), r = c.getBoundingClientRect(), x = X0 + (ev.clientX - r.left) / r.width * (X1 - X0), z = Z0 + (ev.clientY - r.top) / r.height * (Z1 - Z0); let best = null, bd = 55;
+  for (const v of COMP.venues) if (Math.hypot(v.start.x - x, v.start.z - z) < 60) return { x: v.start.x - Math.sin(v.start.yaw) * 8, z: v.start.z - Math.cos(v.start.yaw) * 8 };   // a click on a competition flag puts you just above its start arch
   for (const L of LIFTS) for (const [n, top] of [[L.bot, false], [L.top, true]]) { const d = Math.hypot(n.x - x, n.z - z); if (d < bd) { bd = d; best = { L, top }; } }
   return best || (inWorld(x, z, 240) && !buildingAt(x, z) ? { x, z } : null);
 }
@@ -272,7 +277,7 @@ function poseRemote(r, dt, time, a) { // stand a rider (a friend, or a competiti
     if (jump) r.q = { p: new THREE.Vector3(st.x, st.y, st.z), yaw: st.yaw, spin: st.spin, rot: st.rot, grind: null, boxT: 0, bike: false, finished: false, bikeJump: false, pumpT: 0, landT: 0, popT: 0, airT: 1, vx: 0, vs: 0 };
     const q = r.q; q.p.x += (st.x - q.p.x) * a; q.p.y += (st.y - q.p.y) * a; q.p.z += (st.z - q.p.z) * a; q.yaw += wrap(st.yaw - q.yaw) * a; q.spin += (st.spin - q.spin) * a; q.rot += (st.rot - q.rot) * a;
     q.rotV = st.rotV || 0; q.sw = st.sw; q.ground = st.gr; q.air = !st.gr && st.md === "ski"; q.crashed = st.cr; q.tumZ = st.tz || 0; q.turn = st.turn; q.carve = st.carve; q.sp = st.sp; q.vs = st.sp; q.chg = (L && L.type.startsWith("chair")) || st.md === "sled" ? 0.85 : st.chg || 0; q.stumT = st.st || 0; q.stumD = 1; q.mode = st.md; q.walkPh = st.wp || 0; q.grind = st.gd ? 1 : null;
-    MP_KEYS.forEach((n, i) => { r.keys[n] = st.k & (1 << i) ? 1 : 0; });
+    MP_KEYS.forEach((n, i) => { r.keys[n] = st.k & (1 << i) ? 1 : 0; }); if (q.ground) { r.keys.boost = r.keys.up; r.keys.up = 0; } else r.keys.boost = 0;   // on snow W is the tuck, as it is for you: other riders do not nose butter along
     poseRider(R, q, st.md === "ski" ? r.keys : NOKEYS, st.sl || 0, dt, time, jump); if (L && L.type.startsWith("chair")) R.hold.position.y += 0.2;
 }
 const FIREBASE_CONFIG = { apiKey: "AIzaSyDP_rgi4dWZqVax_c5Ob5Hg4dilLS9Bchc", authDomain: "kicker-run.firebaseapp.com", databaseURL: "https://kicker-run-default-rtdb.firebaseio.com", projectId: "kicker-run", storageBucket: "kicker-run.firebasestorage.app", messagingSenderId: "149808173020", appId: "1:149808173020:web:744be18f442c535fe54919" };

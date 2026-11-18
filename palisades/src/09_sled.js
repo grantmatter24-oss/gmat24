@@ -2,16 +2,25 @@
    A few are parked at the base, beside the bottom of the Base to Base gondola. Ski up to one and press E to get on; W is the throttle,
    S the brake and reverse, A D steer; press E again (when slow) to step off, and it stays where you left it. */
 const SLEDS = []; let nearSled = null;
-function sledGeometry(body) {
-  const b = new GeoBag(), Kc = [0.05, 0.055, 0.06], Gy = [0.2, 0.22, 0.24];   // +z is forward; the origin is on the snow under the seat
-  b.box(0.42, 0.24, 1.3, 0, 0.14, -0.42, [0.03, 0.03, 0.035]);                 // track
-  b.box(0.6, 0.3, 1.95, 0, 0.42, 0.02, Kc);                                    // tunnel and chassis
-  b.box(0.72, 0.3, 1.0, 0, 0.6, 0.74, body, 0, 0.2);                           // hood, sloping down to the nose
-  b.box(0.5, 0.16, 0.85, 0, 0.66, -0.4, Kc); b.box(0.5, 0.22, 0.12, 0, 0.78, -0.86, Kc);   // seat and backrest
-  b.box(0.54, 0.34, 0.05, 0, 0.92, 0.36, [0.1, 0.14, 0.18], 0, -0.55);         // windshield
-  b.cyl(0.025, 0.025, 0.42, 0, 0.8, 0.22, Kc, 6, -0.45); b.box(0.64, 0.04, 0.04, 0, 0.97, 0.12, Kc);   // steering post and bars
-  b.box(0.56, 0.1, 0.22, 0, 0.5, -1.02, body); b.box(0.3, 0.1, 0.05, 0, 0.6, 1.24, [0.95, 0.9, 0.7]);   // tail and headlight
-  for (const sx of [-1, 1]) { b.box(0.15, 0.04, 1.1, sx * 0.5, 0.03, 0.82, Kc); b.box(0.15, 0.04, 0.24, sx * 0.5, 0.09, 1.44, Kc, 0, -0.5); b.cyl(0.03, 0.03, 0.46, sx * 0.44, 0.27, 0.84, Gy, 6, 0, sx * 0.3); b.box(0.36, 0.05, 0.08, sx * 0.3, 0.46, 0.84, Gy); }   // skis on their struts
+function sledGeometry(body) { // a trail sled, about 3 m long: +z is forward, the origin is on the snow under the seat
+  const b = new GeoBag(), Kc = [0.045, 0.05, 0.055], Al = [0.42, 0.44, 0.46], Gy = [0.16, 0.17, 0.19], PI2 = Math.PI / 2;
+  // track and tunnel
+  b.box(0.38, 0.22, 1.5, 0, 0.14, -0.55, [0.025, 0.025, 0.03]); b.cyl(0.13, 0.13, 0.38, 0, 0.15, 0.2, [0.025, 0.025, 0.03], 12, 0, PI2); b.cyl(0.12, 0.12, 0.38, 0, 0.14, -1.3, [0.025, 0.025, 0.03], 12, 0, PI2);
+  for (let k = 0; k < 9; k++) b.box(0.4, 0.035, 0.05, 0, 0.02, -1.25 + k * 0.17, Kc);                                   // track lugs
+  for (const z of [-0.2, -0.6, -1.0]) for (const sx of [-1, 1]) b.cyl(0.07, 0.07, 0.03, sx * 0.14, 0.13, z, Al, 10, 0, PI2);   // bogie wheels
+  b.box(0.44, 0.1, 1.6, 0, 0.36, -0.55, Al); for (const sx of [-1, 1]) { b.box(0.03, 0.2, 1.5, sx * 0.215, 0.28, -0.55, Al); b.box(0.17, 0.03, 1.05, sx * 0.31, 0.3, -0.2, Kc); b.box(0.03, 0.06, 1.05, sx * 0.39, 0.33, -0.2, Kc); }   // tunnel, running boards with toe rails
+  b.box(0.42, 0.24, 0.02, 0, 0.2, -1.4, Kc, 0, -0.25); b.box(0.5, 0.03, 0.03, 0, 0.5, -1.36, Al); for (const sx of [-1, 1]) b.box(0.03, 0.03, 0.34, sx * 0.24, 0.47, -1.2, Al, 0, 0.2);   // snow flap, rear grab bar
+  // seat, tank and tail
+  b.box(0.36, 0.2, 0.95, 0, 0.52, -0.52, Kc); b.box(0.34, 0.16, 0.34, 0, 0.66, -0.88, Kc, 0, -0.18); b.box(0.36, 0.16, 0.36, 0, 0.56, 0.02, body); b.box(0.2, 0.06, 0.05, 0, 0.6, -1.08, [0.7, 0.05, 0.04]);
+  // engine bay, hood and nose
+  b.box(0.66, 0.26, 0.95, 0, 0.36, 0.55, Kc); b.box(0.62, 0.2, 0.8, 0, 0.6, 0.5, body, 0, 0.24); b.box(0.52, 0.18, 0.44, 0, 0.43, 1.03, body, 0, 0.6); b.box(0.2, 0.012, 0.62, 0, 0.708, 0.5, [0.92, 0.93, 0.95], 0, 0.24);
+  for (const sx of [-1, 1]) { b.box(0.02, 0.1, 0.34, sx * 0.335, 0.4, 0.52, Gy); b.box(0.022, 0.03, 0.3, sx * 0.34, 0.44, 0.52, Al); }   // side vents
+  b.box(0.3, 0.085, 0.05, 0, 0.56, 0.95, [0.95, 0.93, 0.78], 0, 0.5); b.box(0.52, 0.03, 0.03, 0, 0.33, 1.24, Al); b.box(0.54, 0.1, 0.3, 0, 0.73, 0.2, Kc);   // headlight, bumper, dash
+  b.box(0.5, 0.36, 0.025, 0, 0.93, 0.31, [0.07, 0.1, 0.13], 0, -0.52);                                                 // windshield
+  b.cyl(0.02, 0.02, 0.3, 0, 0.84, 0.03, Al, 6, -0.35); b.cyl(0.017, 0.017, 0.66, 0, 0.975, -0.03, Al, 6, 0, PI2); for (const sx of [-1, 1]) { b.cyl(0.026, 0.026, 0.13, sx * 0.31, 0.975, -0.03, Kc, 8, 0, PI2); b.box(0.05, 0.06, 0.02, sx * 0.2, 1.02, 0.0, Kc); }   // bars, grips, mirrors' stubs
+  // front suspension and skis
+  for (const sx of [-1, 1]) { b.box(0.3, 0.03, 0.05, sx * 0.39, 0.3, 0.76, Al, 0, 0, -sx * 0.37); b.box(0.3, 0.03, 0.05, sx * 0.39, 0.2, 0.7, Al, 0, 0, -sx * 0.2); b.cyl(0.028, 0.028, 0.4, sx * 0.4, 0.34, 0.74, [0.8, 0.62, 0.05], 8, 0, sx * 0.56);
+    b.cyl(0.026, 0.026, 0.26, sx * 0.53, 0.16, 0.73, Al, 6); b.box(0.13, 0.035, 1.15, sx * 0.53, 0.025, 0.72, Kc); b.box(0.13, 0.03, 0.32, sx * 0.53, 0.105, 1.42, Kc, 0, -0.55); b.box(0.02, 0.02, 0.3, sx * 0.53, 0.2, 1.36, Al, 0, -0.2); b.box(0.02, 0.14, 0.02, sx * 0.53, 0.12, 1.22, Al); b.box(0.03, 0.05, 1.0, sx * 0.53, 0.0, 0.7, Al); }
   return b.build();
 }
 function initSleds() {
@@ -35,13 +44,13 @@ function sledToggle() {
 function stepSled(dt) {
   const S = sk.sled, p = sk.p; if (!S) { sk.mode = "ski"; return; }
   const steer = ((K.spinR || K.right) ? 1 : 0) - ((K.spinL || K.left) ? 1 : 0), thr = (K.up ? 1 : 0) - (K.down ? 1 : 0); S.thr = thr;
-  S.yaw -= steer * 1.7 * clamp(Math.abs(S.v) / 5, 0, 1) * (S.v < 0 ? -1 : 1) * dt; sk.yaw = S.yaw; sk.turn = lerp(sk.turn, steer, Math.min(1, 6 * dt));
+  S.yaw -= steer * 1.9 * clamp(Math.abs(S.v) / 5, 0, 1) / (1 + Math.abs(S.v) / 26) * (S.v < 0 ? -1 : 1) * dt;   // wide arcs at speed sk.yaw = S.yaw; sk.turn = lerp(sk.turn, steer, Math.min(1, 6 * dt));
   const sA = tangent(S.yaw), s = readSurface(), grade = Math.sin(sA);   // positive when the nose points uphill
-  let acc = thr > 0 ? 9.5 * (1 - Math.max(0, S.v) / 25) : thr < 0 ? (S.v > 0.5 ? -13 : -5 * (1 + S.v / 6)) : 0;
-  acc -= G * grade * 0.8 + (0.22 + 0.5 * (s.deep || 0)) * S.v + 0.004 * S.v * Math.abs(S.v);
-  S.v = clamp(S.v + acc * dt, -6, 27); if (!thr && Math.abs(S.v) < 0.5 && Math.abs(grade) < 0.35) S.v = 0;   // it sits still on all but the steepest ground
+  let acc = thr > 0 ? 19 * (1 - Math.max(0, S.v) / 50) : thr < 0 ? (S.v > 0.5 ? -20 : -6 * (1 + S.v / 6)) : 0;   // a big two-stroke: 0 to 60 mph in about four seconds, 90 flat out on a groomed run
+  acc -= G * (thr > 0 ? Math.min(0, grade) : grade) * 0.7 + (0.05 + 0.16 * (s.deep || 0)) * S.v + 0.0026 * S.v * Math.abs(S.v);   // under power it climbs as fast as it runs on the flat
+  S.v = clamp(S.v + acc * dt, -7, 50); if (!thr && Math.abs(S.v) < 0.5 && Math.abs(grade) < 0.35) S.v = 0;   // it sits still on all but the steepest ground
   const hx = Math.sin(S.yaw), hz = Math.cos(S.yaw), st = S.v * Math.cos(sA) * dt, nx = S.x + hx * st, nz = S.z + hz * st;
-  if (buildingAt(nx, nz) || treeHit(nx, nz, 0.7) || !inWorld(nx, nz, 75) || H(nx, nz) - H(S.x, S.z) > 1.1 + Math.abs(st) || towerHits.some(t => Math.hypot(t.x - nx, t.z - nz) < t.r + 0.6)) { if (Math.abs(S.v) > 6) sfx("thump", 0.7); S.v *= -0.15; }
+  if (buildingAt(nx, nz) || treeHit(nx, nz, 0.7) || !inWorld(nx, nz, 75) || H(nx, nz) - H(S.x, S.z) > 1.1 + Math.abs(st) || towerHits.some(t => Math.hypot(t.x - nx, t.z - nz) < t.r + 0.6)) { if (Math.abs(S.v) > 6) sfx("thump", 0.7); if (Math.abs(S.v) > 22) { const S0 = S; S0.v = 0; sk.sled = null; placeSkier(S0.x, S0.z, S0.yaw, 12); crash("Thrown off the snowmobile"); return; } S.v *= -0.15; }   // hit something flat out and you are thrown
   else { S.x = nx; S.z = nz; }
   p.set(S.x, H(S.x, S.z), S.z); sk.sp = Math.abs(S.v); sk.slope = sA; sk.v.set(hx * S.v, 0, hz * S.v); sledPlace(S);
   if (Math.abs(S.v) > 3 && Math.random() < 0.7) for (let i = 0; i < 2; i++) spray(p, 0.6 + Math.random() * 1.6, (Math.random() - 0.5) * 3, sk.v, 0.8, 0.5 * (s.deep || 0));

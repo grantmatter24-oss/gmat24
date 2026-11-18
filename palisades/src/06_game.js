@@ -395,6 +395,7 @@ function poseRider(R, q, keys, slope, dt, time, snap) {
     const k = clamp((q.sp || 0) / 8, 0, 1), s0 = 1 - k; R.arms.forEach((a, i) => { const sd = i ? 1 : -1; a.sh.rotation.x += k * 1.3 * Math.sin(time * 9 + i * 2.1) - s0 * 0.5; a.sh.rotation.z += sd * (k * 0.9 * Math.sin(time * 7 + i) + s0 * 0.9 + 0.3); a.el.rotation.x += k * 0.8 * Math.sin(time * 11 + i * 1.3) - 0.3; });
     R.legs.forEach((l, i) => { const sd = i ? 1 : -1; l.hip.rotation.x += k * 0.8 * Math.sin(time * 8 + i * Math.PI) + s0 * 0.25 * sd; l.hip.rotation.z = (l.hip.rotation.z || 0) + sd * (0.18 + 0.25 * k * Math.abs(Math.sin(time * 6 + i))); l.knee.rotation.x -= k * 0.7 * Math.abs(Math.sin(time * 10 + i * 2)) + s0 * 0.35; });
     if (q.lost) R.arms.forEach(a => { a.pole.visible = false; }); }
+  if (q.mode === "sled" || q.lost) { R.arms.forEach(a => { a.pole.visible = false; }); R.skiG.forEach(sg => { sg.visible = false; }); }   // on a snowmobile the skis and poles are off; in a yard sale they are gone
   R.rig.rotation.y = -(q.spin + (q.sw ? Math.PI : 0));
   const walking = q.mode === "walk"; R.carry.visible = walking; R.skiMeshes.forEach(m => { m.visible = !walking && q.mode !== "sled" && !q.lost; });
   if (walking) { const mv = clamp(q.sp / 1.2, 0, 1), ph = q.walkPh || 0; R.legs.forEach((l, i) => { const sw = Math.sin(ph + i * Math.PI) * 0.5 * mv; l.hip.rotation.x += sw; l.knee.rotation.x -= Math.max(0, -Math.cos(ph + i * Math.PI)) * 0.55 * mv; const sg = R.skiG[i]; sg.position.z -= Math.sin(sw) * 0.82; sg.position.y += Math.max(0, -Math.cos(ph + i * Math.PI)) * 0.12 * mv; sg.rotation.x = 0; sg.rotation.z = 0; }); }
@@ -410,7 +411,7 @@ function updateRig(dt, time) {
   sk.poseSlope = camSnap ? sk.slope : (sk.poseSlope || 0) + (sk.slope - (sk.poseSlope || 0)) * Math.min(1, 3 * dt);   // legs follow the hill, not every ripple
   Object.assign(PK, K); if (sk.ground) { PK.boost = K.up; PK.up = 0; } else PK.boost = 0;   // on snow W is the tuck, not a nose butter
   poseRider(R, sk, sk.mode === "ski" ? PK : NOKEYS, sk.poseSlope, dt, time, camSnap);
-  if (seated) R.hold.position.y += 0.2; if (sk.mode === "sled") R.hold.position.y += 0.34;
+  if (seated) R.hold.position.y += 0.2; if (sk.mode === "sled") { R.hold.position.y += 0.36; R.hold.position.x -= Math.sin(sk.yaw) * 0.42; R.hold.position.z -= Math.cos(sk.yaw) * 0.42; }   // on the seat, behind the bars
   if (sk.lost && !sk.crashed) { clearLoose(); sk.lost = false; }
   if (sk.crashed) R.hold.position.y += 0.22 + (sk.crashHop || 0);
   { const on = sk.mode === "ski" && sk.ground && !sk.crashed, want = on || sk.crashed ? rockLift(sk.p.x, sk.p.z) : 0; sk.rkLift = (sk.rkLift || 0) + (want - (sk.rkLift || 0)) * Math.min(1, 9 * dt);   // the rock stands out from the surveyed slope: ride on its surface, not inside it
