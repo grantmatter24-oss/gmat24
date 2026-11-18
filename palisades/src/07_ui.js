@@ -12,7 +12,18 @@ let _runK = 9, _runNear = null;
 function areaAt(x, z) { for (const a of WORLD.areas) if (a.p && inPoly(a.p, x, z)) return a; return null; }
 /* ---------- HUD ---------- */
 let curRun = null, runShow = 0, hudT = 0, fpsAcc = 0, fpsN = 0;
+/* A small arrow at the top of the screen for each other player: it points the way to them from where you are looking, in their colour, with the distance. */
+const friendArrows = new Map();
+function updateFriendArrows() {
+  const box = $("friendArrows"), cy = Math.atan2(camDir.x, camDir.z) + (look.yaw || 0), seen = new Set();
+  if (sk.mode !== "menu") for (const [peer, r] of MP.remotes) { const st = r.st; if (!st || st.res !== "palisades" || st.play === false) continue; seen.add(peer);
+    let e = friendArrows.get(peer); if (!e) { e = document.createElement("span"); e.className = "fa"; const a = document.createElement("i"), d = document.createElement("b"); a.style.borderBottomColor = r.col || "#ffd24a"; e.append(a, d); box.appendChild(e); friendArrows.set(peer, e); }
+    const dx = st.x - sk.p.x, dz = st.z - sk.p.z, dist = Math.hypot(dx, dz); e.firstChild.style.transform = "rotate(" + (-wrap(Math.atan2(dx, dz) - cy) * 180 / Math.PI).toFixed(0) + "deg)";
+    const txt = units === "imp" ? (dist * FT > 2640 ? (dist / 1609.34).toFixed(1) + " mi" : Math.round(dist * FT / 10) * 10 + " ft") : dist > 1000 ? (dist / 1000).toFixed(1) + " km" : Math.round(dist / 10) * 10 + " m"; if (e.lastChild.textContent !== txt) e.lastChild.textContent = txt; }
+  for (const [peer, e] of friendArrows) if (!seen.has(peer)) { e.remove(); friendArrows.delete(peer); }
+}
 function updateHUD(dt) {
+  updateFriendArrows();
   { const ce = $("chg"), on = sk.chg > 0.02 && sk.mode === "ski"; if (ce.hidden === on) ce.hidden = !on; if (on) ce.firstElementChild.style.width = Math.round(sk.chg * 100) + "%"; }   // jump bar
   hudT += dt; fpsAcc += dt; fpsN++;
   if (toastT > 0) { toastT -= dt; if (toastT <= 0) $("toast").style.opacity = 0; }
