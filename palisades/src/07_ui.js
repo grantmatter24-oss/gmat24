@@ -33,6 +33,8 @@ function updateHUD(dt) {
   // lift prompt and ride bar
   const pr = $("prompt"), lb = $("liftBar");
   if (sk.mode === "ski" && COMP.near && !COMP.run) { pr.hidden = false; pr.innerHTML = "<kbd>E</kbd> Enter the " + COMP.near.name; }
+  else if (sk.mode === "sled") { pr.hidden = false; pr.innerHTML = "<kbd>E</kbd> Get off the snowmobile"; }
+  else if (sk.mode === "ski" && nearSled && !COMP.run) { pr.hidden = false; pr.innerHTML = "<kbd>E</kbd> Ride the snowmobile"; }
   else if (sk.mode === "ski" && nearLift && !COMP.run) { pr.hidden = false; if (liftLocked(nearLift)) pr.textContent = nearLift.name + " is locked: needs " + LIFT_LOCK[nearLift.name] + " medal points, you have " + medalPoints() + ". Win trophies in competitions (L)."; else pr.innerHTML = "<kbd>E</kbd> Load " + nearLift.name; } else pr.hidden = true;
   if (sk.mode === "wait" || sk.mode === "lift") {
     const L = sk.lift; lb.hidden = false; $("liftName").textContent = L.name;
@@ -94,6 +96,26 @@ function initAudio() {
   const buf = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate), d = buf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
   const mk = (type, f, q) => { const s = ac.createBufferSource(); s.buffer = buf; s.loop = true; const fl = ac.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q; const gn = ac.createGain(); gn.gain.value = 0; s.connect(fl).connect(gn).connect(ac.destination); s.start(); return [gn, fl]; };
   [windG, windF] = mk("lowpass", 400, 0.4); [carveG, carveF] = mk("bandpass", 2600, 0.7);
+  noiseBuf = buf; [liftG] = mk("lowpass", 170, 2.5);                        // the rumble of a terminal's drive
+  const osc = (type, f) => { const o = ac.createOscillator(), fl = ac.createBiquadFilter(), g = ac.createGain(); o.type = type; o.frequency.value = f; fl.type = "lowpass"; fl.frequency.value = 420; g.gain.value = 0; o.connect(fl).connect(g).connect(ac.destination); o.start(); return [o, g]; };
+  [humO, humG] = osc("sawtooth", 49); [sledO, sledG] = osc("sawtooth", 50);   // the electric hum of the motor room; the snowmobile's engine
+}
+/* The sounds a lift makes: the motor hum and rumble at a terminal, and the clatter of each grip rolling over a tower's sheaves, which you hear from the chair and from the snow underneath. */
+let noiseBuf = null, liftG = null, humO = null, humG = null, sledO = null, sledG = null, liftScanT = 0, liftSt = 1e9, liftTw = null, clackAt = 0, lastTower = -1;
+function clack(vol) { // four wheels, one after another
+  if (!ac || muted || vol < 0.02) return; const t = ac.currentTime;
+  for (let k = 0; k < 4; k++) { const s = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain(); s.buffer = noiseBuf; f.type = "bandpass"; f.frequency.value = 700 + 260 * (k % 2); f.Q.value = 3; g.gain.setValueAtTime(0.0001, t + k * 0.075); g.gain.exponentialRampToValueAtTime(0.5 * vol, t + k * 0.075 + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + k * 0.075 + 0.06); s.connect(f).connect(g).connect(ac.destination); s.start(t + k * 0.075, Math.random()); s.stop(t + k * 0.075 + 0.08); }
+  const o = ac.createOscillator(), g = ac.createGain(); o.type = "sine"; o.frequency.setValueAtTime(95, t); o.frequency.exponentialRampToValueAtTime(55, t + 0.3); g.gain.setValueAtTime(0.16 * vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.34); o.connect(g).connect(ac.destination); o.start(t); o.stop(t + 0.36);
+}
+function liftAudio(t, live) {
+  const riding = sk.mode === "lift" && sk.lift && !sk.lift.carpet, L0 = riding ? sk.lift : null;
+  if (t - liftScanT > 0.3) { liftScanT = t; liftSt = 1e9; liftTw = null; let bt = 28;   // what is near: a terminal, a tower
+    for (const L of LIFTS) { if (L.carpet || Math.abs(L.cx - sk.p.x) + Math.abs(L.cz - sk.p.z) > L.len + 120) continue; for (const nd of L.nodes) { const d = Math.hypot(nd.x - sk.p.x, nd.z - sk.p.z); if (nd.st) liftSt = Math.min(liftSt, d); else if (d < bt && L.type !== "tram") { bt = d; liftTw = { L, d }; } } } }
+  const nearSt = clamp(1 - liftSt / 45, 0, 1), k = live ? Math.max(nearSt, riding ? 0.3 : 0) : 0;
+  liftG.gain.setTargetAtTime(k * 0.5, t, 0.25); humG.gain.setTargetAtTime(k * 0.045, t, 0.25); humO.frequency.setTargetAtTime(49 + 2 * Math.sin(t * 0.7), t, 0.2);
+  if (!live) return;
+  if (riding && L0.type !== "tram") { let i = 0; while (i < L0.S.length - 1 && L0.S[i + 1] < sk.liftS) i++; if (i !== lastTower) { if (lastTower >= 0 && !L0.nodes[i].st) clack(0.9); lastTower = i; } }   // your own chair crossing a tower
+  else { lastTower = -1; if (liftTw && t > clackAt) { clackAt = t + liftTw.L.spacing / liftTw.L.v / 2 * (0.9 + 0.2 * Math.random()); clack(clamp(1 - liftTw.d / 28, 0, 1) * 0.7); } }   // chairs passing the tower you are standing near
 }
 function updateAudio() {
   if (!ac) return; const t = ac.currentTime, live = !muted && !paused && sk.mode !== "menu", sp = sk.sp;
@@ -101,6 +123,8 @@ function updateAudio() {
   const on = sk.mode === "ski" && sk.ground && !sk.crashed;
   carveG.gain.setTargetAtTime(live && on ? clamp(sp / 28, 0, 1) * (0.018 + sk.carve * Math.abs(sk.turn) * 0.09 + sk.brakeK * 0.2 + Math.min(0.1, Math.abs(sk.slip || 0) * 0.08)) * (1 - 0.5 * sk.surf.powder) : 0, t, 0.04);
   carveF.frequency.setTargetAtTime(1800 + sk.surf.groom * 1600 + sk.brakeK * 900, t, 0.08);
+  liftAudio(t, live);
+  const S = sk.mode === "sled" ? sk.sled : null; sledG.gain.setTargetAtTime(live && S ? 0.05 + 0.05 * Math.abs(S.thr) + 0.02 * clamp(Math.abs(S.v) / 20, 0, 1) : 0, t, 0.08); if (S) sledO.frequency.setTargetAtTime(46 + Math.abs(S.v) * 4.2 + (S.thr > 0 ? 24 : 0), t, 0.12);
 }
 function sfx(kind, k = 1) {
   if (!ac || muted) return; const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain(); o.connect(g).connect(ac.destination);
@@ -133,6 +157,7 @@ function initInput() {
     else if (key === "n") { muted = !muted; store.set("pal-mute", muted); toast(muted ? "Sound off" : "Sound on", 1.2); }
     else if (key === "r") { rewKey = !COMP.run; if (COMP.run) toast("No rewinding in a competition", 1.5); }
     else if (key === "e" && sk.mode === "ski" && COMP.near && !COMP.run && sk.ground) compEnter(COMP.near);
+    else if (key === "e" && (sk.mode === "sled" || (sk.mode === "ski" && nearSled && !COMP.run))) sledToggle();
     else if (key === "e" && sk.mode === "ski" && nearLift && sk.ground && !COMP.run) { if (liftLocked(nearLift)) toast(nearLift.name + " is locked", 2); else boardLift(nearLift); }
     else if (key === "l" && sk.mode !== "menu") compList($("compList").hidden);
     else if (key === "Enter" && (sk.mode === "wait" || sk.mode === "lift")) { const L = sk.lift; unloadAt(L); toast("Top of " + L.name + " · " + fmtAlt(sk.p.y)); }
@@ -235,7 +260,7 @@ function poseRemote(r, dt, time, a) { // stand a rider (a friend, or a competiti
     const jump = !r.q || Math.hypot(st.x - r.q.p.x, st.z - r.q.p.z) > 30;
     if (jump) r.q = { p: new THREE.Vector3(st.x, st.y, st.z), yaw: st.yaw, spin: st.spin, rot: st.rot, grind: null, boxT: 0, bike: false, finished: false, bikeJump: false, pumpT: 0, landT: 0, popT: 0, airT: 1, vx: 0, vs: 0 };
     const q = r.q; q.p.x += (st.x - q.p.x) * a; q.p.y += (st.y - q.p.y) * a; q.p.z += (st.z - q.p.z) * a; q.yaw += wrap(st.yaw - q.yaw) * a; q.spin += (st.spin - q.spin) * a; q.rot += (st.rot - q.rot) * a;
-    q.rotV = st.rotV || 0; q.sw = st.sw; q.ground = st.gr; q.air = !st.gr && st.md === "ski"; q.crashed = st.cr; q.tumZ = st.tz || 0; q.turn = st.turn; q.carve = st.carve; q.sp = st.sp; q.vs = st.sp; q.chg = L && L.type.startsWith("chair") ? 0.85 : st.chg || 0; q.stumT = st.st || 0; q.stumD = 1; q.mode = st.md; q.walkPh = st.wp || 0; q.grind = st.gd ? 1 : null;
+    q.rotV = st.rotV || 0; q.sw = st.sw; q.ground = st.gr; q.air = !st.gr && st.md === "ski"; q.crashed = st.cr; q.tumZ = st.tz || 0; q.turn = st.turn; q.carve = st.carve; q.sp = st.sp; q.vs = st.sp; q.chg = (L && L.type.startsWith("chair")) || st.md === "sled" ? 0.85 : st.chg || 0; q.stumT = st.st || 0; q.stumD = 1; q.mode = st.md; q.walkPh = st.wp || 0; q.grind = st.gd ? 1 : null;
     MP_KEYS.forEach((n, i) => { r.keys[n] = st.k & (1 << i) ? 1 : 0; });
     poseRider(R, q, st.md === "ski" ? r.keys : NOKEYS, st.sl || 0, dt, time, jump); if (L && L.type.startsWith("chair")) R.hold.position.y += 0.2;
 }

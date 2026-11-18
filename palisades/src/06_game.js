@@ -360,15 +360,15 @@ function makeRider(of) { // Kicker Run's skier faces -z; the holder faces +z and
   const carry = new THREE.Group(); R.skiMeshes.forEach((m, i) => { const c = new THREE.Mesh(m.geometry, m.material); c.position.set(i ? 0.035 : -0.035, 0, 0); if (i) c.rotation.z = Math.PI; c.castShadow = true; carry.add(c); }); carry.position.set(0.25, 1.36, 0.1); carry.rotation.set(1.18, 0, 0.06); carry.visible = false; R.rig.add(carry); R.carry = carry; return R;
 }
 function poseRider(R, q, keys, slope, dt, time, snap) {
-  const hold = R.hold, onSnow = q.ground && (q.mode === "ski" || q.mode === "walk") && !q.crashed;
+  const hold = R.hold, onSnow = q.ground && (q.mode === "ski" || q.mode === "walk" || q.mode === "sled") && !q.crashed;
   const up = onSnow ? normalAt(q.p.x, q.p.z, 0.7, _y) : _y.set(0, 1, 0); fwdOf(q.yaw, _z); _x.crossVectors(up, _z).normalize(); _z.crossVectors(_x, up).normalize();
   _qa.setFromRotationMatrix(_m4.makeBasis(_x, up, _z)); if (snap) hold.quaternion.copy(_qa); else hold.quaternion.slerp(_qa, Math.min(1, (onSnow ? 7 : 16) * dt));
-  hold.position.copy(q.p); if (onSnow) { q.sink = (q.sink || 0) + ((1 - maskAt(q.p.x, q.p.z)[0]) * (1 - maskAt(q.p.x, q.p.z)[2]) * (q.mode === "walk" ? 0.2 : 0.14) - (q.sink || 0)) * Math.min(1, 5 * dt); hold.position.y -= q.sink; }   // 20 cm of fresh: boots go to the bottom of it, skis float most of the way
+  hold.position.copy(q.p); if (onSnow && q !== sk && q.mode !== "sled") { q.sinkR = (q.sinkR || 0) + ((1 - maskAt(q.p.x, q.p.z)[0]) * (1 - maskAt(q.p.x, q.p.z)[2]) * (q.mode === "walk" ? 0.2 : 0.14) - (q.sinkR || 0)) * Math.min(1, 5 * dt); hold.position.y -= q.sinkR; }   // other riders sink too; your own depth is set in updateRig   // 20 cm of fresh: boots go to the bottom of it, skis float most of the way
   KR.pose(R, q, keys, slope, dt, time);
   R.rig.rotation.y = -(q.spin + (q.sw ? Math.PI : 0));
-  const walking = q.mode === "walk"; R.carry.visible = walking; R.skiMeshes.forEach(m => { m.visible = !walking; });
+  const walking = q.mode === "walk"; R.carry.visible = walking; R.skiMeshes.forEach(m => { m.visible = !walking && q.mode !== "sled"; });
   if (walking) { const mv = clamp(q.sp / 1.2, 0, 1), ph = q.walkPh || 0; R.legs.forEach((l, i) => { const sw = Math.sin(ph + i * Math.PI) * 0.5 * mv; l.hip.rotation.x += sw; l.knee.rotation.x -= Math.max(0, -Math.cos(ph + i * Math.PI)) * 0.55 * mv; const sg = R.skiG[i]; sg.position.z -= Math.sin(sw) * 0.82; sg.position.y += Math.max(0, -Math.cos(ph + i * Math.PI)) * 0.12 * mv; sg.rotation.x = 0; sg.rotation.z = 0; }); }
-  const wob = q.stumT > 0 && !q.crashed ? Math.min(1, q.stumT / 0.9) : 0, seated = q.mode === "lift";
+  const wob = q.stumT > 0 && !q.crashed ? Math.min(1, q.stumT / 0.9) : 0, seated = q.mode === "lift" || q.mode === "sled";
   R.pivot.rotation.x = (q.crashed ? q.rot : q.ground ? 0 : q.rot - 0) + wob * (0.28 * Math.sin(time * 9) - 0.12) - (seated ? 0.25 : 0);
   R.pivot.rotation.z = (q.crashed ? q.tumZ : -(R.pose.vt !== undefined ? R.pose.vt : q.turn) * (0.3 + 0.32 * q.carve) * (q.air ? 0.3 : 1)) + (wob ? wob * (q.stumD || 1) * 0.45 * Math.sin(time * 12) : 0);
 }
@@ -376,11 +376,11 @@ const NOKEYS = Object.assign({}, K), PK = Object.assign({}, K);
 function updateRig(dt, time) {
   const R = rig, onLift = sk.mode === "lift", seated = onLift && sk.lift && sk.lift.type.startsWith("chair"), cabin = onLift && sk.lift && !sk.lift.carpet && !seated;
   R.hold.visible = !cabin; sk.air = !sk.ground && sk.mode === "ski";
-  if (seated) { sk.chg = 0.85; sk.turn = 0; sk.carve = 0; }   // sit: Kicker Run's deep crouch reads as a seat on the chair
+  if (seated || sk.mode === "sled") { sk.chg = 0.85; sk.turn = 0; sk.carve = 0; }   // sit: Kicker Run's deep crouch reads as a seat on the chair
   sk.poseSlope = camSnap ? sk.slope : (sk.poseSlope || 0) + (sk.slope - (sk.poseSlope || 0)) * Math.min(1, 3 * dt);   // legs follow the hill, not every ripple
   Object.assign(PK, K); if (sk.ground) { PK.boost = K.up; PK.up = 0; } else PK.boost = 0;   // on snow W is the tuck, not a nose butter
   poseRider(R, sk, sk.mode === "ski" ? PK : NOKEYS, sk.poseSlope, dt, time, camSnap);
-  if (seated) R.hold.position.y += 0.2;
+  if (seated) R.hold.position.y += 0.2; if (sk.mode === "sled") R.hold.position.y += 0.34;
   // Powder: you ride in the snow, not on it. Deeper when slow, floating up as you pick up speed; skis and boots go under the surface.
   { const want = (sk.mode === "ski" || sk.mode === "walk") && sk.ground && !sk.crashed ? (sk.surf.deep || 0) * (sk.mode === "walk" ? 0.26 : 0.11 + 0.11 * (1 - clamp(sk.sp / 14, 0, 1))) : 0; sk.sink = (sk.sink || 0) + (want - (sk.sink || 0)) * Math.min(1, 6 * dt); R.hold.position.y -= sk.sink; }
   R.head.visible = !(fpv && !cabin);

@@ -516,7 +516,7 @@ function initParkMeshes() {
   // banner at the head of each park line
   const cv = document.createElement("canvas"); cv.width = 1024; cv.height = 160; const g = cv.getContext("2d"); g.fillStyle = "#e8580c"; g.fillRect(0, 0, 1024, 160); g.fillStyle = "#fff"; g.textAlign = "center"; g.textBaseline = "middle"; g.font = "900 112px 'Big Shoulders Display', 'Arial Narrow', Impact, sans-serif"; g.fillText("TERRAIN PARK", 512, 86);
   const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; const mat = worldShade(new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6, side: THREE.DoubleSide })), posts = new GeoBag(); let last = null;
-  for (const f of PARK) { if (f.k !== "table" || f.lip || f.side) continue; if (last && Math.hypot(f.x - last.x, f.z - last.z) < 200) { last = f; continue; } last = f;
+  for (const f of PARK) { if (f.k !== "table" || f.lip || f.side || f.comp) continue; if (last && Math.hypot(f.x - last.x, f.z - last.z) < 200) { last = f; continue; } last = f;
     const x = f.x - f.dx * 14, z = f.z - f.dz * 14, y = H(x, z), rx = -f.dz, rz = f.dx, m = new THREE.Mesh(new THREE.PlaneGeometry(9, 1.4), mat); m.position.set(x, y + 4.2, z); m.rotation.y = Math.atan2(-f.dx, -f.dz); scene.add(m);
     for (const sd of [-1, 1]) { posts.cyl(0.09, 0.1, 5.2, x + rx * sd * 4.6, y + 2.3, z + rz * sd * 4.6, STEEL, 6); towerHits.push({ x: x + rx * sd * 4.6, z: z + rz * sd * 4.6, r: 0.18 }); } }
   if (posts.p.length) { const pm = new THREE.Mesh(posts.build(), liftMat); pm.frustumCulled = false; scene.add(pm); }
