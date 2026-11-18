@@ -164,16 +164,20 @@ function initInput() {
     sl.addEventListener("change", () => { outfit[cat] = sl.value; store.set("pal-outfit", outfit); KR.dress(rig, outfit); }); $("fitRows").append(l, sl); }
   const openFit = () => { setOverlay("pause", false); setOverlay("fit", true); if (sk.mode !== "menu") paused = true; };
   $("fitBtn").addEventListener("click", openFit); $("pFit").addEventListener("click", openFit); $("fitOk").addEventListener("click", () => { setOverlay("fit", false); if (sk.mode !== "menu") paused = false; });
+  { const ni = $("nameIn"); ni.value = MP.myName; ni.addEventListener("input", () => { MP.myName = ni.value.replace(/[<>]/g, "").trim().slice(0, 20); store.set("pal-name", MP.myName); MP.dirty = true; }); }
   $("go").addEventListener("click", () => { initAudio(); store.set("pal-start", sel.value); spawnAt(sel.value); startPlay(); });
   setGfxButtons(); setUnits(units);
 }
 function setGfxButtons() { document.querySelectorAll("[data-q]").forEach(b => b.classList.toggle("on", b.dataset.q === qName)); }
 
 /* ---------- multiplayer: same lobby transports as Kicker Run (claude.ai room, or Firebase when opened anywhere else) ---------- */
-const MP = { room: null, user: null, myId: null, remotes: new Map(), others: [], sendT: 0, status: "connecting…", names: {}, dirty: true, listT: 0 };
+const MP = { myName: String(store.get("pal-name", "") || "").slice(0, 20), room: null, user: null, myId: null, remotes: new Map(), others: [], sendT: 0, status: "connecting…", names: {}, dirty: true, listT: 0 };
 const r2 = v => Math.round(v * 100) / 100;
 function mpPack() {
   let k = 0; MP_KEYS.forEach((n, i) => { if (K[n]) k |= 1 << i; });
+  const o = mpPack0(k); if (MP.myName) o.nm = MP.myName; return o;
+}
+function mpPack0(k) {
   return { v: 2, res: "palisades", id: MP.myId, play: sk.mode !== "menu", x: r2(sk.p.x), y: r2(sk.p.y), z: r2(sk.p.z), yaw: r2(sk.yaw), spin: r2(sk.spin), rot: r2(sk.rot), rotV: r2(sk.rotV), sw: !!sk.sw, gr: !!sk.ground, cr: !!sk.crashed, tz: r2(sk.tumZ), turn: r2(sk.turn), carve: r2(sk.carve), sp: r2(sk.sp), chg: r2(sk.chg), st: r2(Math.max(0, sk.stumT)), k, md: sk.mode, gd: sk.grind ? 1 : 0, wp: r2(sk.walkPh || 0), li: sk.lift ? sk.lift.id : -1, sl: r2(sk.slope), sc: sk.pts, vt: Math.round(sk.vert),
     of: { helmet: outfit.helmet, jacket: outfit.jacket, pants: outfit.pants, accessory: outfit.accessory, skis: outfit.skis, poles: outfit.poles, style: outfit.style } };
 }
@@ -201,7 +205,7 @@ async function mpList() {
   const nameOf = (id, fb) => { const q = id && ps[id]; if (!q) return MP.names[id] || fb; const em = typeof q.email === "string" && q.email.indexOf("@") > 0 ? q.email.slice(0, q.email.indexOf("@")) : ""; return em || q.name || MP.names[id] || fb; };
   const mbox = $("menuRiders"); box.textContent = ""; mbox.textContent = ""; let n = 0;
   // Finding friends: each rider is listed with where they are and how far away, and a Join button that drops you in beside them.
-  for (const o of MP.others) { if (o.st.res !== "palisades") continue; n++; const nm = nameOf(o.by, o.isMe ? "You (other tab)" : "Rider " + n), r = MP.remotes.get(o.peer); if (r) mpTagText(r.tag, nm);
+  for (const o of MP.others) { if (o.st.res !== "palisades") continue; n++; const nm = (typeof o.st.nm === "string" && o.st.nm.trim().slice(0, 20)) || nameOf(o.by, o.isMe ? "You (other tab)" : "Rider " + n), r = MP.remotes.get(o.peer);   // the name they typed, else the one from their account if (r) mpTagText(r.tag, nm);
     const st = o.st, rn = st.play === false ? null : runAt(st.x, st.z), ar = rn ? null : areaAt(st.x, st.z), dist = Math.hypot(st.x - sk.p.x, st.z - sk.p.z);
     const where = st.play === false ? "at the home screen" : st.md === "lift" && LIFTS[st.li] ? "riding " + LIFTS[st.li].name : rn && rn.n ? "on " + rn.n : ar ? "in " + ar.n : "off piste";
     for (const [bx, far] of [[box, true], [mbox, false]]) { const d = document.createElement("div"); d.className = "r"; const dot = document.createElement("span"); dot.className = "dot"; dot.style.background = r ? r.col : "#ffd24a"; const b = document.createElement("b"); b.textContent = nm;
@@ -237,14 +241,19 @@ async function fbInit() {
   MP.status = "Connecting to the lobby…"; MP.dirty = true;
   const V = "https://www.gstatic.com/firebasejs/10.12.2/"; await fbLoad(V + "firebase-app-compat.js"); await Promise.all([fbLoad(V + "firebase-auth-compat.js"), fbLoad(V + "firebase-database-compat.js")]);
   const fb = window.firebase; fb.initializeApp(FIREBASE_CONFIG); const auth = fb.auth(), db = fb.database(); let presRef = null, off = null, myName = "";
-  const signBtn = show => { let b = $("mpsign"); if (!b) { b = document.createElement("button"); b.id = "mpsign"; b.textContent = "Sign in with Google to ride together"; b.addEventListener("click", () => auth.signInWithPopup(new fb.auth.GoogleAuthProvider()).catch(e => { MP.status = "Sign-in failed (" + ((e && e.code) || "error") + ")"; MP.dirty = true; })); $("topRight").insertBefore(b, $("riders")); } b.hidden = !show; };
+  const signIn = () => auth.signInWithPopup(new fb.auth.GoogleAuthProvider()).catch(e => { MP.status = "Sign-in failed (" + ((e && e.code) || "error") + ")"; MP.dirty = true; });
+  const signBtn = (show, who) => { let b = $("mpsign"); if (!b) { b = document.createElement("button"); b.id = "mpsign"; b.textContent = "Sign in with Google to ride together"; b.addEventListener("click", signIn); $("topRight").insertBefore(b, $("riders")); } b.hidden = !show;
+    const box = $("mpAuth"); box.textContent = ""; const g = document.createElement("button"); // the same choice on the home screen, where you set your name
+    if (show) { g.className = "gbtn"; const G = document.createElement("b"); G.textContent = "G"; g.append(G, "Sign in with Google"); g.addEventListener("click", signIn); box.append(g, "to ride with friends under your name"); }
+    else { g.className = "gbtn out"; g.textContent = "Sign out"; g.addEventListener("click", () => auth.signOut()); box.append("Signed in as " + who, g); } };
   auth.onAuthStateChanged(u => {
     if (presRef) { presRef.remove().catch(() => { }); presRef = null; } if (off) { off(); off = null; }
     MP.room = null; MP.remotes.forEach(r => scene.remove(r.R.hold)); MP.remotes.clear(); MP.others = [];
     if (!u) { MP.myId = null; MP.status = "Solo · sign in to ride with others"; signBtn(true); MP.dirty = true; return; }
-    signBtn(false); MP.myId = u.uid; myName = (u.email && u.email.indexOf("@") > 0 ? u.email.slice(0, u.email.indexOf("@")) : u.displayName || "Rider").slice(0, 24);
+    MP.myId = u.uid; myName = ((u.displayName && u.displayName.split(" ")[0]) || (u.email && u.email.indexOf("@") > 0 ? u.email.slice(0, u.email.indexOf("@")) : "") || "Rider").slice(0, 20); signBtn(false, myName);
+    if (!MP.myName) { MP.myName = myName; $("nameIn").value = myName; }   // your Google first name, until you type another
     presRef = db.ref("presence/" + u.uid); presRef.onDisconnect().remove();
-    MP.room = { presence: patch => presRef.set({ st: patch.st, nm: myName, t: fb.database.ServerValue.TIMESTAMP }) };
+    MP.room = { presence: patch => presRef.set({ st: patch.st, nm: (MP.myName || myName).slice(0, 24), t: fb.database.ServerValue.TIMESTAMP }) };
     const ref = db.ref("presence"), fn = v => { const all = v.val() || {}, peers = []; for (const id in all) { const e = all[id]; if (!e || !e.st) continue; if (e.nm) MP.names[id] = String(e.nm).slice(0, 24); peers.push({ peer: id, by: id, sameTab: id === u.uid, isMe: id === u.uid, kind: "viewer", presence: { st: e.st } }); } mpSync(peers); };
     ref.on("value", fn, () => { MP.room = null; MP.status = "Lobby refused the connection"; MP.dirty = true; }); off = () => ref.off("value", fn); MP.dirty = true;
   });
@@ -255,6 +264,6 @@ async function mpInit() {
   try {
     const [room, user] = await Promise.all([window.claude.use("room"), window.claude.use("user")]); MP.user = user; if (user) MP.myId = await user.id();
     if (!room) { MP.status = "Solo · this page could not join a lobby"; MP.dirty = true; return; }
-    MP.room = room; room.onPeers(ch => mpSync(ch.peers), () => { MP.room = null; MP.status = "Solo · lobby disconnected"; MP.dirty = true; }); MP.dirty = true;
+    $("mpAuth").textContent = "Here you are signed in through Claude. Google sign-in is on the GitHub link."; MP.room = room; room.onPeers(ch => mpSync(ch.peers), () => { MP.room = null; MP.status = "Solo · lobby disconnected"; MP.dirty = true; }); MP.dirty = true;
   } catch (e) { MP.status = "Solo · lobby unreachable"; MP.dirty = true; }
 }

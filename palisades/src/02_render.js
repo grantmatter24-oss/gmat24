@@ -219,7 +219,7 @@ float glint(vec3 p, vec3 V, float scale) {
 }
 `;
 const TERRAIN_FRAG_COLOR = `
-  float tDist = length(cameraPosition - vWp); vec3 tV = (cameraPosition - vWp) / tDist;
+  float tDist = length(cameraPosition - vWp); vec3 tV = (cameraPosition - vWp) / tDist; float trLit = 1.0;
   vec4 tt = vec4(0.0, 0.0, 1.0, 1.0); vec4 mA = vec4(0.0), mB = vec4(0.0, 0.5, 0.5, 1.0);
   #ifndef OUTER
     tt = texture2D(uTT, ttUV(vWp)); mA = texture2D(uMA, mkUV(vWp)); mB = texture2D(uMB, mkUV(vWp));
@@ -326,20 +326,24 @@ const TERRAIN_FRAG_COLOR = `
   #ifdef OUTER
     alb = mix(alb, vec3(0.012, 0.045, 0.10), vLake); tRough = mix(tRough, 0.12, vLake); snowAmt *= 1.0 - vLake;
   #endif
+  #ifdef TRENCH
+    { float tl = length(vWn); trLit = smoothstep(0.47, 0.6, tl); alb *= min(mix(tl / 0.45, tl, trLit), 1.0); }   // pressed snow is a little darker; the side of the trench away from the sun is in its own shadow
+  #endif
   diffuseColor.rgb = alb;`;
 function terrainMaterial(defs, extra) {
   const m = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8, metalness: 0 });
   m.defines = Object.assign({}, defs);
   m.onBeforeCompile = sh => {
     Object.assign(sh.uniforms, U, extra || {});
-    sh.vertexShader = "varying vec3 vWp; varying vec3 vWn; varying float vLake; attribute float aLake;\n" + sh.vertexShader.replace("#include <begin_vertex>", "#include <begin_vertex>\n vWp = (modelMatrix * vec4(transformed, 1.0)).xyz; vWn = normal;\n #ifdef OUTER\n vLake = aLake;\n #else\n vLake = 0.0;\n #endif");
+    sh.vertexShader = "varying vec3 vWp; varying vec3 vWn; varying float vLake; attribute float aLake;\n" + sh.vertexShader.replace("#include <begin_vertex>", "#include <begin_vertex>\n vWp = (modelMatrix * vec4(transformed, 1.0)).xyz; vWn = normal;\n #ifdef OUTER\n vLake = aLake;\n #else\n vLake = 0.0;\n #endif")
+      .replace("#include <project_vertex>", "#include <project_vertex>\n #ifdef TRENCH\n { vec4 mv2 = mvPosition; mv2.xyz *= 1.0 - 0.4 / max(length(mvPosition.xyz), 0.41); vec4 c2 = projectionMatrix * mv2; gl_Position.z = c2.z / c2.w * gl_Position.w; }\n #endif");   // ski trenches lie just under the snow surface: they are drawn as if 30 cm nearer, so they show through it
     sh.fragmentShader = TERRAIN_FRAG_PARS + sh.fragmentShader
       .replace("#include <color_fragment>", TERRAIN_FRAG_COLOR)
       .replace("#include <roughnessmap_fragment>", "float roughnessFactor = tRough;")
       .replace("#include <normal_fragment_begin>", "#include <normal_fragment_begin>\n normal = normalize((viewMatrix * vec4(Nw, 0.0)).xyz); nonPerturbedNormal = normal;")
       .replace("#include <lights_fragment_end>", `#include <lights_fragment_end>
         { float nearF = smoothstep(uShadowR * 0.55, uShadowR * 0.95, tDist);
-          float sunVis = mix(tt.a, tt.b, nearF);
+          float sunVis = mix(tt.a, tt.b, nearF) * trLit;
           reflectedLight.directDiffuse *= sunVis; reflectedLight.directSpecular *= sunVis;
           reflectedLight.indirectDiffuse *= mB.a * mix(1.0, 0.8, tree);
           float gl = glint(vWp, tV, 70.0) * smoothstep(14.0, 2.0, tDist) + glint(vWp, tV, 24.0) * smoothstep(45.0, 6.0, tDist) + glint(vWp, tV, 8.0) * smoothstep(130.0, 25.0, tDist) * 0.8;
@@ -378,7 +382,7 @@ function buildPatch(o, size, n, detail, slot) {
   const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(pos, 3)); g.setAttribute("normal", new THREE.BufferAttribute(nor, 3)); g.setIndex(gridIndex(n));
   g.boundingSphere = new THREE.Sphere(new THREE.Vector3(size / 2, (lo + hi) / 2 - o.y0, size / 2), Math.hypot(size * 0.71, (hi - lo) / 2 + drop));
   const m = new THREE.Mesh(g, detail ? matNear : matFar); m.position.set(o.x0, o.y0, o.z0); m.matrixAutoUpdate = false; m.updateMatrix(); m.receiveShadow = true; m.castShadow = detail && n >= 60; m.visible = false;   // the ground near you throws its own shadows: jump faces, cliffs, cat-track banks
-  terrainG.add(m); o.mesh[slot] = m; if (o.lo === undefined || lo < o.lo) o.lo = lo; if (o.hi === undefined || hi > o.hi) o.hi = hi;
+  m.renderOrder = -2; terrainG.add(m); o.mesh[slot] = m; if (o.lo === undefined || lo < o.lo) o.lo = lo; if (o.hi === undefined || hi > o.hi) o.hi = hi;
 }
 const buildChunk = (ch, lod) => buildPatch(ch, CH, LODSEG[lod], lod <= 2, lod), buildBlock = (b, k) => buildPatch(b, CH * BK, BLKSEG[k], false, k);
 function initChunks() {
@@ -430,5 +434,5 @@ function buildOuter() {
     const a = j * n + i; ix.push(a, a + n, a + 1, a + 1, a + n, a + n + 1);
   }
   const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(pos, 3)); g.setAttribute("normal", new THREE.BufferAttribute(nor, 3)); g.setAttribute("aLake", new THREE.BufferAttribute(lake, 1)); g.setIndex(ix);
-  const m = new THREE.Mesh(g, matOuter); m.frustumCulled = false; m.matrixAutoUpdate = false; scene.add(m);
+  const m = new THREE.Mesh(g, matOuter); m.frustumCulled = false; m.matrixAutoUpdate = false; m.renderOrder = -2; scene.add(m);
 }

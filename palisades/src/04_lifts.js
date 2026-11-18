@@ -365,7 +365,7 @@ function initNPCs() {
   b.cyl(0.2, 0.19, 0.62, 0, 1.2, 0.05, W, 10, 0.22); b.add(new THREE.SphereGeometry(0.125, 10, 8), _gm.makeTranslation(0, 1.68, 0.14), [0.1, 0.1, 0.12]);
   npcMesh = new THREE.InstancedMesh(b.build(), worldShade(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8 })), NPC_N); npcMesh.castShadow = true; npcMesh.frustumCulled = false; scene.add(npcMesh);
   const JK = [0xd8362b, 0x1f6fd6, 0xf2b61b, 0x2a9d62, 0x8a4fd1, 0xe86a1c, 0x1b1e24, 0xe9edf2, 0x16a3a3, 0xd9438c], c = new THREE.Color();
-  for (let i = 0; i < NPC_N; i++) { let t = hash2(i, 3, 71) * tot, k = 0; while (k < npcRuns.length - 1 && t > npcRuns[k].len) t -= npcRuns[k++].len; npcs.push({ k, s: t, v: 6 + 7 * hash2(i, 5, 72), ph: hash2(i, 7, 73) * TAU, lam: 28 + 34 * hash2(i, 9, 74), seg: 0 }); npcMesh.setColorAt(i, c.setHex(JK[i % JK.length])); }
+  for (let i = 0; i < NPC_N; i++) { let t = hash2(i, 3, 71) * tot, k = 0; while (k < npcRuns.length - 1 && t > npcRuns[k].len) t -= npcRuns[k++].len; npcs.push({ k, s: t, v: 3.2 + 3.8 * hash2(i, 5, 72), ph: hash2(i, 7, 73) * TAU, lam: 28 + 34 * hash2(i, 9, 74), seg: 0 }); npcMesh.setColorAt(i, c.setHex(JK[i % JK.length])); }
 }
 const _ne = new THREE.Euler();
 let signT = 0;
@@ -433,7 +433,7 @@ function buildCut(f) {
     const hs = (hg[j1 * nu + i] - hg[j0 * nu + i]) / (S[j1] - S[j0]), hu = (hg[j * nu + i1] - hg[j * nu + i0]) / (Uu[i1] - Uu[i0]), nx = -hs * f.dx + hu * f.dz, nz = -hs * f.dz - hu * f.dx, il = 1 / Math.hypot(nx, 1, nz), k = (j * nu + i) * 3; nor[k] = nx * il; nor[k + 1] = il; nor[k + 2] = nz * il; }
   for (let j = 0; j < ns - 1; j++) for (let i = 0; i < nu - 1; i++) { const a = j * nu + i, b = a + 1, c = a + nu, d = c + 1; idx.push(a, c, b, b, c, d); }
   const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(pos, 3)); g.setAttribute("normal", new THREE.BufferAttribute(nor, 3)); g.setIndex(idx); g.computeBoundingSphere();
-  const m = new THREE.Mesh(g, matNear); m.position.set(cx, cy, cz); m.matrixAutoUpdate = false; m.updateMatrix(); m.receiveShadow = true; m.castShadow = true; scene.add(m); cutMeshes.push(m);
+  const m = new THREE.Mesh(g, matNear); m.position.set(cx, cy, cz); m.matrixAutoUpdate = false; m.updateMatrix(); m.receiveShadow = true; m.castShadow = true; m.renderOrder = -2; scene.add(m); cutMeshes.push(m);
 }
 function updatePark(cam) { for (const m of cutMeshes) m.visible = Math.hypot(m.position.x - cam.x, m.position.z - cam.z) < 900; }
 function initParkMeshes() {

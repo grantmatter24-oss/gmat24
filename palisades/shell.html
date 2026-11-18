@@ -51,6 +51,11 @@
   .join { font: 700 11px/1 var(--display); letter-spacing: .08em; text-transform: uppercase; color: #fff; background: var(--accent); border: 0; border-radius: 7px; padding: 6px 9px; cursor: pointer; }
   .join:hover { filter: brightness(1.15); }
   #menuRiders { font-size: 14px; font-weight: 600; color: var(--dim); }
+  #nameIn { font: 600 15px/1 var(--body, system-ui), sans-serif; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 9px 12px; width: 220px; }
+  #mpAuth { font-size: 13px; font-weight: 600; color: var(--dim); display: flex; gap: 8px; align-items: center; pointer-events: auto; }
+  .gbtn { font: 700 13px/1 var(--display); letter-spacing: .04em; padding: 9px 13px; border-radius: 9px; border: 0; background: #fff; color: #1f2933; cursor: pointer; display: inline-flex; gap: 8px; align-items: center; }
+  .gbtn b { color: #4285f4; font: 800 15px/1 system-ui, sans-serif; }
+  .gbtn.out { background: transparent; color: var(--dim); border: 1px solid var(--line); }
   #menuRiders .r { display: flex; gap: 9px; align-items: center; margin-top: 7px; white-space: nowrap; }
   #menuRiders .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
   #menuRiders b { color: var(--text); }
@@ -143,6 +148,7 @@
       <div class="row"><span class="lab">Weather</span><div class="seg" id="wxMenu"><button data-w="bluebird">Bluebird</button><button data-w="golden">Golden hour</button><button data-w="overcast">Flat light</button><button data-w="storm">Snowing</button></div></div>
       <div class="row"><span class="lab">Rider</span><button class="btn ghost" id="fitBtn" style="padding:9px 14px;font-size:14px">Outfit and ski setup</button></div>
       <div class="row"><span class="lab">Graphics</span><div class="seg" id="gfx"><button data-q="low">Low</button><button data-q="med">Medium</button><button data-q="high">High</button><button data-q="ultra">Ultra</button></div></div>
+      <div class="row"><span class="lab">Name</span><input id="nameIn" maxlength="20" placeholder="Your name on the mountain" autocomplete="off"><span id="mpAuth"></span></div>
       <div class="row"><span class="lab">Friends</span><div id="menuRiders"></div></div>
       <div class="row" style="margin-top:26px"><button class="btn" id="go">Drop in</button><button class="btn ghost" id="howBtn">Controls</button></div>
     </div>
