@@ -3003,9 +3003,10 @@ function stepSled(dt) {
   const steer = ((K.spinR || K.right) ? 1 : 0) - ((K.spinL || K.left) ? 1 : 0), thr = (K.up ? 1 : 0) - (K.down ? 1 : 0); S.thr = thr;
   S.yaw -= steer * 1.9 * clamp(Math.abs(S.v) / 5, 0, 1) / (1 + Math.abs(S.v) / 26) * (S.v < 0 ? -1 : 1) * dt;   // wide arcs at speed sk.yaw = S.yaw; sk.turn = lerp(sk.turn, steer, Math.min(1, 6 * dt));
   const sA = tangent(S.yaw), s = readSurface(), grade = Math.sin(sA);   // positive when the nose points uphill
-  let acc = thr > 0 ? 19 * (1 - Math.max(0, S.v) / 50) : thr < 0 ? (S.v > 0.5 ? -20 : -6 * (1 + S.v / 6)) : 0;   // a big two-stroke: 0 to 60 mph in about four seconds, 90 flat out on a groomed run
-  acc -= G * (thr > 0 ? Math.min(0, grade) : grade) * 0.7 + (0.05 + 0.16 * (s.deep || 0)) * S.v + 0.0026 * S.v * Math.abs(S.v);   // under power it climbs as fast as it runs on the flat
-  S.v = clamp(S.v + acc * dt, -7, 50); if (!thr && Math.abs(S.v) < 0.5 && Math.abs(grade) < 0.35) S.v = 0;   // it sits still on all but the steepest ground
+  // Top speed is 75 mph on the flat and downhill, 55 mph on a climb; it pulls hard up to either.
+  const vcap = lerp(75, 55, sstep(0.02, 0.1, grade)) / MPH;
+  let acc = thr > 0 ? (19 - 5 * (s.deep || 0)) * (1 - S.v / vcap) - G * Math.min(0, grade) * 0.7 * clamp(1 - S.v / vcap, 0, 1) :   /* deep snow only dulls the pull; it still reaches the same top speed */ (thr < 0 ? (S.v > 0.5 ? -20 : -6 * (1 + S.v / 6)) : 0) - G * grade * 0.7 - 0.05 * S.v - 0.0026 * S.v * Math.abs(S.v);
+  S.v = clamp(S.v + acc * dt, -7, 75 / MPH); if (!thr && Math.abs(S.v) < 0.5 && Math.abs(grade) < 0.35) S.v = 0;   // it sits still on all but the steepest ground
   const hx = Math.sin(S.yaw), hz = Math.cos(S.yaw), st = S.v * Math.cos(sA) * dt, nx = S.x + hx * st, nz = S.z + hz * st;
   if (buildingAt(nx, nz) || treeHit(nx, nz, 0.7) || !inWorld(nx, nz, 75) || H(nx, nz) - H(S.x, S.z) > 1.1 + Math.abs(st) || towerHits.some(t => Math.hypot(t.x - nx, t.z - nz) < t.r + 0.6)) { if (Math.abs(S.v) > 6) sfx("thump", 0.7); if (Math.abs(S.v) > 22) { const S0 = S; S0.v = 0; sk.sled = null; placeSkier(S0.x, S0.z, S0.yaw, 12); crash("Thrown off the snowmobile"); return; } S.v *= -0.15; }   // hit something flat out and you are thrown
   else { S.x = nx; S.z = nz; }
