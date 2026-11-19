@@ -2169,7 +2169,7 @@ function skiDesigns() { if (skiDesignTex) return skiDesignTex; skiDesignTex = {}
     const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; skiDesignTex[k] = t; } return skiDesignTex; }
 function dressRig(R, of) { if (!R.skiDes) { R.skiDes = true; Object.assign(R.skiTexes, skiDesigns()); } KR.dress(R, of); clothDress(R, of); if (of && SKI_DESIGNS[of.skis]) R.skiMeshes.forEach(m => { m.scale.x = 1.4; }); const q = R.gog, sm = !of || of.style !== "detailed", c = q && (GOGGLES[of && of.goggles] || (sm ? [0x15171b, 0x39424d] : null)); if (!q) return;
   R.simpleOnly.forEach(m => { if (m.parent === R.head && !m.userData.helmetOnly && m.material !== R.mats.skin) m.visible = false; });   /* the mannequin's own stock goggles give way to these; with none bought it wears a plain smoke pair */
-  q.grp.scale.setScalar(sm ? 1.17 : 1); q.grp.visible = !!c; if (c) { q.frame.color.setHex(c[0]); q.lens.color.setHex(c[1]); q.lens.emissive.setHex(c[1]); q.stripe.color.setHex(c[1]); } }
+  q.grp.scale.setScalar(sm ? 1.21 : 1); q.grp.visible = !!c; if (c) { q.frame.color.setHex(c[0]); q.lens.color.setHex(c[1]); q.lens.emissive.setHex(c[1]); q.stripe.color.setHex(c[1]); } }
 let outfit = Object.assign({}, KR.OUTFIT_DEFAULT, store.get("kickerOutfit", null) || {}, store.get("pal-outfit", null) || {});
 for (const k of ["jacket", "pants"]) if (!KR[k === "jacket" ? "JACKETS" : "PANTS"][outfit[k]]) outfit[k] = KR.OUTFIT_DEFAULT[k];
 const fwdOf = (yaw, out) => out.set(Math.sin(yaw), 0, Math.cos(yaw));
