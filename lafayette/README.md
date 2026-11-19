@@ -46,6 +46,17 @@ Every footprint, height and use comes from the map; everything else is built by 
 Measured roof shapes would need the county's lidar point cloud (USGS, Contra Costa 2007). Its download server answers
 automated requests with HTTP 429, so roof types remain a per-building choice.
 
+## Streets and people
+
+- `src/04_roads.js`: every town street has a concrete gutter and kerb; main streets and some side streets carry a sidewalk.
+  Manhole covers, fire hydrants, stop signs with their stop bars, worn asphalt with sealed cracks and oil spots.
+- `src/13_people.js`: up to 14 walkers on the pavements, footways and trails near you (fewer on low detail). They use the same
+  jointed figure and walk cycle as the rider on foot, step aside and watch as a vehicle passes, and cannot be hit.
+- Shop fronts are split into one front per business, each with its own colour, sign band, roof-edge height and top (flat,
+  raised centre, gabled, or a skirt of tiled roof). Signs are boards, ovals, arched plaques or loose letters in eight kinds
+  of lettering, some with a small sign hung out over the pavement; they glow at night.
+- Parked cars have a proper car profile, wheels and lamps. Houses have a mailbox at the foot of the drive.
+
 ## Trees
 
 `src/06_veg.js`: broadleaf crowns are several rounded masses of leaf cards on visible limbs, each shaded as its own ball and

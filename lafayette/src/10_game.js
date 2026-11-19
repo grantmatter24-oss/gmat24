@@ -180,7 +180,7 @@ function updateLamps() {
   if (v && v.lightsOn && !(v.crash > 0)) { const G0 = v.model.group, hgt = v.S.four ? 0.85 : v.type === "scoot" ? 0.95 : 1.0, f = v.S.L * 0.5 + 0.2; _g.a.set(0, hgt, f).applyQuaternion(G0.quaternion).add(G0.position); L.head.position.copy(_g.a); _g.b.set(0, hgt - 0.9, f + 14).applyQuaternion(G0.quaternion).add(G0.position); L.head.target.position.copy(_g.b); L.head.target.updateMatrixWorld();
     L.head.intensity = (v.type === "car" ? 900 : v.type === "scoot" || v.type === "mtb" ? 220 : 600) * (0.12 + 0.88 * night * night); } else L.head.intensity = 0;
 }
-function onTimeOfDay() { if (wallMat) wallMat.emissiveIntensity = tod.night > 0.5 ? 1.5 : tod.night > 0.1 ? 0.5 : 0; for (const k in GAME.fleet) GAME.fleet[k].lightsOn = tod.night > 0.2; }
+function onTimeOfDay() { if (wallMat) wallMat.emissiveIntensity = tod.night > 0.5 ? 1.5 : tod.night > 0.1 ? 0.5 : 0; for (const t of bldTiles.values()) if (t.group) t.group.traverse(o => { if (o.userData.sign) o.material.emissiveIntensity = tod.night > 0.3 ? 0.55 : 0; }); for (const k in GAME.fleet) GAME.fleet[k].lightsOn = tod.night > 0.2; }
 
 /* ---------- sound, all synthesised ---------- */
 const AU = { ctx: null, on: store.get("laf-snd", true) };
@@ -257,6 +257,17 @@ function getOn() {   // beside the machine you climb on; from further away it is
   const v = GAME.v; if (Math.hypot(FOOT.p.x - v.p.x, FOOT.p.z - v.p.z) > 5) placeVehicle(v, FOOT.p.x, FOOT.p.z, FOOT.yaw);
   snapCamera();
 }
+function walkPose(R, pos, yaw, sp, ph) {
+  const k = clamp(Math.abs(sp) / 1.7, 0, 1), rk = clamp((Math.abs(sp) - 1.7) / 3.5, 0, 1), P = POSE, st = (0.34 + 0.44 * rk) * k, dir = sp < 0 ? -1 : 1;
+  R.root.position.copy(pos); R.root.quaternion.setFromAxisAngle(_up, yaw);
+  P.pelvisQ = null; P.pelvis.set(0, 0.935 - 0.035 * rk + Math.cos(ph * 2) * 0.02 * k * (1 + rk) + Math.sin(GAME.time * 1.6) * 0.003, 0.02 * rk); P.pitch = 0.04 + 0.24 * rk; P.curl = 0.03; P.roll = Math.sin(ph) * 0.03 * k; P.roll2 = -P.roll; P.yaw = Math.sin(ph) * 0.07 * k; P.twist = -Math.sin(ph) * 0.15 * k; P.headYaw = 0; P.headPitch = 0; P.elbowOut = 0.35; P.kneeOut = 0.08;
+  for (let s = 0; s < 2; s++) {
+    const sg = s ? -1 : 1, a = ph + (s ? Math.PI : 0), sw = Math.sin(a), lift = Math.max(0, Math.cos(a)) * (0.07 + 0.15 * rk) * k;
+    P.feet[s].set(0.095 * sg, lift, sw * st * dir - 0.02); P.footQ[s].setFromEuler(_g.e.set(-Math.cos(a) * 0.35 * k * dir - (lift > 0 ? 0.3 * rk : 0), 0, 0, "YXZ"));
+    P.hands[s].set(0.25 * sg, 0.90 + 0.11 * rk + Math.abs(sw) * 0.04 * k, -sw * (0.2 + 0.16 * rk) * k * dir + 0.05 + 0.1 * rk); P.handQ[s].setFromEuler(_g.e.set(-0.25 - 0.9 * rk + sw * 0.3 * k, 0, 0, "YXZ"));
+  }
+  poseRider(R, P);
+}
 function updateFoot(dt) {
   const v = GAME.v, R = v.rider, up = K.KeyW || K.ArrowUp, dn = K.KeyS || K.ArrowDown, run = K.ShiftLeft || K.ShiftRight;
   FOOT.yaw += ((K.KeyA || K.ArrowLeft ? 1 : 0) - (K.KeyD || K.ArrowRight ? 1 : 0)) * 2.4 * dt; FOOT.sp = damp(FOOT.sp, up ? (run ? 5.2 : 1.7) : dn ? -1.1 : 0, 7, dt);
@@ -273,15 +284,7 @@ function updateFoot(dt) {
   }
   FOOT.ph += Math.abs(FOOT.sp) * dt * (Math.abs(FOOT.sp) > 2.5 ? 2.0 : 3.5);
   // the walk: each foot swings through while the other carries the weight, arms swing against the legs, hips and shoulders counter-rotate
-  const k = clamp(Math.abs(FOOT.sp) / 1.7, 0, 1), rk = clamp((Math.abs(FOOT.sp) - 1.7) / 3.5, 0, 1), ph = FOOT.ph, P = POSE, st = (0.34 + 0.44 * rk) * k, dir = FOOT.sp < 0 ? -1 : 1;
-  R.root.position.copy(FOOT.p); R.root.quaternion.setFromAxisAngle(_up, FOOT.yaw);
-  P.pelvisQ = null; P.pelvis.set(0, 0.935 - 0.035 * rk + Math.cos(ph * 2) * 0.02 * k * (1 + rk) + Math.sin(GAME.time * 1.6) * 0.003, 0.02 * rk); P.pitch = 0.04 + 0.24 * rk; P.curl = 0.03; P.roll = Math.sin(ph) * 0.03 * k; P.roll2 = -P.roll; P.yaw = Math.sin(ph) * 0.07 * k; P.twist = -Math.sin(ph) * 0.15 * k; P.headYaw = 0; P.headPitch = 0; P.elbowOut = 0.35; P.kneeOut = 0.08;
-  for (let s = 0; s < 2; s++) {
-    const sg = s ? -1 : 1, a = ph + (s ? Math.PI : 0), sw = Math.sin(a), lift = Math.max(0, Math.cos(a)) * (0.07 + 0.15 * rk) * k;
-    P.feet[s].set(0.095 * sg, lift, sw * st * dir - 0.02); P.footQ[s].setFromEuler(_g.e.set(-Math.cos(a) * 0.35 * k * dir - (lift > 0 ? 0.3 * rk : 0), 0, 0, "YXZ"));
-    P.hands[s].set(0.25 * sg, 0.90 + 0.11 * rk + Math.abs(sw) * 0.04 * k, -sw * (0.2 + 0.16 * rk) * k * dir + 0.05 + 0.1 * rk); P.handQ[s].setFromEuler(_g.e.set(-0.25 - 0.9 * rk + sw * 0.3 * k, 0, 0, "YXZ"));
-  }
-  poseRider(R, P);
+  walkPose(R, FOOT.p, FOOT.yaw, FOOT.sp, FOOT.ph);
 }
 function updateFootCamera(dt, snap) {
   const c = GAME.cam; c.yaw += wrap(FOOT.yaw - c.yaw) * (snap ? 1 : 1 - Math.exp(-4 * dt)); if (camera.near !== 0.2) { camera.near = 0.2; camera.updateProjectionMatrix(); }

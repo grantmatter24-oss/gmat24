@@ -19,8 +19,10 @@ const RM = {};   // road materials
 function buildRoadMaterials() {
   const asphalt = canvasTex(512, (g, s) => {
     speckle(g, s, 104, 30, 60000, 5); const r = rng(9);
-    for (let i = 0; i < 7; i++) { g.strokeStyle = `rgba(20,20,22,${0.12 + r() * 0.16})`; g.lineWidth = 0.7 + r() * 0.6; g.beginPath(); let x = r() * s, y = r() * s; g.moveTo(x, y); for (let k = 0; k < 9; k++) { x += (r() - 0.5) * 60; y += (r() - 0.3) * 50; g.lineTo(x, y); } g.stroke(); }
-    for (let i = 0; i < 3; i++) { g.fillStyle = `rgba(${r() < 0.5 ? "40,40,44" : "150,150,150"},0.045)`; g.fillRect(r() * s, r() * s, 60 + r() * 160, 50 + r() * 120); }
+    for (let i = 0; i < 11; i++) { g.strokeStyle = `rgba(20,20,22,${0.10 + r() * 0.15})`; g.lineWidth = 0.7 + r() * 0.6; g.beginPath(); let x = r() * s, y = r() * s; g.moveTo(x, y); for (let k = 0; k < 9; k++) { x += (r() - 0.5) * 60; y += (r() - 0.3) * 50; g.lineTo(x, y); } g.stroke(); }
+    for (let i = 0; i < 6; i++) { g.fillStyle = `rgba(${r() < 0.5 ? "40,40,44" : "150,150,150"},0.05)`; g.fillRect(r() * s, r() * s, 60 + r() * 160, 50 + r() * 120); }
+    for (let i = 0; i < 2; i++) { g.strokeStyle = "rgba(12,12,14,0.3)"; g.lineWidth = 1.8; g.beginPath(); let x = r() * s, y = r() * s; g.moveTo(x, y); for (let k = 0; k < 5; k++) { x += (r() - 0.5) * 36; y += 20 + r() * 40; g.lineTo(x, y); } g.stroke(); }   // tar poured into the old cracks
+    for (let i = 0; i < 14; i++) { const x = r() * s, y = r() * s, rr = 5 + r() * 14, gr = g.createRadialGradient(x, y, 0, x, y, rr); gr.addColorStop(0, "rgba(10,10,12,0.22)"); gr.addColorStop(1, "rgba(10,10,12,0)"); g.fillStyle = gr; g.fillRect(x - rr, y - rr, rr * 2, rr * 2); }   // oil spots
   });
   const concrete = canvasTex(256, (g, s) => { speckle(g, s, 186, 16, 14000, 3); g.strokeStyle = "rgba(90,88,84,0.55)"; g.lineWidth = 2; g.beginPath(); g.moveTo(0, 1); g.lineTo(s, 1); g.stroke(); });
   const dirt = canvasTex(256, (g, s) => {   // alpha fades the edges into the grass, two paler wheel tracks down the middle
@@ -38,6 +40,7 @@ function buildRoadMaterials() {
   RM.paint = po(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.62 }), -5, -10);
   RM.deck = new THREE.MeshStandardMaterial({ map: concrete, vertexColors: true, roughness: 0.92, side: THREE.DoubleSide });
   RM.steel = new THREE.MeshStandardMaterial({ color: 0x6b6763, roughness: 0.45, metalness: 0.85, side: THREE.DoubleSide });
+  RM.sign = new THREE.MeshStandardMaterial({ map: canvasTex(128, (g, s) => { g.clearRect(0, 0, s, s); const oct = r => { g.beginPath(); for (let k = 0; k < 8; k++) { const a = (k + 0.5) / 8 * TAU; g.lineTo(s / 2 + Math.cos(a) * r, s / 2 + Math.sin(a) * r); } g.closePath(); }; oct(63); g.fillStyle = "#f2f2ee"; g.fill(); oct(56); g.fillStyle = "#b3141a"; g.fill(); g.fillStyle = "#f6f6f2"; g.font = "700 38px Arial, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("STOP", s / 2, s / 2 + 2); }, false), roughness: 0.55, alphaTest: 0.5, side: THREE.DoubleSide });
 }
 /* lateral paint positions (metres left of the centreline), per kind: [offset, colour 0 white / 1 yellow, dash 0 solid / 1 lane dashes / 2 short dashes] */
 function paintPlan(kind, oneway, w) {
@@ -83,7 +86,7 @@ function nearJunction(x, z) {
 }
 const _rn = new THREE.Vector3();
 function buildRoadTile(tile) {
-  const B = { asphalt: new Buf(), concrete: new Buf(), dirt: new Buf(), ballast: new Buf(), paint: new Buf(false), deck: new Buf(), steel: new Buf(false, false) };
+  const B = { asphalt: new Buf(), concrete: new Buf(), dirt: new Buf(), ballast: new Buf(), paint: new Buf(false), deck: new Buf(), steel: new Buf(false, false), sign: new Buf(true, false) };
   const gy = (st, i, x, z) => st.Y ? st.Y[i] : H(x, z);
   for (let q = 0; q < tile.parts.length; q += 3) {
     const st = STRIPS[tile.parts[q]], i0 = tile.parts[q + 1], i1 = tile.parts[q + 2], kind = st.kind, far = !!(st.flag & 8), bridge = !!(st.flag & 2), unp = !!(st.flag & 4);
@@ -104,13 +107,29 @@ function buildRoadTile(tile) {
         prev = base;
       }
     }
-    if (!far && !bridge && kind >= 2 && kind <= 4) for (const sd of [1, -1]) {   // kerb and sidewalk along the main streets
-      const b = B.concrete; let prev = -1;
-      for (let i = i0; i <= i1; i++) {
-        if (nearJunction(st.X[i], st.Z[i])) { prev = -1; continue; } const base = b.v;
-        for (const [l, dy] of [[hw + 0.05, 0.02], [hw + 0.05, 0.15], [hw + 1.85, 0.15]]) { const x = st.X[i] + st.LX[i] * l * sd, z = st.Z[i] + st.LZ[i] * l * sd; b.vert(x, H(x, z) + dy, z, 0, 1, 0, l / 1.5, st.S[i] / 1.5, 0.93, 0.92, 0.90); }
-        if (prev >= 0) { if (sd > 0) { b.quad(prev + 1, prev, base + 1, base); b.quad(prev + 2, prev + 1, base + 2, base + 1); } else { b.quad(prev, prev + 1, base, base + 1); b.quad(prev + 1, prev + 2, base + 1, base + 2); } }
-        prev = base;
+    if (!far && !bridge && kind >= 2 && kind <= 5) {   // gutter, kerb and sidewalk: every town street has the first two, the main streets and some side streets the third
+      const sw = kind < 5 ? 1.85 : hash2(Math.round(st.X[0]), Math.round(st.Z[0]), 91) < 0.42 ? 1.5 : 0.3, PR = [[hw - 0.48, 0.045, 0.70], [hw + 0.04, 0.03, 0.70], [hw + 0.06, 0.16, 0.90], [hw + 0.24, 0.16, 0.95], [hw + sw, 0.16, 0.92], [hw + sw + 0.05, -0.08, 0.80]], np = PR.length;
+      for (const sd of [1, -1]) { const b = B.concrete; let prev = -1;
+        for (let i = i0; i <= i1; i++) {
+          if (nearJunction(st.X[i], st.Z[i])) { prev = -1; continue; } const base = b.v;
+          for (const [l, dy, c] of PR) { const x = st.X[i] + st.LX[i] * l * sd, z = st.Z[i] + st.LZ[i] * l * sd; b.vert(x, H(x, z) + dy, z, 0, 1, 0, l / 1.5, st.S[i] / 1.5, c, c * 0.99, c * 0.97); }
+          if (prev >= 0) for (let k = 0; k < np - 1; k++) { if (sd > 0) b.quad(prev + k + 1, prev + k, base + k + 1, base + k); else b.quad(prev + k, prev + k + 1, base + k, base + k + 1); }
+          prev = base;
+        } }
+      // street furniture met along the way: manhole covers, fire hydrants, and a stop sign with its bar where a side street meets a junction
+      const disc = (x, z, r, c) => { const b = B.paint, base = b.v, y = H(x, z) + 0.06; b.vert(x, y, z, 0, 1, 0, 0, 0, c, c, c * 1.04); for (let k = 0; k < 10; k++) { const a = k / 10 * TAU; b.vert(x + Math.cos(a) * r, y, z + Math.sin(a) * r, 0, 1, 0, 0, 0, c, c, c * 1.04); } for (let k = 0; k < 10; k++) b.tri(base, base + 1 + (k + 1) % 10, base + 1 + k); };
+      const post = (x, z, y0, y1, r, c) => { const b = B.paint; for (const [ax, az] of [[1, 0], [0, 1]]) for (const sg of [1, -1]) { const base = b.v, nx = az * sg, nz = -ax * sg; b.vert(x - ax * r, y0, z - az * r, nx, 0, nz, 0, 0, c[0], c[1], c[2]); b.vert(x + ax * r, y0, z + az * r, nx, 0, nz, 0, 0, c[0], c[1], c[2]); b.vert(x - ax * r, y1, z - az * r, nx, 0, nz, 0, 0, c[0], c[1], c[2]); b.vert(x + ax * r, y1, z + az * r, nx, 0, nz, 0, 0, c[0], c[1], c[2]); if (sg > 0) b.quad(base, base + 1, base + 2, base + 3); else b.quad(base + 1, base, base + 3, base + 2); } };
+      for (let i = Math.max(i0, 1); i <= i1; i++) {
+        if (nearJunction(st.X[i], st.Z[i])) continue; const s0 = st.S[i - 1], s1 = st.S[i];
+        if (Math.floor(s0 / 64) !== Math.floor(s1 / 64)) disc(st.X[i] - st.LX[i] * hw * 0.3, st.Z[i] - st.LZ[i] * hw * 0.3, 0.36, 0.10);
+        if (Math.floor((s0 + 40) / 130) !== Math.floor((s1 + 40) / 130)) { const l = hw + (sw > 1 ? 0.55 : 0.75), x = st.X[i] + st.LX[i] * l, z = st.Z[i] + st.LZ[i] * l, y = H(x, z) + (sw > 1 ? 0.16 : 0); post(x, z, y, y + 0.62, 0.11, [0.85, 0.66, 0.08]); post(x, z, y + 0.38, y + 0.5, 0.2, [0.85, 0.66, 0.08]); post(x, z, y + 0.62, y + 0.7, 0.07, [0.6, 0.6, 0.6]); }
+      }
+      if (kind >= 4) for (const [ie, dirS] of [[i1, 1], [i0, -1]]) {   // dirS: which way traffic is heading as it reaches this end
+        if (ie !== (dirS > 0 ? st.X.length - 1 : 0) || !nearJunction(st.X[ie], st.Z[ie])) continue; let k = ie; while (k !== (dirS > 0 ? i0 : i1) && nearJunction(st.X[k], st.Z[k])) k -= dirS; if (nearJunction(st.X[k], st.Z[k])) continue;
+        const tx = -st.LZ[k] * dirS, tz = st.LX[k] * dirS, rx = -st.LX[k] * dirS, rz = -st.LZ[k] * dirS;   // travel direction, and the driver's right
+        { const b = B.paint, base = b.v, y = H(st.X[k], st.Z[k]) + 0.062; for (const [a, c] of [[0.1, 0], [hw - 0.5, 0], [0.1, 0.42], [hw - 0.5, 0.42]]) { const x = st.X[k] + rx * a + tx * c, z = st.Z[k] + rz * a + tz * c; b.vert(x, y, z, 0, 1, 0, 0, 0, 0.9, 0.9, 0.88); } b.quad(base, base + 1, base + 2, base + 3); b.quad(base + 1, base, base + 3, base + 2); }
+        const px = st.X[k] + rx * (hw + 0.7) - tx * 0.6, pz = st.Z[k] + rz * (hw + 0.7) - tz * 0.6, py = H(px, pz); post(px, pz, py, py + 2.25, 0.035, [0.5, 0.5, 0.5]);
+        const b = B.sign, base = b.v, cy = py + 2.25; b.vert(px - rx * 0.38 - tx * 0.04, cy - 0.38, pz - rz * 0.38 - tz * 0.04, -tx, 0, -tz, 1, 0); b.vert(px + rx * 0.38 - tx * 0.04, cy - 0.38, pz + rz * 0.38 - tz * 0.04, -tx, 0, -tz, 0, 0); b.vert(px - rx * 0.38 - tx * 0.04, cy + 0.38, pz - rz * 0.38 - tz * 0.04, -tx, 0, -tz, 1, 1); b.vert(px + rx * 0.38 - tx * 0.04, cy + 0.38, pz + rz * 0.38 - tz * 0.04, -tx, 0, -tz, 0, 1); b.quad(base + 1, base, base + 3, base + 2);
       }
     }
     // paint

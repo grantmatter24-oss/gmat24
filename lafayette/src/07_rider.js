@@ -52,8 +52,9 @@ function makeRider(type) {
     const jaw = M(new THREE.SphereGeometry(1, 14, 10), rgb(sk), { roughness: 0.7 }); jaw.scale.set(0.068, 0.062, 0.07); jaw.position.set(0, 0.042, 0.038); head.add(jaw);
     const nose = M(new THREE.ConeGeometry(0.014, 0.04, 6), rgb(sk), { roughness: 0.7 }); nose.position.set(0, 0.085, 0.112); nose.rotation.x = 1.25; head.add(nose);
     for (const s of [1, -1]) { const ear = M(new THREE.SphereGeometry(1, 8, 6), rgb(sk), { roughness: 0.7 }); ear.scale.set(0.012, 0.03, 0.018); ear.position.set(0.088 * s, 0.09, 0.0); head.add(ear); }
-    const hair = M(new THREE.SphereGeometry(1, 18, 12, 0, TAU, 0, 1.75), 0x2a1f16, { roughness: 0.95 }); hair.scale.set(0.092, 0.118, 0.108); hair.position.set(0, 0.112, 0.002); hair.rotation.x = -0.42; head.add(hair);
-    const sg = M(new THREE.BoxGeometry(0.148, 0.036, 0.03), 0x0b0c0e, { roughness: 0.12, metalness: 0.4 }); sg.position.set(0, 0.112, 0.094); head.add(sg);
+    const hair = M(new THREE.SphereGeometry(1, 18, 12, 0, TAU, 0, 1.75), O.hair || 0x2a1f16, { roughness: 0.95 }); hair.scale.set(0.092, 0.118, 0.108); hair.position.set(0, 0.112, 0.002); hair.rotation.x = -0.42; head.add(hair);
+    if (O.glasses !== false) { const sg = M(new THREE.BoxGeometry(0.148, 0.036, 0.03), 0x0b0c0e, { roughness: 0.12, metalness: 0.4 }); sg.position.set(0, 0.112, 0.094); head.add(sg); }
+    if (O.long) { const bk = M(new THREE.SphereGeometry(1, 14, 10), O.hair || 0x2a1f16, { roughness: 0.95 }); bk.scale.set(0.086, 0.13, 0.06); bk.position.set(0, 0.04, -0.062); head.add(bk); }
   }
   if (O.helmet === "mx") {
     const shell = M(new THREE.SphereGeometry(0.138, 26, 18), O.shell, { roughness: 0.28, metalness: 0.05 }); shell.scale.set(1, 1.03, 1.14); shell.position.set(0, 0.118, 0.0); head.add(shell);

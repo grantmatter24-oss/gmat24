@@ -197,7 +197,12 @@ function grassLayer(R, spacing, segs, width, cutIn, fadeFrom, hScale) {
         vec3 transformed = vec3( wp.x, heightAt( wp ) + gy * hgt * ( 1.0 - 0.3 * abs( sway ) ) * ( 1.0 - 0.7 * dk ), wp.y );
         transformed.xz += gdir * position.x * uGP.w * ( 1.0 - gy * 0.82 ) * step( 0.0005, gk ) + ( gface * ( 0.12 + 0.34 * h4 ) + vec2( 0.8, 0.6 ) * sway ) * gy * gy * hgt + push * gy * hgt * 1.3;
         vec3 gc = mix( vec3( dot( gsat, vec3( 0.3, 0.55, 0.15 ) ) ), gsat, 1.35 ) * ( 0.78 + 0.44 * h1 ); gc = mix( gc, gc * vec3( 0.84, 0.97, 0.72 ), turf );
-        vGCol = gc * mix( 0.40, 1.22, gy ) + vec3( 0.050, 0.044, 0.012 ) * gy * gy * wild * ( 1.0 - turf );`);
+        gc *= mix( vec3( 1.10, 1.0, 0.74 ), vec3( 0.86, 1.05, 0.92 ), h4 );   // no two blades the same green
+        gc = mix( gc, vec3( 0.36, 0.30, 0.16 ) * ( 0.7 + 0.6 * h1 ), step( 0.84, fract( h3 * 7.13 ) ) * wild * ( 1.0 - turf ) * 0.8 );   // last year's dry stalks among the new growth
+        vGCol = gc * mix( 0.40, 1.22, gy ) + vec3( 0.050, 0.044, 0.012 ) * gy * gy * wild * ( 1.0 - turf );
+        float bloom = step( 0.972, fract( h4 * 13.7 ) ) * wild * ( 1.0 - turf ) * smoothstep( 0.72, 0.9, gy ) * step( 0.5, patchy );   // mustard and poppies in drifts across the open hills
+        vGCol = mix( vGCol, mix( vec3( 0.80, 0.62, 0.04 ), vec3( 0.85, 0.30, 0.03 ), step( 0.72, h1 ) ), bloom );
+        vGCol = mix( vGCol, vec3( 0.78, 0.80, 0.74 ), step( 0.99, fract( h3 * 31.1 ) ) * turf * smoothstep( 0.6, 0.9, gy ) );   // clover and daisies in the lawns`);
     sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nvarying vec3 vGCol;").replace("#include <map_fragment>", "diffuseColor.rgb = vGCol;")
       .replace("#include <normal_fragment_begin>", "float faceDirection = 1.0; vec3 normal = normalize( vNormal ); vec3 nonPerturbedNormal = normal;");
   };

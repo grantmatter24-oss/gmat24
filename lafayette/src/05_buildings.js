@@ -104,9 +104,9 @@ function wallFacing(P, n, fac) {
 }
 const garageWidth = (kind, L) => kind === 0 ? (L >= 10.5 ? 5 : L >= 7 ? 3 : 0) : kind === 1 && L > 2.8 ? Math.min(L, L > 6 ? 5 : 2.8) : 0;
 /* Before the ground is drawn: settle which wall of every house is its front, and pave a drive from each garage door out to the street. */
-let BFRONT = null;
+let BFRONT = null, BMAIL = null;
 function planFronts() {
-  const nb = V.bKind.length, jobs = []; BFRONT = new Int16Array(nb).fill(-1);
+  const nb = V.bKind.length, jobs = []; BFRONT = new Int16Array(nb).fill(-1); BMAIL = new Float32Array(nb * 2).fill(NaN);
   for (let b = 0; b < nb; b++) {
     const kind = V.bKind[b], n = V.bStart[b + 1] - V.bStart[b]; if (n < 3 || (kind !== 0 && kind !== 1 && kind !== 2 && kind !== 3 && kind !== 5)) continue;
     const P = bldRing(b), fac = new Float32Array(n), li = wallFacing(P, n, fac);
@@ -120,6 +120,7 @@ function planFronts() {
     const s = kind === 0 && hash2(b, 8, 29) < 0.5 ? L - gw / 2 : gw / 2, x = P[li * 2] + dx * s / L, z = P[li * 2 + 1] + dz * s / L, nx = dz / L, nz = -dx / L; let len = kind === 0 ? 6 : 0;
     for (let d = 1.5; d <= 22; d += 1) { if (hiAt(x + nx * d, z + nz * d, 2) > 0.5) { len = Math.min(len, d - 1.5); break; } if (hiAt(x + nx * d, z + nz * d, 0) > 0.5) { len = d + 1.5; break; } }
     if (len > 1) jobs.push([x, z, nx, nz, gw / 2 - 0.25, len, hash2(b, 8, 31) < 0.6 ? 1 : 0]);   // most drives are concrete, the rest tarmac
+    if (kind === 0 && len > 5) { const sdm = hash2(b, 8, 33) < 0.5 ? 1 : -1; BMAIL[b * 2] = x + nx * (len - 1.3) - nz * (gw / 2 + 0.5) * sdm; BMAIL[b * 2 + 1] = z + nz * (len - 1.3) + nx * (gw / 2 + 0.5) * sdm; }   // a mailbox where the drive meets the street
     if (kind === 0) {   // and a path from the front door to the drive or the street
       const dw = Math.min(2, L - gw), sd = hash2(b, 8, 29) < 0.5 ? L - gw - dw / 2 : gw + dw / 2, px = P[li * 2] + dx * sd / L, pz = P[li * 2 + 1] + dz * sd / L; let pl = 0;
       for (let d = 1.5; d <= 16; d += 1) { if (hiAt(px + nx * d, pz + nz * d, 2) > 0.5) break; if (hiAt(px + nx * d, pz + nz * d, 0) > 0.5) { pl = d + 1; break; } }
@@ -159,7 +160,7 @@ function addBuilding(b, W, Rf) {
   }
   const flat = !pitched, minWall = kind === 1 ? 2.3 : 2.6; let pitch = kind === 5 ? 0.7 : kind === 4 ? 0.2 : kind === 3 ? 0.3 : 0.34 + rnd() * 0.16, rise = 0;
   if (sk) { const runIn = Math.max(0.5, sk.tEnd - ov); rise = runIn * pitch; if (h - rise < minWall) { pitch = clamp((h - minWall) / runIn, 0.22, pitch); rise = runIn * pitch; } }   // the mapped height is to the ridge
-  const wallH = Math.max(minWall, h - rise), topY = floorY + wallH, ey = topY - ov * pitch; _bl.b = b; _bl.P = P; _bl.n = n; _bl.floorY = floorY; _bl.topY = topY;
+  const wallH = Math.max(minWall, h - rise), topY = floorY + wallH, ey = topY - ov * pitch; _bl.b = b; _bl.P = P; _bl.n = n; _bl.floorY = floorY; _bl.topY = topY; _bl.slots = [];
   const mr = hash2(b, 4, 27);   // what the walls are made of: boards, render or brick
   const mrow = lm === "saloon" ? 0 : lm === "theatre" || kind === 7 || kind === 8 ? 1 : kind === 2 ? (mr < 0.56 ? 1 : mr < 0.86 ? 2 : 0) : kind === 0 ? (mr < 0.46 ? 1 : mr < 0.90 ? 0 : 2) : kind === 1 ? (mr < 0.55 ? 0 : 1) : kind === 3 ? (mr < 0.6 ? 1 : mr < 0.85 ? 0 : 2) : kind === 4 ? (mr < 0.75 ? 1 : 2) : (mr < 0.5 ? 1 : mr < 0.8 ? 0 : 2);
   const rv0 = rowV(mrow, 0.006), rv1 = rowV(mrow, 0.994), BUV = [PU0, rowV(mrow, 0.1), PU1, rowV(mrow, 0.1), PU0, rowV(mrow, 0.26), PU1, rowV(mrow, 0.26)];
@@ -176,6 +177,8 @@ function addBuilding(b, W, Rf) {
   if (home) { const j = (li + 1) % n, fx = P[j * 2] - P[li * 2], fz = P[j * 2 + 1] - P[li * 2 + 1]; let best = 0;   // the back wall, for the garden door: long, and facing away from the front
     for (let i = 0; i < n; i++) { const k = (i + 1) % n, dx = P[k * 2] - P[i * 2], dz = P[k * 2 + 1] - P[i * 2 + 1], s = -(dx * fx + dz * fz) / (Math.hypot(fx, fz) || 1); if (s > best && s > 3.5) { best = s; bi = i; } } }
   const cano = lm === "saloon" ? 0.8 : lm === "theatre" || lm === "fuel" ? 1 : kind === 2 ? hash2(b, 5, 31) : 1, ac = AWN[Math.floor(hash2(b, 5, 13) * AWN.length)], upStrip = hash2(b, 5, 33) < 0.5, pil = kind === 2 && hash2(b, 5, 35) < 0.55, dk = [wc[0] * 0.72, wc[1] * 0.72, wc[2] * 0.72];
+  let frontLen = 0; if (kind === 2) for (let i = 0; i < n; i++) { const j = (i + 1) % n, L = Math.hypot(P[j * 2] - P[i * 2], P[j * 2 + 1] - P[i * 2 + 1]); if (fac[i] > 0.3 && L >= 5) frontLen += L; }
+  const nNames = SIGNS.has(b) ? SIGNS.get(b).length : 0, unitsAll = clamp(Math.max(nNames, Math.round(frontLen / 9)), 1, Math.max(1, Math.round(frontLen / 5)));   // one front for every business known to be here
   for (let i = 0; i < n; i++) {
     const j = (i + 1) % n, ax = P[i * 2], az = P[i * 2 + 1], dx = P[j * 2] - ax, dz = P[j * 2 + 1] - az, L = Math.hypot(dx, dz); if (L < 0.05) continue;
     _out.set(dz / L, 0, -dx / L); const ox = _out.x, oz = _out.z;
@@ -220,7 +223,30 @@ function addBuilding(b, W, Rf) {
       if (kind === 3 && storeys > 1 && (tile === 0 || tile === 1 || tile === 8) && len > 2.6 && hash2(b, i * 16 + (s0 | 0), 51) < 0.5) for (let s = 1; s < storeys; s++) addBox(W, (x0 + x1) / 2 + ox * 0.62, (z0 + z1) / 2 + oz * 0.62, dx / L, dz / L, Math.min(len / 2 - 0.3, 1.5), 0.6, floorY + s * sH - 0.12, floorY + s * sH + 1.0, [wc[0] * 0.86, wc[1] * 0.86, wc[2] * 0.86], [0.35, 0.35, 0.36]);   // balconies on blocks of flats
       if (tile === 3 && kind === 0 && !porch) porch = { x: (x0 + x1) / 2, z: (z0 + z1) / 2, nx: ox, nz: oz, w: Math.min(len, 2.2) };
     }
+    if (kind === 2 && fac[i] > 0.3 && L >= 5 && lm !== "theatre" && lm !== "fuel") {   // each tenant along a shopping street has its own front: its own colour, its own height, its own top
+      const nu = Math.max(1, Math.round(unitsAll * L / frontLen)), ux = dx / L, uz = dz / L;
+      for (let u = 0; u < nu; u++) {
+        const hk = i * 16 + u, h1 = hash2(b, hk, 81), h2 = hash2(b, hk, 82), h3 = hash2(b, hk, 83), wU = L / nu, mid = wU * (u + 0.5), cx = ax + ux * mid, cz = az + uz * mid, own = nu > 1 && h1 < 0.7 && !lm;
+        const uc = own ? (mrow === 2 ? BRICKC[Math.floor(h2 * BRICKC.length)] : COMC[Math.floor(h2 * COMC.length)]) : wc, ud = [uc[0] * 0.68, uc[1] * 0.68, uc[2] * 0.68], uvb = mrow === 2 ? BUV : PUV; let y0, y1, sy, sh;
+        if (storeys === 1) {   // a sign band standing proud of the glass, carried up past the roof edge
+          y0 = floorY + Math.min(3.05, sH * 0.84); y1 = topY + 0.3 + 1.3 * h3 * h3; addBox(W, cx + ox * 0.13, cz + oz * 0.13, ux, uz, wU / 2 - 0.04, 0.13, y0, y1, uc, ud);
+          addBox(W, cx + ox * 0.17, cz + oz * 0.17, ux, uz, wU / 2, 0.21, y1, y1 + 0.15, ud, ud);
+          if (h2 > 0.80 && wU > 4.5) { const hw = wU * 0.34, py = y1 + 0.15, ph = hw * 0.42, fx = cx + ox * 0.26, fz = cz + oz * 0.26, pts = [fx - ux * hw, py, fz - uz * hw, fx + ux * hw, py, fz + uz * hw, fx, py + ph, fz]; face(W, pts, uvb, uc, _out.set(ox, 0, oz)); face(W, pts, uvb, ud, _out.set(-ox, 0, -oz)); }   // a gabled pediment
+          else if (h2 < 0.16 && wU > 4) addBox(W, cx + ox * 0.13, cz + oz * 0.13, ux, uz, wU * 0.24, 0.13, y1 + 0.15, y1 + 0.85, uc, ud);   // or a raised centre
+          else if (h2 > 0.62 && h2 < 0.72 && wU > 4) { const my = y1 + 0.15, px = ox * 1.0, pz = oz * 1.0, e0x = cx - ux * wU / 2, e0z = cz - uz * wU / 2, e1x = cx + ux * wU / 2, e1z = cz + uz * wU / 2, rcol = hash2(b, hk, 84) < 0.5 ? [0.52, 0.24, 0.15] : rc; face(Rf, [e0x + px, my - 1.1, e0z + pz, e1x + px, my - 1.1, e1z + pz, e0x + ox * 0.2, my, e0z + oz * 0.2, e1x + ox * 0.2, my, e1z + oz * 0.2], [0, 0, wU * 0.5, 0, 0, 0.75, wU * 0.5, 0.75], rcol, _out.set(ox, 1, oz)); }   // or a tiled skirt of roof along the top
+          sy = (Math.max(y0, floorY + 3.1) + y1) / 2; sh = y1 - Math.max(y0, floorY + 3.1) - 0.25;
+        } else {   // upstairs windows stay clear: a band between the floors takes the sign, and the roof edge steps from shop to shop
+          y0 = floorY + sH - 0.42; addBox(W, cx + ox * 0.09, cz + oz * 0.09, ux, uz, wU / 2 - 0.03, 0.09, y0, y0 + 0.92, own ? uc : ud, ud); y1 = topY + 0.25 + 1.0 * h3;
+          addBox(W, cx + ox * 0.03, cz + oz * 0.03, ux, uz, wU / 2 - 0.02, 0.2, topY, y1, uc, ud); addBox(W, cx + ox * 0.08, cz + oz * 0.08, ux, uz, wU / 2, 0.27, y1, y1 + 0.14, ud, ud); sy = y0 + 0.46; sh = 0.88;
+        }
+        const slot = { x: cx + ox * 0.28, z: cz + oz * 0.28, nx: ox, nz: oz, y: sy, w: Math.max(1.2, wU - 0.9), h: Math.max(0.45, sh) };
+        if (hash2(b, hk, 85) < 0.4 && wU > 3) slot.blade = [cx + ux * (wU / 2 - 0.35) + ox * 0.26, floorY + Math.min(3.25, sH * 0.84 + 0.25), cz + uz * (wU / 2 - 0.35) + oz * 0.26];
+        _bl.slots.push(slot);
+      }
+    }
   }
+  if (kind === 0 && BMAIL && BMAIL[b * 2] === BMAIL[b * 2]) { const mx = BMAIL[b * 2], mz = BMAIL[b * 2 + 1], my = H(mx, mz), mc = [[0.08, 0.08, 0.09], [0.75, 0.75, 0.73], [0.35, 0.12, 0.1], [0.12, 0.2, 0.14]][Math.floor(hash2(b, 8, 35) * 4)];
+    addBox(W, mx, mz, 1, 0, 0.045, 0.045, my - 0.1, my + 1.05, [0.32, 0.24, 0.17]); addBox(W, mx, mz, li >= 0 ? (P[((li + 1) % n) * 2 + 1] - P[li * 2 + 1]) / (Math.hypot(P[((li + 1) % n) * 2] - P[li * 2], P[((li + 1) % n) * 2 + 1] - P[li * 2 + 1]) || 1) : 1, li >= 0 ? -(P[((li + 1) % n) * 2] - P[li * 2]) / (Math.hypot(P[((li + 1) % n) * 2] - P[li * 2], P[((li + 1) % n) * 2 + 1] - P[li * 2 + 1]) || 1) : 0, 0.26, 0.1, my + 1.05, my + 1.29, mc, mc); }
   if (porch) {   // a step at the front door, and on most houses a small roof over it
     const { x, z, nx, nz, w } = porch, tx = -nz, tz = nx, d = 1.5, hw = w / 2 + 0.25, gy = Math.min(gmin, H(x + nx * d, z + nz * d));
     addBox(W, x + nx * d / 2, z + nz * d / 2, tx, tz, hw, d / 2, gy - 0.3, floorY - 0.03, [0.60, 0.59, 0.56], [0.66, 0.65, 0.62]);
@@ -351,22 +377,40 @@ function updateBuildings(dt, force) {
 }
 
 /* ---------- name boards: each mapped business is lettered on the wall of its building that faces the street or the car park ---------- */
-const SIGNS = new Map(), _bl = { b: -1, P: null, n: 0, floorY: 0, topY: 0 }, SIGN_FONT = '700 40px "Helvetica Neue", Arial, sans-serif'; let _signCtx = null;
+const SIGNS = new Map(), _bl = { b: -1, P: null, n: 0, floorY: 0, topY: 0, slots: [] }; let _signCtx = null;
+const SIGN_FONTS = ['700 40px "Helvetica Neue", Arial, sans-serif', '700 40px Georgia, "Times New Roman", serif', 'italic 700 40px Georgia, serif', '800 40px "Arial Narrow", "Roboto Condensed", Impact, sans-serif', '600 38px "Trebuchet MS", Verdana, sans-serif', '700 40px "Gill Sans", "Segoe UI", sans-serif', '400 46px "Brush Script MT", "Snell Roundhand", cursive', '900 38px "Arial Black", Arial, sans-serif'];
+const SIGN_INK = ["#f4f1e6", "#1c1d20", "#b3221c", "#17335c", "#1f4a34", "#d8a21a", "#f4f1e6", "#5a2a18"], SIGN_BG = ["#efe9da", "#1f3b2c", "#1d2c44", "#2a2a2c", "#f4f2ec", "#5a2420", "#7a1f1a", "#d9c9a0", "#243a3a", "#c8482a"];
+const signHash = txt => { let h = 0; for (const ch of txt) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h; };
+/* Every business gets its own sign: a board, an oval or shaped plaque, or loose letters on the wall, each in its own lettering and colours. Some also hang a small sign out over the pavement. */
 function addSigns(b, SG, texts) {
-  const P = _bl.P, n = _bl.n, names = SIGNS.get(b), walls = []; if (!_signCtx) { _signCtx = document.createElement("canvas").getContext("2d"); _signCtx.font = SIGN_FONT; }
-  for (let i = 0; i < n; i++) { const j = (i + 1) % n, dx = P[j * 2] - P[i * 2], dz = P[j * 2 + 1] - P[i * 2 + 1], L = Math.hypot(dx, dz); if (L < 3.5) continue; const nx = dz / L, nz = -dx / L, mx = (P[i * 2] + P[j * 2]) / 2, mz = (P[i * 2 + 1] + P[j * 2 + 1]) / 2;
-    walls.push([L * (0.25 + Math.max(hiAt(mx + nx * 5, mz + nz * 5, 0), hiAt(mx + nx * 11, mz + nz * 11, 0)) - hiAt(mx + nx * 3, mz + nz * 3, 2)), L, nx, nz, mx, mz]); }
-  walls.sort((a, c) => c[0] - a[0]);
-  for (let k = 0; k < Math.min(names.length, walls.length, 2) && texts.length < 32; k++) {
-    const [, L, nx, nz, mx, mz] = walls[k], txt = names[k], hgt = 0.62, w = clamp(_signCtx.measureText(txt).width / 103 + 0.6, 2, Math.min(L * 0.9, 4.9)), y = Math.min(_bl.topY - 0.42, _bl.floorY + 3.75), rx = nz, rz = -nx, id = texts.length, pw = Math.min(512, 64 * w / hgt);
-    texts.push([txt, pw]); const u0 = ((id % 2) * 512 + 256 - pw / 2) / 1024, u1 = ((id % 2) * 512 + 256 + pw / 2) / 1024, v1 = 1 - (id >> 1) / 16, v0 = v1 - 1 / 16, ox = mx + nx * 0.17, oz = mz + nz * 0.17, base = SG.v;
-    SG.vert(ox - rx * w / 2, y - hgt / 2, oz - rz * w / 2, nx, 0, nz, u0, v0); SG.vert(ox + rx * w / 2, y - hgt / 2, oz + rz * w / 2, nx, 0, nz, u1, v0); SG.vert(ox - rx * w / 2, y + hgt / 2, oz - rz * w / 2, nx, 0, nz, u0, v1); SG.vert(ox + rx * w / 2, y + hgt / 2, oz + rz * w / 2, nx, 0, nz, u1, v1); SG.quad(base, base + 1, base + 2, base + 3);
+  const names = SIGNS.get(b), slots = _bl.slots; if (!_signCtx) _signCtx = document.createElement("canvas").getContext("2d");
+  if (!slots.length) {   // no shopfront to carry it: the wall that faces the street does
+    const P = _bl.P, n = _bl.n; let best = null, bs = -1e9;
+    for (let i = 0; i < n; i++) { const j = (i + 1) % n, dx = P[j * 2] - P[i * 2], dz = P[j * 2 + 1] - P[i * 2 + 1], L = Math.hypot(dx, dz); if (L < 3.5) continue; const nx = dz / L, nz = -dx / L, mx = (P[i * 2] + P[j * 2]) / 2, mz = (P[i * 2 + 1] + P[j * 2 + 1]) / 2;
+      const sc = L * (0.25 + Math.max(hiAt(mx + nx * 5, mz + nz * 5, 0), hiAt(mx + nx * 11, mz + nz * 11, 0)) - hiAt(mx + nx * 3, mz + nz * 3, 2)); if (sc > bs) { bs = sc; best = { x: mx + nx * 0.19, z: mz + nz * 0.19, nx, nz, y: Math.min(_bl.topY - 0.5, _bl.floorY + 3.7), w: Math.min(L * 0.85, 5.5), h: 0.8 }; } }
+    if (best) slots.push(best);
+  }
+  let si = 0;
+  for (let k = 0; k < names.length && si < slots.length && texts.length < 64; k++) {
+    const S = slots[si++], txt = names[k], hs = signHash(txt), style = hs % 10, font = SIGN_FONTS[(hs >>> 4) % SIGN_FONTS.length], loose = style >= 6;   // 0-5 boards of several shapes, 6-9 loose letters
+    _signCtx.font = font; const hgt = clamp(S.h * (loose ? 0.95 : 0.82), 0.55, loose ? 1.3 : 1.05), w = clamp(_signCtx.measureText(txt).width / 40 * hgt * 0.74 + 0.5 * hgt, 1.2, Math.max(1.2, S.w)), pw = Math.min(512, 64 * w / hgt), id = texts.length;
+    texts.push([txt, pw, style, font, hs]); const u0 = ((id % 2) * 512 + 256 - pw / 2) / 1024, u1 = ((id % 2) * 512 + 256 + pw / 2) / 1024, row = id >> 1, rx = S.nz, rz = -S.nx, base = SG.v;
+    for (const [a, c] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) SG.vert(S.x + rx * a * w / 2, S.y + c * hgt / 2, S.z + rz * a * w / 2, S.nx, 0, S.nz, a < 0 ? u0 : u1, row + (c < 0 ? 0.97 : 0.03)); SG.quad(base, base + 1, base + 2, base + 3);
+    if (S.blade) {   // and a small one hung out square to the wall, for people walking past
+      const bid = texts.length; if (bid >= 64) break; texts.push([txt.split(/[\s,&-]+/)[0].slice(0, 9), 176, 1, font, hs >>> 3]); const bu0 = ((bid % 2) * 512 + 256 - 88) / 1024, bu1 = ((bid % 2) * 512 + 256 + 88) / 1024, br = bid >> 1, [bx, by, bz] = S.blade;
+      for (const sgn of [1, -1]) { const b0 = SG.v; for (const [a, c] of [[0.08, -1], [1.18, -1], [0.08, 1], [1.18, 1]]) SG.vert(bx + S.nx * a + rx * 0.02 * sgn, by + c * 0.21, bz + S.nz * a + rz * 0.02 * sgn, rx * sgn, 0, rz * sgn, (sgn > 0) === (a < 0.5) ? bu0 : bu1, br + (c < 0 ? 0.97 : 0.03)); if (sgn > 0) SG.quad(b0, b0 + 1, b0 + 2, b0 + 3); else SG.quad(b0 + 1, b0, b0 + 3, b0 + 2); }
+    }
   }
 }
-const SIGN_STYLE = [["#efe9da", "#22262b"], ["#1f3b2c", "#f3efe2"], ["#1d2c44", "#f1f1ee"], ["#2a2a2c", "#f0ead8"], ["#f4f2ec", "#7a1f1a"], ["#5a2420", "#f6efe0"]];
 function signMesh(SG, texts) {
-  const c = document.createElement("canvas"); c.width = c.height = 1024; const g = c.getContext("2d"); g.textAlign = "center"; g.textBaseline = "middle";
-  texts.forEach(([txt, pw], id) => { let h = 0; for (const ch of txt) h = (h * 31 + ch.charCodeAt(0)) >>> 0; const [bg, fg] = SIGN_STYLE[h % SIGN_STYLE.length], x = (id % 2) * 512, y = (id >> 1) * 64;
-    g.fillStyle = bg; g.fillRect(x, y, 512, 64); g.font = SIGN_FONT; const tw = g.measureText(txt).width, k = Math.min(1, (pw - 34) / tw); g.save(); g.translate(x + 256, y + 33); g.scale(k, k); g.fillStyle = fg; g.fillText(txt, 0, 0); g.restore(); });
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = MAXANISO; const m = new THREE.Mesh(SG.geo(), new THREE.MeshStandardMaterial({ map: t, roughness: 0.7 })); m.matrixAutoUpdate = false; m.userData.sign = true; return m;
+  const rows = Math.ceil(texts.length / 2); let HH = 64; while (HH < rows * 64) HH *= 2; const c = document.createElement("canvas"); c.width = 1024; c.height = HH; const g = c.getContext("2d"); g.textAlign = "center"; g.textBaseline = "middle";
+  texts.forEach(([txt, pw, style, font, hs], id) => {
+    const x = (id % 2) * 512 + 256, y = (id >> 1) * 64 + 32, bg = SIGN_BG[(hs >>> 8) % SIGN_BG.length], light = /^#(e|f|d|c8)/.test(bg), ink = style >= 6 ? SIGN_INK[(hs >>> 12) % SIGN_INK.length] : light ? ["#22262b", "#7a1f1a", "#17335c", "#1f4a34"][(hs >>> 12) % 4] : ["#f3efe2", "#f1f1ee", "#e8c35a", "#f6efe0"][(hs >>> 12) % 4];
+    const x0 = x - pw / 2 + 1, w = pw - 2, shape = () => { g.beginPath(); if (style === 1) g.ellipse(x, y, w / 2, 30, 0, 0, TAU); else if (style === 2) g.roundRect(x0, y - 30, w, 60, 22); else if (style === 3) { g.moveTo(x0, y + 30); g.lineTo(x0, y - 14); g.quadraticCurveTo(x, y - 46, x0 + w, y - 14); g.lineTo(x0 + w, y + 30); g.closePath(); } else g.rect(x0, y - 30, w, 60); };
+    if (style < 6) { shape(); g.fillStyle = bg; g.fill(); if (style !== 4) { g.lineWidth = 3; g.strokeStyle = ink; g.save(); g.translate(x, y); g.scale((w - 12) / w, 0.8); g.translate(-x, -y); shape(); g.restore(); g.stroke(); } if (style === 5) { g.fillStyle = ink; g.fillRect(x0, y + 20, w, 10); } }
+    g.font = font; const up = (hs >>> 16) % 3 === 0 ? txt.toUpperCase() : txt, tw = g.measureText(up).width, kx = Math.min(1.25, (pw - (style === 1 ? 70 : 36)) / tw), ky = Math.min(kx, style >= 6 ? 1.25 : 1); g.save(); g.translate(x, y + (style === 3 ? 6 : style === 5 ? -4 : 1)); g.scale(kx, Math.max(ky, kx * 0.8));
+    if (style >= 6) { g.lineWidth = 7; g.lineJoin = "round"; g.strokeStyle = /^#(f|d)/.test(ink) ? "#1a1b1e" : "#f2efe6"; g.strokeText(up, 0, 0); } g.fillStyle = ink; g.fillText(up, 0, 0); g.restore(); });
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = MAXANISO; t.wrapT = THREE.ClampToEdgeWrapping;
+  const geo = SG.geo(), uv = geo.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setY(i, 1 - uv.getY(i) * 64 / HH);   // rows counted from the top of the sheet
+  const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: t, roughness: 0.7, alphaTest: 0.5, emissiveMap: t, emissive: 0xffffff, emissiveIntensity: tod && tod.night > 0.3 ? 0.55 : 0 })); m.matrixAutoUpdate = false; m.userData.sign = true; return m;
 }
