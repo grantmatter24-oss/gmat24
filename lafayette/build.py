@@ -9,3 +9,7 @@ assert "</script" not in code and "</script" not in world
 out = shell.replace("/*CODE*/", code).replace("/*WORLD*/", world)
 open(os.path.join(here, "..", "lafayette.html"), "w").write(out)
 print("lafayette.html", round(len(out) / 1e6, 2), "MB")
+if len(sys.argv) > 1:  # content-only variant for hosts that supply their own document skeleton
+    head = out[out.index("<title>"):out.index("</head>")]; body = out[out.index("<body>") + 6:out.index("</body>")]
+    head = head.replace("<title>Lafayette</title>", "<title>Lafayette Free Ride</title>").replace(":root {", ":root { color-scheme: dark;", 1)
+    open(sys.argv[1], "w").write(head + body); print(sys.argv[1], "written")
