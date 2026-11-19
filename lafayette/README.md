@@ -10,7 +10,7 @@ electric scooter), three times of day, timed routes, online riders. No traffic a
 ## Controls
 
 `W A S D` or arrows drive (hold brake at a stop to reverse the car or quad). `Space` rear brake or handbrake. `Shift` / `Ctrl` lean
-back / forward. `R` reset, `C` rider's-eye view, `M` map (click to go there), `T` time of day, `H` lights, `1`-`5` change machine,
+back / forward. `E` get off and walk (`Shift` runs; `E` again gets back on, or brings the machine to you), `R` reset, `C` rider's-eye view, `M` map (click to go there), `T` time of day, `H` lights, `1`-`5` change machine,
 `X` cancel a timed route, `Esc` menu.
 
 ## Staying smooth

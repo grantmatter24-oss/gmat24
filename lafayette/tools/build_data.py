@@ -259,7 +259,7 @@ BK = {"house": 0, "detached": 0, "residential": 0, "semidetached_house": 0, "gar
       "supermarket": 2, "apartments": 3, "school": 4, "library": 4, "fire_station": 4, "civic": 4, "church": 5, "parking": 7, "train_station": 8, "hospital": 2}
 BS = {"commercial": 2, "education": 4, "religious": 5, "civic": 4, "medical": 2, "transportation": 7, "entertainment": 2, "outbuilding": 1, "industrial": 2, "service": 2}
 b_start = [0]; b_xy = []; b_h = []; b_kind = []; ring_b = []
-nb = 0; dropped = 0
+nb = 0; dropped = 0; b_poly = []
 # footprints standing in a carriageway are mapping errors (machine-traced roofs over an overpass): leave them out
 from shapely.geometry import LineString
 street_lines = [LineString(q["P"]).buffer(max(0.5, q["w"] / 2 - 1.2), cap_style=2) for q in pieces if q["kind"] <= 5 and len(q["P"]) >= 2]; street_tree = STRtree(street_lines)
@@ -293,7 +293,7 @@ for f in load("building"):
             keep = [0] + [i for i in range(1, len(Q)) if (Q[i] != Q[i - 1]).any()]; Q = Q[keep]
             if len(Q) < 3: continue
             ds.polygon(px(P), fill=255 if kind != 6 else 120)
-            b_xy.append(np.concatenate([Q[:1], Q[1:] - Q[:-1]]).ravel()); b_start.append(b_start[-1] + len(Q)); b_h.append(int(round(h * 10))); b_kind.append(kind); nb += 1
+            b_xy.append(np.concatenate([Q[:1], Q[1:] - Q[:-1]]).ravel()); b_start.append(b_start[-1] + len(Q)); b_h.append(int(round(h * 10))); b_kind.append(kind); nb += 1; b_poly.append(Polygon(P))
         else:
             # outside the map: just the footprint's bounding rectangle along its longest wall
             e = P[1:] - P[:-1]; L = np.hypot(e[:, 0], e[:, 1]); k = int(np.argmax(L)); ang = math.atan2(e[k, 1], e[k, 0]); c, s = math.cos(ang), math.sin(ang)
@@ -317,6 +317,33 @@ for f in water:
         Q = np.round(P[:-1] * 10).astype(np.int64)
         w_xy.append(np.concatenate([Q[:1], Q[1:] - Q[:-1]]).ravel()); w_start.append(w_start[-1] + len(Q)); w_y.append(y); w_kind.append(1 if pool else 0)
 print("water bodies", len(w_y), "pools", sum(w_kind))
+# mapped businesses: the building each one is in carries its name, and is a shop rather than a house if it stands on a main street
+signs = []
+try:
+    btree = STRtree(b_poly); per = collections.defaultdict(list)
+    mains = [LineString(q["P"]) for q in pieces if q["kind"] in (2, 3, 4) and len(q["P"]) >= 2]; mtree = STRtree(mains)
+    for f in load("place"):
+        p = f["properties"]; n = nm(p); conf = p.get("confidence") or 0
+        if not n or conf < 0.6 or f["geometry"]["type"] != "Point": continue
+        x, z = toXZ(*f["geometry"]["coordinates"][:2]); x = float(x); z = float(z)
+        if not inb(x, z): continue
+        pt = Point(x, z); hit = [int(i) for i in btree.query(pt) if b_poly[int(i)].contains(pt)]
+        if not hit:
+            i = int(btree.nearest(pt))
+            if b_poly[i].distance(pt) > 8: continue
+            hit = [i]
+        i = hit[0]
+        if b_kind[i] in (0, 1):
+            if b_poly[i].area < 60 or mains[int(mtree.nearest(pt))].distance(pt) > 75 or conf < 0.7: continue
+            b_kind[i] = 2
+        elif b_kind[i] == 6: continue
+        per[i].append((-conf, n.strip()[:30]))
+    for i, l in per.items():
+        seen = set()
+        for _, n in sorted(l):
+            if n.lower() not in seen and len(seen) < 2: seen.add(n.lower()); signs.append([i, n])
+except Exception as e: print("signs skipped:", repr(e))
+print("name boards", len(signs), "on", len({i for i, _ in signs}), "buildings")
 def down(im): return np.asarray(im.resize((W1 // 2, H1 // 2), Image.BOX))
 Mp, Md, Ms = down(paved), down(dirt), down(struct); del paved, dirt, struct, dp, dd, ds
 Md = np.where(Mp > 128, 0, Md).astype(np.uint8)
@@ -507,7 +534,7 @@ for t in TRIALS:
 world = dict(
     meta=dict(lon0=LON0, lat0=LAT0, mlon=MLON, mlat=MLAT, x0=X0, z0=Z0, nx=NX, nz=NZ, cell=CELL, hbase=float(math.floor(H.min())) - 1, hq=0.05, low=LW, loh=LH, locell=10.0,
               mc=MC, mr=MR, mn=MN, mbase=float(math.floor(Hmid.min())) - 1, mq=0.25, fc=FC, fr=FR, fn=FN, fbase=float(math.floor(Hfar.min())) - 1, fq=1.0, hiw=int(Mp.shape[1]), hih=int(Mp.shape[0]), ring=RING),
-    names=names, index=index, trials=trials)
+    names=names, index=index, trials=trials, signs=signs)
 world["h"] = enc16(H, world["meta"]["hbase"], 0.05); world["hm"] = enc16(Hmid, world["meta"]["mbase"], 0.25); world["hf"] = enc16(Hfar, world["meta"]["fbase"], 1.0)
 world["vec"] = base64.b64encode(gzip.compress(bytes(blob), 9)).decode()
 world["sat"] = jpg(ground, 90); world["satMid"] = jpg(mid_rgb, 86); world["satFar"] = jpg(far_rgb, 88)

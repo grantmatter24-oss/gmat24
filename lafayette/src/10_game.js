@@ -22,6 +22,7 @@ function syncVehicle(v, dt, time) {
     if (M.crank) { M.crank.rotation.x = rs.crank; M.pedals[0].rotation.x = M.pedals[1].rotation.x = -rs.crank; }
   }
   const on = v.lightsOn ? 1 : 0; for (const l of M.lights || []) l.material.emissiveIntensity = on * 3; for (const l of M.tails || []) l.material.emissiveIntensity = on * 1.5 + (v.brake > 0.05 ? 5 : 0);
+  if (v.onFoot) return;
   if (v.crash > 0 && v.ragdoll) { poseRagdoll(v); return; }
   if (R.root.parent !== G0) { G0.add(R.root); R.root.position.set(0, 0, 0); R.root.quaternion.identity(); }
   // ---- the rider's body language ----
@@ -99,7 +100,7 @@ function resetVehicle(toSafe) {
 }
 /* ---------- camera ---------- */
 const CAMD = { dirt: [4.6, 1.75], car: [7.4, 2.5], quad: [5.2, 1.95], mtb: [4.3, 1.8], scoot: [4.0, 1.85] };
-function snapCamera() { const v = GAME.v, c = GAME.cam; syncVehicle(v, 0.016, GAME.time); c.yaw = v.psi; c.orbit = c.orbitP = 0; updateCamera(1, true); }
+function snapCamera() { const v = GAME.v, c = GAME.cam; if (FOOT.on) { FOOT.on = false; v.onFoot = false; } syncVehicle(v, 0.016, GAME.time); c.yaw = v.psi; c.orbit = c.orbitP = 0; updateCamera(1, true); }
 function updateCamera(dt, snap) {
   const v = GAME.v, c = GAME.cam, D = CAMD[v.type], sp = v.speed;
   c.orbitT -= dt; if (c.orbitT < 0 && sp > 1.5) { c.orbit = damp(c.orbit, 0, 2.2, dt); c.orbitP = damp(c.orbitP, 0, 2.2, dt); }
@@ -244,3 +245,41 @@ function updateTrial(dt) {
   }
 }
 function fmtTime(s) { const m = Math.floor(s / 60), r = s - m * 60; return (m ? m + ":" + (r < 10 ? "0" : "") : "") + r.toFixed(2); }
+
+/* ---------- on foot ---------- */
+const FOOT = { on: false, p: new THREE.Vector3(), yaw: 0, sp: 0, ph: 0 }, PARKED = { throttle: 0, brake: 0, steer: 0, hand: true, lean: 0 };
+function getOff() {
+  const v = GAME.v; if (v.speed > 2.5 || v.crash > 0 || v.air > 0.1) { toast("Stop first to get off", 1.5); return; }
+  FOOT.on = true; v.onFoot = true; FOOT.yaw = v.psi; FOOT.sp = 0; FOOT.p.set(v.p.x + Math.cos(v.psi) * (v.S.four ? 1.7 : 0.9), 0, v.p.z - Math.sin(v.psi) * (v.S.four ? 1.7 : 0.9)); FOOT.p.y = ground(FOOT.p.x, FOOT.p.z, v.p.y + 1);
+  scene.add(v.rider.root); GAME.cam.fp = false; v.rider.head.visible = true; if (v.model.glass) for (const p of v.model.glass) p.visible = true; updateFoot(0.016); updateFootCamera(1, true); toast("On foot: W A S D to walk, Shift to run, E to get back on", 3.5);
+}
+function getOn() {   // beside the machine you climb on; from further away it is brought to you
+  const v = GAME.v; if (Math.hypot(FOOT.p.x - v.p.x, FOOT.p.z - v.p.z) > 5) placeVehicle(v, FOOT.p.x, FOOT.p.z, FOOT.yaw);
+  snapCamera();
+}
+function updateFoot(dt) {
+  const v = GAME.v, R = v.rider, up = K.KeyW || K.ArrowUp, dn = K.KeyS || K.ArrowDown, run = K.ShiftLeft || K.ShiftRight;
+  FOOT.yaw += ((K.KeyA || K.ArrowLeft ? 1 : 0) - (K.KeyD || K.ArrowRight ? 1 : 0)) * 2.4 * dt; FOOT.sp = damp(FOOT.sp, up ? (run ? 5.2 : 1.7) : dn ? -1.1 : 0, 7, dt);
+  let x = FOOT.p.x + Math.sin(FOOT.yaw) * FOOT.sp * dt, z = FOOT.p.z + Math.cos(FOOT.yaw) * FOOT.sp * dt;
+  for (const fn of [hitBuildings, hitTrees]) { const d = fn(x, z, 0.3, _v.out, FOOT.p.y + 0.3); if (d > 0) { x += _v.out.x * d; z += _v.out.z * d; } }
+  x = clamp(x, X0 + 30, X1 - 30); z = clamp(z, Z0 + 30, Z1 - 30); const gy = ground(x, z, FOOT.p.y + 0.6), run2 = Math.hypot(x - FOOT.p.x, z - FOOT.p.z);
+  if (!(run2 > 1e-4 && (gy - FOOT.p.y) / run2 > 1.5)) { FOOT.p.x = x; FOOT.p.z = z; }   // too steep to walk up
+  FOOT.p.y = damp(FOOT.p.y, ground(FOOT.p.x, FOOT.p.z, FOOT.p.y + 0.6), 18, dt); FOOT.ph += Math.abs(FOOT.sp) * dt * (Math.abs(FOOT.sp) > 2.5 ? 2.0 : 3.5);
+  // the walk: each foot swings through while the other carries the weight, arms swing against the legs, hips and shoulders counter-rotate
+  const k = clamp(Math.abs(FOOT.sp) / 1.7, 0, 1), rk = clamp((Math.abs(FOOT.sp) - 1.7) / 3.5, 0, 1), ph = FOOT.ph, P = POSE, st = (0.34 + 0.44 * rk) * k, dir = FOOT.sp < 0 ? -1 : 1;
+  R.root.position.copy(FOOT.p); R.root.quaternion.setFromAxisAngle(_up, FOOT.yaw);
+  P.pelvisQ = null; P.pelvis.set(0, 0.935 - 0.035 * rk + Math.cos(ph * 2) * 0.02 * k * (1 + rk) + Math.sin(GAME.time * 1.6) * 0.003, 0.02 * rk); P.pitch = 0.04 + 0.24 * rk; P.curl = 0.03; P.roll = Math.sin(ph) * 0.03 * k; P.roll2 = -P.roll; P.yaw = Math.sin(ph) * 0.07 * k; P.twist = -Math.sin(ph) * 0.15 * k; P.headYaw = 0; P.headPitch = 0; P.elbowOut = 0.35; P.kneeOut = 0.08;
+  for (let s = 0; s < 2; s++) {
+    const sg = s ? -1 : 1, a = ph + (s ? Math.PI : 0), sw = Math.sin(a), lift = Math.max(0, Math.cos(a)) * (0.07 + 0.15 * rk) * k;
+    P.feet[s].set(0.095 * sg, lift, sw * st * dir - 0.02); P.footQ[s].setFromEuler(_g.e.set(-Math.cos(a) * 0.35 * k * dir - (lift > 0 ? 0.3 * rk : 0), 0, 0, "YXZ"));
+    P.hands[s].set(0.25 * sg, 0.90 + 0.11 * rk + Math.abs(sw) * 0.04 * k, -sw * (0.2 + 0.16 * rk) * k * dir + 0.05 + 0.1 * rk); P.handQ[s].setFromEuler(_g.e.set(-0.25 - 0.9 * rk + sw * 0.3 * k, 0, 0, "YXZ"));
+  }
+  poseRider(R, P);
+}
+function updateFootCamera(dt, snap) {
+  const c = GAME.cam; c.yaw += wrap(FOOT.yaw - c.yaw) * (snap ? 1 : 1 - Math.exp(-4 * dt)); if (camera.near !== 0.2) { camera.near = 0.2; camera.updateProjectionMatrix(); }
+  const yaw = c.yaw + c.orbit, pitch = clamp(0.2 + c.orbitP, -0.2, 1.3), d = 3.4 * c.dist; _g.b.set(FOOT.p.x, FOOT.p.y + 1.45, FOOT.p.z);
+  _g.a.set(_g.b.x - Math.sin(yaw) * Math.cos(pitch) * d, _g.b.y + 0.35 + Math.sin(pitch) * d, _g.b.z - Math.cos(yaw) * Math.cos(pitch) * d); const gy = ground(_g.a.x, _g.a.z, _g.a.y + 2) + 0.35; if (_g.a.y < gy) _g.a.y = gy;
+  if (snap) c.pos.copy(_g.a); else { c.pos.x = damp(c.pos.x, _g.a.x, 12, dt); c.pos.y = damp(c.pos.y, _g.a.y, 8, dt); c.pos.z = damp(c.pos.z, _g.a.z, 12, dt); }
+  camera.position.copy(c.pos); camera.lookAt(_g.b); if (Math.abs(camera.fov - 56) > 0.05) { camera.fov = c.fov = 56; camera.updateProjectionMatrix(); }
+}

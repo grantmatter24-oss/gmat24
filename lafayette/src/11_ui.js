@@ -59,6 +59,8 @@ function buildMenu() {
     if (e.repeat) return; const v = GAME.v;
     if (e.code === "Escape") { if (mapOpen) toggleMap(false); else if (GAME.mode === "play") openMenu(); else if (GAME.v) $("resume").click(); return; }
     if (GAME.mode !== "play") return;
+    if (e.code === "KeyE") { if (FOOT.on) getOn(); else getOff(); return; }
+    if (FOOT.on && e.code !== "KeyM" && e.code !== "KeyT" && e.code !== "KeyU") { if (/^Digit[1-5]$/.test(e.code) || e.code === "KeyR") toast("Press E to get back on first", 1.5); return; }
     if (e.code === "KeyR") resetVehicle(); else if (e.code === "KeyC" || e.code === "KeyV") GAME.cam.fp = !GAME.cam.fp;
     else if (e.code === "KeyM") toggleMap(!mapOpen); else if (e.code === "KeyT") { const o = ["day", "sunset", "night"], k = o[(o.indexOf(todName) + 1) % 3]; setTimeOfDay(k); store.set("laf-tod", k); markMenu(); toast(TOD[k].label, 1.5); }
     else if (e.code === "KeyH") { v.lightsOn = !v.lightsOn; } else if (e.code === "KeyU") $("unitBtn").click(); else if (e.code === "KeyX" && GAME.trial) { GAME.trial = null; toast("Route cancelled", 1.5); }
@@ -88,7 +90,7 @@ const COMP = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
 function updateHud(dt) {
   const v = GAME.v; if (GAME.toastT > 0) { GAME.toastT -= dt; if (GAME.toastT <= 0) toastEl.classList.remove("on"); }
   if (!v || GAME.mode !== "play") return;
-  const sp = v.speed * (units === "imp" ? MPH : KMH); $("speed").textContent = Math.round(sp); $("unit").textContent = units === "imp" ? "mph" : "km/h";
+  const sp = (FOOT.on ? Math.abs(FOOT.sp) : v.speed) * (units === "imp" ? MPH : KMH); $("speed").textContent = Math.round(sp); $("unit").textContent = units === "imp" ? "mph" : "km/h";
   if (v.S.rpm) { $("rpmBar").style.width = clamp((v.rpm - v.S.rpm[0]) / (v.S.rpm[1] - v.S.rpm[0]), 0, 1) * 100 + "%"; $("gear").textContent = v.rev ? "R" : v.gear + 1; $("rpm").hidden = false; } else $("rpm").hidden = true;
   hudT -= dt; if (hudT < 0) { hudT = 0.25; const nm = roadNameAt(v.p.x, v.p.z); $("street").textContent = nm || (v.surf === 2 ? "Off road" : v.surf === 1 ? "Unnamed trail" : ""); const deg = ((180 - v.psi / DEG) % 360 + 360) % 360; $("compass").textContent = COMP[Math.round(deg / 45) % 8] + " · " + Math.round(H(v.p.x, v.p.z) * (units === "imp" ? FT : 1)) + (units === "imp" ? " ft" : " m");
     $("edge").hidden = !(v.edge > 0); }

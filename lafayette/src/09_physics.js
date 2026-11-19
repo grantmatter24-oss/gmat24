@@ -1,11 +1,11 @@
 /* ---------- how each machine moves ---------- */
 const RHO = 1.2;
 const SPEC = {
-  car: { four: true, m: 1780, L: 2.62, tr: 1.60, rw: 0.39, cg: 0.74, rest: 0.36, travel: 0.20, k: 54000, c: 4600, mu: [1.05, 0.78, 0.66], crr: [0.014, 0.035, 0.07], steer: 0.56, P: 155e3, Fmax: 0.78, vmax: 52, brake: 10.5, cda: 0.98, drive: [1, 1, 1, 1], hull: [0.92, 0.55, 2.15, 1.05], rpm: [800, 6200], gears: [3.6, 2.2, 1.5, 1.1, 0.85, 0.68], final: 4.1 },
-  quad: { four: true, m: 385, L: 1.28, tr: 0.96, rw: 0.29, cg: 0.50, latG: 0.6, rest: 0.25, travel: 0.17, k: 12500, c: 1250, mu: [0.82, 0.86, 0.8], crr: [0.022, 0.035, 0.05], steer: 0.6, P: 33e3, Fmax: 0.72, vmax: 29, brake: 8.5, cda: 0.9, drive: [1, 1, 1, 1], hull: [0.5, 0.4, 1.0, 0.55], rpm: [1300, 8000], gears: [3.0, 2.0, 1.45, 1.1, 0.9], final: 9.5 },
-  dirt: { m: 195, L: 1.48, rf: 0.345, rr: 0.33, cg: 0.74, b: 0.67, kf: 7400, cf: 540, rbf: 1450, tf: 0.30, kr: 16000, cr: 900, rbr: 2350, trv: 0.31, mu: [0.95, 0.92, 0.84], crr: [0.018, 0.028, 0.04], steer: 0.62, P: 39e3, Fmax: 0.60, vmax: 38, brake: 9.5, cda: 0.55, kp: 0.56, rpm: [1700, 11500], gears: [2.6, 1.9, 1.5, 1.25, 1.05], final: 13 },
-  mtb: { m: 99, L: 1.19, rf: 0.37, rr: 0.37, cg: 0.98, b: 0.47, kf: 7800, cf: 420, rbf: 950, tf: 0.14, kr: 62000, cr: 1100, rbr: 1700, trv: 0.03, mu: [0.9, 0.88, 0.8], crr: [0.007, 0.016, 0.03], steer: 0.6, P: 430, Fmax: 0.5, vmax: 26, brake: 8.0, cda: 0.46, kp: 0.55, human: true },
-  scoot: { m: 101, L: 0.86, rf: 0.108, rr: 0.108, cg: 0.95, b: 0.36, kf: 95000, cf: 1500, tf: 0.02, kr: 95000, cr: 1500, trv: 0.02, mu: [0.85, 0.55, 0.45], crr: [0.014, 0.07, 0.13], steer: 0.5, P: 750, Fmax: 0.3, vmax: 11.6, brake: 6.0, cda: 0.52, kp: 0.5, electric: true },
+  car: { four: true, m: 1780, L: 2.62, tr: 1.60, rw: 0.39, cg: 0.74, rest: 0.36, travel: 0.20, k: 54000, c: 4600, mu: [1.05, 0.78, 0.66], crr: [0.014, 0.035, 0.07], steer: 0.68, latG: 1.0, P: 155e3, Fmax: 0.78, vmax: 52, brake: 10.5, cda: 0.98, drive: [1, 1, 1, 1], hull: [0.92, 0.55, 2.15, 1.05], rpm: [800, 6200], gears: [3.6, 2.2, 1.5, 1.1, 0.85, 0.68], final: 4.1 },
+  quad: { four: true, m: 385, L: 1.28, tr: 0.96, rw: 0.29, cg: 0.50, latG: 0.95, rest: 0.25, travel: 0.17, k: 12500, c: 1250, mu: [0.82, 0.86, 0.8], crr: [0.022, 0.035, 0.05], steer: 0.74, P: 33e3, Fmax: 0.72, vmax: 29, brake: 8.5, cda: 0.9, drive: [1, 1, 1, 1], hull: [0.5, 0.4, 1.0, 0.55], rpm: [1300, 8000], gears: [3.0, 2.0, 1.45, 1.1, 0.9], final: 9.5 },
+  dirt: { m: 195, L: 1.48, rf: 0.345, rr: 0.33, cg: 0.74, b: 0.67, kf: 7400, cf: 540, rbf: 1450, tf: 0.30, kr: 16000, cr: 900, rbr: 2350, trv: 0.31, mu: [0.95, 0.92, 0.84], crr: [0.018, 0.028, 0.04], steer: 0.78, P: 39e3, Fmax: 0.60, vmax: 38, brake: 9.5, cda: 0.55, kp: 0.56, rpm: [1700, 11500], gears: [2.6, 1.9, 1.5, 1.25, 1.05], final: 13 },
+  mtb: { m: 99, L: 1.19, rf: 0.37, rr: 0.37, cg: 0.98, b: 0.47, kf: 7800, cf: 420, rbf: 950, tf: 0.14, kr: 62000, cr: 1100, rbr: 1700, trv: 0.03, mu: [0.9, 0.88, 0.8], crr: [0.007, 0.016, 0.03], steer: 0.75, P: 430, Fmax: 0.5, vmax: 26, brake: 8.0, cda: 0.46, kp: 0.55, human: true },
+  scoot: { m: 101, L: 0.86, rf: 0.108, rr: 0.108, cg: 0.95, b: 0.36, kf: 95000, cf: 1500, tf: 0.02, kr: 95000, cr: 1500, trv: 0.02, mu: [0.85, 0.55, 0.45], crr: [0.014, 0.07, 0.13], steer: 0.65, P: 750, Fmax: 0.3, vmax: 11.6, brake: 6.0, cda: 0.52, kp: 0.5, electric: true },
 };
 const ROUGH = [0, 0.028, 0.042, 0];   // bump height by surface: asphalt, dirt, grass, water
 const _v = { a: new THREE.Vector3(), b: new THREE.Vector3(), c: new THREE.Vector3(), d: new THREE.Vector3(), e: new THREE.Vector3(), f: new THREE.Vector3(), n: new THREE.Vector3(), tf: new THREE.Vector3(), ts: new THREE.Vector3(), F: new THREE.Vector3(), T: new THREE.Vector3(), q: new THREE.Quaternion(), m: new THREE.Matrix4(), out: { x: 0, z: 0 } };
@@ -53,7 +53,9 @@ function stepFour(v, inp, h) {
   if (inp.brake > 0 && inp.throttle === 0 && Math.abs(fwdSpeed) < 0.8) v.revMode = true; else if (inp.brake === 0 || inp.throttle > 0) v.revMode = false;   // reverse only engages from a standstill
   if (v.revMode) { rev = true; brake = 0; drive = -tractive(S, fwdSpeed, inp.brake) * 0.45 * (fwdSpeed < -9 ? 0 : 1); }
   if (inp.throttle > 0 && fwdSpeed < -0.6) { brake = Math.max(brake, inp.throttle); drive = 0; }
-  const steerLim = Math.min(S.steer, Math.atan(S.L * (S.latG || 0.82) * G / Math.max(1, fwdSpeed * fwdSpeed)) * 1.35);
+  const steerLim = Math.min(S.steer, Math.atan(S.L * (S.latG || 0.82) * G / Math.max(1, fwdSpeed * fwdSpeed)) * 1.9);
+  // power and lock together break the back end loose, and the handbrake does it at once: that is the drift
+  const drift = inp.throttle * sstep(0.5, 0.95, Math.abs(inp.steer)) * sstep(5, 11, Math.abs(fwdSpeed)), rearGrip = inp.hand ? 0.55 : 1 - 0.5 * drift;
   v.steer = damp(v.steer, inp.steer * steerLim, 9, h * 4) * 1; let nc = 0, slip = 0, surfSum = 0;
   for (let i = 0; i < 4; i++) {
     const wx = WPOS[i][0] * S.tr / 2, wz = WPOS[i][1] * S.L / 2, wy = -(S.cg - S.rw) - S.sag + S.rest;   // suspension top, in the body
@@ -62,17 +64,20 @@ function stepFour(v, inp, h) {
     let comp = (gy - (cy - S.rw)) / Math.max(0.35, uy); v.contact[i] = comp > 0; if (comp <= 0) { v.comp[i] = damp(v.comp[i], 0, 20, h); v.spin[i] += fwdSpeed / S.rw * h; continue; }
     nc++; surfSum += sf; const deck = gy > H(cx, cz) + 0.3, n = deck ? _v.n.set(0, 1, 0) : groundNormal(cx, cz, _v.n);
     const rx = cx - v.p.x, ry = gy - v.p.y, rz = cz - v.p.z, vcx = v.v.x + v.w.y * rz - v.w.z * ry, vcy = v.v.y + v.w.z * rx - v.w.x * rz, vcz = v.v.z + v.w.x * ry - v.w.y * rx;
-    const vn = vcx * n.x + vcy * n.y + vcz * n.z; let N = S.k * Math.min(comp, S.travel) - S.c * (vn > 0 ? 1.45 : 0.75) * vn;   // dampers resist the rebound harder than the hit if (comp > S.travel) N += S.k * 7 * (comp - S.travel); if (N < 0) N = 0; if (N > m * G * 4) N = m * G * 4; v.comp[i] = Math.min(comp, S.travel + 0.03);
+    const vn = vcx * n.x + vcy * n.y + vcz * n.z; let N = S.k * Math.min(comp, S.travel) - S.c * (vn > 0 ? 1.45 : 0.75) * vn;   // dampers resist the rebound harder than the hit if (comp > S.travel) N += S.k * (vn < 0 ? 7 : 1.2) * (comp - S.travel) - (vn < 0 ? S.c * 2.5 * vn : 0);   // the bump stop takes the hit and gives almost nothing back if (N < 0) N = 0; if (N > m * G * 4) N = m * G * 4; v.comp[i] = Math.min(comp, S.travel + 0.03);
     const st = i < 2 ? v.steer : 0, c = Math.cos(st), s = Math.sin(st); let tx = fx * c + lx * s, ty = fy * c + ly * s, tz = fz * c + lz * s; const dn = tx * n.x + ty * n.y + tz * n.z; tx -= n.x * dn; ty -= n.y * dn; tz -= n.z * dn; const tl = Math.hypot(tx, ty, tz) || 1; tx /= tl; ty /= tl; tz /= tl;
     const sx = n.y * tz - n.z * ty, sy = n.z * tx - n.x * tz, sz = n.x * ty - n.y * tx, vlong = vcx * tx + vcy * ty + vcz * tz, vlat = vcx * sx + vcy * sy + vcz * sz, mu = S.mu[Math.min(2, sf)] * (sf === 3 ? 0.5 : 1);
     const hand = inp.hand && i >= 2, bF = (brake * S.brake * m * (i < 2 ? 0.33 : 0.17) + (hand ? m * G * 0.5 : 0));   // two thirds of the braking is at the front, so the tail stays behind
     let Fx = drive * S.drive[i] / 4 - Math.sign(vlong) * Math.min(bF, Math.abs(vlong) * m / 4 / h * 0.5) - S.crr[Math.min(2, sf)] * N * clamp(vlong * 2, -1, 1);
     if (!inp.throttle && !rev) Fx -= clamp(vlong, -1, 1) * m * 0.35 / 4;   // engine braking
     const al = Math.atan2(vlat, Math.abs(vlong) + 0.6), blend = sstep(0.4, 2.2, Math.hypot(vlong, vlat));
-    let Fy = -lerp(clamp(vlat * m / 4 / h * 0.35, -mu * N, mu * N), mu * (hand ? 0.55 : 1) * N * Math.tanh(9.5 * al / mu), blend);
+    let Fy = -lerp(clamp(vlat * m / 4 / h * 0.35, -mu * N, mu * N), mu * (i >= 2 ? lerp(rearGrip, 1.1, sstep(0.45, 0.9, Math.abs(al))) : 1) * N * Math.tanh(9.5 * al / mu), blend);
     const lim = mu * N, mag = Math.hypot(Fx, Fy); if (mag > lim) { slip = Math.max(slip, (mag - lim) / (lim + 1)); Fx *= lim / mag; Fy *= lim / mag; }
     const Fwx = n.x * N + tx * Fx + sx * Fy, Fwy = n.y * N + ty * Fx + sy * Fy, Fwz = n.z * N + tz * Fx + sz * Fy;
-    F.x += Fwx; F.y += Fwy; F.z += Fwz; T.x += ry * Fwz - rz * Fwy; T.y += rz * Fwx - rx * Fwz; T.z += rx * Fwy - ry * Fwx; v.spin[i] += (hand ? 0 : vlong / S.rw) * h;
+    F.x += Fwx; F.y += Fwy; F.z += Fwz;
+    // grip acts on a short lever, so cornering and braking lean the body but can never roll it over
+    const qx = tx * Fx + sx * Fy, qy = ty * Fx + sy * Fy, qz = tz * Fx + sz * Fy, ux2 = n.x * N, uy2 = n.y * N, uz2 = n.z * N, rq = ry * 0.3;
+    T.x += ry * uz2 - rz * uy2 + rq * qz - rz * qy; T.y += rz * ux2 - rx * uz2 + rz * qx - rx * qz; T.z += rx * uy2 - ry * ux2 + rx * qy - rq * qx; v.spin[i] += (hand ? 0 : vlong / S.rw) * h;
   }
   // the body shell against the ground, so it can lie on its side or roof
   const hu = S.hull;
@@ -86,7 +91,8 @@ function stepFour(v, inp, h) {
   v.v.addScaledVector(F, h / m);
   // angular: torque into the body frame, integrate, back out
   const wbx = v.w.x * lx + v.w.y * ly + v.w.z * lz, wby = v.w.x * ux + v.w.y * uy + v.w.z * uz, wbz = v.w.x * fx + v.w.y * fy + v.w.z * fz, tbx = T.x * lx + T.y * ly + T.z * lz, tby = T.x * ux + T.y * uy + T.z * uz, tbz = T.x * fx + T.y * fy + T.z * fz;
-  const ax = (tbx - (Iz - Iy) * wby * wbz) / Ix, ay = (tby - (Ix - Iz) * wbz * wbx) / Iy, az = (tbz - (Iy - Ix) * wbx * wby) / Iz, k = nc ? 0.9995 : 0.9998, nx = (wbx + ax * h) * k, ny = (wby + ay * h) * k, nz = (wbz + az * h) * k;
+  const ax = (tbx - (Iz - Iy) * wby * wbz) / Ix, ay = (tby - (Ix - Iz) * wbz * wbx) / Iy, az = (tbz - (Iy - Ix) * wbx * wby) / Iz, k = nc ? 0.9995 : 0.9998, nx = (wbx + ax * h) * k, ny = (wby + ay * h) * k * (1 - 4 * h * sstep(0.75, 1.3, Math.abs(Math.atan2(v.v.x * lx + v.v.z * lz, Math.abs(fwdSpeed) + 1)))),   // past about sixty degrees the slide stops winding up, so a drift holds instead of spinning
+     nz = (wbz + az * h) * k;
   v.w.set(lx * nx + ux * ny + fx * nz, ly * nx + uy * ny + fy * nz, lz * nx + uz * ny + fz * nz); if (v.w.lengthSq() > 400) v.w.setLength(20);
   v.p.addScaledVector(v.v, h); _v.q.set(v.w.x * h * 0.5, v.w.y * h * 0.5, v.w.z * h * 0.5, 0).multiply(v.q); v.q.x += _v.q.x; v.q.y += _v.q.y; v.q.z += _v.q.z; v.q.w += _v.q.w; v.q.normalize();
   v.air = nc ? 0 : v.air + h; v.slip = damp(v.slip, Math.min(1, slip), 12, h); if (nc) v.surf = Math.round(surfSum / nc); v.upright = uy; v.throttle = inp.throttle || (rev ? inp.brake : 0); v.brake = brake; v.psi = Math.atan2(fx, fz); v.rev = rev;
@@ -105,7 +111,7 @@ function stepTwo(v, inp, h) {
     nc++; surfSum += sf; const deck = gy > H(ax, az) + 0.3, n = deck ? _v.n.set(0, 1, 0) : groundNormal(ax, az, _v.n);
     const rx = ax - v.p.x, ry = ay - r - v.p.y, rz = az - v.p.z, hx = rx * sp + rz * cp;           // lever arm along the heading
     const vcx = v.v.x - sp * v.wth * ry, vcy = v.v.y + v.wth * hx, vcz = v.v.z - cp * v.wth * ry;   // contact velocity with the pitch rate (nose-up positive)
-    const vn = vcx * n.x + vcy * n.y + vcz * n.z, k = i ? S.kr : S.kf, c = vn > 0 ? (i ? S.rbr || S.cr : S.rbf || S.cf) : (i ? S.cr : S.cf); let N = k * Math.min(pen, trav) - c * vn; if (pen > trav) N += k * 6 * (pen - trav); if (N < 0) N = 0; if (N > m * G * 5) N = m * G * 5; v.comp[i] = Math.min(pen, trav + 0.02); Nsum += N;
+    const vn = vcx * n.x + vcy * n.y + vcz * n.z, k = i ? S.kr : S.kf, c = vn > 0 ? (i ? S.rbr || S.cr : S.rbf || S.cf) : (i ? S.cr : S.cf); let N = k * Math.min(pen, trav) - c * (vn < 0 && v.landT > 0 ? 2.4 : 1) * vn; if (pen > trav) N += k * (vn < 0 ? 6 : 1) * (pen - trav) - (vn < 0 ? c * 3 * vn : 0); if (N < 0) N = 0; if (N > m * G * 3.5) N = m * G * 3.5;   // landing: legs and dampers swallow it, nothing springs back v.comp[i] = Math.min(pen, trav + 0.02); Nsum += N;
     let tx = sp, ty = 0, tz = cp; const dn = tx * n.x + tz * n.z; tx -= n.x * dn; ty -= n.y * dn; tz -= n.z * dn; const tl = Math.hypot(tx, ty, tz) || 1; tx /= tl; ty /= tl; tz /= tl;
     const sx = n.y * tz - n.z * ty, sy = n.z * tx - n.x * tz, sz = n.x * ty - n.y * tx, vlong = vcx * tx + vcy * ty + vcz * tz, vlat = vcx * sx + vcy * sy + vcz * sz, mu = S.mu[Math.min(2, sf)] * (sf === 3 ? 0.5 : 1);
     const lock = inp.hand && i === 1, bshare = i ? 0.42 : 0.58, bF = brake * S.brake * m * bshare + (lock ? m * G * 0.6 : 0) + (i ? dab : 0);
@@ -120,20 +126,20 @@ function stepTwo(v, inp, h) {
   const spd = v.v.length(); F.addScaledVector(v.v, -0.5 * RHO * S.cda * spd);
   const wat = waterAt(v.p.x, v.p.z); if (wat > v.p.y - S.cg + 0.3) { F.addScaledVector(v.v, -m * 3); v.wet = (v.wet || 0) + h; } else v.wet = 0;
   v.v.addScaledVector(F, h / m);
-  const I = m * S.kp * S.kp; tau += back * (nc ? m * G * 0.11 : I * 4.5); tau -= v.wth * I * (nc ? 1.2 : 0.35);
+  const I = m * S.kp * S.kp; tau += back * (nc ? m * G * 0.11 : I * 4.5); tau -= v.wth * I * (nc ? (v.landT > 0 ? 4.5 : 1.2) : 0.35); if (v.landT > 0) v.landT -= h;
   if (nc === 0 && !back) tau += ((clamp(Math.atan2(v.v.y, Math.abs(fwdSpeed) + 1) * 0.55, -0.5, 0.5) - v.th) * 7 - v.wth * 3) * I;   // in the air the rider keeps the bike pointing along its flight
   v.wth += tau / I * h; v.th += v.wth * h;
   // steering and lean
-  const aMax = (S.mu[Math.min(2, v.surf)]) * G * 0.9, lim = Math.min(S.steer, Math.atan(S.L * aMax / Math.max(1.2, fwdSpeed * fwdSpeed)) * 1.05);
+  const aMax = (S.mu[Math.min(2, v.surf)]) * G * 0.9, lim = Math.min(S.steer, Math.atan(S.L * aMax / Math.max(1.2, fwdSpeed * fwdSpeed)) * 1.12);
   v.steer = damp(v.steer, inp.steer * lim, S.human || S.electric ? 7 : 6, h * 4);
   const vlatB = v.v.x * cp - v.v.z * sp; let psiDot = 0;
-  if (v.contact[0]) psiDot = fwdSpeed * Math.tan(v.steer) / S.L * clamp(1 - Math.abs(vlatB) / 9, 0.35, 1); else if (v.contact[1]) psiDot = fwdSpeed * Math.tan(v.steer) / S.L * 0.3; else psiDot = v.psiDot * 0.999 + inp.steer * 0.004;
+  if (v.contact[0]) psiDot = fwdSpeed * Math.tan(v.steer) / S.L * clamp(1 - Math.abs(vlatB) / 9, 0.35, 1); else if (v.contact[1]) psiDot = fwdSpeed * Math.tan(v.steer) / S.L * 0.3; else psiDot = v.psiDot * (1 - 0.3 * h) + inp.steer * 2.4 * h;   // in the air the bars swing the bike round slowly (a whip); only steering back straightens it
   if (inp.hand && v.contact[1] && Math.abs(fwdSpeed) > 3) psiDot += inp.steer * 1.1;   // locked rear wheel swings round
   v.psiDot = psiDot; v.psi += psiDot * h;
-  const tgt = clamp(Math.atan(fwdSpeed * psiDot / G), -0.92, 0.92) * sstep(0.6, 3, Math.abs(fwdSpeed)) * (nc ? 1 : 0.4) + (nc ? 0 : inp.steer * 0.25);
+  const tgt = nc ? clamp(Math.atan(fwdSpeed * psiDot / G), -0.95, 0.95) * sstep(0.6, 3, Math.abs(fwdSpeed)) : clamp(wrap(v.psi - Math.atan2(v.v.x, v.v.z)) * 1.15, -1.2, 1.2) * sstep(2, 6, Math.hypot(v.v.x, v.v.z));   // whipped, the bike lies over toward the way it is turned
   v.wphi += ((tgt - v.phi) * 70 - v.wphi * 13) * h; v.phi += v.wphi * h;
   v.p.addScaledVector(v.v, h);
-  if (nc === 0) v.air += h; else { if (v.air > 0.25) { v.vyLand = Math.max(v.vyLand, -v.v.y); const sl = Math.atan((ground(v.p.x + sp, v.p.z + cp, v.p.y) - ground(v.p.x - sp, v.p.z - cp, v.p.y)) / 2); if (Math.abs(v.th - sl) > 1.25 && v.air > 0.6) { v.crash = Math.max(v.crash, 0.01); v.why = "bad landing"; } } v.air = 0; }
+  if (nc === 0) v.air += h; else { if (v.air > 0.12) v.landT = 0.55; if (v.air > 0.25) { v.vyLand = Math.max(v.vyLand, -v.v.y); if (Math.abs(wrap(v.psi - Math.atan2(v.v.x, v.v.z))) > 1.05 && Math.hypot(v.v.x, v.v.z) > 7) { v.crash = Math.max(v.crash, 0.01); v.why = "landed sideways"; } const sl = Math.atan((ground(v.p.x + sp, v.p.z + cp, v.p.y) - ground(v.p.x - sp, v.p.z - cp, v.p.y)) / 2); if (Math.abs(v.th - sl) > 1.25 && v.air > 0.6) { v.crash = Math.max(v.crash, 0.01); v.why = "bad landing"; } } v.air = 0; }
   if (Math.abs(rel) > 1.5) { v.crash = Math.max(v.crash, 0.01); v.why = "flipped " + rel.toFixed(2); }
   v.slip = damp(v.slip, Math.min(1, slip), 12, h); if (nc) v.surf = Math.round(surfSum / nc); v.throttle = thr; v.brake = brake; v.latAcc = fwdSpeed * psiDot;
   if (S.human) v.crank += (thr > 0 ? clamp(Math.abs(fwdSpeed) * 0.9 + 2.5, 3, 11) : 0) * h;

@@ -80,7 +80,6 @@ function makeRider(type) {
     fb.add(M(geo, rgb(O.boot), { roughness: 0.7 })); const sole = M(new THREE.BoxGeometry(tall ? 0.094 : 0.085, 0.016, tall ? 0.275 : 0.232), tall ? 0x0a0a0a : 0xdedcd4, { roughness: 0.95 }); sole.position.set(0, tall ? -0.078 : -0.068, tall ? 0.045 : 0.038); fb.add(sole);
   }
   if (O.pack) { const pk = M(new THREE.CapsuleGeometry(0.085, 0.2, 4, 10), 0x16181b, { roughness: 0.9 }); pk.scale.set(1.25, 1, 0.62); pk.position.set(0, 0.08, -0.15); bones.spine2.add(pk); }
-  if (type === "dirt") { const plate = M(new THREE.BoxGeometry(0.25, 0.26, 0.03), 0x111214, { roughness: 0.5 }); plate.position.set(0, 0.06, 0.118); bones.spine2.add(plate); }
   root.traverse(o => { o.frustumCulled = false; });
   return { root, bones, body, head, type, s: { stand: 0, leanB: 0, pitchB: 0, look: 0, crank: 0, footDown: 0, bob: 0, vy: 0 } };
 }

@@ -63,7 +63,7 @@ function addBuilding(b, W, Rf) {
   const floorY = Math.max(gmin + 0.15, gmax - 0.9), seed = Math.floor(hash2(b, 7, 3) * 1e6), rnd = rng(seed);
   const pitched = kind === 0 || kind === 1 || kind === 5 || (kind === 2 && area < 700 && hash2(b, 3, 11) < 0.6), flat = !pitched;   // small shops in town mostly have pitched roofs
   const run = pitched ? clamp(1.7 * area / per, 0.8, kind === 5 ? 7 : 5.5) : 0, pitch = kind === 5 ? 0.75 : 0.36 + rnd() * 0.14, rise = run * pitch;
-  const wallH = Math.max(kind === 1 ? 2.3 : 2.6, h - rise), topY = floorY + wallH;
+  const wallH = Math.max(kind === 1 ? 2.3 : 2.6, h - rise), topY = floorY + wallH; _bl.b = b; _bl.P = P; _bl.n = n; _bl.floorY = floorY; _bl.topY = topY;
   const wc = kind === 2 || kind === 7 ? WALLC[Math.floor(rnd() * 4) + 2] : kind === 4 ? [0.78, 0.72, 0.62] : WALLC[Math.floor(rnd() * WALLC.length)];
   const rc = flat ? FLATC[Math.floor(rnd() * FLATC.length)] : ROOFC[Math.floor(rnd() * ROOFC.length)], fc = [wc[0] * 0.55, wc[1] * 0.55, wc[2] * 0.56];
   if (kind === 6) {   // an open roof on posts
@@ -134,6 +134,7 @@ function addBuilding(b, W, Rf) {
   for (let i = 0; i < n; i++) { const j = (i + 1) % n; face(Rf, [P[i * 2], ey, P[i * 2 + 1], P[j * 2], ey, P[j * 2 + 1], e[i * 2], ey, e[i * 2 + 1], e[j * 2], ey, e[j * 2 + 1]], [0, 0, 0.05, 0, 0, 0.05, 0.05, 0.05], [wc[0] * 0.8, wc[1] * 0.8, wc[2] * 0.8], _out.set(0, -1, 0)); }
 }
 function indexBuildings() {
+  for (const [b, nm] of WORLD.signs || []) { let l = SIGNS.get(b); if (!l) SIGNS.set(b, l = []); l.push(nm); }
   for (let b = 0; b < V.bKind.length; b++) { const k = Math.floor((BLD.minx[b] + BLD.maxx[b]) / 2 / BT) * 4096 + Math.floor((BLD.minz[b] + BLD.maxz[b]) / 2 / BT); let t = bldTiles.get(k); if (!t) bldTiles.set(k, t = { list: [], group: null }); t.list.push(b); }
   // outside the map: plain blocks, enough to read as the neighbouring towns
   const n = V.qX.length, geo = new THREE.BoxGeometry(1, 1, 1); geo.translate(0, 0.5, 0);
@@ -153,10 +154,32 @@ function updateBuildings(dt, force) {
   }
   const t0 = performance.now();
   while (best && (force ? built < 400 : built < 1 || performance.now() - t0 < 5)) {   // a few milliseconds of building work per frame
-    const W = new Buf(), Rf = new Buf(); for (const b of best.list) addBuilding(b, W, Rf);
+    const W = new Buf(), Rf = new Buf(), SG = new Buf(true, false), texts = []; for (const b of best.list) { addBuilding(b, W, Rf); if (SIGNS.has(b) && _bl.b === b) addSigns(b, SG, texts); }
     const g = new THREE.Group(); g.matrixAutoUpdate = false; for (const [bf, mat] of [[W, wallMat], [Rf, roofMat]]) { const geo = bf.geo(); if (!geo) continue; const m = new THREE.Mesh(geo, mat); m.castShadow = m.receiveShadow = true; m.matrixAutoUpdate = false; g.add(m); }
+    if (texts.length) g.add(signMesh(SG, texts));
     best.group = g; scene.add(g); built++; best = null;
     { bd = 1e9; for (let tx = Math.floor((cx - R) / BT); tx <= Math.floor((cx + R) / BT); tx++) for (let tz = Math.floor((cz - R) / BT); tz <= Math.floor((cz + R) / BT); tz++) { const t = bldTiles.get(tx * 4096 + tz); if (!t || t.group) continue; const d = Math.hypot((tx + 0.5) * BT - cx, (tz + 0.5) * BT - cz); if (d < R && d < bd) { bd = d; best = t; best.tx = tx; best.tz = tz; } } }
   }
-  for (const t of bldTiles.values()) if (t.group && Math.hypot((t.tx + 0.5) * BT - cx, (t.tz + 0.5) * BT - cz) > R + 500) { scene.remove(t.group); t.group.traverse(o => { if (o.geometry) o.geometry.dispose(); }); t.group = null; }
+  for (const t of bldTiles.values()) if (t.group && Math.hypot((t.tx + 0.5) * BT - cx, (t.tz + 0.5) * BT - cz) > R + 500) { scene.remove(t.group); t.group.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.userData.sign) { o.material.map.dispose(); o.material.dispose(); } }); t.group = null; }
+}
+
+/* ---------- name boards: each mapped business is lettered on the wall of its building that faces the street or the car park ---------- */
+const SIGNS = new Map(), _bl = { b: -1, P: null, n: 0, floorY: 0, topY: 0 }, SIGN_FONT = '700 40px "Helvetica Neue", Arial, sans-serif'; let _signCtx = null;
+function addSigns(b, SG, texts) {
+  const P = _bl.P, n = _bl.n, names = SIGNS.get(b), walls = []; if (!_signCtx) { _signCtx = document.createElement("canvas").getContext("2d"); _signCtx.font = SIGN_FONT; }
+  for (let i = 0; i < n; i++) { const j = (i + 1) % n, dx = P[j * 2] - P[i * 2], dz = P[j * 2 + 1] - P[i * 2 + 1], L = Math.hypot(dx, dz); if (L < 3.5) continue; const nx = dz / L, nz = -dx / L, mx = (P[i * 2] + P[j * 2]) / 2, mz = (P[i * 2 + 1] + P[j * 2 + 1]) / 2;
+    walls.push([L * (0.25 + Math.max(hiAt(mx + nx * 5, mz + nz * 5, 0), hiAt(mx + nx * 11, mz + nz * 11, 0)) - hiAt(mx + nx * 3, mz + nz * 3, 2)), L, nx, nz, mx, mz]); }
+  walls.sort((a, c) => c[0] - a[0]);
+  for (let k = 0; k < Math.min(names.length, walls.length, 2) && texts.length < 32; k++) {
+    const [, L, nx, nz, mx, mz] = walls[k], txt = names[k], hgt = 0.62, w = clamp(_signCtx.measureText(txt).width / 103 + 0.6, 2, Math.min(L * 0.9, 4.9)), y = Math.min(_bl.topY - 0.42, _bl.floorY + 3.75), rx = nz, rz = -nx, id = texts.length, pw = Math.min(512, 64 * w / hgt);
+    texts.push([txt, pw]); const u0 = ((id % 2) * 512 + 256 - pw / 2) / 1024, u1 = ((id % 2) * 512 + 256 + pw / 2) / 1024, v1 = 1 - (id >> 1) / 16, v0 = v1 - 1 / 16, ox = mx + nx * 0.08, oz = mz + nz * 0.08, base = SG.v;
+    SG.vert(ox - rx * w / 2, y - hgt / 2, oz - rz * w / 2, nx, 0, nz, u0, v0); SG.vert(ox + rx * w / 2, y - hgt / 2, oz + rz * w / 2, nx, 0, nz, u1, v0); SG.vert(ox - rx * w / 2, y + hgt / 2, oz - rz * w / 2, nx, 0, nz, u0, v1); SG.vert(ox + rx * w / 2, y + hgt / 2, oz + rz * w / 2, nx, 0, nz, u1, v1); SG.quad(base, base + 1, base + 2, base + 3);
+  }
+}
+const SIGN_STYLE = [["#efe9da", "#22262b"], ["#1f3b2c", "#f3efe2"], ["#1d2c44", "#f1f1ee"], ["#2a2a2c", "#f0ead8"], ["#f4f2ec", "#7a1f1a"], ["#5a2420", "#f6efe0"]];
+function signMesh(SG, texts) {
+  const c = document.createElement("canvas"); c.width = c.height = 1024; const g = c.getContext("2d"); g.textAlign = "center"; g.textBaseline = "middle";
+  texts.forEach(([txt, pw], id) => { let h = 0; for (const ch of txt) h = (h * 31 + ch.charCodeAt(0)) >>> 0; const [bg, fg] = SIGN_STYLE[h % SIGN_STYLE.length], x = (id % 2) * 512, y = (id >> 1) * 64;
+    g.fillStyle = bg; g.fillRect(x, y, 512, 64); g.font = SIGN_FONT; const tw = g.measureText(txt).width, k = Math.min(1, (pw - 34) / tw); g.save(); g.translate(x + 256, y + 33); g.scale(k, k); g.fillStyle = fg; g.fillText(txt, 0, 0); g.restore(); });
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = MAXANISO; const m = new THREE.Mesh(SG.geo(), new THREE.MeshStandardMaterial({ map: t, roughness: 0.7 })); m.matrixAutoUpdate = false; m.userData.sign = true; return m;
 }
