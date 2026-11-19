@@ -2581,7 +2581,7 @@ function walkPose(R, q) {
     const sg = R.skiG[i]; sg.visible = true; sg.scale.setScalar(1); sg.position.set(i ? 0.13 : -0.13, 0.2 + (aY - foot), 0.06 + aZ); sg.rotation.set(0.7 * t2 * mv, 0, 0); });
   R.hipG.position.set(0, hY + 0.02, 0.04); R.hipG.rotation.set(0, 0.07 * mv * (1 + run) * Math.sin(ph), 0); R.hipG.updateMatrix();
   R.torso.rotation.set(-lean, -0.11 * mv * (1 + run) * Math.sin(ph), 0); R.torso.updateMatrix(); R.head.rotation.set(lean * 0.8, 0, 0); R.head.position.set(0, 0.8, 0);
-  R.arms.forEach((ar, i) => { const sw = Math.sin(ph + (i ? 0 : Math.PI)) * (0.4 + 0.5 * run) * mv; ar.pole.visible = false; ar.sh.rotation.set(sw + 0.12 * run, 0, (i ? 1 : -1) * 0.09); ar.el.rotation.set(0.16 + 1.3 * run + Math.max(0, sw) * 0.4, 0, 0); });   // hands empty: arms swing against the legs
+  R.arms.forEach((ar, i) => { const sw = Math.sin(ph + (i ? 0 : Math.PI)) * (0.4 + 0.5 * run) * mv; ar.pole.visible = false; ar.sh.rotation.set(sw + 0.12 * run, 0, (i ? 1 : -1) * (0.34 - 0.1 * run));   /* held clear of the jacket */ ar.el.rotation.set(0.16 + 1.3 * run + Math.max(0, sw) * 0.4, 0, 0); });   // hands empty: arms swing against the legs
 }
 function poseRider(R, q, keys, slope, dt, time, snap) {
   const hold = R.hold, onSnow = q.ground && (q.mode === "ski" || q.mode === "walk" || q.mode === "sled") && !q.crashed && !(q === sk && sk.shopIn);
