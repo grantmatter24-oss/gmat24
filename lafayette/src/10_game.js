@@ -25,10 +25,10 @@ function syncVehicle(v, dt, time) {
   if (v.crash > 0 && v.ragdoll) { poseRagdoll(v); return; }
   if (R.root.parent !== G0) { G0.add(R.root); R.root.position.set(0, 0, 0); R.root.quaternion.identity(); }
   // ---- the rider's body language ----
-  const moving = Math.abs(v.fwd), air = v.air > 0.06, rough = v.surf !== 0 && moving > 5, ay = (v.v.y - (rs.pvy || 0)) / Math.max(dt, 1e-3); rs.pvy = v.v.y;
-  rs.vy += ((clamp(-ay * 0.0035, -0.16, 0.16) - rs.bob) * 150 - rs.vy * 16) * dt; rs.bob = clamp(rs.bob + rs.vy * dt, -0.14, 0.14);   // legs soak up the hits
+  const moving = Math.abs(v.fwd), air = v.air > 0.12, rough = v.surf !== 0 && moving > 12; rs.ay = damp(rs.ay || 0, (v.v.y - (rs.pvy || 0)) / Math.max(dt, 1e-3), 9, dt); rs.pvy = v.v.y; const ay = rs.ay;
+  rs.vy += ((clamp(-ay * 0.0014, -0.06, 0.06) - rs.bob) * 60 - rs.vy * 14) * dt; rs.bob = clamp(rs.bob + rs.vy * dt, -0.06, 0.06);   // legs soak up the hits
   const standT = type === "dirt" ? (air ? 1 : rough ? 0.75 : v.th < -0.2 ? 0.6 : 0) : type === "mtb" ? (air ? 1 : (v.throttle < 0.1 && moving > 3.5) || rough ? 0.85 : 0) : type === "quad" ? (air ? 0.8 : rough && moving > 9 ? 0.5 : 0) : 0;
-  rs.stand = damp(rs.stand, standT, standT > rs.stand ? 9 : 3.5, dt);
+  rs.stand = damp(rs.stand, standT, standT > rs.stand ? 4.5 : 2.5, dt);
   const stopped = moving < 0.7 && v.air === 0 && !S.four; rs.footDown = damp(rs.footDown, stopped ? 1 : 0, stopped ? 5 : 9, dt);
   rs.look = damp(rs.look, clamp(v.steer * 1.5 + (v.psiDot || 0) * 0.35, -0.75, 0.75), 5, dt);
   rs.pitchB = damp(rs.pitchB, clamp(-v.acc * 0.013, -0.16, 0.2) + (air ? -0.1 : 0), 5, dt);
@@ -163,7 +163,7 @@ function buildLamps() {
   LAMPS.pts.forEach((p, i) => { _g.q.setFromAxisAngle(_up, p.yaw); m.compose(_g.a.set(p.x, p.y - 0.2, p.z), _g.q, _g.b.set(1, p.kind === 0 ? 0.72 : 1, 1)); im.setMatrixAt(i, m);
     _g.a.set(0, 7.98 * (p.kind === 0 ? 0.72 : 1), 2.0).applyQuaternion(_g.q); p.lx = p.x + _g.a.x; p.ly = p.y - 0.2 + _g.a.y; p.lz = p.z + _g.a.z; m.makeTranslation(p.lx, p.ly, p.lz); m.multiply(_g.m.makeRotationFromQuaternion(_g.q)); bulb.setMatrixAt(i, m); if (p.kind === 0) sig.push(p); });
   im.castShadow = true; im.frustumCulled = false; bulb.frustumCulled = false; scene.add(im, bulb);
-  if (sig.length) { const sm = new THREE.InstancedMesh(sgeo, vmat(0x16181a, 0.6), sig.length), lm = new THREE.InstancedMesh(new THREE.SphereGeometry(0.1, 8, 6), new THREE.MeshBasicMaterial({ color: 0x29e06a }), sig.length);
+  if (sig.length) { const sm = new THREE.InstancedMesh(sgeo, vmat(0xa08a22, 0.55), sig.length), lm = new THREE.InstancedMesh(new THREE.SphereGeometry(0.1, 8, 6), new THREE.MeshBasicMaterial({ color: 0x29e06a }), sig.length);
     sig.forEach((p, i) => { m.makeTranslation(p.lx, p.ly - 0.75, p.lz); sm.setMatrixAt(i, m); m.makeTranslation(p.lx - Math.sin(p.yaw) * 0.0, p.ly - 1.05, p.lz); lm.setMatrixAt(i, m); }); sm.frustumCulled = lm.frustumCulled = false; scene.add(sm, lm); LAMPS.sigLamp = lm; }
   for (let i = 0; i < 6; i++) { const l = new THREE.PointLight(0xffc98a, 0, 38, 1.6); scene.add(l); LAMPS.lights.push(l); }
   LAMPS.head = new THREE.SpotLight(0xfff0d8, 0, 110, 0.52, 0.55, 1.4); scene.add(LAMPS.head); scene.add(LAMPS.head.target);

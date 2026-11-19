@@ -190,8 +190,14 @@ function hitBuildings(x, z, r, out, y) {
 }
 
 /* ---------- settings ---------- */
-const QUALITY = { low: { grass: 0.45, trees: 0.6, shadow: 1024, px: 1, far: 0.7, post: false }, med: { grass: 0.75, trees: 0.85, shadow: 2048, px: 1.25, far: 1, post: true }, high: { grass: 1, trees: 1, shadow: 4096, px: 2, far: 1.25, post: true } };
+/* The menu's Low / Medium / High set how far detail may climb. Below that ceiling the game watches its own frame rate and moves
+   between these steps so it stays smooth on whatever it is running on. */
+const QUALITY = { low: { cap: 1, shadow: 1024 }, med: { cap: 3, shadow: 2048 }, high: { cap: 4, shadow: 4096 } };
 let qName = QS.get("q") || store.get("laf-q", "med"); if (!QUALITY[qName]) qName = "med";
-let Q = Object.assign({}, QUALITY[qName]);
-if (QS.has("gs")) Q.grass = +QS.get("gs"); if (QS.has("ts")) Q.trees = +QS.get("ts");   // test overrides
+const Q = Object.assign({ far: 1 }, QUALITY[qName]);
+const TIERS = [   // pixel ratio, share of grass blades, tree distance, building distance, shadow refresh every n frames, post: 0 none, 1 no bloom by day, 2 full
+  { px: 0.6, grass: 0.10, tree: 0.32, bld: 800, sh: 4, post: 0 }, { px: 0.8, grass: 0.22, tree: 0.46, bld: 1100, sh: 3, post: 0 }, { px: 1.0, grass: 0.42, tree: 0.62, bld: 1500, sh: 2, post: 1 },
+  { px: 1.25, grass: 0.7, tree: 0.82, bld: 2000, sh: 1, post: 2 }, { px: 2.0, grass: 1.0, tree: 1.0, bld: 2600, sh: 1, post: 2 }];
+const PERF = Object.assign({ tier: 2 }, TIERS[2]);
+if (QS.has("gs")) PERF.grassTest = +QS.get("gs");   // test override
 let units = store.get("laf-units", "imp");

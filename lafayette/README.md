@@ -13,6 +13,11 @@ electric scooter), three times of day, timed routes, online riders. No traffic a
 back / forward. `R` reset, `C` rider's-eye view, `M` map (click to go there), `T` time of day, `H` lights, `1`-`5` change machine,
 `X` cancel a timed route, `Esc` menu.
 
+## Staying smooth
+
+The game measures its own frame rate and moves between five detail steps (resolution, grass, tree and building distance, shadow
+refresh, bloom). Low / Medium / High in the menu only set how high it may climb. `?tier=0..4` with `?test` pins a step.
+
 ## World data
 
 `tools/` rebuilds `data/world.json` from public sources (raw downloads go in any scratch folder, passed as `<raw>`):

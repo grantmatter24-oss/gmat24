@@ -1,8 +1,8 @@
 /* ---------- renderer, sky, light, haze ---------- */
 const canvas = $("c");
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: !Q.post, powerPreference: "high-performance" });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, Q.px));
-renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: "high-performance" });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, PERF.px));
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap; renderer.shadowMap.autoUpdate = false;
 renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.outputColorSpace = THREE.SRGBColorSpace;
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(58, 1, 0.25, 90000);
@@ -56,8 +56,8 @@ float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); 
 float fbm(vec2 p){ float s = 0.0, a = 0.5; for (int i = 0; i < 5; i++) { s += a * vn(p); p = p * 2.03 + vec2(17.1, 9.2); a *= 0.5; } return s; }
 float h31(vec3 p){ p = fract(p * 0.1031); p += dot(p, p.zyx + 31.32); return fract((p.x + p.y) * p.z); }
 vec3 skyColor(vec3 d) {
-  float y = max(d.y, 0.0), h = pow(1.0 - y, 4.0);
-  vec2 sx = normalize(uSun.xz + 1e-5), dx = normalize(d.xz + 1e-5); float toward = pow(dot(sx, dx) * 0.5 + 0.5, 1.6);
+  float y = clamp(d.y, 0.0, 1.0), h = pow(1.0 - y, 4.0);
+  vec2 sx = normalize(uSun.xz + 1e-5), dx = normalize(d.xz + 1e-5); float toward = pow(clamp(dot(sx, dx) * 0.5 + 0.5, 0.0, 1.0), 1.6);
   vec3 c = mix(uZen, mix(uHor2, uHor, toward), h);
   float mu = max(dot(d, uSun), 0.0);
   c += uGlowCol * (pow(mu, 6.0) * 0.22 + pow(mu, 48.0) * 0.55 + pow(mu, 700.0) * 2.5) * uGlowK * (0.4 + 0.6 * h);
@@ -141,17 +141,34 @@ const GradeShader = {
   vertexShader: "varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
   fragmentShader: "uniform sampler2D tDiffuse; uniform float uVig, uSat; varying vec2 vUv; void main(){ vec4 c = texture2D(tDiffuse, vUv); float l = dot(c.rgb, vec3(0.2126, 0.7152, 0.0722)); c.rgb = mix(vec3(l), c.rgb, uSat); vec2 q = vUv - 0.5; c.rgb *= 1.0 - uVig * smoothstep(0.25, 0.85, dot(q, q) * 2.0); gl_FragColor = c; }",
 };
+/* One bad pixel (a not-a-number from any shader) would be smeared by the bloom into a black block, so anything that is not a
+   sane brightness is removed before the bloom sees it. */
+const CleanShader = { uniforms: { tDiffuse: { value: null } }, vertexShader: GradeShader.vertexShader,
+  fragmentShader: "uniform sampler2D tDiffuse; varying vec2 vUv; void main(){ vec3 c = texture2D(tDiffuse, vUv).rgb; if (isnan(c.r) || isnan(c.g) || isnan(c.b) || isinf(c.r) || isinf(c.g) || isinf(c.b)) c = vec3(0.0); gl_FragColor = vec4(clamp(c, 0.0, 48.0), 1.0); }" };
+let cleanPass = null;
 function setupPost() {
-  if (!Q.post) { composer = null; return; }
-  const rt = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, samples: 4 });
+  const rt = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, samples: Q.cap >= 4 ? 4 : 2 });
   composer = new EffectComposer(renderer, rt); composer.addPass(new RenderPass(scene, camera));
+  cleanPass = new ShaderPass(CleanShader); composer.addPass(cleanPass);
   bloomPass = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.2, 0.6, 0.9); composer.addPass(bloomPass);
   composer.addPass(new ShaderPass(GradeShader)); composer.addPass(new OutputPass());
 }
 function resize() {
-  const w = window.innerWidth, h = window.innerHeight; renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, Q.px)); renderer.setSize(w, h, false);
+  const w = window.innerWidth, h = window.innerHeight; renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, PERF.px)); renderer.setSize(w, h, false);
   camera.aspect = w / h; camera.updateProjectionMatrix(); if (composer) { composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(w, h); }
 }
 function renderFrame() {
-  if (composer) { bloomPass.strength = tod.bloom[0]; bloomPass.radius = tod.bloom[1]; bloomPass.threshold = tod.bloom[2]; composer.render(); } else renderer.render(scene, camera);
+  if (composer && PERF.post > 0) { const glow = PERF.post === 2 || tod.night > 0.1; bloomPass.enabled = cleanPass.enabled = glow; bloomPass.strength = tod.bloom[0]; bloomPass.radius = tod.bloom[1]; bloomPass.threshold = tod.bloom[2]; composer.render(); } else renderer.render(scene, camera);
+}
+/* ---------- keeping it smooth ---------- */
+function setTier(t) {
+  t = clamp(t, 0, Q.cap); Object.assign(PERF, TIERS[t]); PERF.tier = t; resize();
+  if (typeof setGrassFraction === "function") setGrassFraction(PERF.grassTest || PERF.grass); uBldFar.value = PERF.bld; if (TREES.lods.length) { TREES.t = -1; TREES.last.set(1e9, 0, 0); }
+}
+const PERFMON = { t: 0, n: 0, good: 0, hold: 3, block: 0 };
+function perfTick(raw) {   // raw: real seconds since the last frame
+  if (document.hidden || raw > 0.4) return; PERFMON.t += raw; PERFMON.n++; if (PERFMON.t < 1.5) return;
+  const fps = PERFMON.n / PERFMON.t; PERFMON.t = 0; PERFMON.n = 0; PERF.fps = fps; if (PERFMON.hold > 0) { PERFMON.hold--; return; } if (PERFMON.block > 0) PERFMON.block--;
+  if (fps < 45 && PERF.tier > 0) { setTier(PERF.tier - (fps < 22 && PERF.tier > 1 ? 2 : 1)); PERFMON.hold = 1; PERFMON.block = 20; PERFMON.good = 0; }
+  else if (fps > 57) { if (++PERFMON.good >= 3 && PERF.tier < Q.cap && PERFMON.block === 0) { setTier(PERF.tier + 1); PERFMON.hold = 1; PERFMON.good = 0; } } else PERFMON.good = 0;
 }

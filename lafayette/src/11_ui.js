@@ -93,7 +93,8 @@ function updateHud(dt) {
   hudT -= dt; if (hudT < 0) { hudT = 0.25; const nm = roadNameAt(v.p.x, v.p.z); $("street").textContent = nm || (v.surf === 2 ? "Off road" : v.surf === 1 ? "Unnamed trail" : ""); const deg = ((180 - v.psi / DEG) % 360 + 360) % 360; $("compass").textContent = COMP[Math.round(deg / 45) % 8] + " · " + Math.round(H(v.p.x, v.p.z) * (units === "imp" ? FT : 1)) + (units === "imp" ? " ft" : " m");
     $("edge").hidden = !(v.edge > 0); }
   const R = GAME.trial, tp = $("trial"); tp.hidden = !R; if (R) { $("trialName").textContent = R.T.name; $("trialTime").textContent = fmtTime(R.t); $("trialCp").textContent = R.done ? "Finished" : R.run ? "Checkpoint " + Math.min(R.cp + 1, R.cps.length) + " of " + R.cps.length : "Cross the start line"; }
-  // minimap: heading up
+  // minimap: heading up, redrawn twenty times a second
+  GAME.miniT = (GAME.miniT || 0) - dt; if (GAME.miniT > 0) return; GAME.miniT = 0.05;
   const mc = $("mini"), g = mc.getContext("2d"), S = mc.width, zoom = 0.62 + Math.min(0.5, v.speed * 0.012), mx = (v.p.x - X0) / MAPS, mz = (v.p.z - Z0) / MAPS;
   g.save(); g.clearRect(0, 0, S, S); g.beginPath(); g.arc(S / 2, S / 2, S / 2 - 1, 0, TAU); g.clip(); g.fillStyle = "#20261f"; g.fillRect(0, 0, S, S); g.translate(S / 2, S * 0.6); g.rotate(v.psi - Math.PI); g.scale(1 / zoom, 1 / zoom); g.drawImage(MAPC, -mx, -mz);
   if (R && !R.done) { g.strokeStyle = "#ff5a3c"; g.lineWidth = 3 * zoom; g.beginPath(); const P = R.T.pts, i0 = R.cp ? R.cps[R.cp - 1].i : 0; for (let i = i0; i < P.length; i += 2) { const x = (P[i][0] - X0) / MAPS - mx, z = (P[i][1] - Z0) / MAPS - mz; if (i === i0) g.moveTo(x, z); else g.lineTo(x, z); } g.stroke(); }

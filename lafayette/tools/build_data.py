@@ -242,7 +242,7 @@ for q in sorted(pieces, key=lambda q: -q["kind"]):
     if k == 14: draw_line(dd, P, 4.4, 150); continue                         # track ballast
     if k in (9, 10) or q["unpaved"]: draw_line(dd, P, max(1.0, q["w"]), 255)
     elif k in (11, 13): draw_line(dp, P, q["w"], 215)                         # concrete walks
-    else: draw_line(dp, P, q["w"] + 0.4, 255)
+    else: draw_line(dp, P, q["w"] + (4.2 if k in (2, 3, 4) else 0.4), 255)      # main streets carry a sidewalk each side
 # ---------------------------------------------------------------- buildings
 def lu_class(f): p = f["properties"]; return p.get("class")
 from shapely.geometry import shape, Point, Polygon
@@ -361,6 +361,10 @@ lu4 = np.asarray(lu_img)
 L4 = np.where(lu4 == 255, np.maximum(L4, 0.9), np.where(lu4 == 120, np.maximum(L4, 0.45), L4)); T4 = np.where(lu4 == 255, 0, np.where(lu4 == 60, np.maximum(T4, 0.55), T4))
 hard = np.maximum(np.maximum(Mp, Md), Ms) / 255.0
 G4 = np.clip(G4 * (1 - L4), 0, 1)
+# in town the open ground is tended: lawns, planted verges and medians, not wild grass
+urb10 = np.asarray(Image.fromarray((hard * 255).astype(np.uint8)).resize((LW, LH), Image.BOX)) / 255.0
+UK = np.clip((ndimage.gaussian_filter(urb10, 3.0) - 0.05) / 0.18, 0, 1)
+lawn = G4 * UK * 0.85; L4 = np.clip(L4 + lawn, 0, 1); G4 = G4 - lawn
 maskLo = np.stack([np.clip(T4 * 255, 0, 255), np.clip(G4 * 255, 0, 255), np.clip(L4 * 255, 0, 255)], -1).astype(np.uint8)
 print("canopy %.3f wild grass %.3f turf %.3f" % (T4.mean(), G4.mean(), L4.mean()))
 
@@ -373,6 +377,7 @@ bright = ss(0.36, 0.6, col.mean(-1)) * (1 - ss(0.2, 0.4, nmay)); urban = np.clip
 wv = veg * (1 - urban) + 1e-3
 blur = np.stack([ndimage.gaussian_filter(col[..., c] * wv, 2.2) / ndimage.gaussian_filter(wv, 2.2) for c in range(3)], -1)
 ground = col * (1 - urban[..., None]) + blur * urban[..., None]
+gk = (UK * (1 - np.clip(T4, 0, 1)) * 0.6)[..., None]; ground = ground * (1 - gk) + np.array([0.30, 0.42, 0.20]) * gk
 def jpg(a, q=90):
     b = io.BytesIO(); Image.fromarray((np.clip(a, 0, 1) * 255).astype(np.uint8)).save(b, "JPEG", quality=q, subsampling=0); return "data:image/jpeg;base64," + base64.b64encode(b.getvalue()).decode()
 def png(a):

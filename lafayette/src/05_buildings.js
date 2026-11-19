@@ -47,12 +47,13 @@ function insetRing(P, d) {
 const _fa = new THREE.Vector3(), _fb = new THREE.Vector3(), _fn = new THREE.Vector3();
 function face(buf, pts, uvs, col, up) {   // one flat polygon (3 or 4 corners); wound so that it faces `up` (a rough outward direction)
   _fa.set(pts[3] - pts[0], pts[4] - pts[1], pts[5] - pts[2]); _fb.set(pts[6] - pts[0], pts[7] - pts[1], pts[8] - pts[2]); _fn.crossVectors(_fa, _fb);
-  const flip = _fn.dot(up) < 0; if (flip) _fn.negate(); _fn.normalize(); const base = buf.v, n = pts.length / 3;
+  if (_fn.lengthSq() < 1e-10) _fn.copy(up); const flip = _fn.dot(up) < 0; if (flip) _fn.negate(); _fn.normalize(); const base = buf.v, n = pts.length / 3;
   for (let i = 0; i < n; i++) buf.vert(pts[i * 3], pts[i * 3 + 1], pts[i * 3 + 2], _fn.x, _fn.y, _fn.z, uvs[i * 2], uvs[i * 2 + 1], col[0], col[1], col[2]);
   if (n === 3) { if (flip) buf.tri(base, base + 2, base + 1); else buf.tri(base, base + 1, base + 2); }
   else if (flip) { buf.tri(base, base + 2, base + 1); buf.tri(base + 1, base + 2, base + 3); } else { buf.tri(base, base + 1, base + 2); buf.tri(base + 2, base + 1, base + 3); }
 }
-const _up = new THREE.Vector3(0, 1, 0), _out = new THREE.Vector3();
+const _up = new THREE.Vector3(0, 1, 0), _dn = new THREE.Vector3(0, -1, 0), _out = new THREE.Vector3();
+const AWN = [[0.34, 0.07, 0.07], [0.07, 0.20, 0.13], [0.09, 0.13, 0.28], [0.52, 0.45, 0.33], [0.16, 0.16, 0.17], [0.55, 0.30, 0.10]];
 function addBuilding(b, W, Rf) {
   const a = V.bStart[b], n = V.bStart[b + 1] - a, kind = V.bKind[b], h = V.bH[b] / 10; if (n < 3) return;
   let P = new Float32Array(n * 2), area = 0, per = 0; for (let i = 0; i < n; i++) { P[i * 2] = V.bP[(a + i) * 2]; P[i * 2 + 1] = V.bP[(a + i) * 2 + 1]; }
@@ -60,7 +61,7 @@ function addBuilding(b, W, Rf) {
   if (area < 0) { const Q = new Float32Array(n * 2); for (let i = 0; i < n; i++) { Q[i * 2] = P[(n - 1 - i) * 2]; Q[i * 2 + 1] = P[(n - 1 - i) * 2 + 1]; } P = Q; area = -area; } area /= 2;
   let gmin = 1e9, gmax = -1e9; for (let i = 0; i < n; i++) { const g = H(P[i * 2], P[i * 2 + 1]); if (g < gmin) gmin = g; if (g > gmax) gmax = g; }
   const floorY = Math.max(gmin + 0.15, gmax - 0.9), seed = Math.floor(hash2(b, 7, 3) * 1e6), rnd = rng(seed);
-  const pitched = kind === 0 || kind === 1 || kind === 5, flat = !pitched;
+  const pitched = kind === 0 || kind === 1 || kind === 5 || (kind === 2 && area < 700 && hash2(b, 3, 11) < 0.6), flat = !pitched;   // small shops in town mostly have pitched roofs
   const run = pitched ? clamp(1.7 * area / per, 0.8, kind === 5 ? 7 : 5.5) : 0, pitch = kind === 5 ? 0.75 : 0.36 + rnd() * 0.14, rise = run * pitch;
   const wallH = Math.max(kind === 1 ? 2.3 : 2.6, h - rise), topY = floorY + wallH;
   const wc = kind === 2 || kind === 7 ? WALLC[Math.floor(rnd() * 4) + 2] : kind === 4 ? [0.78, 0.72, 0.62] : WALLC[Math.floor(rnd() * WALLC.length)];
@@ -93,6 +94,10 @@ function addBuilding(b, W, Rf) {
         const ym = floorY + wallH / storeys; face(W, [x0, floorY, z0, x1, floorY, z1, x0, ym, z0, x1, ym, z1], [u0, 0, u1, 0, u0, 1, u1, 1], wc, _out);
         const tu = kind === 2 ? 6 : 0; face(W, [x0, ym, z0, x1, ym, z1, x0, topY, z0, x1, topY, z1], [(tu + 0.004) / TILE_W, 1, (tu + 0.996) / TILE_W, 1, (tu + 0.004) / TILE_W, vTop, (tu + 0.996) / TILE_W, vTop], wc, _out);
       } else face(W, [x0, floorY, z0, x1, floorY, z1, x0, topY, z0, x1, topY, z1], [u0, 0, u1, 0, u0, vTop, u1, vTop], wc, _out);
+      if (tile === 5) {   // an awning over each shopfront
+        const ac = AWN[Math.floor(hash2(b, 5, 13) * AWN.length)], ya = floorY + Math.min(2.85, wallH - 0.2), ox = _out.x * 1.15, oz = _out.z * 1.15, pts = [x0, ya, z0, x1, ya, z1, x0 + ox, ya - 0.42, z0 + oz, x1 + ox, ya - 0.42, z1 + oz], uv = [0, 0, 1, 0, 0, 0.4, 1, 0.4];
+        face(Rf, pts, uv, ac, _up); face(Rf, pts, uv, [ac[0] * 0.6, ac[1] * 0.6, ac[2] * 0.6], _dn);
+      }
     }
   }
   // roof
@@ -118,6 +123,12 @@ function addBuilding(b, W, Rf) {
   }
   const m = ring.length / 2, tris = THREE.ShapeUtils.triangulateShape(Array.from({ length: m }, (_, i) => new THREE.Vector2(ring[i * 2], ring[i * 2 + 1])), []);
   for (const t of tris) face(Rf, [ring[t[0] * 2], y, ring[t[0] * 2 + 1], ring[t[1] * 2], y, ring[t[1] * 2 + 1], ring[t[2] * 2], y, ring[t[2] * 2 + 1]], [ring[t[0] * 2] * 0.3, ring[t[0] * 2 + 1] * 0.3, ring[t[1] * 2] * 0.3, ring[t[1] * 2 + 1] * 0.3, ring[t[2] * 2] * 0.3, ring[t[2] * 2 + 1] * 0.3], rc, _up);
+  if (kind === 0 && area > 70) {   // a chimney
+    const k0 = Math.floor(hash2(b, 6, 17) * n); let mx = 0, mz = 0; for (let i = 0; i < n; i++) { mx += P[i * 2] / n; mz += P[i * 2 + 1] / n; }
+    const cx = lerp(P[k0 * 2], mx, 0.32), cz = lerp(P[k0 * 2 + 1], mz, 0.32), s = 0.3, y0 = topY - 0.2, y1 = y + 0.75, bc = [0.40, 0.25, 0.20];
+    for (const [nx, nz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const tx = -nz, tz = nx; face(Rf, [cx + nx * s - tx * s, y0, cz + nz * s - tz * s, cx + nx * s + tx * s, y0, cz + nz * s + tz * s, cx + nx * s - tx * s, y1, cz + nz * s - tz * s, cx + nx * s + tx * s, y1, cz + nz * s + tz * s], [0, 0, 0.3, 0, 0, 1.2, 0.3, 1.2], bc, _out.set(nx, 0, nz)); }
+    face(Rf, [cx - s, y1, cz - s, cx + s, y1, cz - s, cx - s, y1, cz + s, cx + s, y1, cz + s], [0, 0, 0.1, 0, 0, 0.1, 0.1, 0.1], [0.2, 0.19, 0.18], _up);
+  }
   // soffit: close the gap under the eaves
   const e = insetRing(P, -0.45), ey = topY - 0.45 * pitch;
   for (let i = 0; i < n; i++) { const j = (i + 1) % n; face(Rf, [P[i * 2], ey, P[i * 2 + 1], P[j * 2], ey, P[j * 2 + 1], e[i * 2], ey, e[i * 2 + 1], e[j * 2], ey, e[j * 2 + 1]], [0, 0, 0.05, 0, 0, 0.05, 0.05, 0.05], [wc[0] * 0.8, wc[1] * 0.8, wc[2] * 0.8], _out.set(0, -1, 0)); }

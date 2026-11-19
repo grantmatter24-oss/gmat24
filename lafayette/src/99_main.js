@@ -7,13 +7,13 @@ async function boot() {
   await say("Paving the streets…"); buildRoadMaterials(); buildStrips(); buildSports();
   await say("Raising the buildings…"); buildBuildingMaterials(); indexBuildings();
   await say("Planting oaks and grass…"); buildTrees(); buildGrass(); buildFx(); buildLamps(); buildTrials(); buildMap();
-  setupPost(); setTimeOfDay(QS.get("tod") || store.get("laf-tod", "day")); resize(); window.addEventListener("resize", resize);
+  setupPost(); setTier(QS.has("test") ? +(QS.get("tier") || 3) : Math.min(Q.cap, 2)); setTimeOfDay(QS.get("tod") || store.get("laf-tod", "day")); resize(); window.addEventListener("resize", resize);
   buildMenu(); mpInit(); $("load").style.display = "none";
   if (QS.has("cam")) { const cp = QS.get("cam").split(",").map(Number); camera.position.set(cp[0], H(cp[0], cp[2]) + cp[1], cp[2]); camera.rotation.order = "YXZ"; camera.rotation.set(-cp[4] * DEG, cp[3] + Math.PI, 0); GAME.mode = "free"; }
   else if (QS.has("auto")) { const a = QS.get("auto").split(","); if (VEHICLES[a[0]]) GAME.type = a[0]; const s = SPAWNS[+a[1] || 0], [x, z] = ll2xz(s[1], s[2]); startPlay(snapToRoad(x, z, !!s[3])); if (a[2]) { const T = TRIALS[+a[2]]; if (T) startTrial(T); } }
   else openMenu();
   if (QS.has("orbit")) { const o = QS.get("orbit").split(",").map(Number); GAME.cam.orbit = o[0] || 0; GAME.cam.orbitP = o[1] || 0; GAME.cam.dist = o[2] || 1; GAME.cam.orbitT = 1e9; }
-  if (QS.has("test")) { camera.updateMatrixWorld(); if (GAME.v) updateCamera(1, true); uBldFar.value = 900; for (let i = 0; i < 40; i++) updateRoads(1); updateBuildings(1, true); window.__K = K; window.__G = GAME; window.__cam = camera; window.__dbg = { H, ground, deckAt, hiAt, hitTrees, hitBuildings, DECKS, TRIALS }; window.__sel = k => { selectVehicle(k, true); const s0 = SPAWNS[0], [x, z] = ll2xz(s0[1], s0[2]), sn = snapToRoad(x, z, false); placeVehicle(GAME.v, sn.x, sn.z, sn.yaw); };
+  if (QS.has("test")) { camera.updateMatrixWorld(); if (GAME.v) updateCamera(1, true); for (let i = 0; i < 40; i++) updateRoads(1); updateBuildings(1, true); window.__K = K; window.__G = GAME; window.__cam = camera; window.__dbg = { H, ground, deckAt, hiAt, hitTrees, hitBuildings, DECKS, TRIALS }; window.__sel = k => { selectVehicle(k, true); const s0 = SPAWNS[0], [x, z] = ll2xz(s0[1], s0[2]), sn = snapToRoad(x, z, false); placeVehicle(GAME.v, sn.x, sn.z, sn.yaw); };
     // physics without drawing, for checks: hold these inputs for `sec` seconds and report where the machine went
     // a crude autopilot that follows a timed route, to prove the route can be ridden end to end
     window.__auto = (ti, sec, vmax) => { const T = TRIALS[ti], v = GAME.v, P = T.pts, res = []; startTrial(T); let i = 0, resets = 0, maxAir = 0, t = 0, minC = 9, maxSp = 0;
@@ -28,7 +28,7 @@ async function boot() {
       syncVehicle(v, 1 / 60, 0); updateCamera(1, true); camera.updateMatrixWorld(); for (let i = 0; i < 40; i++) updateRoads(1); updateBuildings(1, true); return out; }; }
   let last = performance.now(), frames = 0;
   const frame = now => {
-    requestAnimationFrame(frame); const dt = QS.has("test") ? 1 / 30 : Math.min(0.05, (now - last) / 1000); last = now; GAME.time += dt; const time = GAME.time, v = GAME.v;
+    requestAnimationFrame(frame); const raw = (now - last) / 1000, dt = QS.has("test") ? 1 / 30 : Math.min(0.05, raw); last = now; if (!QS.has("test")) perfTick(raw); GAME.time += dt; const time = GAME.time, v = GAME.v;
     if (GAME.mode === "play" && !GAME.paused) {
       readInput(dt); stepVehicle(v, input, dt);
       if (v.S.four) { v.roofT = v.upright < 0.25 && v.speed < 1.5 ? (v.roofT || 0) + dt : 0; if (v.roofT > 2.5) { v.roofT = 0; resetVehicle(); toast("Back on your wheels", 1.5); } }   // a car on its roof is set back on the road
@@ -39,6 +39,7 @@ async function boot() {
     }
     mpSend(dt); updateRemotes(dt, time); camera.updateMatrixWorld();
     updateSky(v && GAME.mode !== "menu" && GAME.mode !== "free" ? v.model.group.position : camera.position, time); updateTerrain(); updateRoads(dt); updateBuildings(dt); updateTrees(dt); updateGrass(v ? v.model.group.position : null); updateLamps(); updateFx(dt); updateAudio(dt); updateHud(dt);
+    if (frames % PERF.sh === 0) renderer.shadowMap.needsUpdate = true;
     renderFrame(); frames++; window.__frames = frames;
   };
   requestAnimationFrame(frame); window.__ready = true;

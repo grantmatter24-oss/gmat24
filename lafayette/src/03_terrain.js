@@ -127,10 +127,14 @@ const uTreeNear = { value: 900 }, uBldFar = { value: 2600 };
 function buildTerrain() {
   TX.noise = noiseTexture(); const maxT = renderer.capabilities.maxTextureSize;
   TX.sat = imageTexture(SATIMG, true); TX.satMid = imageTexture(SATMIDIMG, true); TX.satFar = imageTexture(SATFARIMG, true);
-  TX.lo = bytesTexture(LO, LOW, LOH); TX.hi = bytesTexture(HI, HIW, HIH); TX.hi.anisotropy = Math.min(8, MAXANISO); TX.midTree = bytesTexture(MIDTREE, MN, MN);
+  TX.lo = bytesTexture(LO, LOW, LOH);
+  if (HIW > maxT) {   // a graphics chip that cannot hold the full ground mask gets it at half size
+    const w = HIW >> 1, h = HIH >> 1, d = new Uint8Array(w * h * 4); for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) for (let c = 0; c < 4; c++) { const k = ((j * 2) * HIW + i * 2) * 4 + c; d[(j * w + i) * 4 + c] = (HI[k] + HI[k + 4] + HI[k + HIW * 4] + HI[k + HIW * 4 + 4]) >> 2; }
+    TX.hi = bytesTexture(d, w, h);
+  } else TX.hi = bytesTexture(HI, HIW, HIH); TX.hi.anisotropy = Math.min(8, MAXANISO); TX.midTree = bytesTexture(MIDTREE, MN, MN);
   TX.height = heightTexture(HM, NX, NZ); TX.normal = normalTexture(HM, NX, NZ, CELL); TX.heightMid = heightTexture(HMD, MN, MN); TX.normalMid = normalTexture(HMD, MN, MN, MC);
-  terrIn = makeTerrainLayer({ inner: true, H: HM, w: NX, h: NZ, cell: CELL, x0: X0, z0: Z0, levels: 4, lodK: 1.55 * Q.far, tHeight: TX.height, tNormal: TX.normal, tSat: TX.sat, tLo: TX.lo, tHi: TX.hi, uTreeNear, uBldFar });
-  terrMid = makeTerrainLayer({ inner: false, H: HMD, w: MN, h: MN, cell: MC, x0: -MR, z0: -MR, levels: 3, lodK: 1.7 * Q.far, hole: new THREE.Vector4(X0, Z0, X1, Z1), tHeight: TX.heightMid, tNormal: TX.normalMid, tSat: TX.satMid, tLo: TX.midTree, uTreeNear, uBldFar });
+  terrIn = makeTerrainLayer({ inner: true, H: HM, w: NX, h: NZ, cell: CELL, x0: X0, z0: Z0, levels: 4, lodK: 1.55, tHeight: TX.height, tNormal: TX.normal, tSat: TX.sat, tLo: TX.lo, tHi: TX.hi, uTreeNear, uBldFar });
+  terrMid = makeTerrainLayer({ inner: false, H: HMD, w: MN, h: MN, cell: MC, x0: -MR, z0: -MR, levels: 3, lodK: 1.7, hole: new THREE.Vector4(X0, Z0, X1, Z1), tHeight: TX.heightMid, tNormal: TX.normalMid, tSat: TX.satMid, tLo: TX.midTree, uTreeNear, uBldFar });
   // far backdrop: one plain mesh out to the horizon, with a hole where the finer ground is
   const n = FN, pos = new Float32Array(n * n * 3), uv = new Float32Array(n * n * 2), idx = [];
   for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) { const k = j * n + i; pos[k * 3] = -FR + i * FC; pos[k * 3 + 1] = HFR[k]; pos[k * 3 + 2] = -FR + j * FC; uv[k * 2] = i / (n - 1); uv[k * 2 + 1] = j / (n - 1); }

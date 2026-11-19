@@ -104,6 +104,15 @@ function buildRoadTile(tile) {
         prev = base;
       }
     }
+    if (!far && !bridge && kind >= 2 && kind <= 4) for (const sd of [1, -1]) {   // kerb and sidewalk along the main streets
+      const b = B.concrete; let prev = -1;
+      for (let i = i0; i <= i1; i++) {
+        if (nearJunction(st.X[i], st.Z[i])) { prev = -1; continue; } const base = b.v;
+        for (const [l, dy] of [[hw + 0.05, 0.02], [hw + 0.05, 0.15], [hw + 1.85, 0.15]]) { const x = st.X[i] + st.LX[i] * l * sd, z = st.Z[i] + st.LZ[i] * l * sd; b.vert(x, H(x, z) + dy, z, 0, 1, 0, l / 1.5, st.S[i] / 1.5, 0.93, 0.92, 0.90); }
+        if (prev >= 0) { if (sd > 0) { b.quad(prev + 1, prev, base + 1, base); b.quad(prev + 2, prev + 1, base + 2, base + 1); } else { b.quad(prev, prev + 1, base, base + 1); b.quad(prev + 1, prev + 2, base + 1, base + 2); } }
+        prev = base;
+      }
+    }
     // paint
     const plan = far || bridge && kind > 4 ? null : paintPlan(kind, !!(st.flag & 1), st.w);
     if (plan) for (const [off, yel, dash] of plan) {
@@ -162,7 +171,7 @@ function buildRoadTile(tile) {
 let roadCheck = 0;
 function updateRoads(dt) {
   roadCheck -= dt; if (roadCheck > 0) return; roadCheck = 0.12;
-  const R = 620 * Q.far, cx = camera.position.x, cz = camera.position.z; let built = 0;
+  const R = 560, cx = camera.position.x, cz = camera.position.z; let built = 0;
   for (let tx = Math.floor((cx - R) / RT); tx <= Math.floor((cx + R) / RT); tx++) for (let tz = Math.floor((cz - R) / RT); tz <= Math.floor((cz + R) / RT); tz++) {
     const t = roadTiles.get(tx * 4096 + tz); if (!t) continue; const d = Math.hypot((tx + 0.5) * RT - cx, (tz + 0.5) * RT - cz);
     if (d < R && !t.group && built < (QS.has("test") ? 99 : 2)) { t.group = buildRoadTile(t); t.tx = tx; t.tz = tz; scene.add(t.group); built++; }
@@ -175,7 +184,7 @@ function buildSports() {
   for (let s = 0; s < V.sKind.length; s++) {
     const k = V.sKind[s]; if (k === 1 || k === 2) continue; const a = V.sStart[s], n = V.sStart[s + 1] - a, pts = [];
     for (let i = 0; i < n; i++) pts.push(new THREE.Vector2(V.sP[(a + i) * 2], V.sP[(a + i) * 2 + 1]));
-    const tris = THREE.ShapeUtils.triangulateShape(pts, []), base = b.v, c = k === 3 ? [0.36, 0.12, 0.085] : [0.075, 0.17, 0.21];
+    const tris = THREE.ShapeUtils.triangulateShape(pts, []), base = b.v, c = k === 3 ? [0.36, 0.12, 0.085] : [0.10, 0.27, 0.20];
     for (const p of pts) b.vert(p.x, H(p.x, p.y) + 0.05, p.y, 0, 1, 0, 0, 0, c[0], c[1], c[2]);
     for (const t of tris) b.tri(base + t[0], base + t[2], base + t[1]), b.tri(base + t[0], base + t[1], base + t[2]);
   }
