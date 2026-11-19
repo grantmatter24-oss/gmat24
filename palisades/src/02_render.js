@@ -312,11 +312,11 @@ const TERRAIN_FRAG_COLOR = `
   float snowAmt = (1.0 - rock) * (1.0 - road);
   #ifndef OUTER
   { // the village plaza: cobblestones swept of snow, with white left in the joints and corners
-    float pd = length(vWp.xz - uPlaza.xy), pk = (1.0 - smoothstep(uPlaza.z - 10.0, uPlaza.z, pd + (nB - 0.5) * 12.0)) * step(1.0, uPlaza.z) * (1.0 - road) * (1.0 - smoothstep(0.2, 0.6, groom));   // the groomed ways through to the lifts stay snow
+    float pd = length(vWp.xz - uPlaza.xy), pk = (1.0 - smoothstep(uPlaza.z - 10.0, uPlaza.z, pd + (nB - 0.5) * 12.0)) * step(1.0, uPlaza.z) * (1.0 - road) * (1.0 - smoothstep(0.2, 0.6, groom) * smoothstep(uPlaza.z * 0.55, uPlaza.z * 0.8, pd));   // between the buildings it is all stone; only the groomed ways at the edge stay snow
     vec2 cq = vWp.xz * 3.4; cq.x += floor(cq.y) * 0.5; vec2 cf = fract(cq) - 0.5, ci = floor(cq); float cfade = clamp(1.0 - fwidth(cq.x) * 1.6, 0.0, 1.0);
     float joint = smoothstep(0.36, 0.47, max(abs(cf.x), abs(cf.y))) * cfade, cn = texture2D(uNoise, (ci + 0.5) / 256.0, -8.0).r;
-    vec3 stone = mix(vec3(0.19, 0.18, 0.17), vec3(0.40, 0.37, 0.33), mix(0.5, cn, cfade)) * (1.0 - 0.5 * joint);
-    float dust = clamp(smoothstep(0.5, 0.8, nC * 0.55 + nA * 0.5 + joint * 0.3) * 0.7 + smoothstep(uPlaza.z - 26.0, uPlaza.z - 6.0, pd) * 0.6, 0.0, 1.0);
+    vec3 stone = mix(vec3(0.15, 0.145, 0.14), vec3(0.36, 0.33, 0.29), mix(0.5, cn, cfade)) * (1.0 - 0.55 * joint) * (0.85 + 0.3 * nB);
+    float dust = clamp(joint * smoothstep(0.55, 0.8, nC) * 0.35 + smoothstep(uPlaza.z - 14.0, uPlaza.z - 2.0, pd) * 0.7, 0.0, 1.0);   // swept clean: only a little snow packed in the joints, drifting in at the plaza's edge
     alb = mix(alb, mix(stone, snow, dust), pk); tRough = mix(tRough, 0.82, pk * (1.0 - dust)); snowAmt *= 1.0 - pk * (1.0 - dust);
     Nw = normalize(mix(Nw, vec3(cf.x * joint * 0.5, 1.0, cf.y * joint * 0.5), pk * 0.8)); }
   { // creeks: dark moving water in a channel through the snow, with wet stones at the edge

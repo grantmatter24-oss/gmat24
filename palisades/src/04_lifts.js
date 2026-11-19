@@ -266,7 +266,12 @@ function initBuildings() {
     for (let i = 0; i < n; i++) {
       const a = P[i], b = P[(i + 1) % n], ex = b[0] - a[0], ez = b[1] - a[1], len = Math.hypot(ex, ez); if (len < 0.05) continue; const nx = -ez / len, nz = ex / len, tx = ex / len, tz = ez / len;
       const quad = (y0, y1, c, o, u0, u1, v0, v1) => { const ax = a[0] + nx * o, az = a[1] + nz * o, bx = b[0] + nx * o, bz = b[1] + nz * o; pos.push(ax, y0, az, bx, y0, bz, bx, y1, bz, ax, y0, az, bx, y1, bz, ax, y1, az); for (let k = 0; k < 6; k++) { nor.push(nx, 0, nz); col.push(...c); } uv.push(u0, v0, u1, v0, u1, v1, u0, v0, u1, v1, u0, v1); };
-      if (chalet) { quad(lo - 1.5, hi + 2.7, STUCCO, 0, per, per + len, lo - hi, 2.7); quad(hi + 2.7, top, wc, 0, per, per + len, 2.7, bd.h); }   // pale ground floor, timber above
+      const op = bd.shopEdges && bd.shopEdges[i];
+      if (op) { // a shop front: the wall is left open for its door and windows, so you see in and walk in
+        const piece = (s0, s1, y0, y1) => { if (s1 - s0 < 0.02 || y1 - y0 < 0.02) return; const ax = a[0] + tx * s0, az = a[1] + tz * s0, bx2 = a[0] + tx * s1, bz2 = a[1] + tz * s1, c = chalet && y1 <= hi + 2.71 ? STUCCO : wc; pos.push(ax, y0, az, bx2, y0, bz2, bx2, y1, bz2, ax, y0, az, bx2, y1, bz2, ax, y1, az); for (let k = 0; k < 6; k++) { nor.push(nx, 0, nz); col.push(...c); } uv.push(per + s0, y0 - hi, per + s1, y0 - hi, per + s1, y1 - hi, per + s0, y0 - hi, per + s1, y1 - hi, per + s0, y1 - hi); };
+        const wallS = (s0, s1, y0, y1) => { if (chalet && y0 < hi + 2.7 && y1 > hi + 2.7) { piece(s0, s1, y0, hi + 2.7); piece(s0, s1, hi + 2.7, y1); } else piece(s0, s1, y0, y1); };
+        wallS(0, op.s0, lo - 1.5, top); wallS(op.s1, len, lo - 1.5, top); wallS(op.s0, op.s1, op.yT, top); wallS(op.s0, op.s1, lo - 1.5, op.yF);
+      } else if (chalet) { quad(lo - 1.5, hi + 2.7, STUCCO, 0, per, per + len, lo - hi, 2.7); quad(hi + 2.7, top, wc, 0, per, per + len, 2.7, bd.h); }   // pale ground floor, timber above
       else quad(lo - 1.5, top, wc, 0, per, per + len, lo - hi, bd.h);
       const mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2, sgn = inPoly(P, mx + nx * 0.4, mz + nz * 0.4) ? -1 : 1, ox = nx * sgn, oz = nz * sgn, along = !gable || Math.abs(tx * bx.ux + tz * bx.uz) > 0.7;
       if (lodge && !gc && len >= 7) { const nB = Math.max(1, Math.floor((len - 1.6) / 4.3)), sp = len / nB;   // the hotel floors: a private balcony for every room, each with its glass door, timber rail and posts
@@ -333,6 +338,7 @@ function initBuildings() {
 }
 function inPoly(P, x, z) { let c = false; for (let i = 0, j = P.length - 1; i < P.length; j = i++) if ((P[i][1] > z) !== (P[j][1] > z) && x < (P[j][0] - P[i][0]) * (z - P[i][1]) / (P[j][1] - P[i][1]) + P[i][0]) c = !c; return c; }
 function buildingAt(x, z) {
+  for (const s of SHOPS) if (shopInside(s, x, z)) return null;   // a shop's room and doorway are open space inside its building
   const gx = Math.floor(x / 60), gz = Math.floor(z / 60);
   for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { const l = BLD_GRID.get((gx + a) + "," + (gz + b)); if (l) for (const bd of l) if (inPoly(bd.p, x, z)) return bd; }
   return null;
