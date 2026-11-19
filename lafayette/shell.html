@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Lafayette</title>
+<style>
+  :root { --ink: #f3f1ea; --dim: #b9b7ad; --panel: rgba(16, 19, 17, .72); --line: rgba(255, 255, 255, .13); --hot: #ff5a3c; --ok: #41e08a; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0c0e0c; color: var(--ink); font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
+  #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  [hidden] { display: none !important; }
+  button, select, input { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  #load { position: fixed; inset: 0; display: grid; place-items: center; background: #0c0e0c; z-index: 50; text-align: center; }
+  #load h1 { font-size: 44px; letter-spacing: .32em; font-weight: 300; margin: 0 0 14px .32em; }
+  #loadMsg { color: var(--dim); font-size: 14px; letter-spacing: .06em; }
+  /* HUD */
+  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+  #speedo { position: absolute; right: 26px; bottom: 22px; text-align: right; text-shadow: 0 1px 10px rgba(0, 0, 0, .7); }
+  #speed { font-size: 76px; font-weight: 200; line-height: .9; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+  #unit { font-size: 13px; letter-spacing: .2em; text-transform: uppercase; color: var(--dim); margin-left: 6px; }
+  #rpm { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 8px; }
+  #rpmTrack { width: 190px; height: 4px; background: rgba(255, 255, 255, .2); border-radius: 2px; overflow: hidden; }
+  #rpmBar { height: 100%; width: 0; background: linear-gradient(90deg, #f3f1ea 70%, var(--hot)); }
+  #gear { font-size: 22px; font-weight: 600; min-width: 18px; text-align: center; }
+  #where { position: absolute; left: 24px; bottom: 216px; text-shadow: 0 1px 8px rgba(0, 0, 0, .8); }
+  #street { font-size: 17px; font-weight: 600; }
+  #compass { font-size: 12px; letter-spacing: .12em; color: var(--dim); margin-top: 2px; }
+  #mini { position: absolute; left: 22px; bottom: 22px; width: 184px; height: 184px; border-radius: 50%; border: 1px solid var(--line); box-shadow: 0 6px 26px rgba(0, 0, 0, .45); }
+  #trial { position: absolute; top: 18px; left: 50%; transform: translateX(-50%); background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 22px; text-align: center; backdrop-filter: blur(8px); }
+  #trialName { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+  #trialTime { font-size: 34px; font-weight: 300; font-variant-numeric: tabular-nums; }
+  #trialCp { font-size: 12px; color: var(--dim); }
+  #toast { position: absolute; left: 50%; top: 118px; transform: translateX(-50%); background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 9px 20px; font-size: 14px; opacity: 0; transition: opacity .25s; backdrop-filter: blur(8px); max-width: 80vw; text-align: center; }
+  #toast.on { opacity: 1; }
+  #edge { position: absolute; left: 50%; bottom: 120px; transform: translateX(-50%); background: rgba(160, 40, 20, .8); border-radius: 8px; padding: 8px 16px; font-size: 14px; }
+  #keys { position: absolute; right: 26px; top: 18px; font-size: 11.5px; color: var(--dim); text-align: right; line-height: 1.7; text-shadow: 0 1px 6px rgba(0, 0, 0, .9); }
+  #keys b { color: var(--ink); font-weight: 600; }
+  #riders { position: absolute; left: 22px; top: 18px; font-size: 12.5px; pointer-events: auto; max-width: 300px; text-shadow: 0 1px 6px rgba(0, 0, 0, .9); }
+  .r { display: flex; align-items: center; gap: 7px; margin-top: 4px; } .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; } .where { color: var(--dim); } .mphead { color: var(--dim); }
+  .join { margin-left: auto; background: rgba(255, 255, 255, .14); border: 1px solid var(--line); border-radius: 6px; padding: 2px 9px; font-size: 12px; }
+  /* menu */
+  #menu { position: fixed; inset: 0; z-index: 20; display: flex; align-items: stretch; background: linear-gradient(90deg, rgba(8, 10, 9, .88) 0, rgba(8, 10, 9, .72) 520px, rgba(8, 10, 9, 0) 900px); }
+  #menuIn { width: min(560px, 100vw); padding: 34px 38px 26px; overflow-y: auto; display: flex; flex-direction: column; gap: 18px; }
+  #menu h1 { font-size: 40px; letter-spacing: .3em; font-weight: 300; margin: 0; }
+  #menu .sub { color: var(--dim); font-size: 13px; margin-top: -12px; line-height: 1.5; }
+  .lab { font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: var(--dim); margin-bottom: 7px; }
+  #vehs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .veh { position: relative; text-align: left; background: rgba(255, 255, 255, .06); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px 10px 36px; }
+  .veh b { display: block; font-size: 15px; font-weight: 600; } .veh span { font-size: 12px; color: var(--dim); }
+  .veh kbd { position: absolute; left: 11px; top: 12px; font: 600 11px ui-monospace, monospace; color: var(--dim); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+  .veh.on, .seg button.on { background: rgba(255, 255, 255, .92); color: #101310; border-color: #fff; } .veh.on span, .veh.on kbd { color: #4a4f48; border-color: rgba(0, 0, 0, .25); }
+  .seg { display: flex; gap: 6px; flex-wrap: wrap; } .seg button { background: rgba(255, 255, 255, .06); border: 1px solid var(--line); border-radius: 8px; padding: 7px 14px; font-size: 13px; }
+  .row { display: flex; gap: 14px; flex-wrap: wrap; } .row > div { flex: 1; min-width: 150px; }
+  select, input[type=text] { width: 100%; background: rgba(255, 255, 255, .06); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 13px; } select option { color: #111; }
+  #go { background: var(--hot); border: 0; border-radius: 10px; padding: 13px 20px; font-size: 16px; font-weight: 700; letter-spacing: .08em; color: #fff; flex: 1; }
+  #resume { background: rgba(255, 255, 255, .1); border: 1px solid var(--line); border-radius: 10px; padding: 13px 20px; font-size: 15px; }
+  #trials { display: grid; gap: 6px; }
+  .trial { text-align: left; background: rgba(255, 255, 255, .05); border: 1px solid var(--line); border-radius: 9px; padding: 8px 12px; display: grid; grid-template-columns: 1fr auto; column-gap: 10px; }
+  .trial b { font-size: 14px; font-weight: 600; } .trial span { font-size: 12px; color: var(--dim); text-align: right; } .trial i { grid-column: 1 / 3; font-style: normal; font-size: 11.5px; color: var(--dim); }
+  .trial:hover, .veh:hover, .seg button:hover { border-color: rgba(255, 255, 255, .45); }
+  #mpAuth, #menuRiders { font-size: 12.5px; color: var(--dim); } .gbtn { background: #fff; color: #111; border: 0; border-radius: 6px; padding: 5px 10px; font-size: 12.5px; font-weight: 600; } .gbtn.out { background: rgba(255, 255, 255, .14); color: var(--ink); }
+  #help { font-size: 12px; color: var(--dim); line-height: 1.75; } #help b { color: var(--ink); font-weight: 600; }
+  #credit { font-size: 10.5px; color: #8a887f; line-height: 1.5; }
+  /* map */
+  #map { position: fixed; inset: 0; z-index: 30; background: rgba(8, 10, 9, .82); display: grid; place-items: center; }
+  #mapC { max-width: 94vw; max-height: 86vh; border-radius: 10px; border: 1px solid var(--line); cursor: crosshair; }
+  #mapTop { position: absolute; top: 14px; left: 0; right: 0; text-align: center; font-size: 13px; color: var(--dim); } #mapClose { margin-left: 12px; background: rgba(255, 255, 255, .12); border: 1px solid var(--line); border-radius: 6px; padding: 3px 10px; font-size: 12px; }
+  @media (max-width: 700px) { #keys { display: none; } #speed { font-size: 54px; } #mini { width: 130px; height: 130px; } #where { bottom: 160px; } }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="load"><div><h1>LAFAYETTE</h1><div id="loadMsg">Loading…</div></div></div>
+<div id="hud" hidden>
+  <div id="riders"></div>
+  <div id="keys"><b>W A S D</b> or arrows drive · <b>Space</b> rear brake / handbrake<br><b>Shift</b> lean back · <b>Ctrl</b> lean forward · <b>R</b> reset<br><b>C</b> view · <b>M</b> map · <b>T</b> time of day · <b>H</b> lights · <b>1–5</b> machine · <b>Esc</b> menu</div>
+  <div id="trial" hidden><div id="trialName"></div><div id="trialTime">0.00</div><div id="trialCp"></div></div>
+  <div id="toast"></div>
+  <div id="edge" hidden>Edge of the map — turn back</div>
+  <div id="where"><div id="street"></div><div id="compass"></div></div>
+  <canvas id="mini" width="184" height="184"></canvas>
+  <div id="speedo"><span id="speed">0</span><span id="unit">mph</span><div id="rpm"><div id="rpmTrack"><div id="rpmBar"></div></div><div id="gear">1</div></div></div>
+</div>
+<div id="menu" hidden><div id="menuIn">
+  <h1>LAFAYETTE</h1>
+  <div class="sub">Lafayette, California at full scale: every street, trail and building where the survey puts it. No traffic, no one else unless you bring them.</div>
+  <div><div class="lab">Machine</div><div id="vehs"></div></div>
+  <div class="row">
+    <div><div class="lab">Time of day</div><div class="seg" id="tods"></div></div>
+    <div><div class="lab">Start at</div><select id="spawn"></select></div>
+  </div>
+  <div style="display:flex;gap:10px"><button id="go">RIDE</button><button id="resume" hidden>Resume</button></div>
+  <div><div class="lab">Timed routes</div><div id="trials"></div></div>
+  <div class="row">
+    <div><div class="lab">Your name</div><input type="text" id="nameIn" maxlength="20" placeholder="Shown to other riders"></div>
+    <div><div class="lab">Graphics</div><div class="seg"><button data-q="low">Low</button><button data-q="med">Medium</button><button data-q="high">High</button></div></div>
+  </div>
+  <div class="seg"><button id="unitBtn">Miles</button><button id="sndBtn">Sound on</button></div>
+  <div><div class="lab">Riding together</div><div id="mpAuth"></div><div id="menuRiders"></div></div>
+  <div id="help"><b>W A S D</b> or arrow keys: throttle, brake, steer (hold brake at a stop to reverse the car or quad). <b>Space</b>: rear brake or handbrake. <b>Shift / Ctrl</b>: lean back / forward for wheelies and in the air. <b>R</b>: back on your wheels. <b>C</b>: rider's-eye view. <b>M</b>: map, click to go there. <b>T</b>: time of day. <b>H</b>: lights. Drag the mouse to look around, wheel to zoom. Ride through a red arch to start its timed route.</div>
+  <div id="credit">Elevation: USGS 3DEP lidar. Streets, buildings, water: © OpenStreetMap contributors, via Overture Maps. Ground colour and tree cover: Copernicus Sentinel-2.</div>
+</div></div>
+<div id="map" hidden><div id="mapTop">Click anywhere to go there<button id="mapClose">Close (M)</button></div><canvas id="mapC"></canvas></div>
+<script type="application/json" id="world">/*WORLD*/</script>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
+<script type="module">
+/*CODE*/
+</script>
+</body>
+</html>
