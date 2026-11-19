@@ -106,19 +106,27 @@ function buildDecks() {
     }
   }
 }
-/* Height of the highest deck at (x, z) that something at height yRef could be standing on, or -Infinity. */
-let deckRunOn = false;
+let deckRunOn = false;   // true when the height returned is only a run-on easing a deck into the road
+const _dk = { y: new Float64Array(8), w: new Float64Array(8), r: new Uint8Array(8) };
+/* Height of the deck surface at (x, z) that something at height yRef could be standing on, or -Infinity.
+   Decks that overlap in plan (a carriageway and its slip road, two halves of a viaduct) are blended by how far inside each one
+   the point is, so crossing from one to the other is never a step. */
 function deckAt(x, z, yRef) {
-  deckRunOn = false; const l = deckHash.get(Math.floor(x / DH) * 4096 + Math.floor(z / DH)); if (!l) return -Infinity; let best = -Infinity;
-  for (let q = 0; q < l.length; q += 2) {
-    const d = DECKS[l[q]], i = l[q + 1] * 3, P = d.P, ax = P[i], az = P[i + 2], bx = P[i + 3], bz = P[i + 5], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz;
-    const t = clamp(((x - ax) * dx + (z - az) * dz) / L2, 0, 1), px = ax + dx * t - x, pz = az + dz * t - z; if (px * px + pz * pz > d.hw * d.hw) continue;
-    const y = P[i + 1] + (P[i + 4] - P[i + 1]) * t; if (y <= yRef + 1.3 && y > best) { best = y; deckRunOn = l[q + 1] === 0 || l[q + 1] === d.n - 2; }
+  deckRunOn = false; const l = deckHash.get(Math.floor(x / DH) * 4096 + Math.floor(z / DH)); if (!l) return -Infinity; let n = 0, top = -Infinity;
+  for (let q = 0; q < l.length && n < 8; q += 2) {
+    const d = DECKS[l[q]], s = l[q + 1], i = s * 3, P = d.P, ax = P[i], az = P[i + 2], bx = P[i + 3], bz = P[i + 5], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz;
+    const t = clamp(((x - ax) * dx + (z - az) * dz) / L2, 0, 1), px = ax + dx * t - x, pz = az + dz * t - z, d2 = px * px + pz * pz; if (d2 > d.hw * d.hw) continue;
+    const y = P[i + 1] + (P[i + 4] - P[i + 1]) * t; if (y > yRef + 1.3) continue;
+    const run = s === 0 || s === d.n - 2; _dk.y[n] = y; _dk.r[n] = run ? 1 : 0; _dk.w[n] = Math.max(0.02, clamp((d.hw - Math.sqrt(d2)) / 2.5, 0, 1) * (run ? smooth(s === 0 ? t : 1 - t) : 1)); if (y > top) top = y; n++;
   }
-  return best;
+  if (!n) return -Infinity; let sw = 0, sy = 0, real = false, h = 0, hk = false;
+  for (let k = 0; k < n; k++) { if (_dk.y[k] < top - 1.6) continue; let y = _dk.y[k], w = _dk.w[k];
+    if (_dk.r[k]) { if (!hk) { h = H(x, z); hk = true; } y = h + (y - h) * Math.min(1, w * 1.02); w = Math.max(w, 0.05); } else real = true;
+    sw += w; sy += w * y; }
+  deckRunOn = !real; return sy / sw;
 }
 /* What the wheels are on: the higher of the terrain and any deck within reach from below. */
-function ground(x, z, yRef = 1e9) { const h = H(x, z), d = deckAt(x, z, yRef); return d > h || (deckRunOn && d > h - 2.5) ? d : h; }
+function ground(x, z, yRef = 1e9) { const h = H(x, z), d = deckAt(x, z, yRef); if (deckRunOn) return d; return d > h ? d : h; }
 const SURF = { ASPHALT: 0, DIRT: 1, GRASS: 2, WATER: 3 };
 function surfaceAt(x, z, y) {
   if (deckAt(x, z, y + 0.5) > H(x, z) + 0.5) return SURF.ASPHALT;

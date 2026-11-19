@@ -7,6 +7,6 @@
  {"name": "Mt. Diablo Boulevard Sprint", "net": "road", "names": ["Mount Diablo Boulevard"], "blurb": "Downtown Lafayette end to end.", "veh": "Car", "via": [[37.89038, -122.1541], [37.8937, -122.101]]},
  {"name": "Happy Valley Climb", "net": "road", "names": ["Happy Valley Road"], "blurb": "From downtown up the valley under the oaks.", "veh": "Car or dirt bike", "via": [[37.89109, -122.12553], [37.90587, -122.15407]]},
  {"name": "Deer Hill to Reliez Valley", "net": "road", "names": ["Deer Hill Road", "Pleasant Hill Road", "Reliez Valley Road"], "blurb": "Along the north side of the freeway, then up Reliez Valley.", "veh": "Car", "via": [[37.89408, -122.12637], [37.90223, -122.09793], [37.9098, -122.09924], [37.92268, -122.10997]]},
- {"name": "Highway 24 Eastbound", "net": "road", "names": [], "motorway": true, "blurb": "Flat out from Acalanes Road to the 680 interchange.", "veh": "Car", "via": [[37.8858, -122.156], [37.896, -122.0745]]},
+ {"name": "Highway 24 Eastbound", "net": "road", "names": [], "motorway": true, "blurb": "Flat out from Acalanes Road, over the downtown viaducts, to the Pleasant Hill Road end of town.", "veh": "Car", "via": [[37.8858, -122.156], [37.8985, -122.08]]},
  {"name": "Lafayette-Moraga Trail", "net": "trail", "names": ["Lafayette-Moraga Trail"], "blurb": "The old railway line, now a paved path, from Olympic Boulevard south along St. Mary's Road.", "veh": "Scooter", "via": [[37.88613, -122.09329], [37.89094, -122.11029], [37.8705, -122.1215]]}
 ]

@@ -109,6 +109,29 @@ for f in segs:
         for a, c in conn: node_arms[c].append(kind)
 print("road pieces", len(pieces), "bridges", sum(q["bridge"] for q in pieces), "names", len(names))
 
+# Bridges the map does not flag. The survey has every bridge deck removed, so where a main road crosses a street or a creek
+# without a bridge tag its centreline drops into the gap below. Any short, deep notch in a main road's profile is a bridge: split
+# the road there and carry it across on a deck.
+split = []; implied = 0
+for q in pieces:
+    if q["kind"] > 4 or q["bridge"]: split.append(q); continue
+    P = q["P"]; R, s = resample(P, 2.0)
+    if len(R) < 12 or not ((R[:, 0] > X0) & (R[:, 0] < X1) & (R[:, 1] > Z0) & (R[:, 1] < Z1)).all(): split.append(q); continue
+    h = bil(H, X0, Z0, CELL, R[:, 0], R[:, 1]); dip = ndimage.grey_closing(h, size=71, mode="nearest") - h
+    m = ndimage.binary_dilation(dip > 2.2, iterations=5); lab, n = ndimage.label(m)
+    if n == 0: split.append(q); continue
+    d = np.hypot(*(P[1:] - P[:-1]).T); cum = np.concatenate([[0], np.cumsum(d)]); L = cum[-1]; cuts = []
+    for k in range(1, n + 1):
+        ii = np.where(lab == k)[0]; a0, b0 = s[ii[0]], s[ii[-1]]
+        if 8 <= b0 - a0 <= 170 and a0 > 6 and b0 < L - 6: cuts.append((a0 / L, b0 / L))
+    if not cuts: split.append(q); continue
+    pos = 0.0
+    for f0, f1 in cuts:
+        if f0 > pos + 1e-4: split.append(dict(q, P=cut(P, cum, pos, f0)))
+        split.append(dict(q, P=cut(P, cum, f0, f1), bridge=True, level=max(q["level"], 1))); implied += 1; pos = f1
+    if pos < 1 - 1e-4: split.append(dict(q, P=cut(P, cum, pos, 1.0)))
+pieces = split; print("bridges implied by the survey", implied)
+
 # road surface profile: the lidar along the centreline, smoothed, then stamped into the height grid so every street is graded flat
 # across its width the way the real one is
 SIG = {0: 14, 1: 10, 2: 9, 3: 9, 4: 8, 5: 7, 6: 5, 7: 4, 8: 4, 9: 5, 12: 6, 14: 14}
@@ -236,7 +259,10 @@ BK = {"house": 0, "detached": 0, "residential": 0, "semidetached_house": 0, "gar
       "supermarket": 2, "apartments": 3, "school": 4, "library": 4, "fire_station": 4, "civic": 4, "church": 5, "parking": 7, "train_station": 8, "hospital": 2}
 BS = {"commercial": 2, "education": 4, "religious": 5, "civic": 4, "medical": 2, "transportation": 7, "entertainment": 2, "outbuilding": 1, "industrial": 2, "service": 2}
 b_start = [0]; b_xy = []; b_h = []; b_kind = []; ring_b = []
-nb = 0
+nb = 0; dropped = 0
+# footprints standing in a carriageway are mapping errors (machine-traced roofs over an overpass): leave them out
+from shapely.geometry import LineString
+street_lines = [LineString(q["P"]).buffer(max(0.5, q["w"] / 2 - 1.2), cap_style=2) for q in pieces if q["kind"] <= 5 and len(q["P"]) >= 2]; street_tree = STRtree(street_lines)
 for f in load("building"):
     p = f["properties"]
     if p.get("is_underground"): continue
@@ -258,6 +284,10 @@ for f in load("building"):
             elif area < 45: kind = 1
         if h is None: h = nf * 3.2 if nf else {0: 4.6, 1: 2.8, 2: 6.5, 3: 9.0, 4: 6.0, 5: 9.0, 6: 2.9, 7: 9.0, 8: 7.0}[kind]
         h = float(min(max(h, 2.4), 80.0))
+        if kind not in (6, 7, 8) and inb(cx, cz, 50):
+            try:
+                if len(street_tree.query(Polygon(P).buffer(-0.5), predicate="intersects")): dropped += 1; continue
+            except Exception: pass
         if inb(cx, cz):
             Q = np.round(P[:-1] * 10).astype(np.int64)
             keep = [0] + [i for i in range(1, len(Q)) if (Q[i] != Q[i - 1]).any()]; Q = Q[keep]
@@ -269,7 +299,7 @@ for f in load("building"):
             e = P[1:] - P[:-1]; L = np.hypot(e[:, 0], e[:, 1]); k = int(np.argmax(L)); ang = math.atan2(e[k, 1], e[k, 0]); c, s = math.cos(ang), math.sin(ang)
             u = P[:, 0] * c + P[:, 1] * s; v = -P[:, 0] * s + P[:, 1] * c; uc, vc = (u.min() + u.max()) / 2, (v.min() + v.max()) / 2
             ring_b.append((uc * c - vc * s, uc * s + vc * c, u.max() - u.min(), v.max() - v.min(), ang % math.pi, h))
-print("buildings", nb, "ring buildings", len(ring_b))
+print("buildings", nb, "ring buildings", len(ring_b), "dropped (a street runs through them)", dropped)
 # ---------------------------------------------------------------- water
 w_start = [0]; w_xy = []; w_y = []; w_kind = []
 for f in water:

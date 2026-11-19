@@ -19,7 +19,7 @@ async function boot() {
     window.__auto = (ti, sec, vmax) => { const T = TRIALS[ti], v = GAME.v, P = T.pts, res = []; startTrial(T); let i = 0, resets = 0, maxAir = 0, t = 0, minC = 9, maxSp = 0;
       for (; t < sec; t += 1 / 60) { while (i < P.length - 1 && Math.hypot(P[i][0] - v.p.x, P[i][1] - v.p.z) < 7 + v.speed * 0.55) i++;
         const err = wrap(Math.atan2(P[i][0] - v.p.x, P[i][1] - v.p.z) - v.psi), slow = Math.abs(err) > 0.3; input.steer = clamp(err * 2.4, -1, 1); input.throttle = v.speed < (slow ? vmax * 0.45 : vmax) ? 1 : 0; input.brake = v.speed > (slow ? vmax * 0.6 : vmax * 1.15) ? 0.7 : 0; input.hand = false; input.lean = 0;
-        stepVehicle(v, input, 1 / 60); maxAir = Math.max(maxAir, v.air); maxSp = Math.max(maxSp, v.speed); minC = Math.min(minC, v.p.y - ground(v.p.x, v.p.z, v.p.y));
+        stepVehicle(v, input, 1 / 60); if (v.S.four && v.upright < 0.2 && v.air > 2) { if (res.length < 6) res.push("flipped@" + t.toFixed(0) + "s at " + v.p.x.toFixed(0) + "," + v.p.z.toFixed(0) + " safe " + v.safe.x.toFixed(0) + "," + v.safe.z.toFixed(0)); resets++; resetVehicle(); } maxAir = Math.max(maxAir, v.air); maxSp = Math.max(maxSp, v.speed); minC = Math.min(minC, v.p.y - ground(v.p.x, v.p.z, v.p.y));
         if (v.crash > 3.4 || v.sunk) { resets++; if (res.length < 6) res.push("reset@" + t.toFixed(0) + "s " + (v.sunk ? "sunk" : v.why) + " at " + v.p.x.toFixed(0) + "," + v.p.z.toFixed(0)); resetVehicle(); }
         updateTrial(1 / 60); if (!GAME.trial || GAME.trial.done) break; }
       res.push(T.name + ": " + (GAME.trial && GAME.trial.done ? "FINISHED in " + GAME.trial.t.toFixed(1) + "s" : "NOT finished, cp " + (GAME.trial ? GAME.trial.cp + "/" + GAME.trial.cps.length : "?") + " route point " + i + "/" + P.length + " at " + v.p.x.toFixed(0) + "," + v.p.z.toFixed(0)) + " | resets " + resets + " maxAir " + maxAir.toFixed(1) + "s top " + (maxSp * MPH).toFixed(0) + "mph minClear " + minC.toFixed(2));
@@ -31,6 +31,7 @@ async function boot() {
     requestAnimationFrame(frame); const dt = QS.has("test") ? 1 / 30 : Math.min(0.05, (now - last) / 1000); last = now; GAME.time += dt; const time = GAME.time, v = GAME.v;
     if (GAME.mode === "play" && !GAME.paused) {
       readInput(dt); stepVehicle(v, input, dt);
+      if (v.S.four) { v.roofT = v.upright < 0.25 && v.speed < 1.5 ? (v.roofT || 0) + dt : 0; if (v.roofT > 2.5) { v.roofT = 0; resetVehicle(); toast("Back on your wheels", 1.5); } }   // a car on its roof is set back on the road
       if (v.crash > 3.4) { resetVehicle(); toast("Back on your wheels", 1.5); } else if (v.sunk) { resetVehicle(); toast("Back on dry land", 1.5); }
       updateTrial(dt); syncVehicle(v, dt, time); updateCamera(dt, false);
     } else if (GAME.mode === "menu") {   // a slow circle over town behind the menu
