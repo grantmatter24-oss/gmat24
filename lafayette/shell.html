@@ -34,6 +34,7 @@
   #trialCp { font-size: 12px; color: var(--dim); }
   #toast { position: absolute; left: 50%; top: 118px; transform: translateX(-50%); background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 9px 20px; font-size: 14px; opacity: 0; transition: opacity .25s; backdrop-filter: blur(8px); max-width: 80vw; text-align: center; }
   #toast.on { opacity: 1; }
+  #prompt { position: absolute; left: 50%; bottom: 150px; transform: translateX(-50%); background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 9px 18px; font-size: 15px; text-align: center; backdrop-filter: blur(8px); white-space: pre; }
   #edge { position: absolute; left: 50%; bottom: 120px; transform: translateX(-50%); background: rgba(160, 40, 20, .8); border-radius: 8px; padding: 8px 16px; font-size: 14px; }
   #keys { position: absolute; right: 26px; top: 18px; font-size: 11.5px; color: var(--dim); text-align: right; line-height: 1.7; text-shadow: 0 1px 6px rgba(0, 0, 0, .9); }
   #keys b { color: var(--ink); font-weight: 600; }
@@ -78,6 +79,7 @@
   <div id="keys"><b>W A S D</b> or arrows drive · <b>Space</b> rear brake / handbrake<br><b>Shift</b> lean back · <b>Ctrl</b> lean forward · <b>E</b> get off / on · <b>R</b> reset<br><b>C</b> view · <b>M</b> map · <b>T</b> time of day · <b>H</b> lights · <b>1–5</b> machine · <b>Esc</b> menu</div>
   <div id="trial" hidden><div id="trialName"></div><div id="trialTime">0.00</div><div id="trialCp"></div></div>
   <div id="toast"></div>
+  <div id="prompt" hidden></div>
   <div id="edge" hidden>Edge of the map — turn back</div>
   <div id="where"><div id="street"></div><div id="compass"></div></div>
   <canvas id="mini" width="184" height="184"></canvas>
@@ -99,7 +101,7 @@
   </div>
   <div class="seg"><button id="unitBtn">Miles</button><button id="sndBtn">Sound on</button></div>
   <div><div class="lab">Riding together</div><div id="mpAuth"></div><div id="menuRiders"></div></div>
-  <div id="help"><b>W A S D</b> or arrow keys: throttle, brake, steer (hold brake at a stop to reverse the car or quad). <b>Space</b>: rear brake or handbrake. <b>Shift / Ctrl</b>: lean back / forward for wheelies and in the air. <b>E</b>: get off and walk (Shift runs), E again to get back on; from far away the machine comes to you. In the air, steering swings the bike into a whip: steer back before you land. Throttle with full lock, or the handbrake, drifts the car and quad. <b>R</b>: back on your wheels. <b>C</b>: rider's-eye view. <b>M</b>: map, click to go there. <b>T</b>: time of day. <b>H</b>: lights. Drag the mouse to look around, wheel to zoom. Ride through a red arch to start its timed route.</div>
+  <div id="help"><b>W A S D</b> or arrow keys: throttle, brake, steer (hold brake at a stop to reverse the car or quad). <b>Space</b>: rear brake or handbrake. <b>Shift / Ctrl</b>: lean back / forward for wheelies and in the air. <b>E</b>: get off and walk (Shift runs), E again to get back on; from far away the machine comes to you. On foot, walk up to the door of the Roundup Saloon, First Mile Cycle Works, Safeway, the police station or the Acalanes High gym and press E to go in. In the air, steering swings the bike into a whip: steer back before you land. Throttle with full lock, or the handbrake, drifts the car and quad. <b>R</b>: back on your wheels. <b>C</b>: rider's-eye view. <b>M</b>: map, click to go there. <b>T</b>: time of day. <b>H</b>: lights. Drag the mouse to look around, wheel to zoom. Ride through a red arch to start its timed route.</div>
   <div id="credit">Elevation: USGS 3DEP lidar. Streets, buildings, water: © OpenStreetMap contributors, via Overture Maps. Ground colour and tree cover: Copernicus Sentinel-2.</div>
 </div></div>
 <div id="map" hidden><div id="mapTop">Click anywhere to go there<button id="mapClose">Close (M)</button></div><canvas id="mapC"></canvas></div>

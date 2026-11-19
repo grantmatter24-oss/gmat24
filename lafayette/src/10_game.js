@@ -100,7 +100,7 @@ function resetVehicle(toSafe) {
 }
 /* ---------- camera ---------- */
 const CAMD = { dirt: [4.6, 1.75], car: [7.4, 2.5], quad: [5.2, 1.95], mtb: [4.3, 1.8], scoot: [4.0, 1.85] };
-function snapCamera() { const v = GAME.v, c = GAME.cam; if (FOOT.on) { FOOT.on = false; v.onFoot = false; } syncVehicle(v, 0.016, GAME.time); c.yaw = v.psi; c.orbit = c.orbitP = 0; updateCamera(1, true); }
+function snapCamera() { const v = GAME.v, c = GAME.cam; if (INT.on) leavePlace(true); if (FOOT.on) { FOOT.on = false; v.onFoot = false; } syncVehicle(v, 0.016, GAME.time); c.yaw = v.psi; c.orbit = c.orbitP = 0; updateCamera(1, true); }
 function updateCamera(dt, snap) {
   const v = GAME.v, c = GAME.cam, D = CAMD[v.type], sp = v.speed;
   c.orbitT -= dt; if (c.orbitT < 0 && sp > 1.5) { c.orbit = damp(c.orbit, 0, 2.2, dt); c.orbitP = damp(c.orbitP, 0, 2.2, dt); }
@@ -261,10 +261,17 @@ function updateFoot(dt) {
   const v = GAME.v, R = v.rider, up = K.KeyW || K.ArrowUp, dn = K.KeyS || K.ArrowDown, run = K.ShiftLeft || K.ShiftRight;
   FOOT.yaw += ((K.KeyA || K.ArrowLeft ? 1 : 0) - (K.KeyD || K.ArrowRight ? 1 : 0)) * 2.4 * dt; FOOT.sp = damp(FOOT.sp, up ? (run ? 5.2 : 1.7) : dn ? -1.1 : 0, 7, dt);
   let x = FOOT.p.x + Math.sin(FOOT.yaw) * FOOT.sp * dt, z = FOOT.p.z + Math.cos(FOOT.yaw) * FOOT.sp * dt;
-  for (const fn of [hitBuildings, hitTrees]) { const d = fn(x, z, 0.3, _v.out, FOOT.p.y + 0.3); if (d > 0) { x += _v.out.x * d; z += _v.out.z * d; } }
-  x = clamp(x, X0 + 30, X1 - 30); z = clamp(z, Z0 + 30, Z1 - 30); const gy = ground(x, z, FOOT.p.y + 0.6), run2 = Math.hypot(x - FOOT.p.x, z - FOOT.p.z);
-  if (!(run2 > 1e-4 && (gy - FOOT.p.y) / run2 > 1.5)) { FOOT.p.x = x; FOOT.p.z = z; }   // too steep to walk up
-  FOOT.p.y = damp(FOOT.p.y, ground(FOOT.p.x, FOOT.p.z, FOOT.p.y + 0.6), 18, dt); FOOT.ph += Math.abs(FOOT.sp) * dt * (Math.abs(FOOT.sp) > 2.5 ? 2.0 : 3.5);
+  if (FOOT.room) {   // indoors: the walls and the furniture
+    const r = FOOT.room; x = clamp(x, r.x0 + 0.35, r.x1 - 0.35); z = clamp(z, r.z0 + 0.35, r.z1 - 0.35);
+    for (const q of r.boxes) if (x > q[0] - 0.3 && x < q[1] + 0.3 && z > q[2] - 0.3 && z < q[3] + 0.3) { const a0 = x - (q[0] - 0.3), a1 = (q[1] + 0.3) - x, c0 = z - (q[2] - 0.3), c1 = (q[3] + 0.3) - z, m = Math.min(a0, a1, c0, c1); if (m === a0) x = q[0] - 0.3; else if (m === a1) x = q[1] + 0.3; else if (m === c0) z = q[2] - 0.3; else z = q[3] + 0.3; }
+    FOOT.p.set(x, r.y, z);
+  } else {
+    for (const fn of [hitBuildings, hitTrees, hitCars]) { const d = fn(x, z, 0.3, _v.out, FOOT.p.y + 0.3); if (d > 0) { x += _v.out.x * d; z += _v.out.z * d; } }
+    x = clamp(x, X0 + 30, X1 - 30); z = clamp(z, Z0 + 30, Z1 - 30); const gy = ground(x, z, FOOT.p.y + 0.6), run2 = Math.hypot(x - FOOT.p.x, z - FOOT.p.z);
+    if (!(run2 > 1e-4 && (gy - FOOT.p.y) / run2 > 1.5)) { FOOT.p.x = x; FOOT.p.z = z; }   // too steep to walk up
+    FOOT.p.y = damp(FOOT.p.y, ground(FOOT.p.x, FOOT.p.z, FOOT.p.y + 0.6), 18, dt);
+  }
+  FOOT.ph += Math.abs(FOOT.sp) * dt * (Math.abs(FOOT.sp) > 2.5 ? 2.0 : 3.5);
   // the walk: each foot swings through while the other carries the weight, arms swing against the legs, hips and shoulders counter-rotate
   const k = clamp(Math.abs(FOOT.sp) / 1.7, 0, 1), rk = clamp((Math.abs(FOOT.sp) - 1.7) / 3.5, 0, 1), ph = FOOT.ph, P = POSE, st = (0.34 + 0.44 * rk) * k, dir = FOOT.sp < 0 ? -1 : 1;
   R.root.position.copy(FOOT.p); R.root.quaternion.setFromAxisAngle(_up, FOOT.yaw);
@@ -279,7 +286,7 @@ function updateFoot(dt) {
 function updateFootCamera(dt, snap) {
   const c = GAME.cam; c.yaw += wrap(FOOT.yaw - c.yaw) * (snap ? 1 : 1 - Math.exp(-4 * dt)); if (camera.near !== 0.2) { camera.near = 0.2; camera.updateProjectionMatrix(); }
   const yaw = c.yaw + c.orbit, pitch = clamp(0.2 + c.orbitP, -0.2, 1.3), d = 3.4 * c.dist; _g.b.set(FOOT.p.x, FOOT.p.y + 1.45, FOOT.p.z);
-  _g.a.set(_g.b.x - Math.sin(yaw) * Math.cos(pitch) * d, _g.b.y + 0.35 + Math.sin(pitch) * d, _g.b.z - Math.cos(yaw) * Math.cos(pitch) * d); const gy = ground(_g.a.x, _g.a.z, _g.a.y + 2) + 0.35; if (_g.a.y < gy) _g.a.y = gy;
+  _g.a.set(_g.b.x - Math.sin(yaw) * Math.cos(pitch) * d, _g.b.y + 0.35 + Math.sin(pitch) * d, _g.b.z - Math.cos(yaw) * Math.cos(pitch) * d); if (FOOT.room) { const r = FOOT.room; _g.a.x = clamp(_g.a.x, r.x0 + 0.25, r.x1 - 0.25); _g.a.z = clamp(_g.a.z, r.z0 + 0.25, r.z1 - 0.25); _g.a.y = clamp(_g.a.y, r.y + 0.4, r.y + r.h - 0.25); } else { const gy = ground(_g.a.x, _g.a.z, _g.a.y + 2) + 0.35; if (_g.a.y < gy) _g.a.y = gy; }
   if (snap) c.pos.copy(_g.a); else { c.pos.x = damp(c.pos.x, _g.a.x, 12, dt); c.pos.y = damp(c.pos.y, _g.a.y, 8, dt); c.pos.z = damp(c.pos.z, _g.a.z, 12, dt); }
   camera.position.copy(c.pos); camera.lookAt(_g.b); if (Math.abs(camera.fov - 56) > 0.05) { camera.fov = c.fov = 56; camera.updateProjectionMatrix(); }
 }

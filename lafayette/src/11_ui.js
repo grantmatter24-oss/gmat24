@@ -59,7 +59,7 @@ function buildMenu() {
     if (e.repeat) return; const v = GAME.v;
     if (e.code === "Escape") { if (mapOpen) toggleMap(false); else if (GAME.mode === "play") openMenu(); else if (GAME.v) $("resume").click(); return; }
     if (GAME.mode !== "play") return;
-    if (e.code === "KeyE") { if (FOOT.on) getOn(); else getOff(); return; }
+    if (e.code === "KeyE" || (e.code === "Space" && INT.game)) { if (!placeKey()) { if (FOOT.on) getOn(); else getOff(); } return; }
     if (FOOT.on && e.code !== "KeyM" && e.code !== "KeyT" && e.code !== "KeyU") { if (/^Digit[1-5]$/.test(e.code) || e.code === "KeyR") toast("Press E to get back on first", 1.5); return; }
     if (e.code === "KeyR") resetVehicle(); else if (e.code === "KeyC" || e.code === "KeyV") GAME.cam.fp = !GAME.cam.fp;
     else if (e.code === "KeyM") toggleMap(!mapOpen); else if (e.code === "KeyT") { const o = ["day", "sunset", "night"], k = o[(o.indexOf(todName) + 1) % 3]; setTimeOfDay(k); store.set("laf-tod", k); markMenu(); toast(TOD[k].label, 1.5); }
@@ -92,7 +92,7 @@ function updateHud(dt) {
   if (!v || GAME.mode !== "play") return;
   const sp = (FOOT.on ? Math.abs(FOOT.sp) : v.speed) * (units === "imp" ? MPH : KMH); $("speed").textContent = Math.round(sp); $("unit").textContent = units === "imp" ? "mph" : "km/h";
   if (v.S.rpm) { $("rpmBar").style.width = clamp((v.rpm - v.S.rpm[0]) / (v.S.rpm[1] - v.S.rpm[0]), 0, 1) * 100 + "%"; $("gear").textContent = v.rev ? "R" : v.gear + 1; $("rpm").hidden = false; } else $("rpm").hidden = true;
-  hudT -= dt; if (hudT < 0) { hudT = 0.25; const nm = roadNameAt(v.p.x, v.p.z); $("street").textContent = nm || (v.surf === 2 ? "Off road" : v.surf === 1 ? "Unnamed trail" : ""); const deg = ((180 - v.psi / DEG) % 360 + 360) % 360; $("compass").textContent = COMP[Math.round(deg / 45) % 8] + " · " + Math.round(H(v.p.x, v.p.z) * (units === "imp" ? FT : 1)) + (units === "imp" ? " ft" : " m");
+  hudT -= dt; if (hudT < 0) { hudT = 0.25; if (!FOOT.on) GAME.top = Math.max(GAME.top || 0, v.speed); const nm = INT.on ? INT.v.title : roadNameAt(FOOT.on ? FOOT.p.x : v.p.x, FOOT.on ? FOOT.p.z : v.p.z); $("street").textContent = nm || (v.surf === 2 ? "Off road" : v.surf === 1 ? "Unnamed trail" : ""); const deg = ((180 - v.psi / DEG) % 360 + 360) % 360; $("compass").textContent = COMP[Math.round(deg / 45) % 8] + " · " + Math.round(H(v.p.x, v.p.z) * (units === "imp" ? FT : 1)) + (units === "imp" ? " ft" : " m");
     $("edge").hidden = !(v.edge > 0); }
   const R = GAME.trial, tp = $("trial"); tp.hidden = !R; if (R) { $("trialName").textContent = R.T.name; $("trialTime").textContent = fmtTime(R.t); $("trialCp").textContent = R.done ? "Finished" : R.run ? "Checkpoint " + Math.min(R.cp + 1, R.cps.length) + " of " + R.cps.length : "Cross the start line"; }
   // minimap: heading up, redrawn twenty times a second

@@ -4,11 +4,12 @@ const TILE_W = 8;   // wall atlas columns: 0 window, 1 lit window, 2 plain wall,
 function buildBuildingMaterials() {
   const S = 256, W = S * TILE_W;
   const draw = (emit) => (g) => {
-    g.fillStyle = emit ? "#000" : "#d9d9d9"; g.fillRect(0, 0, W, S);
+    g.fillStyle = emit === "rm" ? "rgb(0,226,0)" : emit ? "#000" : "#d9d9d9"; g.fillRect(0, 0, W, S);
     const r = rng(21);
     if (!emit) { for (let i = 0; i < 9000; i++) { const v = 205 + Math.floor(r() * 30); g.fillStyle = `rgb(${v},${v},${v})`; g.fillRect(r() * W, r() * S, 2, 2); }
       g.strokeStyle = "rgba(0,0,0,0.07)"; g.lineWidth = 1; for (let y = 10; y < S; y += 13) { g.beginPath(); g.moveTo(0, y); g.lineTo(S * 5, y); g.stroke(); } }
     const glass = (x, y, w, h, lit, bars) => {
+      if (emit === "rm") { g.fillStyle = "rgb(0,26,0)"; g.fillRect(x, y, w, h); return; }   // roughness: glass is smooth, so windows mirror the sky
       if (emit) { if (lit) { const gr = g.createLinearGradient(x, y, x, y + h); gr.addColorStop(0, "#ffd9a0"); gr.addColorStop(1, "#e8a860"); g.fillStyle = gr; g.fillRect(x, y, w, h); g.fillStyle = "rgba(0,0,0,0.45)"; g.fillRect(x, y, w, h * 0.18); } return; }
       g.fillStyle = "#f4f4f2"; g.fillRect(x - 5, y - 5, w + 10, h + 10);
       const gr = g.createLinearGradient(x, y, x + w, y + h); gr.addColorStop(0, lit ? "#3a3f48" : "#2a323c"); gr.addColorStop(0.5, "#18202a"); gr.addColorStop(1, "#303a46"); g.fillStyle = gr; g.fillRect(x, y, w, h);
@@ -20,10 +21,10 @@ function buildBuildingMaterials() {
     if (!emit) { g.fillStyle = "#f4f4f2"; g.fillRect(3 * S + 86, 36, 84, 220); g.fillStyle = "#5a4636"; g.fillRect(3 * S + 92, 42, 72, 214); g.fillStyle = "rgba(0,0,0,0.25)"; g.fillRect(3 * S + 100, 54, 56, 80); g.fillRect(3 * S + 100, 146, 56, 96); g.fillStyle = "#c9b27a"; g.fillRect(3 * S + 152, 150, 6, 12);
       g.fillStyle = "#f4f4f2"; g.fillRect(4 * S + 6, 58, 244, 198); g.fillStyle = "#e6e4de"; g.fillRect(4 * S + 12, 64, 232, 192); g.strokeStyle = "rgba(0,0,0,0.22)"; g.lineWidth = 2; for (let y = 64; y < 256; y += 38) { g.beginPath(); g.moveTo(4 * S + 12, y); g.lineTo(4 * S + 244, y); g.stroke(); } }
     glass(5 * S + 8, 40, 240, 196, false, 3); glass(6 * S + 6, 60, 244, 118, false, 4); glass(7 * S + 6, 60, 244, 118, true, 4);
-    if (emit) { g.fillStyle = "#3a3020"; g.fillRect(5 * S + 8, 40, 240, 196); }
+    if (emit === true) { g.fillStyle = "#3a3020"; g.fillRect(5 * S + 8, 40, 240, 196); }
   };
-  const mk = (emit) => { const c = document.createElement("canvas"); c.width = W; c.height = S; draw(emit)(c.getContext("2d")); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapT = THREE.RepeatWrapping; t.anisotropy = MAXANISO; return t; };
-  wallMat = new THREE.MeshStandardMaterial({ map: mk(false), emissiveMap: mk(true), emissive: 0xffffff, emissiveIntensity: 0, vertexColors: true, roughness: 0.86 });
+  const mk = (emit) => { const c = document.createElement("canvas"); c.width = W; c.height = S; draw(emit)(c.getContext("2d")); const t = new THREE.CanvasTexture(c); t.colorSpace = emit === "rm" ? THREE.NoColorSpace : THREE.SRGBColorSpace; t.wrapT = THREE.RepeatWrapping; t.anisotropy = MAXANISO; return t; };
+  wallMat = new THREE.MeshStandardMaterial({ map: mk(false), emissiveMap: mk(true), emissive: 0xffffff, emissiveIntensity: 0, vertexColors: true, roughness: 1, roughnessMap: mk("rm") });
   const shingle = canvasTex(256, (g, s) => { speckle(g, s, 150, 40, 26000, 31, 2.2); g.strokeStyle = "rgba(0,0,0,0.33)"; g.lineWidth = 2; for (let y = 0; y < s; y += 16) { g.beginPath(); g.moveTo(0, y + 1); g.lineTo(s, y + 1); g.stroke(); } g.strokeStyle = "rgba(0,0,0,0.16)"; const r = rng(2); for (let y = 0; y < s; y += 16) for (let x = (y / 16 % 2) * 12; x < s; x += 24 + r() * 6) { g.beginPath(); g.moveTo(x, y); g.lineTo(x, y + 16); g.stroke(); } });
   roofMat = new THREE.MeshStandardMaterial({ map: shingle, vertexColors: true, roughness: 0.9 });
 }

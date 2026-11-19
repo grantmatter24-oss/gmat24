@@ -135,7 +135,7 @@ pieces = split; print("bridges implied by the survey", implied)
 # road surface profile: the lidar along the centreline, smoothed, then stamped into the height grid so every street is graded flat
 # across its width the way the real one is
 SIG = {0: 14, 1: 10, 2: 9, 3: 9, 4: 8, 5: 7, 6: 5, 7: 4, 8: 4, 9: 5, 12: 6, 14: 14}
-sx, sz, sh, shw, sbl = [], [], [], [], []
+sx, sz, sh, shw, sbl = [], [], [], [], []; sn = []
 for q in pieces:
     k = q["kind"]
     if k not in SIG or q["bridge"]: continue
@@ -145,7 +145,7 @@ for q in pieces:
     if not m.any(): continue
     h = bil(H, X0, Z0, CELL, R[:, 0], R[:, 1]); h = ndimage.gaussian_filter1d(h, SIG[k] / 2.0, mode="nearest")
     hw = q["w"] / 2; core = hw + (1.5 if k != 9 else 0.3); blend = max(5.0, hw) if k != 9 else 3.5
-    sx.append(R[m, 0]); sz.append(R[m, 1]); sh.append(h[m]); shw.append(np.full(m.sum(), core)); sbl.append(np.full(m.sum(), blend))
+    sn.append(int(m.sum())); sx.append(R[m, 0]); sz.append(R[m, 1]); sh.append(h[m]); shw.append(np.full(m.sum(), core)); sbl.append(np.full(m.sum(), blend))
 sx, sz, sh, shw, sbl = [np.concatenate(a) for a in (sx, sz, sh, shw, sbl)]
 tree = cKDTree(np.stack([sx, sz], 1)); K = 10
 dist, idx = tree.query(np.stack([gx.ravel(), gz.ravel()], 1), k=K, distance_upper_bound=34.0, workers=-1)
@@ -161,6 +161,20 @@ target = (wgt * sh[idx]).sum(1) / wgt.sum(1); B = cov[rows, bi]
 Hn = H.ravel() * (1 - B) + target * B
 print("graded cells", int((B > 0.01).sum()), "max change %.1f m, mean |change| on roads %.2f m" % (float(np.abs(Hn - H.ravel()).max()), float(np.abs(Hn - H.ravel())[B > 0.9].mean())))
 H = Hn.reshape(H.shape); del dist, idx, core, blend, u, cov, wgt, target
+# second pass: read each street's profile back off the graded ground, smooth it along the street, and grade again. Where two
+# grades met in a step, the street now crosses it on a ramp.
+hs = bil(H, X0, Z0, CELL, sx, sz); sh2 = hs.copy(); o = 0
+for n_ in sn:
+    if n_ > 4: sh2[o:o + n_] = ndimage.gaussian_filter1d(hs[o:o + n_], 2.5, mode="nearest")
+    o += n_
+dist, idx = tree.query(np.stack([gx.ravel(), gz.ravel()], 1), k=K, distance_upper_bound=34.0, workers=-1)
+ok = np.isfinite(dist); idx = np.where(ok, idx, 0); core = shw[idx]; blend = sbl[idx]
+u = np.clip((dist - core) / blend, 0, 1); cov = np.where(ok, 1 - u * u * (3 - 2 * u), 0.0)
+wgt = np.where(ok, np.exp(-np.square(np.maximum(dist - core * 0.5, 0) / (core * 0.5 + 1.5))) * (cov > 0), 0.0) + 1e-12
+rows = np.arange(len(dist)); bi = np.where(ok, cov * 1000 - dist, -1e9).argmax(1); hb = sh2[idx][rows, bi]
+wgt = wgt * (np.abs(sh2[idx] - hb[:, None]) < 1.5) + 1e-12
+B = cov[rows, bi]; H = (H.ravel() * (1 - B) + (wgt * sh2[idx]).sum(1) / wgt.sum(1) * B).reshape(H.shape); del dist, idx, core, blend, u, cov, wgt
+print("second grading pass: largest change %.2f m" % float(np.abs(bil(H, X0, Z0, CELL, sx, sz) - hs).max()))
 # seam: the outer 120 m of the playable grid eases onto the coarse surrounding surface so the two meshes share an edge
 edge = np.minimum(np.minimum(gx - X0, X1 - gx), np.minimum(gz - Z0, Z1 - gz)); t = np.clip(edge / 120.0, 0, 1); t = t * t * (3 - 2 * t)
 H = bil(Hmid, -MR, -MR, MC, gx, gz) * (1 - t) + H * t

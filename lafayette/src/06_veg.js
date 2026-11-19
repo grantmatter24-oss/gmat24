@@ -25,7 +25,7 @@ function treeChunk(cx, cz) {
     const h = lerp(S.h[0], S.h[1], r2) * (0.82 + 0.3 * cover), r = h * S.r * (0.85 + 0.3 * r3) + (sp === 3 ? 0.8 : 0), y = H(x, z);
     if (inside && (waterAt(x, z) > -1e8 || deckAt(x, z, 1e9) > -1e8)) continue;   // nothing grows in the water or up through a bridge
     p.set(x, y - 0.25, z); q.setFromAxisAngle(_up, r3 * TAU); s.set(r, h, r); m4.compose(p, q, s);
-    const T = sp === 3 ? C : B, k = 1.1 + 0.36 * hash2(ix, iz, 7), plum = sp === 2 && hash2(ix, iz, 8) < 0.07;
+    const T = sp === 3 ? C : B, k = 0.86 + 0.3 * hash2(ix, iz, 7), plum = sp === 2 && hash2(ix, iz, 8) < 0.07;
     for (let e = 0; e < 16; e++) T.m.push(m4.elements[e]); T.col.push((plum ? 1.5 : S.c[0]) * k, (plum ? 0.55 : S.c[1]) * k, (plum ? 0.6 : S.c[2]) * k); T.n++;
     if (inside) tr.push(x, z, Math.max(0.16, r * (sp === 3 ? 0.13 : 0.075)), h);
   }

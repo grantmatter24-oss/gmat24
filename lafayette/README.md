@@ -13,6 +13,13 @@ electric scooter), three times of day, timed routes, online riders. No traffic a
 back / forward. `E` get off and walk (`Shift` runs; `E` again gets back on, or brings the machine to you), `R` reset, `C` rider's-eye view, `M` map (click to go there), `T` time of day, `H` lights, `1`-`5` change machine,
 `X` cancel a timed route, `Esc` menu.
 
+## Places
+
+`src/12_places.js`: five mapped businesses can be entered on foot (`E` at the door): the Roundup Saloon (root beer, jukebox,
+darts), First Mile Cycle Works (tune-up, respray, ride out on a mountain bike), Safeway (shop and pay), the Lafayette Police
+Department (desk, notice board) and the Acalanes High School gym (free throws). The same file parks cars in the bays along
+every mapped car-park aisle. Name boards on buildings come from Overture place data, attached to footprints in the bake.
+
 ## Staying smooth
 
 The game measures its own frame rate and moves between five detail steps (resolution, grass, tree and building distance, shadow

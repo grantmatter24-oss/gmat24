@@ -34,7 +34,7 @@ function updateEngine(v, dt) {
 function collide(v, x, z, r, lever) {
   let hard = 0; const o = _v.out;
   const onDeck = deckAt(x, z, v.p.y + 0.5) > H(x, z) + 1.5;
-  for (const fn of [hitBuildings, hitTrees]) { if (onDeck && fn === hitTrees) continue; const d = fn(x, z, r, o, v.p.y - v.S.cg + 0.3); if (d <= 0) continue;
+  for (const fn of [hitBuildings, hitTrees, hitCars]) { if (onDeck && fn !== hitBuildings) continue; const d = fn(x, z, r, o, v.p.y - v.S.cg + 0.3); if (d <= 0) continue;
     v.p.x += o.x * d; v.p.z += o.z * d; const vn = v.v.x * o.x + v.v.z * o.z;
     if (vn < 0) { hard = Math.max(hard, -vn); v.v.x -= o.x * vn * 1.15; v.v.z -= o.z * vn * 1.15; v.v.x *= 0.92; v.v.z *= 0.92; if (v.S.four && lever) v.w.y += (lever.x * o.z - lever.z * o.x) * vn * 0.25; } }
   const m = 26; let ex = 0, ez = 0; if (x < X0 + m) ex = 1; else if (x > X1 - m) ex = -1; if (z < Z0 + m) ez = 1; else if (z > Z1 - m) ez = -1;
