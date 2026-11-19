@@ -406,8 +406,10 @@ function poseRider(R, q, keys, slope, dt, time, snap) {
     if (q.lost) R.arms.forEach(a => { a.pole.visible = false; }); }
   if (q.mode === "sled" || q.lost) { R.arms.forEach(a => { a.pole.visible = false; }); R.skiG.forEach(sg => { sg.visible = false; }); }   // on a snowmobile the skis and poles are off; in a yard sale they are gone
   R.rig.rotation.y = -(q.spin + (q.sw ? Math.PI : 0));
-  const walking = q.mode === "walk"; R.carry.visible = walking; R.skiMeshes.forEach(m => { m.visible = !walking && q.mode !== "sled" && !q.lost; });
+  const walking = q.mode === "walk"; R.carry.visible = false; R.skiMeshes.forEach(m => { m.visible = !walking && q.mode !== "sled" && !q.lost; });
   if (walking) { const mv = clamp(q.sp / 1.2, 0, 1), ph = q.walkPh || 0; R.legs.forEach((l, i) => { const sw = Math.sin(ph + i * Math.PI) * 0.5 * mv; l.hip.rotation.x += sw; l.knee.rotation.x -= Math.max(0, -Math.cos(ph + i * Math.PI)) * 0.55 * mv; const sg = R.skiG[i]; sg.position.z -= Math.sin(sw) * 0.82; sg.position.y += Math.max(0, -Math.cos(ph + i * Math.PI)) * 0.12 * mv; sg.rotation.x = 0; sg.rotation.z = 0; }); }
+  if (walking) { const mv = clamp(q.sp / 1.2, 0, 1), ph = q.walkPh || 0, run = clamp((q.sp - 2.6) / 1.2, 0, 1);   // on foot your hands are empty: no skis, no poles, and your arms swing against your legs
+    R.skiG.forEach(sg => { sg.visible = false; }); R.arms.forEach((a, i) => { const sw = Math.sin(ph + (i ? 0 : Math.PI)) * (0.42 + 0.35 * run) * mv; a.pole.visible = false; a.sh.rotation.set(sw, 0, (i ? 1 : -1) * 0.1); a.el.rotation.set(0.22 + 0.9 * run + Math.max(0, sw) * 0.5, 0, 0); }); }
   const wob = q.stumT > 0 && !q.crashed ? Math.min(1, q.stumT / 0.9) : 0, seated = q.mode === "lift";
   R.pivot.rotation.x = (q.crashed ? q.rot : q.ground ? 0 : q.rot - 0) + wob * (0.28 * Math.sin(time * 9) - 0.12) - (seated ? 0.25 : 0);
   R.pivot.rotation.z = (q.crashed ? q.tumZ : -(R.pose.vt !== undefined ? R.pose.vt : q.turn) * (0.3 + 0.32 * q.carve) * (q.air ? 0.3 : 1)) + (wob ? wob * (q.stumD || 1) * 0.45 * Math.sin(time * 12) : 0);

@@ -7,7 +7,7 @@
 const COMP = { venues: [], near: null, run: null, hold: false, ghosts: [], save: store.get("pal-comp", {}) || {} };
 const TROPHY = ["No trophy", "Bronze", "Silver", "Gold"], TROPHY_COL = ["#7d8a96", "#c27a3a", "#c9d1d8", "#f0c23b"], BOTS = ["Koda", "Juniper", "Rook", "Sierra", "Aspen"];
 const LIFT_LOCK = {};   // every lift and run is open to everyone; medal points only unlock clothes and gear
-const GEAR_LOCK = { helmet: { camo: 1, redbull: 2, santa: 4 }, jacket: { block: 1, navy: 2, greenc: 3, santa: 4, trench: 5 }, skis: { stripes: 1, camo: 2, pink: 2, flames: 3 }, accessory: { ninja: 1, cape: 3 }, pants: { khaki: 1, santa: 4 }, wax: { fast: 2 } };
+const GEAR_LOCK = {};   // gear is bought (or lifted) at Parallel Mountain Sports now; each medal point takes 10% off the prices there, up to half
 const compSave = v => COMP.save[v.id] || (COMP.save[v.id] = { best: null, trophy: 0, board: [], rec: null, runs: 0 });
 const medalPoints = () => COMP.venues.reduce((a, v) => a + (compSave(v).trophy || 0), 0);
 const liftLocked = L => (LIFT_LOCK[L.name] || 0) > medalPoints();
@@ -54,10 +54,10 @@ function initComp() {
   $("compBtn").addEventListener("click", () => compList(true)); $("pComp").addEventListener("click", () => { setOverlay("pause", false); compList(true); });
   gearLocks();
 }
-function gearLocks() { // lock the better clothes and gear until the medal points are there; whatever you already wear stays yours
-  const pts = medalPoints();
-  document.querySelectorAll("#fitRows select").forEach(sl => { const cat = sl.dataset.cat, lk = GEAR_LOCK[cat]; if (!lk) return;
-    for (const o of sl.options) { const need = lk[o.value] || 0, locked = need > pts && outfit[cat] !== o.value; o.disabled = locked; o.textContent = KR.OUTFIT_OPTS[cat][o.value] + (locked ? "  (locked: " + need + " medal pts)" : ""); } });
+function gearLocks() { // the locker only holds what you own: the rest is on the racks at Parallel Mountain Sports
+  ownInit();
+  document.querySelectorAll("#fitRows select").forEach(sl => { const cat = sl.dataset.cat; if (!STORE_CATS.some(q => q[0] === cat)) return;
+    for (const o of sl.options) { const locked = !owns(cat, o.value) && outfit[cat] !== o.value; o.disabled = locked; o.textContent = KR.OUTFIT_OPTS[cat][o.value] + (locked ? "  (at Parallel Mountain Sports)" : ""); } });
 }
 const GATE_IN = 3.8, GATE_W = 8;   // the turning pole stands this far off the line, the outside pole this much further
 function compSynth(v) { compSynth.last = -9; // a par run down the course line, for riders to follow until you have set a run of your own
@@ -148,8 +148,8 @@ function compList(on) { // every venue with your best, your trophy and its leade
     go.addEventListener("click", () => { compList(false); if (!$("menu").hidden) startPlay(); paused = false; const q = v.path[0], d = Math.atan2(v.path[1][0] - q[0], v.path[1][1] - q[1]); placeSkier(q[0] - Math.sin(d) * 8, q[1] - Math.cos(d) * 8, d, 0); toast("Press E under the start arch to enter", 3.5); });
     if (sv.board.length) { const tb = el("table", null, "board"); sv.board.forEach((e, i) => { const row = el("tr", null, e.n === "You" ? "me" : ""); row.append(el("td", String(i + 1)), el("td", e.n === "You" ? (MP.myName || "You") : e.n), el("td", fmtRes(v, e.r))); tb.append(row); }); box.append(tb); }
     card.append(box); }
-  const un = el("div", null, "venue"); un.append(el("b", "Unlocks")); const lst = el("p", null, "compLead"), items = [];
+  const un = el("div", null, "venue"); un.append(el("b", "What medal points do")); const lst = el("p", null, "compLead"), items = [];
   for (const n in LIFT_LOCK) items.push([LIFT_LOCK[n], n + " lift"]); for (const c in GEAR_LOCK) for (const k in GEAR_LOCK[c]) items.push([GEAR_LOCK[c][k], KR.OUTFIT_OPTS[c][k]]);
-  items.sort((a, b) => a[0] - b[0]); for (let p = 1; p <= 5; p++) { const row = el("div", (p <= pts ? "Open" : "Locked") + " at " + p + (p === 1 ? " point: " : " points: ") + items.filter(i => i[0] === p).map(i => i[1]).join(", ")); row.style.opacity = p <= pts ? 1 : 0.6; lst.append(row); }
+  lst.append(el("div", "Every lift and run is open. Each medal point takes 10% off the prices at Parallel Mountain Sports in the village, up to half. You have " + pts + "."));
   un.append(lst); card.append(un); const close = el("button", "Close", "btn ghost"); close.addEventListener("click", () => compList(false)); const rw = el("div", null, "row"); rw.style.justifyContent = "center"; rw.append(close); card.append(rw);
 }

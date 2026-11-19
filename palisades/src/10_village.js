@@ -28,7 +28,31 @@ function planShops() { // before the buildings are built: choose the shop fronts
     if (!fit) continue; const [name, kind] = SHOP_LIST[SHOPS.length], openW = Math.min(2 * fit.hw - 0.6, c.len - 1.2); let fy = -1e9; for (const u of [-1, 0, 1]) for (const w of [-1.2, 0.2, fit.D / 2, fit.D]) fy = Math.max(fy, H(c.mx + c.tx * u * fit.hw + c.nx * w, c.mz + c.tz * u * fit.hw + c.nz * w));
     const s = { name, kind, bd: c.bd, dx: c.mx, dz: c.mz, tx: c.tx, tz: c.tz, nx: c.nx, nz: c.nz, hw: fit.hw, D: fit.D, openW, floorY: fy + 0.05, obst: [] }; SHOPS.push(s); perB.set(c.bd, (perB.get(c.bd) || 0) + 1);
     (c.bd.shopEdges || (c.bd.shopEdges = {}))[c.i] = { s0: c.len / 2 - openW / 2, s1: c.len / 2 + openW / 2, yF: s.floorY, yT: s.floorY + 2.75 }; }
+  { const par = SHOPS.find(q => q.name === "Parallel Mountain Sports"); let nb = null, nd = 1e9; for (const q of SHOPS) { const d = Math.hypot(q.dx - b0[0], q.dz - b0[1]); if (d < nd) { nd = d; nb = q; } }   // the ski shop is the first one you reach from the lifts
+    if (par && nb && nb !== par) { const t = [nb.name, nb.kind]; nb.name = par.name; nb.kind = par.kind; par.name = t[0]; par.kind = t[1]; } }
 }
+/* ---- Parallel Mountain Sports: skis and clothes for your locker ----
+   Everything the locker can hold is on sale here. Press E in the shop to browse, pick things up (you wear them at once), then pay at the
+   counter with your trick points, or run for the door with Shift. Either way they end up in your locker; run, and the alarm goes. */
+const STORE_CATS = [["skis", "Skis", 2500], ["jacket", "Jackets", 1800], ["pants", "Pants", 1200], ["helmet", "Hats and helmets", 900], ["accessory", "Accessories", 600], ["poles", "Poles", 500]];
+const OWNED = store.get("pal-owned", null) || {}; let basket = [], ownDone = false;
+function ownInit() { if (ownDone) return; ownDone = true; for (const [cat] of STORE_CATS) { const a = Array.isArray(OWNED[cat]) ? OWNED[cat] : (OWNED[cat] = []); for (const k of [outfit[cat], KR.OUTFIT_DEFAULT[cat]]) if (k && !a.includes(k)) a.push(k); } store.set("pal-owned", OWNED); }
+const owns = (cat, k) => Array.isArray(OWNED[cat]) && OWNED[cat].includes(k), isGear = s => s && (s.kind === "ski" || s.kind === "wear");
+const priceOf = cat => Math.round(STORE_CATS.find(q => q[0] === cat)[2] * (1 - Math.min(0.5, 0.1 * medalPoints())) / 10) * 10, basketTotal = () => basket.reduce((a, b) => a + priceOf(b.cat), 0);
+function basketWear() { const of = Object.assign({}, outfit); for (const b of basket) of[b.cat] = b.k; KR.dress(rig, of); }
+function storeOpen(s) {
+  ownInit(); const card = $("storeCard"), el = (tag, txt, cls) => { const e = document.createElement(tag); if (txt != null) e.textContent = txt; if (cls) e.className = cls; return e; }; card.textContent = "";
+  card.append(el("h3", s.name), el("p", "Your points: " + Math.round(sk.pts).toLocaleString() + (basket.length ? "  ·  Carrying " + basket.length + (basket.length === 1 ? " item" : " items") + ", " + basketTotal().toLocaleString() + " pts" : "") + ".  Pick things up, then pay at the counter (E) or run out with Shift.", "compLead"));
+  for (const [cat, title] of STORE_CATS) { const box = el("div", null, "venue"); box.append(el("b", title + "  ·  " + priceOf(cat).toLocaleString() + " pts each")); const grid = el("div", null, "storeGrid");
+    for (const k in KR.OUTFIT_OPTS[cat]) { const row = el("div", null, "storeItem"), has = owns(cat, k), inB = basket.some(b => b.cat === cat && b.k === k); row.append(el("span", KR.OUTFIT_OPTS[cat][k]));
+      if (has) row.append(el("i", "in your locker")); else { const bt = el("button", inB ? "Put back" : "Pick up", "join"); if (inB) bt.style.background = "#5b6b7a"; bt.addEventListener("click", () => { basket = basket.filter(b => b.cat !== cat); if (!inB) basket.push({ cat, k }); basketWear(); storeOpen(s); }); row.append(bt); }
+      grid.append(row); } box.append(grid); card.append(box); }
+  const rw = el("div", null, "row"), close = el("button", "Back to the shop floor", "btn"); rw.style.justifyContent = "center"; close.addEventListener("click", () => { setOverlay("store", false); paused = false; }); rw.append(close); card.append(rw);
+  setOverlay("store", true); paused = true;
+}
+function basketKeep(paid) { for (const b of basket) { if (!owns(b.cat, b.k)) OWNED[b.cat].push(b.k); outfit[b.cat] = b.k; } basket = []; store.set("pal-owned", OWNED); store.set("pal-outfit", outfit); store.set("pal-pts", Math.round(sk.pts)); KR.dress(rig, outfit); gearLocks(); document.querySelectorAll("#fitRows select").forEach(sl => { if (sl.dataset.cat && outfit[sl.dataset.cat]) sl.value = outfit[sl.dataset.cat]; }); }
+function storePay() { const t = basketTotal(); if (sk.pts < t) return toast("That is " + t.toLocaleString() + " pts and you have " + Math.round(sk.pts).toLocaleString() + ". Put something back, earn more with tricks, or run.", 4);
+  sk.pts -= t; const n = basket.length; basketKeep(true); sfx("land"); toast("Paid " + t.toLocaleString() + " pts. " + (n === 1 ? "It is" : "They are") + " in your locker.", 3); }
 function textPlate(txt, bg, fg) { const cv = document.createElement("canvas"); cv.width = 1024; cv.height = 128; const g = cv.getContext("2d"); g.fillStyle = bg; g.fillRect(0, 0, 1024, 128); g.fillStyle = fg; g.textAlign = "center"; g.textBaseline = "middle"; let fs = 78; g.font = "800 " + fs + "px 'Big Shoulders Display', 'Arial Narrow', Impact, sans-serif"; while (g.measureText(txt).width > 960 && fs > 28) { fs -= 4; g.font = "800 " + fs + "px 'Big Shoulders Display', 'Arial Narrow', Impact, sans-serif"; } g.fillText(txt, 512, 68);
   const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return new THREE.MeshBasicMaterial({ map: t }); }
 function initPlaza() {
@@ -110,6 +134,9 @@ function updateWalkers(dt, cam) {
 /* ---- being in a shop ---- */
 function shopTick() { const was = sk.shopIn; sk.shopIn = null; nearCounter = null; if (!(sk.mode === "ski" || sk.mode === "walk") || COMP.run) return;
   for (const s of SHOPS) if (Math.abs(s.dx - sk.p.x) + Math.abs(s.dz - sk.p.z) < 30 && shopInside(s, sk.p.x, sk.p.z)) { sk.shopIn = s; if (sk.sp < 4 && Math.hypot(s.cx - sk.p.x, s.cz - sk.p.z) < 1.5) nearCounter = s; }
-  if (sk.shopIn && sk.shopIn !== was) toast(sk.shopIn.name, 2.5); }
-function shopUse() { const s = nearCounter; if (!s) return;   // E at the counter
-  if (s.kind === "ski" || s.kind === "wear") { setOverlay("fit", true); paused = true; } else toast(s.kind === "art" ? "Prints of the Palisades at first light. Not today." : s.kind === "bar" ? "A pint by the fire. One more run, though." : s.kind === "market" ? "Snacks for the chair." : "Something hot. Legs feel fresh again.", 3); }
+  if (sk.shopIn && sk.shopIn !== was) toast(sk.shopIn.name + (isGear(sk.shopIn) ? " · E to browse" : ""), 2.5);
+  if (was && !sk.shopIn && basket.length) { const n = basket.length; basketKeep(false); sfx("alarm"); toast("You ran out without paying! " + (n === 1 ? "It is" : "They are") + " in your locker now.", 4); }   // out of the door with the goods
+}
+function shopUse() { const s = sk.shopIn; if (!s) return;   // E in a shop
+  if (isGear(s)) { if (nearCounter && basket.length) storePay(); else storeOpen(s); return; }
+  if (nearCounter) toast(s.kind === "art" ? "Prints of the Palisades at first light. Not today." : s.kind === "bar" ? "A pint by the fire. One more run, though." : s.kind === "market" ? "Snacks for the chair." : "Something hot. Legs feel fresh again.", 3); }

@@ -68,6 +68,8 @@
   #friendArrows .fa i { display: block; width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 14px solid #ffd24a; filter: drop-shadow(0 1px 2px rgba(0,0,0,.7)); }
   #compHud { left: 50%; top: 100px; transform: translateX(-50%); background: rgba(150, 30, 24, .88); border: 1px solid rgba(255,255,255,.35); border-radius: 10px; padding: 8px 16px; font: 700 17px/1.2 var(--display); letter-spacing: .05em; white-space: nowrap; }
   #compHud[hidden] { display: none; }
+  .storeGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 6px 18px; margin: 8px 0 4px; }
+  .storeItem { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 14.5px; } .storeItem i { color: var(--dim); font-style: normal; font-size: 12.5px; }
   .compLead { color: var(--dim); font-size: 14.5px; line-height: 1.5; margin: 6px 0; }
   .trophy { font: 800 18px/1.3 var(--display); letter-spacing: .06em; text-transform: uppercase; margin: 4px 0 8px; }
   table.board { border-collapse: collapse; margin: 8px auto; font-size: 15px; min-width: 300px; }
@@ -176,7 +178,7 @@
       <dt>Shift + turn</dt><dd>Slash: a hard, sharp turn that scrubs speed and throws snow</dd>
       <dt>J</dt><dd>Brake</dd>
       <dt>E</dt><dd>Load a lift, enter a competition, or get on and off a snowmobile (parked beside the Base to Base gondola): W throttle, S brake and reverse, A D steer. Each carries two: if a friend is driving, E puts you on the back</dd>
-      <dt>Village</dt><dd>The shops on the cobbled plaza are real rooms: ski or walk in through the open door. At a counter press E; a gear shop's counter opens your outfit</dd>
+      <dt>Village</dt><dd>The shops on the cobbled plaza are real rooms: ski or walk in through the open door. In Parallel Mountain Sports (nearest the lifts) press E to browse, pick things up, then pay at the counter with trick points or run out holding Shift. What you get goes in your locker (Outfit)</dd>
       <dt>L</dt><dd>Competitions: venues, leaderboards, trophies and what they unlock. Press E under a start arch to enter a heat</dd>
       <dt>Space</dt><dd>Hold to charge a jump (the bar fills), release to pop. In the air, hold for a tail grab. On a rail it pops you off</dd>
       <dt>Q · E · C · F</dt><dd>Japan, nose, indy and safety grabs in the air. X is also a nose grab</dd>
@@ -197,6 +199,7 @@
     <div class="row" style="justify-content:center;margin-top:22px"><button class="btn" id="resume">Resume</button><button class="btn ghost" id="pMap">Trail map</button><button class="btn ghost" id="pHow">Controls</button><button class="btn ghost" id="pFit">Outfit</button><button class="btn ghost" id="pComp">Competitions</button><button class="btn ghost" id="pHome">Home</button></div>
   </div></div>
 
+  <div class="overlay" id="store" hidden><div class="card" id="storeCard" style="min-width:min(640px,94vw)"></div></div>
   <div class="overlay" id="comp" hidden><div class="card" id="compCard" style="text-align:center;min-width:380px"></div></div>
   <div class="overlay" id="compList" hidden><div class="card" id="compListCard" style="min-width:min(560px,92vw)"></div></div>
 
@@ -2464,8 +2467,10 @@ function poseRider(R, q, keys, slope, dt, time, snap) {
     if (q.lost) R.arms.forEach(a => { a.pole.visible = false; }); }
   if (q.mode === "sled" || q.lost) { R.arms.forEach(a => { a.pole.visible = false; }); R.skiG.forEach(sg => { sg.visible = false; }); }   // on a snowmobile the skis and poles are off; in a yard sale they are gone
   R.rig.rotation.y = -(q.spin + (q.sw ? Math.PI : 0));
-  const walking = q.mode === "walk"; R.carry.visible = walking; R.skiMeshes.forEach(m => { m.visible = !walking && q.mode !== "sled" && !q.lost; });
+  const walking = q.mode === "walk"; R.carry.visible = false; R.skiMeshes.forEach(m => { m.visible = !walking && q.mode !== "sled" && !q.lost; });
   if (walking) { const mv = clamp(q.sp / 1.2, 0, 1), ph = q.walkPh || 0; R.legs.forEach((l, i) => { const sw = Math.sin(ph + i * Math.PI) * 0.5 * mv; l.hip.rotation.x += sw; l.knee.rotation.x -= Math.max(0, -Math.cos(ph + i * Math.PI)) * 0.55 * mv; const sg = R.skiG[i]; sg.position.z -= Math.sin(sw) * 0.82; sg.position.y += Math.max(0, -Math.cos(ph + i * Math.PI)) * 0.12 * mv; sg.rotation.x = 0; sg.rotation.z = 0; }); }
+  if (walking) { const mv = clamp(q.sp / 1.2, 0, 1), ph = q.walkPh || 0, run = clamp((q.sp - 2.6) / 1.2, 0, 1);   // on foot your hands are empty: no skis, no poles, and your arms swing against your legs
+    R.skiG.forEach(sg => { sg.visible = false; }); R.arms.forEach((a, i) => { const sw = Math.sin(ph + (i ? 0 : Math.PI)) * (0.42 + 0.35 * run) * mv; a.pole.visible = false; a.sh.rotation.set(sw, 0, (i ? 1 : -1) * 0.1); a.el.rotation.set(0.22 + 0.9 * run + Math.max(0, sw) * 0.5, 0, 0); }); }
   const wob = q.stumT > 0 && !q.crashed ? Math.min(1, q.stumT / 0.9) : 0, seated = q.mode === "lift";
   R.pivot.rotation.x = (q.crashed ? q.rot : q.ground ? 0 : q.rot - 0) + wob * (0.28 * Math.sin(time * 9) - 0.12) - (seated ? 0.25 : 0);
   R.pivot.rotation.z = (q.crashed ? q.tumZ : -(R.pose.vt !== undefined ? R.pose.vt : q.turn) * (0.3 + 0.32 * q.carve) * (q.air ? 0.3 : 1)) + (wob ? wob * (q.stumD || 1) * 0.45 * Math.sin(time * 12) : 0);
@@ -2553,6 +2558,7 @@ function updateFriendArrows() {
     const txt = units === "imp" ? (dist * FT > 2640 ? (dist / 1609.34).toFixed(1) + " mi" : Math.round(dist * FT / 10) * 10 + " ft") : dist > 1000 ? (dist / 1000).toFixed(1) + " km" : Math.round(dist / 10) * 10 + " m"; if (e.lastChild.textContent !== txt) e.lastChild.textContent = txt; }
   for (const [peer, e] of friendArrows) if (!seen.has(peer)) { e.remove(); friendArrows.delete(peer); }
 }
+let ptsTick = 0, ptsSaved = -1;
 function updateHUD(dt) {
   updateFriendArrows();
   { const ce = $("chg"), on = sk.chg > 0.02 && sk.mode === "ski"; if (ce.hidden === on) ce.hidden = !on; if (on) ce.firstElementChild.style.width = Math.round(sk.chg * 100) + "%"; }   // jump bar
@@ -2560,6 +2566,7 @@ function updateHUD(dt) {
   if (toastT > 0) { toastT -= dt; if (toastT <= 0) $("toast").style.opacity = 0; }
   if (trickT > 0) { trickT -= dt; if (trickT <= 0) $("trick").style.opacity = 0; }
   if (hudT < 0.1) return; hudT = 0;
+  if (++ptsTick > 25) { ptsTick = 0; const pv = Math.round(sk.pts); if (pv !== ptsSaved) { ptsSaved = pv; store.set("pal-pts", pv); } }   // your trick points are your money in the village: they are kept between visits
   const imp = units === "imp"; $("speed").textContent = Math.round(sk.sp * (imp ? MPH : KMH)); $("speedU").textContent = imp ? "MPH" : "KM/H";
   $("sAlt").textContent = fmtAlt(sk.p.y); $("sVert").textContent = imp ? Math.round(sk.vert * FT).toLocaleString() + " ft" : Math.round(sk.vert).toLocaleString() + " m";
   $("sMax").textContent = Math.round(sk.maxSp * (imp ? MPH : KMH)) + (imp ? " mph" : " km/h"); $("sPts").textContent = sk.pts.toLocaleString();
@@ -2575,7 +2582,8 @@ function updateHUD(dt) {
   // lift prompt and ride bar
   const pr = $("prompt"), lb = $("liftBar");
   if (sk.mode === "ski" && COMP.near && !COMP.run) { pr.hidden = false; pr.innerHTML = "<kbd>E</kbd> Enter the " + COMP.near.name; }
-  else if (nearCounter) { pr.hidden = false; pr.innerHTML = "<kbd>E</kbd> " + (nearCounter.kind === "ski" || nearCounter.kind === "wear" ? "Look at the gear" : "Order"); }
+  else if (sk.shopIn && isGear(sk.shopIn)) { pr.hidden = false; pr.innerHTML = nearCounter && basket.length ? "<kbd>E</kbd> Pay " + basketTotal().toLocaleString() + " pts" : "<kbd>E</kbd> Browse" + (basket.length ? " · carrying " + basket.length + " (" + basketTotal().toLocaleString() + " pts): pay at the counter, or run with Shift" : ""); }
+  else if (nearCounter) { pr.hidden = false; pr.innerHTML = "<kbd>E</kbd> Order"; }
   else if (sk.mode === "sled") { pr.hidden = false; pr.innerHTML = sk.sledRole === 2 ? "<kbd>E</kbd> Hop off" : "<kbd>E</kbd> Get off the snowmobile"; }
   else if (sk.mode === "ski" && nearSled && !COMP.run) { pr.hidden = false; pr.innerHTML = sledDriver(nearSled) ? "<kbd>E</kbd> Hop on the back" : "<kbd>E</kbd> Ride the snowmobile"; }
   else if (sk.mode === "ski" && nearLift && !COMP.run) { pr.hidden = false; if (liftLocked(nearLift)) pr.textContent = nearLift.name + " is locked: needs " + LIFT_LOCK[nearLift.name] + " medal points, you have " + medalPoints() + ". Win trophies in competitions (L)."; else pr.innerHTML = "<kbd>E</kbd> Load " + nearLift.name; } else pr.hidden = true;
@@ -2678,13 +2686,14 @@ function sfx(kind, k = 1) {
   if (!ac || muted) return; const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain(); o.connect(g).connect(ac.destination);
   if (kind === "thump" || kind === "crash") { o.type = "sine"; o.frequency.setValueAtTime(kind === "crash" ? 90 : 120, t); o.frequency.exponentialRampToValueAtTime(38, t + 0.18); g.gain.setValueAtTime(0.5 * k, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.28); o.start(t); o.stop(t + 0.3); }
   else if (kind === "pop") { o.type = "triangle"; o.frequency.setValueAtTime(180, t); o.frequency.exponentialRampToValueAtTime(320, t + 0.08); g.gain.setValueAtTime(0.12, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.12); o.start(t); o.stop(t + 0.13); }
+  else if (kind === "alarm") { o.type = "square"; for (let k = 0; k < 8; k++) o.frequency.setValueAtTime(k % 2 ? 660 : 880, t + k * 0.16); g.gain.setValueAtTime(0.09, t); g.gain.setValueAtTime(0.09, t + 1.2); g.gain.exponentialRampToValueAtTime(0.001, t + 1.3); o.start(t); o.stop(t + 1.32); }
   else if (kind === "land") { o.type = "sine"; o.frequency.setValueAtTime(660, t); o.frequency.setValueAtTime(880, t + 0.09); g.gain.setValueAtTime(0.1, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.3); o.start(t); o.stop(t + 0.32); }
 }
 /* ---------- input ---------- */
 /* Kicker Run's key map */
 const KEYMAP = { ArrowLeft: "left", ArrowRight: "right", ArrowUp: "up", w: "up", ArrowDown: "down", s: "down", a: "spinL", d: "spinR", q: "grabQ", e: "grabN", " ": "grab", Shift: "boost", f: "grabS", g: "focus", j: "brake", x: "grabN", c: "grabI" };
 function setOverlay(id, on) { $(id).hidden = !on; }
-const anyOverlay = () => ["menu", "how", "pause", "map", "fit"].some(id => !$(id).hidden);
+const anyOverlay = () => ["menu", "how", "pause", "map", "fit", "store"].some(id => !$(id).hidden);
 function setPaused(v) { paused = v; setOverlay("pause", v); }
 function toggleMap(v, fromMenu) { const on = v === undefined ? $("map").hidden : v; if (on) { mapFromMenu = !!fromMenu; drawMap(); setOverlay("pause", false); } setOverlay("map", on); paused = on && !mapFromMenu; }
 function setGfx(name) { if (!QUAL[name]) return; qName = name; Q = QUAL[name]; store.set("pal-gfx", name); buildComposer(); document.querySelectorAll("[data-q]").forEach(b => b.classList.toggle("on", b.dataset.q === name)); }
@@ -2705,7 +2714,7 @@ function initInput() {
     else if (key === "n") { muted = !muted; store.set("pal-mute", muted); toast(muted ? "Sound off" : "Sound on", 1.2); }
     else if (key === "r") { rewKey = !COMP.run; if (COMP.run) toast("No rewinding in a competition", 1.5); }
     else if (key === "e" && sk.mode === "ski" && COMP.near && !COMP.run && sk.ground) compEnter(COMP.near);
-    else if (key === "e" && nearCounter) shopUse();
+    else if (key === "e" && (nearCounter || isGear(sk.shopIn))) shopUse();
     else if (key === "e" && (sk.mode === "sled" || (sk.mode === "ski" && nearSled && !COMP.run))) sledToggle();
     else if (key === "e" && sk.mode === "ski" && nearLift && sk.ground && !COMP.run) { if (liftLocked(nearLift)) toast(nearLift.name + " is locked", 2); else boardLift(nearLift); }
     else if (key === "l" && sk.mode !== "menu") compList($("compList").hidden);
@@ -2858,7 +2867,7 @@ async function mpInit() {
 const COMP = { venues: [], near: null, run: null, hold: false, ghosts: [], save: store.get("pal-comp", {}) || {} };
 const TROPHY = ["No trophy", "Bronze", "Silver", "Gold"], TROPHY_COL = ["#7d8a96", "#c27a3a", "#c9d1d8", "#f0c23b"], BOTS = ["Koda", "Juniper", "Rook", "Sierra", "Aspen"];
 const LIFT_LOCK = {};   // every lift and run is open to everyone; medal points only unlock clothes and gear
-const GEAR_LOCK = { helmet: { camo: 1, redbull: 2, santa: 4 }, jacket: { block: 1, navy: 2, greenc: 3, santa: 4, trench: 5 }, skis: { stripes: 1, camo: 2, pink: 2, flames: 3 }, accessory: { ninja: 1, cape: 3 }, pants: { khaki: 1, santa: 4 }, wax: { fast: 2 } };
+const GEAR_LOCK = {};   // gear is bought (or lifted) at Parallel Mountain Sports now; each medal point takes 10% off the prices there, up to half
 const compSave = v => COMP.save[v.id] || (COMP.save[v.id] = { best: null, trophy: 0, board: [], rec: null, runs: 0 });
 const medalPoints = () => COMP.venues.reduce((a, v) => a + (compSave(v).trophy || 0), 0);
 const liftLocked = L => (LIFT_LOCK[L.name] || 0) > medalPoints();
@@ -2905,10 +2914,10 @@ function initComp() {
   $("compBtn").addEventListener("click", () => compList(true)); $("pComp").addEventListener("click", () => { setOverlay("pause", false); compList(true); });
   gearLocks();
 }
-function gearLocks() { // lock the better clothes and gear until the medal points are there; whatever you already wear stays yours
-  const pts = medalPoints();
-  document.querySelectorAll("#fitRows select").forEach(sl => { const cat = sl.dataset.cat, lk = GEAR_LOCK[cat]; if (!lk) return;
-    for (const o of sl.options) { const need = lk[o.value] || 0, locked = need > pts && outfit[cat] !== o.value; o.disabled = locked; o.textContent = KR.OUTFIT_OPTS[cat][o.value] + (locked ? "  (locked: " + need + " medal pts)" : ""); } });
+function gearLocks() { // the locker only holds what you own: the rest is on the racks at Parallel Mountain Sports
+  ownInit();
+  document.querySelectorAll("#fitRows select").forEach(sl => { const cat = sl.dataset.cat; if (!STORE_CATS.some(q => q[0] === cat)) return;
+    for (const o of sl.options) { const locked = !owns(cat, o.value) && outfit[cat] !== o.value; o.disabled = locked; o.textContent = KR.OUTFIT_OPTS[cat][o.value] + (locked ? "  (at Parallel Mountain Sports)" : ""); } });
 }
 const GATE_IN = 3.8, GATE_W = 8;   // the turning pole stands this far off the line, the outside pole this much further
 function compSynth(v) { compSynth.last = -9; // a par run down the course line, for riders to follow until you have set a run of your own
@@ -2999,9 +3008,9 @@ function compList(on) { // every venue with your best, your trophy and its leade
     go.addEventListener("click", () => { compList(false); if (!$("menu").hidden) startPlay(); paused = false; const q = v.path[0], d = Math.atan2(v.path[1][0] - q[0], v.path[1][1] - q[1]); placeSkier(q[0] - Math.sin(d) * 8, q[1] - Math.cos(d) * 8, d, 0); toast("Press E under the start arch to enter", 3.5); });
     if (sv.board.length) { const tb = el("table", null, "board"); sv.board.forEach((e, i) => { const row = el("tr", null, e.n === "You" ? "me" : ""); row.append(el("td", String(i + 1)), el("td", e.n === "You" ? (MP.myName || "You") : e.n), el("td", fmtRes(v, e.r))); tb.append(row); }); box.append(tb); }
     card.append(box); }
-  const un = el("div", null, "venue"); un.append(el("b", "Unlocks")); const lst = el("p", null, "compLead"), items = [];
+  const un = el("div", null, "venue"); un.append(el("b", "What medal points do")); const lst = el("p", null, "compLead"), items = [];
   for (const n in LIFT_LOCK) items.push([LIFT_LOCK[n], n + " lift"]); for (const c in GEAR_LOCK) for (const k in GEAR_LOCK[c]) items.push([GEAR_LOCK[c][k], KR.OUTFIT_OPTS[c][k]]);
-  items.sort((a, b) => a[0] - b[0]); for (let p = 1; p <= 5; p++) { const row = el("div", (p <= pts ? "Open" : "Locked") + " at " + p + (p === 1 ? " point: " : " points: ") + items.filter(i => i[0] === p).map(i => i[1]).join(", ")); row.style.opacity = p <= pts ? 1 : 0.6; lst.append(row); }
+  lst.append(el("div", "Every lift and run is open. Each medal point takes 10% off the prices at Parallel Mountain Sports in the village, up to half. You have " + pts + "."));
   un.append(lst); card.append(un); const close = el("button", "Close", "btn ghost"); close.addEventListener("click", () => compList(false)); const rw = el("div", null, "row"); rw.style.justifyContent = "center"; rw.append(close); card.append(rw);
 }
 
@@ -3101,7 +3110,31 @@ function planShops() { // before the buildings are built: choose the shop fronts
     if (!fit) continue; const [name, kind] = SHOP_LIST[SHOPS.length], openW = Math.min(2 * fit.hw - 0.6, c.len - 1.2); let fy = -1e9; for (const u of [-1, 0, 1]) for (const w of [-1.2, 0.2, fit.D / 2, fit.D]) fy = Math.max(fy, H(c.mx + c.tx * u * fit.hw + c.nx * w, c.mz + c.tz * u * fit.hw + c.nz * w));
     const s = { name, kind, bd: c.bd, dx: c.mx, dz: c.mz, tx: c.tx, tz: c.tz, nx: c.nx, nz: c.nz, hw: fit.hw, D: fit.D, openW, floorY: fy + 0.05, obst: [] }; SHOPS.push(s); perB.set(c.bd, (perB.get(c.bd) || 0) + 1);
     (c.bd.shopEdges || (c.bd.shopEdges = {}))[c.i] = { s0: c.len / 2 - openW / 2, s1: c.len / 2 + openW / 2, yF: s.floorY, yT: s.floorY + 2.75 }; }
+  { const par = SHOPS.find(q => q.name === "Parallel Mountain Sports"); let nb = null, nd = 1e9; for (const q of SHOPS) { const d = Math.hypot(q.dx - b0[0], q.dz - b0[1]); if (d < nd) { nd = d; nb = q; } }   // the ski shop is the first one you reach from the lifts
+    if (par && nb && nb !== par) { const t = [nb.name, nb.kind]; nb.name = par.name; nb.kind = par.kind; par.name = t[0]; par.kind = t[1]; } }
 }
+/* ---- Parallel Mountain Sports: skis and clothes for your locker ----
+   Everything the locker can hold is on sale here. Press E in the shop to browse, pick things up (you wear them at once), then pay at the
+   counter with your trick points, or run for the door with Shift. Either way they end up in your locker; run, and the alarm goes. */
+const STORE_CATS = [["skis", "Skis", 2500], ["jacket", "Jackets", 1800], ["pants", "Pants", 1200], ["helmet", "Hats and helmets", 900], ["accessory", "Accessories", 600], ["poles", "Poles", 500]];
+const OWNED = store.get("pal-owned", null) || {}; let basket = [], ownDone = false;
+function ownInit() { if (ownDone) return; ownDone = true; for (const [cat] of STORE_CATS) { const a = Array.isArray(OWNED[cat]) ? OWNED[cat] : (OWNED[cat] = []); for (const k of [outfit[cat], KR.OUTFIT_DEFAULT[cat]]) if (k && !a.includes(k)) a.push(k); } store.set("pal-owned", OWNED); }
+const owns = (cat, k) => Array.isArray(OWNED[cat]) && OWNED[cat].includes(k), isGear = s => s && (s.kind === "ski" || s.kind === "wear");
+const priceOf = cat => Math.round(STORE_CATS.find(q => q[0] === cat)[2] * (1 - Math.min(0.5, 0.1 * medalPoints())) / 10) * 10, basketTotal = () => basket.reduce((a, b) => a + priceOf(b.cat), 0);
+function basketWear() { const of = Object.assign({}, outfit); for (const b of basket) of[b.cat] = b.k; KR.dress(rig, of); }
+function storeOpen(s) {
+  ownInit(); const card = $("storeCard"), el = (tag, txt, cls) => { const e = document.createElement(tag); if (txt != null) e.textContent = txt; if (cls) e.className = cls; return e; }; card.textContent = "";
+  card.append(el("h3", s.name), el("p", "Your points: " + Math.round(sk.pts).toLocaleString() + (basket.length ? "  ·  Carrying " + basket.length + (basket.length === 1 ? " item" : " items") + ", " + basketTotal().toLocaleString() + " pts" : "") + ".  Pick things up, then pay at the counter (E) or run out with Shift.", "compLead"));
+  for (const [cat, title] of STORE_CATS) { const box = el("div", null, "venue"); box.append(el("b", title + "  ·  " + priceOf(cat).toLocaleString() + " pts each")); const grid = el("div", null, "storeGrid");
+    for (const k in KR.OUTFIT_OPTS[cat]) { const row = el("div", null, "storeItem"), has = owns(cat, k), inB = basket.some(b => b.cat === cat && b.k === k); row.append(el("span", KR.OUTFIT_OPTS[cat][k]));
+      if (has) row.append(el("i", "in your locker")); else { const bt = el("button", inB ? "Put back" : "Pick up", "join"); if (inB) bt.style.background = "#5b6b7a"; bt.addEventListener("click", () => { basket = basket.filter(b => b.cat !== cat); if (!inB) basket.push({ cat, k }); basketWear(); storeOpen(s); }); row.append(bt); }
+      grid.append(row); } box.append(grid); card.append(box); }
+  const rw = el("div", null, "row"), close = el("button", "Back to the shop floor", "btn"); rw.style.justifyContent = "center"; close.addEventListener("click", () => { setOverlay("store", false); paused = false; }); rw.append(close); card.append(rw);
+  setOverlay("store", true); paused = true;
+}
+function basketKeep(paid) { for (const b of basket) { if (!owns(b.cat, b.k)) OWNED[b.cat].push(b.k); outfit[b.cat] = b.k; } basket = []; store.set("pal-owned", OWNED); store.set("pal-outfit", outfit); store.set("pal-pts", Math.round(sk.pts)); KR.dress(rig, outfit); gearLocks(); document.querySelectorAll("#fitRows select").forEach(sl => { if (sl.dataset.cat && outfit[sl.dataset.cat]) sl.value = outfit[sl.dataset.cat]; }); }
+function storePay() { const t = basketTotal(); if (sk.pts < t) return toast("That is " + t.toLocaleString() + " pts and you have " + Math.round(sk.pts).toLocaleString() + ". Put something back, earn more with tricks, or run.", 4);
+  sk.pts -= t; const n = basket.length; basketKeep(true); sfx("land"); toast("Paid " + t.toLocaleString() + " pts. " + (n === 1 ? "It is" : "They are") + " in your locker.", 3); }
 function textPlate(txt, bg, fg) { const cv = document.createElement("canvas"); cv.width = 1024; cv.height = 128; const g = cv.getContext("2d"); g.fillStyle = bg; g.fillRect(0, 0, 1024, 128); g.fillStyle = fg; g.textAlign = "center"; g.textBaseline = "middle"; let fs = 78; g.font = "800 " + fs + "px 'Big Shoulders Display', 'Arial Narrow', Impact, sans-serif"; while (g.measureText(txt).width > 960 && fs > 28) { fs -= 4; g.font = "800 " + fs + "px 'Big Shoulders Display', 'Arial Narrow', Impact, sans-serif"; } g.fillText(txt, 512, 68);
   const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return new THREE.MeshBasicMaterial({ map: t }); }
 function initPlaza() {
@@ -3183,9 +3216,12 @@ function updateWalkers(dt, cam) {
 /* ---- being in a shop ---- */
 function shopTick() { const was = sk.shopIn; sk.shopIn = null; nearCounter = null; if (!(sk.mode === "ski" || sk.mode === "walk") || COMP.run) return;
   for (const s of SHOPS) if (Math.abs(s.dx - sk.p.x) + Math.abs(s.dz - sk.p.z) < 30 && shopInside(s, sk.p.x, sk.p.z)) { sk.shopIn = s; if (sk.sp < 4 && Math.hypot(s.cx - sk.p.x, s.cz - sk.p.z) < 1.5) nearCounter = s; }
-  if (sk.shopIn && sk.shopIn !== was) toast(sk.shopIn.name, 2.5); }
-function shopUse() { const s = nearCounter; if (!s) return;   // E at the counter
-  if (s.kind === "ski" || s.kind === "wear") { setOverlay("fit", true); paused = true; } else toast(s.kind === "art" ? "Prints of the Palisades at first light. Not today." : s.kind === "bar" ? "A pint by the fire. One more run, though." : s.kind === "market" ? "Snacks for the chair." : "Something hot. Legs feel fresh again.", 3); }
+  if (sk.shopIn && sk.shopIn !== was) toast(sk.shopIn.name + (isGear(sk.shopIn) ? " · E to browse" : ""), 2.5);
+  if (was && !sk.shopIn && basket.length) { const n = basket.length; basketKeep(false); sfx("alarm"); toast("You ran out without paying! " + (n === 1 ? "It is" : "They are") + " in your locker now.", 4); }   // out of the door with the goods
+}
+function shopUse() { const s = sk.shopIn; if (!s) return;   // E in a shop
+  if (isGear(s)) { if (nearCounter && basket.length) storePay(); else storeOpen(s); return; }
+  if (nearCounter) toast(s.kind === "art" ? "Prints of the Palisades at first light. Not today." : s.kind === "bar" ? "A pint by the fire. One more run, though." : s.kind === "market" ? "Snacks for the chair." : "Something hot. Legs feel fresh again.", 3); }
 
 /* ---------- boot and main loop ---------- */
 /* If the machine cannot hold 30 fps the graphics level steps down by itself, once per level, unless you picked a level yourself. */
@@ -3230,7 +3266,7 @@ async function boot() {
   await progress("Shaping the mountain", 0.2); initCreeks(); initCat(); initRocks(); buildTerrainTex(); buildComposer(); initTrees();
   await progress("Setting the light", 0.35); setWeather(wxName);
   await progress("Laying snow", 0.45); initChunks(); buildOuter();
-  await progress("Stringing the lifts", 0.6); initLifts(); planShops(); initBuildings(); initRuns(); initCars(); initSigns(); initSlow(); initNPCs(); initVillage(); initParkMeshes(); initSnowGuns(); initComp(); initSleds(); initPlaza();
+  await progress("Stringing the lifts", 0.6); initLifts(); planShops(); initBuildings(); initRuns(); initCars(); initSigns(); initSlow(); initNPCs(); initVillage(); initParkMeshes(); initSnowGuns(); initComp(); initSleds(); initPlaza(); sk.pts = +store.get("pal-pts", 0) || 0;
   await progress("Planting the forest", 0.72); buildBillboards();
   await progress("Drawing the trail map", 0.88); rig = makeRider(outfit); initParticles(); initTracks(); initSnowfall(); buildMap(); initInput(); mpInit();
   await progress("Ready", 1);
@@ -3244,7 +3280,7 @@ async function boot() {
   for (let i = 0; i < 300; i++) if (!updateTerrain(camera.position, 40)) break;
   for (let i = 0; i < 40; i++) { updateTrees(camera.position); updateRocks(camera.position); }
   $("load").hidden = true; renderer.info.autoReset = false; requestAnimationFrame(tick);
-  window.__pal = { rigY: () => rig.hold.position.y, nearCounter: () => nearCounter, SHOPS, WALKERS, PLAZA, shopInside, shopUse, shopTick, updateWalkers, plazaK, buildingAt, updateCamera, mpPack, makeGhost: () => ({ R: makeRider(outfit), tag: null, q: null, keys: Object.assign({}, NOKEYS), st: null }), drawMap, mapPick, poseRemote, updateFriendArrows, camYaw: () => Math.atan2(camDir.x, camDir.z), LOOSE, crash, rockLift, updateLoose, CLIFFS2: 0, SLEDS, sledToggle, stepSled, sledTick, COMP, compEnter, compTick, compFinish, medalPoints, liftLocked, treeMask, trkMesh: () => trkMesh, updateRig, layTracks, getCat: () => CATG, creekD, onRock, catBench, viewFrom: a => { camFix = a; }, CLIFFS, buildCliff, updateTerrain, setCam: a => { camFix = a; sk.mode = "menu"; $("menu").hidden = true; $("hud").hidden = true; }, cliffK, hBase, PARK, REW, stepRewind, recordRewind, toggleWalk, stepWalk, clearTracks, goHome, toggleMap, runAt, npcs, KR, gDown, gUp, landing, stepSki, stepLift, updateLifts, findNearLift, nrm, sk, K, LIFTS, WORLD, H, camera, scene, renderer, setWeather, placeSkier, boardLift, unloadAt, spawnAt, MP, chunks, nearTiles, treeTiles, Q };
+  window.__pal = { rigRef: () => rig, OWNED, owns, storeOpen, storePay, basket: () => basket, priceOf, isGear, rigY: () => rig.hold.position.y, nearCounter: () => nearCounter, SHOPS, WALKERS, PLAZA, shopInside, shopUse, shopTick, updateWalkers, plazaK, buildingAt, updateCamera, mpPack, makeGhost: () => ({ R: makeRider(outfit), tag: null, q: null, keys: Object.assign({}, NOKEYS), st: null }), drawMap, mapPick, poseRemote, updateFriendArrows, camYaw: () => Math.atan2(camDir.x, camDir.z), LOOSE, crash, rockLift, updateLoose, CLIFFS2: 0, SLEDS, sledToggle, stepSled, sledTick, COMP, compEnter, compTick, compFinish, medalPoints, liftLocked, treeMask, trkMesh: () => trkMesh, updateRig, layTracks, getCat: () => CATG, creekD, onRock, catBench, viewFrom: a => { camFix = a; }, CLIFFS, buildCliff, updateTerrain, setCam: a => { camFix = a; sk.mode = "menu"; $("menu").hidden = true; $("hud").hidden = true; }, cliffK, hBase, PARK, REW, stepRewind, recordRewind, toggleWalk, stepWalk, clearTracks, goHome, toggleMap, runAt, npcs, KR, gDown, gUp, landing, stepSki, stepLift, updateLifts, findNearLift, nrm, sk, K, LIFTS, WORLD, H, camera, scene, renderer, setWeather, placeSkier, boardLift, unloadAt, spawnAt, MP, chunks, nearTiles, treeTiles, Q };
   window.__info = () => ({ mode: sk.mode, p: [Math.round(sk.p.x), Math.round(sk.p.y), Math.round(sk.p.z)], sp: +sk.sp.toFixed(1), ground: sk.ground, crashed: sk.crashed, trees: treeCount, calls: renderer.info.render.calls, tris: renderer.info.render.triangles, lift: sk.lift && sk.lift.name, liftS: Math.round(sk.liftS) });
 }
 boot().catch(e => { const d = document.createElement("div"); d.id = "err"; d.textContent = String(e && e.stack || e); document.body.appendChild(d); console.error(e); });

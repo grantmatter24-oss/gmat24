@@ -22,6 +22,7 @@ function updateFriendArrows() {
     const txt = units === "imp" ? (dist * FT > 2640 ? (dist / 1609.34).toFixed(1) + " mi" : Math.round(dist * FT / 10) * 10 + " ft") : dist > 1000 ? (dist / 1000).toFixed(1) + " km" : Math.round(dist / 10) * 10 + " m"; if (e.lastChild.textContent !== txt) e.lastChild.textContent = txt; }
   for (const [peer, e] of friendArrows) if (!seen.has(peer)) { e.remove(); friendArrows.delete(peer); }
 }
+let ptsTick = 0, ptsSaved = -1;
 function updateHUD(dt) {
   updateFriendArrows();
   { const ce = $("chg"), on = sk.chg > 0.02 && sk.mode === "ski"; if (ce.hidden === on) ce.hidden = !on; if (on) ce.firstElementChild.style.width = Math.round(sk.chg * 100) + "%"; }   // jump bar
@@ -29,6 +30,7 @@ function updateHUD(dt) {
   if (toastT > 0) { toastT -= dt; if (toastT <= 0) $("toast").style.opacity = 0; }
   if (trickT > 0) { trickT -= dt; if (trickT <= 0) $("trick").style.opacity = 0; }
   if (hudT < 0.1) return; hudT = 0;
+  if (++ptsTick > 25) { ptsTick = 0; const pv = Math.round(sk.pts); if (pv !== ptsSaved) { ptsSaved = pv; store.set("pal-pts", pv); } }   // your trick points are your money in the village: they are kept between visits
   const imp = units === "imp"; $("speed").textContent = Math.round(sk.sp * (imp ? MPH : KMH)); $("speedU").textContent = imp ? "MPH" : "KM/H";
   $("sAlt").textContent = fmtAlt(sk.p.y); $("sVert").textContent = imp ? Math.round(sk.vert * FT).toLocaleString() + " ft" : Math.round(sk.vert).toLocaleString() + " m";
   $("sMax").textContent = Math.round(sk.maxSp * (imp ? MPH : KMH)) + (imp ? " mph" : " km/h"); $("sPts").textContent = sk.pts.toLocaleString();
@@ -44,7 +46,8 @@ function updateHUD(dt) {
   // lift prompt and ride bar
   const pr = $("prompt"), lb = $("liftBar");
   if (sk.mode === "ski" && COMP.near && !COMP.run) { pr.hidden = false; pr.innerHTML = "<kbd>E</kbd> Enter the " + COMP.near.name; }
-  else if (nearCounter) { pr.hidden = false; pr.innerHTML = "<kbd>E</kbd> " + (nearCounter.kind === "ski" || nearCounter.kind === "wear" ? "Look at the gear" : "Order"); }
+  else if (sk.shopIn && isGear(sk.shopIn)) { pr.hidden = false; pr.innerHTML = nearCounter && basket.length ? "<kbd>E</kbd> Pay " + basketTotal().toLocaleString() + " pts" : "<kbd>E</kbd> Browse" + (basket.length ? " · carrying " + basket.length + " (" + basketTotal().toLocaleString() + " pts): pay at the counter, or run with Shift" : ""); }
+  else if (nearCounter) { pr.hidden = false; pr.innerHTML = "<kbd>E</kbd> Order"; }
   else if (sk.mode === "sled") { pr.hidden = false; pr.innerHTML = sk.sledRole === 2 ? "<kbd>E</kbd> Hop off" : "<kbd>E</kbd> Get off the snowmobile"; }
   else if (sk.mode === "ski" && nearSled && !COMP.run) { pr.hidden = false; pr.innerHTML = sledDriver(nearSled) ? "<kbd>E</kbd> Hop on the back" : "<kbd>E</kbd> Ride the snowmobile"; }
   else if (sk.mode === "ski" && nearLift && !COMP.run) { pr.hidden = false; if (liftLocked(nearLift)) pr.textContent = nearLift.name + " is locked: needs " + LIFT_LOCK[nearLift.name] + " medal points, you have " + medalPoints() + ". Win trophies in competitions (L)."; else pr.innerHTML = "<kbd>E</kbd> Load " + nearLift.name; } else pr.hidden = true;
@@ -147,13 +150,14 @@ function sfx(kind, k = 1) {
   if (!ac || muted) return; const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain(); o.connect(g).connect(ac.destination);
   if (kind === "thump" || kind === "crash") { o.type = "sine"; o.frequency.setValueAtTime(kind === "crash" ? 90 : 120, t); o.frequency.exponentialRampToValueAtTime(38, t + 0.18); g.gain.setValueAtTime(0.5 * k, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.28); o.start(t); o.stop(t + 0.3); }
   else if (kind === "pop") { o.type = "triangle"; o.frequency.setValueAtTime(180, t); o.frequency.exponentialRampToValueAtTime(320, t + 0.08); g.gain.setValueAtTime(0.12, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.12); o.start(t); o.stop(t + 0.13); }
+  else if (kind === "alarm") { o.type = "square"; for (let k = 0; k < 8; k++) o.frequency.setValueAtTime(k % 2 ? 660 : 880, t + k * 0.16); g.gain.setValueAtTime(0.09, t); g.gain.setValueAtTime(0.09, t + 1.2); g.gain.exponentialRampToValueAtTime(0.001, t + 1.3); o.start(t); o.stop(t + 1.32); }
   else if (kind === "land") { o.type = "sine"; o.frequency.setValueAtTime(660, t); o.frequency.setValueAtTime(880, t + 0.09); g.gain.setValueAtTime(0.1, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.3); o.start(t); o.stop(t + 0.32); }
 }
 /* ---------- input ---------- */
 /* Kicker Run's key map */
 const KEYMAP = { ArrowLeft: "left", ArrowRight: "right", ArrowUp: "up", w: "up", ArrowDown: "down", s: "down", a: "spinL", d: "spinR", q: "grabQ", e: "grabN", " ": "grab", Shift: "boost", f: "grabS", g: "focus", j: "brake", x: "grabN", c: "grabI" };
 function setOverlay(id, on) { $(id).hidden = !on; }
-const anyOverlay = () => ["menu", "how", "pause", "map", "fit"].some(id => !$(id).hidden);
+const anyOverlay = () => ["menu", "how", "pause", "map", "fit", "store"].some(id => !$(id).hidden);
 function setPaused(v) { paused = v; setOverlay("pause", v); }
 function toggleMap(v, fromMenu) { const on = v === undefined ? $("map").hidden : v; if (on) { mapFromMenu = !!fromMenu; drawMap(); setOverlay("pause", false); } setOverlay("map", on); paused = on && !mapFromMenu; }
 function setGfx(name) { if (!QUAL[name]) return; qName = name; Q = QUAL[name]; store.set("pal-gfx", name); buildComposer(); document.querySelectorAll("[data-q]").forEach(b => b.classList.toggle("on", b.dataset.q === name)); }
@@ -174,7 +178,7 @@ function initInput() {
     else if (key === "n") { muted = !muted; store.set("pal-mute", muted); toast(muted ? "Sound off" : "Sound on", 1.2); }
     else if (key === "r") { rewKey = !COMP.run; if (COMP.run) toast("No rewinding in a competition", 1.5); }
     else if (key === "e" && sk.mode === "ski" && COMP.near && !COMP.run && sk.ground) compEnter(COMP.near);
-    else if (key === "e" && nearCounter) shopUse();
+    else if (key === "e" && (nearCounter || isGear(sk.shopIn))) shopUse();
     else if (key === "e" && (sk.mode === "sled" || (sk.mode === "ski" && nearSled && !COMP.run))) sledToggle();
     else if (key === "e" && sk.mode === "ski" && nearLift && sk.ground && !COMP.run) { if (liftLocked(nearLift)) toast(nearLift.name + " is locked", 2); else boardLift(nearLift); }
     else if (key === "l" && sk.mode !== "menu") compList($("compList").hidden);
