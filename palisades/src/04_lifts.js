@@ -320,14 +320,25 @@ function initBuildings() {
       sh.uniforms.uLamp = uLamp;
       sh.fragmentShader = "uniform float uLamp; float bWin = 0.0; float bLit = 0.0;\n" + sh.fragmentShader.replace("#include <color_fragment>", `#include <color_fragment>
         { float lodge = step(5000.0, vUv.x), wall = step(-6.0, vUv.y), roofS = step(-8.0, vUv.y) * (1.0 - wall); vec2 uvw = vec2(vUv.x - lodge * 10000.0, vUv.y);
-          vec2 w = uvw / vec2(2.6, 3.0); vec2 f = fract(w); float up = step(0.4, uvw.y) * wall, base = lodge * wall * step(uvw.y, 3.6);
-          bWin = step(0.30, f.x) * step(f.x, 0.70) * step(0.36, f.y) * step(f.y, 0.78) * up * step(0.18, texture2D(uNoise, (floor(w) + 0.5) / 256.0 + 0.37, -8.0).g) * (1.0 - base);
+          vec2 w = uvw / vec2(2.6, 3.0); vec2 f = fract(w), cell = floor(w); float up = step(0.4, uvw.y) * wall, base = lodge * wall * step(uvw.y, 3.6), fine = clamp(1.0 - fwidth(uvw.y) * 2.2, 0.0, 1.0);
+          float hasW = step(0.18, texture2D(uNoise, (cell + 0.5) / 256.0 + 0.37, -8.0).g) * up * (1.0 - base), inX = step(0.30, f.x) * step(f.x, 0.70), inY = step(0.36, f.y) * step(f.y, 0.78);
+          bWin = inX * inY * hasW;
+          float frame = step(0.272, f.x) * step(f.x, 0.728) * step(0.335, f.y) * step(f.y, 0.805) * hasW * (1.0 - inX * inY);                                  // painted window frames
+          float munt = bWin * max(step(abs(f.x - 0.5), 0.007), step(abs(f.y - 0.6), 0.006)) * fine, sill = step(0.25, f.x) * step(f.x, 0.75) * step(0.30, f.y) * step(f.y, 0.335) * hasW;   // glazing bars and a stone sill
+          float shut = (step(0.19, f.x) * step(f.x, 0.262) + step(0.738, f.x) * step(f.x, 0.81)) * inY * hasW;                                                // shutters either side
           vec2 sf = fract(uvw / vec2(4.2, 3.6)); float shop = base * step(0.1, sf.x) * step(sf.x, 0.9) * step(0.2, sf.y) * step(sf.y, 0.82); bWin = max(bWin, shop);   // shopfronts along the plaza
-          bLit = max(bWin * (1.0 - shop) * step(0.62, texture2D(uNoise, (floor(w) + 0.5) / 256.0, -8.0).r), shop * 0.8);
-          vec3 wallC = diffuseColor.rgb * (0.9 + 0.2 * texture2D(uNoise, vWp.xz * 0.05 + vWp.y * 0.07).r);
-          wallC = mix(wallC, vec3(0.30, 0.28, 0.26) * (0.7 + 0.6 * texture2D(uNoise, vec2(uvw.x * 0.9, uvw.y * 1.4) * 0.11).r), base);                 // stone ground floor
-          wallC = mix(wallC, vec3(0.13, 0.09, 0.06), wall * (1.0 - base) * step(fract(uvw.y / 3.0), mix(0.05, 0.13, lodge)) * step(0.4, uvw.y));        // floor lines; timber balconies on the lodges
-          diffuseColor.rgb = mix(wallC, vec3(0.05, 0.07, 0.10), bWin);
+          bLit = max(bWin * (1.0 - shop) * step(0.62, texture2D(uNoise, (cell + 0.5) / 256.0, -8.0).r), shop * 0.8);
+          float n1 = texture2D(uNoise, uvw * 0.9).r, n2 = texture2D(uNoise, vec2(uvw.x * 0.13, uvw.y * 0.5)).g, streak = smoothstep(0.55, 0.9, texture2D(uNoise, vec2(uvw.x * 0.7, uvw.y * 0.035)).b);
+          vec3 wallC = diffuseColor.rgb * (0.84 + 0.2 * n1 + 0.1 * n2) * (1.0 - 0.13 * streak * wall);                                                        // rough stucco, weathered in streaks down the wall
+          float board = (1.0 - lodge) * wall * step(2.7, uvw.y), by = uvw.y / 0.19;                                                                           // chalets: lapped timber boards above the ground floor
+          wallC *= 1.0 - board * fine * (0.24 * step(fract(by), 0.13) + 0.12 * step(fract(uvw.x / 2.4 + floor(by) * 0.37), 0.015)) + board * 0.08 * (texture2D(uNoise, vec2(uvw.x * 0.05, floor(by) * 0.13)).r - 0.5);
+          vec2 sq = vec2(uvw.x / 0.62, uvw.y / 0.31); sq.x += floor(sq.y) * 0.5; vec2 sfr = fract(sq); float mortar = max(step(sfr.x, 0.07), step(sfr.y, 0.11)) * fine;   // the ground floor is coursed stone
+          vec3 stoneC = mix(vec3(0.2, 0.19, 0.18), vec3(0.44, 0.41, 0.36), texture2D(uNoise, (floor(sq) + 0.5) / 256.0, -8.0).r) * (0.85 + 0.3 * n1); stoneC = mix(stoneC, vec3(0.11, 0.105, 0.1), mortar);
+          wallC = mix(wallC, stoneC, base);
+          float tf = lodge * wall * (1.0 - base) * step(abs(fract(w.x) - 0.5), 0.5) * step(fract(w.x), 0.035) * step(texture2D(uNoise, vec2(floor(uvw.y / 3.0) * 0.21, 0.6), -8.0).r, 0.45);   // timber posts on some floors
+          wallC = mix(wallC, vec3(0.13, 0.09, 0.06), max(tf, wall * (1.0 - base) * step(fract(uvw.y / 3.0), mix(0.05, 0.1, lodge)) * step(0.4, uvw.y)));        // floor bands
+          wallC = mix(wallC, vec3(0.84, 0.82, 0.76), max(frame, sill)); wallC = mix(wallC, mix(vec3(0.08, 0.17, 0.12), vec3(0.28, 0.11, 0.07), step(0.5, texture2D(uNoise, vec2(floor(uvw.y / 3.0) * 0.37 + 0.2, 0.3), -8.0).g)), shut * (1.0 - shop));
+          diffuseColor.rgb = mix(wallC, vec3(0.05, 0.07, 0.10), bWin); diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.82, 0.8, 0.74), munt * (1.0 - shop));
           diffuseColor.rgb = mix(diffuseColor.rgb, mix(vec3(0.05, 0.11, 0.09), vec3(0.9, 0.92, 0.95), step(0.38, texture2D(uNoise, vWp.xz * 0.07).r + (texture2D(uNoise, vWp.xz * 0.6).g - 0.5) * 0.3)), roofS); }`)
         .replace("#include <roughnessmap_fragment>", "float roughnessFactor = mix(roughness, 0.06, bWin);").replace("#include <metalnessmap_fragment>", "float metalnessFactor = bWin * 0.9;")
         .replace("#include <emissivemap_fragment>", "totalEmissiveRadiance += vec3(1.0, 0.62, 0.28) * bLit * uLamp;");

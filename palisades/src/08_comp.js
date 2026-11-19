@@ -73,7 +73,7 @@ function compEnter(v) {
   const sv = compSave(v), rec = sv.rec && sv.rec.S && sv.rec.S.length > 8 ? sv.rec : compSynth(v), own = rec === sv.rec, h = sv.runs || 0;
   placeSkier(v.start.x, v.start.z, v.start.yaw, 0); clearTracks(); COMP.hold = true; COMP.near = null;
   if (!COMP.ghosts.length) { const pick = (cat, i) => { const ks = Object.keys(KR.OUTFIT_OPTS[cat]); return ks[(i * 3 + cat.length) % ks.length]; };
-    BOTS.forEach((n, i) => { const of = Object.assign({}, outfit, { helmet: pick("helmet", i), jacket: pick("jacket", i), pants: pick("pants", i), skis: pick("skis", i), accessory: pick("accessory", i) }), R = makeRider(of), tag = mpTag(R); mpTagText(tag, n); COMP.ghosts.push({ n, R, tag, q: null, keys: Object.assign({}, NOKEYS), st: null }); }); KR.dress(rig, outfit); }
+    BOTS.forEach((n, i) => { const of = Object.assign({}, outfit, { helmet: pick("helmet", i), jacket: pick("jacket", i), pants: pick("pants", i), skis: pick("skis", i), accessory: pick("accessory", i) }), R = makeRider(of), tag = mpTag(R); mpTagText(tag, n); COMP.ghosts.push({ n, R, tag, q: null, keys: Object.assign({}, NOKEYS), st: null }); }); dressRig(rig, outfit); }
   COMP.ghosts.forEach((g, i) => { const rn = Math.pow(hash2(h * 7 + 1, i, 201), 1.3);
     if (v.kind === "race") { g.res = +(own ? sv.best * (0.955 + 0.13 * rn) : v.par * (0.97 + 0.2 * rn)).toFixed(2); g.dur = g.res; }   // a racer crosses the line at exactly the time on the board
     else { g.res = Math.round(Math.max(own ? sv.best * (1.22 - 0.36 * rn) : 0, v.par * (1.15 - 0.45 * rn)) / 10) * 10; g.dur = rec.T * (0.93 + 0.12 * hash2(h, i, 202)); }   // strong riders: they score at least a good par run, and more than you if you are ahead of par

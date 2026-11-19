@@ -16,6 +16,10 @@ const sk = {
 };
 const nrm = new THREE.Vector3(0, 1, 0), fw = new THREE.Vector3(), rt = new THREE.Vector3(), tmp = new THREE.Vector3(), tmp2 = new THREE.Vector3();
 let rig = null, fpv = store.get("pal-fpv", false), units = store.get("pal-units", "imp"), paused = false, toastT = 0;
+/* Goggles: an extra the Kicker Run rider does not have. They are sold at the goggle shop in the village and worn over whatever is on your head. */
+const GOGGLES = { none: null, fire: [0x141414, 0xff7a1a], ice: [0xf2f4f7, 0x3aa0ff], rose: [0x7a1420, 0xff5fa2], jade: [0x0f3a2a, 0x39d98a], gold: [0x1a1a1a, 0xf2c230], night: [0x1b1e24, 0x2a2d33] };
+KR.OUTFIT_OPTS.goggles = { none: "No goggles", fire: "Fire lens goggles", ice: "Ice blue goggles", rose: "Rose lens goggles", jade: "Jade lens goggles", gold: "Gold mirror goggles", night: "Blackout goggles" }; KR.OUTFIT_DEFAULT.goggles = "none";
+function dressRig(R, of) { KR.dress(R, of); const q = R.gog, c = q && GOGGLES[of && of.goggles]; if (!q) return; q.grp.visible = !!c; if (c) { q.frame.color.setHex(c[0]); q.lens.color.setHex(c[1]); } }
 let outfit = Object.assign({}, KR.OUTFIT_DEFAULT, store.get("kickerOutfit", null) || {}, store.get("pal-outfit", null) || {});
 for (const k of ["jacket", "pants"]) if (!KR[k === "jacket" ? "JACKETS" : "PANTS"][outfit[k]]) outfit[k] = KR.OUTFIT_DEFAULT[k];
 const fwdOf = (yaw, out) => out.set(Math.sin(yaw), 0, Math.cos(yaw));
@@ -391,6 +395,10 @@ function initSnowfall() {
 let camSnap = true, camSlope = 0, camAir = 0, look = { yaw: 0, pit: 0, drag: false, idle: 0 }; const camPos = new THREE.Vector3(), camTgt = new THREE.Vector3(), camDir = new THREE.Vector3(0, 0, 1), _m4 = new THREE.Matrix4(), _qa = new THREE.Quaternion(), _qb = new THREE.Quaternion(), _x = new THREE.Vector3(), _y = new THREE.Vector3(), _z = new THREE.Vector3();
 function makeRider(of) { // Kicker Run's skier faces -z; the holder faces +z and stands on the slope
   const R = KR.build(of), hold = new THREE.Group(); R.root.rotation.y = Math.PI; R.root.position.y = 0.025; hold.add(R.root); R.hold = hold; scene.add(hold);
+  { const grp = new THREE.Group(), frame = new THREE.MeshStandardMaterial({ color: 0x141414, roughness: 0.6 }), lens = new THREE.MeshStandardMaterial({ color: 0xff7a1a, roughness: 0.08, metalness: 0.85 });   // strap round the head, frame and a curved mirror lens over the eyes
+    const strap = new THREE.Mesh(new THREE.TorusGeometry(0.124, 0.017, 6, 22), frame); strap.rotation.x = Math.PI / 2; strap.position.y = 0.022; strap.scale.set(1, 1, 1.9); grp.add(strap);
+    const fr = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.085, 0.04), frame); fr.position.set(0, 0.02, -0.108); grp.add(fr); const ln = new THREE.Mesh(new THREE.SphereGeometry(0.1, 14, 8, 0, Math.PI, 0.9, 1.3), lens); ln.rotation.y = Math.PI; ln.scale.set(0.96, 0.5, 0.42); ln.position.set(0, 0.02, -0.098); grp.add(ln);
+    R.head.add(grp); R.gog = { grp, frame, lens }; dressRig(R, of || {}); }
   const carry = new THREE.Group(); R.skiMeshes.forEach((m, i) => { const c = new THREE.Mesh(m.geometry, m.material); c.position.set(i ? 0.035 : -0.035, 0, 0); if (i) c.rotation.z = Math.PI; c.castShadow = true; carry.add(c); }); carry.position.set(0.25, 1.36, 0.1); carry.rotation.set(1.18, 0, 0.06); carry.visible = false; R.rig.add(carry); R.carry = carry; return R;
 }
 function poseRider(R, q, keys, slope, dt, time, snap) {

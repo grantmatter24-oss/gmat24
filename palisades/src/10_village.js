@@ -29,30 +29,55 @@ function planShops() { // before the buildings are built: choose the shop fronts
     const s = { name, kind, bd: c.bd, dx: c.mx, dz: c.mz, tx: c.tx, tz: c.tz, nx: c.nx, nz: c.nz, hw: fit.hw, D: fit.D, openW, floorY: fy + 0.05, obst: [] }; SHOPS.push(s); perB.set(c.bd, (perB.get(c.bd) || 0) + 1);
     (c.bd.shopEdges || (c.bd.shopEdges = {}))[c.i] = { s0: c.len / 2 - openW / 2, s1: c.len / 2 + openW / 2, yF: s.floorY, yT: s.floorY + 2.75 }; }
   { const par = SHOPS.find(q => q.name === "Parallel Mountain Sports"); let nb = null, nd = 1e9; for (const q of SHOPS) { const d = Math.hypot(q.dx - b0[0], q.dz - b0[1]); if (d < nd) { nd = d; nb = q; } }   // the ski shop is the first one you reach from the lifts
-    if (par && nb && nb !== par) { const t = [nb.name, nb.kind]; nb.name = par.name; nb.kind = par.kind; par.name = t[0]; par.kind = t[1]; } }
+    if (par && nb && nb !== par) { const t = [nb.name, nb.kind]; nb.name = par.name; nb.kind = par.kind; par.name = t[0]; par.kind = t[1]; }
+    const gd = WORLD.lifts.find(l => l.t === "gondola"); if (gd) { let gb = null, gdd = 1e9; for (const q of SHOPS) { if (q.name === "Parallel Mountain Sports") continue; const d = Math.hypot(q.dx - gd.pts[0][0], q.dz - gd.pts[0][1]); if (d < gdd) { gdd = d; gb = q; } } if (gb) { gb.name = "The Goggle Shop"; gb.kind = "goggle"; } }   // the front shop nearest the Base to Base
+    // the gear shops get as much floor as their building can give them
+    const clear = (s, hw, D) => { for (let k = 0; k <= 8; k++) { const f = k / 8; for (const q of [[-hw, 0.4 + f * D], [hw, 0.4 + f * D], [(-1 + 2 * f) * hw, D + 0.3]]) { const x = s.dx + s.tx * q[0] + s.nx * q[1], z = s.dz + s.tz * q[0] + s.nz * q[1]; if (!inPoly(s.bd.p, x, z) || SHOPS.some(o => o !== s && shopInside({ dx: o.dx, dz: o.dz, tx: o.tx, tz: o.tz, nx: o.nx, nz: o.nz, hw: o.hw + 0.6, D: o.D + 0.6 }, x, z))) return false; } } return true; };
+    for (const s of SHOPS) { if (!isGear(s)) continue; const maxD = s.kind === "goggle" ? 11 : 16, maxW = s.kind === "goggle" ? 6 : 8.5; let grew = true; while (grew) { grew = false; if (s.D + 0.5 <= maxD && clear(s, s.hw, s.D + 0.5)) { s.D += 0.5; grew = true; } if (s.hw + 0.4 <= maxW && clear(s, s.hw + 0.4, s.D)) { s.hw += 0.4; grew = true; } }
+      let fy = -1e9; for (const u of [-1, 0, 1]) for (const w of [-1.2, 0.2, s.D / 2, s.D]) fy = Math.max(fy, H(s.dx + s.tx * u * s.hw + s.nx * w, s.dz + s.tz * u * s.hw + s.nz * w)); const e = s.bd.shopEdges; for (const k in e) if (e[k].yF === s.floorY) { e[k].yF = fy + 0.05; e[k].yT = fy + 2.8; } s.floorY = fy + 0.05; } }
 }
 /* ---- Parallel Mountain Sports: skis and clothes for your locker ----
    Everything the locker can hold is on sale here. Press E in the shop to browse, pick things up (you wear them at once), then pay at the
    counter with your trick points, or run for the door with Shift. Either way they end up in your locker; run, and the alarm goes. */
-const STORE_CATS = [["skis", "Skis", 2500], ["jacket", "Jackets", 1800], ["pants", "Pants", 1200], ["helmet", "Hats and helmets", 900], ["accessory", "Accessories", 600], ["poles", "Poles", 500]];
+const STORE_CATS = [["skis", "Skis", 2500], ["jacket", "Jackets", 1800], ["pants", "Pants", 1200], ["helmet", "Hats and helmets", 900], ["accessory", "Accessories", 600], ["poles", "Poles", 500], ["goggles", "Goggles", 700]];
 const OWNED = store.get("pal-owned", null) || {}; let basket = [], ownDone = false;
 function ownInit() { if (ownDone) return; ownDone = true; for (const [cat] of STORE_CATS) { const a = Array.isArray(OWNED[cat]) ? OWNED[cat] : (OWNED[cat] = []); for (const k of [outfit[cat], KR.OUTFIT_DEFAULT[cat]]) if (k && !a.includes(k)) a.push(k); } store.set("pal-owned", OWNED); }
-const owns = (cat, k) => Array.isArray(OWNED[cat]) && OWNED[cat].includes(k), isGear = s => s && (s.kind === "ski" || s.kind === "wear");
+const owns = (cat, k) => Array.isArray(OWNED[cat]) && OWNED[cat].includes(k), isGear = s => s && (s.kind === "ski" || s.kind === "wear" || s.kind === "goggle");
 const priceOf = cat => Math.round(STORE_CATS.find(q => q[0] === cat)[2] * (1 - Math.min(0.5, 0.1 * medalPoints())) / 10) * 10, basketTotal = () => basket.reduce((a, b) => a + priceOf(b.cat), 0);
-function basketWear() { const of = Object.assign({}, outfit); for (const b of basket) of[b.cat] = b.k; KR.dress(rig, of); }
+function basketWear() { const of = Object.assign({}, outfit); for (const b of basket.length ? basket : loot || []) of[b.cat] = b.k; dressRig(rig, of); }
 function storeOpen(s) {
   ownInit(); const card = $("storeCard"), el = (tag, txt, cls) => { const e = document.createElement(tag); if (txt != null) e.textContent = txt; if (cls) e.className = cls; return e; }; card.textContent = "";
   card.append(el("h3", s.name), el("p", "Your points: " + Math.round(sk.pts).toLocaleString() + (basket.length ? "  ·  Carrying " + basket.length + (basket.length === 1 ? " item" : " items") + ", " + basketTotal().toLocaleString() + " pts" : "") + ".  Pick things up, then pay at the counter (E) or run out with Shift.", "compLead"));
-  for (const [cat, title] of STORE_CATS) { const box = el("div", null, "venue"); box.append(el("b", title + "  ·  " + priceOf(cat).toLocaleString() + " pts each")); const grid = el("div", null, "storeGrid");
+  for (const [cat, title] of STORE_CATS) { if ((cat === "goggles") !== (s.kind === "goggle")) continue;   // goggles are at the goggle shop, everything else at the ski and clothing shops
+    const box = el("div", null, "venue"); box.append(el("b", title + "  ·  " + priceOf(cat).toLocaleString() + " pts each")); const grid = el("div", null, "storeGrid");
     for (const k in KR.OUTFIT_OPTS[cat]) { const row = el("div", null, "storeItem"), has = owns(cat, k), inB = basket.some(b => b.cat === cat && b.k === k); row.append(el("span", KR.OUTFIT_OPTS[cat][k]));
       if (has) row.append(el("i", "in your locker")); else { const bt = el("button", inB ? "Put back" : "Pick up", "join"); if (inB) bt.style.background = "#5b6b7a"; bt.addEventListener("click", () => { basket = basket.filter(b => b.cat !== cat); if (!inB) basket.push({ cat, k }); basketWear(); storeOpen(s); }); row.append(bt); }
       grid.append(row); } box.append(grid); card.append(box); }
   const rw = el("div", null, "row"), close = el("button", "Back to the shop floor", "btn"); rw.style.justifyContent = "center"; close.addEventListener("click", () => { setOverlay("store", false); paused = false; }); rw.append(close); card.append(rw);
   setOverlay("store", true); paused = true;
 }
-function basketKeep(paid) { for (const b of basket) { if (!owns(b.cat, b.k)) OWNED[b.cat].push(b.k); outfit[b.cat] = b.k; } basket = []; store.set("pal-owned", OWNED); store.set("pal-outfit", outfit); store.set("pal-pts", Math.round(sk.pts)); KR.dress(rig, outfit); gearLocks(); document.querySelectorAll("#fitRows select").forEach(sl => { if (sl.dataset.cat && outfit[sl.dataset.cat]) sl.value = outfit[sl.dataset.cat]; }); }
+function basketKeep(paid) { for (const b of basket) { if (!owns(b.cat, b.k)) OWNED[b.cat].push(b.k); outfit[b.cat] = b.k; } basket = []; store.set("pal-owned", OWNED); store.set("pal-outfit", outfit); store.set("pal-pts", Math.round(sk.pts)); dressRig(rig, outfit); gearLocks(); document.querySelectorAll("#fitRows select").forEach(sl => { if (sl.dataset.cat && outfit[sl.dataset.cat]) sl.value = outfit[sl.dataset.cat]; }); }
 function storePay() { const t = basketTotal(); if (sk.pts < t) return toast("That is " + t.toLocaleString() + " pts and you have " + Math.round(sk.pts).toLocaleString() + ". Put something back, earn more with tricks, or run.", 4);
   sk.pts -= t; const n = basket.length; basketKeep(true); sfx("land"); toast("Paid " + t.toLocaleString() + " pts. " + (n === 1 ? "It is" : "They are") + " in your locker.", 3); }
+/* Run out without paying and the shop owner comes after you. Stay ahead for ten seconds, or get well clear, and the gear is yours;
+   get caught and it goes back on the rack. */
+let loot = null, chaser = null;
+function chaseStart(shop) {
+  loot = basket; basket = []; basketWear(); sfx("alarm"); toast("You ran out without paying! The owner is after you: keep running.", 4);
+  if (!chaser) { const R = makeRider(Object.assign({}, outfit, { helmet: "beanie", jacket: "forest", pants: "khaki", accessory: "scarf", goggles: "none" })), tag = mpTag(R); mpTagText(tag, "Shop owner"); dressRig(rig, outfit); basketWear();
+    chaser = { R, tag, q: { p: new THREE.Vector3(), yaw: 0, spin: 0, rot: 0, rotV: 0, sw: false, ground: true, air: false, crashed: false, tumZ: 0, turn: 0, carve: 0, sp: 0, vs: 0, vx: 0, chg: 0, stumT: 0, stumD: 1, mode: "walk", walkPh: 0, grind: null, boxT: 0, bike: false, finished: false, bikeJump: false, pumpT: 0, landT: 0, popT: 0, airT: 1 }, t: 0, on: false, shop: null } }
+  const q = chaser.q; q.p.set(shop.dx + shop.nx * 1.2, 0, shop.dz + shop.nz * 1.2); q.p.y = H(q.p.x, q.p.z); q.yaw = Math.atan2(-shop.nx, -shop.nz); chaser.t = 0; chaser.on = true; chaser.shop = shop; chaser.R.hold.visible = true;
+}
+function chaseTick(dt, time) {
+  const c = chaser; if (!c || !c.on) return; const q = c.q, dx = sk.p.x - q.p.x, dz = sk.p.z - q.p.z, d = Math.hypot(dx, dz); c.t += dt;
+  if (loot) { const v = c.t < 0.9 ? 0 : 3.4,   /* a little slower than you can run: keep going and you get away, hesitate and you do not */ st = v * dt, ux = dx / (d || 1), uz = dz / (d || 1); let nx = q.p.x + ux * st, nz = q.p.z + uz * st;
+    if (buildingAt(nx, nz)) { if (!buildingAt(nx, q.p.z)) nz = q.p.z; else if (!buildingAt(q.p.x, nz)) nx = q.p.x; else { nx = q.p.x; nz = q.p.z; } }   // round the corner of a building
+    q.p.set(nx, H(nx, nz), nz); q.sp = v; q.vs = v; q.walkPh += st * 4.3; q.yaw += wrap(Math.atan2(dx, dz) - q.yaw) * Math.min(1, 8 * dt);
+    if (d < 1.3) { loot = null; dressRig(rig, outfit); c.t = 0; sfx("thump", 0.6); toast("Caught! The gear goes back on the rack.", 3.5); }
+    else if (c.t > 10 || d > 60) { basket = loot; loot = null; const n = basket.length; basketKeep(false); c.t = 0; toast("You got away. " + (n === 1 ? "It is" : "They are") + " in your locker now.", 3.5); } }
+  else { q.sp = 0; if (c.t > 2.5) { c.on = false; c.R.hold.visible = false; return; } }   // stands a moment, then goes back in
+  poseRider(c.R, q, NOKEYS, 0, dt, time, false);
+}
 function textPlate(txt, bg, fg) { const cv = document.createElement("canvas"); cv.width = 1024; cv.height = 128; const g = cv.getContext("2d"); g.fillStyle = bg; g.fillRect(0, 0, 1024, 128); g.fillStyle = fg; g.textAlign = "center"; g.textBaseline = "middle"; let fs = 78; g.font = "800 " + fs + "px 'Big Shoulders Display', 'Arial Narrow', Impact, sans-serif"; while (g.measureText(txt).width > 960 && fs > 28) { fs -= 4; g.font = "800 " + fs + "px 'Big Shoulders Display', 'Arial Narrow', Impact, sans-serif"; } g.fillText(txt, 512, 68);
   const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return new THREE.MeshBasicMaterial({ map: t }); }
 function initPlaza() {
@@ -83,8 +108,13 @@ function initPlaza() {
     const shelf = (sd, w0, w1, rows, item) => { const u = sd * (hw - 0.22); for (let rI = 0; rI < rows; rI++) { const y = 0.5 + rI * 0.5; bx(inn, 0.36, 0.04, w1 - w0, u, y, (w0 + w1) / 2, WOOD); for (let w = w0 + 0.25; w < w1 - 0.1; w += 0.45) item(u, y + 0.04, w, rI); } };
     if (s.kind === "ski") { for (let i = 0; i < Math.floor((D - 2.2) / 0.3); i++) bx(inn, 0.03, 1.72, 0.1, -(hw - 0.05), 1.05, 0.9 + i * 0.3, CLOTH[i % 8]); bx(inn, 0.06, 0.08, D - 2, -(hw - 0.04), 1.95, D / 2, DARK2);          // skis racked along one wall
       shelf(1, 0.8, D - 2.4, 4, (u, y, w, rI) => { bx(inn, 0.26, 0.3, 0.3, u, y + 0.15, w, CLOTH[(rI + Math.round(w * 3)) % 8]); bx(inn, 0.26, 0.1, 0.12, u, y + 0.05, w + 0.2, [0.1, 0.1, 0.11]); });                       // boots and helmets on shelves
-      rack(-1.9, D * 0.42, 0); bx(inn, 1.4, 0.45, 0.4, -hw + 1.3, 0.22, D - 0.6, WOOD); block(-hw + 1.3, D - 0.6, 0.7);                                                                                                // a rack of jackets, the boot-fitting bench
+      for (let w = 2.6; w < D - 3.4; w += 2.5) for (let u = -hw + 2.6; u < hw - 2.4; u += 3.0) if (Math.abs(u) > 1.3) rack(u, w, 0);   // rows of jackets and pants, an aisle down the middle
+      bx(inn, 1.4, 0.45, 0.4, -hw + 1.3, 0.22, D - 0.6, WOOD); block(-hw + 1.3, D - 0.6, 0.7);                                                                                                // a rack of jackets, the boot-fitting bench
       bx(inn, 1.6, 0.06, 0.6, 0.2, 0.92, D - 0.45, STEELc); for (const e of [-0.7, 0.7]) bx(inn, 0.06, 0.92, 0.5, 0.2 + e, 0.46, D - 0.45, STEELc); bx(inn, 0.1, 0.03, 1.5, 0.2, 0.99, D - 0.45, CLOTH[1], Math.PI / 2); }   // tuning bench with a ski on it
+    else if (s.kind === "goggle") { const LENS = [[1, 0.48, 0.1], [0.23, 0.63, 1], [1, 0.37, 0.64], [0.22, 0.85, 0.54], [0.95, 0.76, 0.19], [0.16, 0.18, 0.2]];
+      for (const sd of [-1, 1]) { bx(inn, 0.06, 1.9, D - 1.6, sd * (hw - 0.04), 1.45, D / 2 + 0.2, WHITE); for (let rI = 0; rI < 5; rI++) for (let w = 1.2; w < D - 1.0; w += 0.34) { bx(inn, 0.07, 0.075, 0.19, sd * (hw - 0.1), 0.75 + rI * 0.33, w, LENS[(rI + Math.round(w * 3) + (sd > 0 ? 2 : 0)) % 6]); bx(inn, 0.05, 0.1, 0.23, sd * (hw - 0.08), 0.75 + rI * 0.33, w, [0.08, 0.08, 0.09]); } }   // walls of goggles
+      for (const [tu, tw] of [[-hw * 0.45, D * 0.35], [hw * 0.4, D * 0.3], [-hw * 0.45, D * 0.68]]) { bx(inn, 1.5, 0.9, 0.8, tu, 0.45, tw, WHITE); bx(inn, 1.56, 0.04, 0.86, tu, 0.92, tw, [0.75, 0.86, 0.92]); for (let k = 0; k < 4; k++) { bx(inn, 0.19, 0.075, 0.07, tu - 0.5 + k * 0.33, 1.0, tw, LENS[(k + Math.round(tw)) % 6]); bx(inn, 0.23, 0.1, 0.05, tu - 0.5 + k * 0.33, 1.0, tw + 0.03, [0.08, 0.08, 0.09]); } block(tu - 0.4, tw, 0.6); block(tu + 0.4, tw, 0.6); }   // display tables
+      bx(inn, 0.9, 1.7, 0.05, 0.2, 1.25, D + 0.08, [0.75, 0.84, 0.9]); bx(inn, 1.0, 1.8, 0.04, 0.2, 1.25, D + 0.1, DARK2); }                                                                           // a mirror to try them in
     else if (s.kind === "wear") { rack(-2.0, D * 0.38, 0); rack(-2.0, D * 0.68, 0); rack(hw - 2.2, D * 0.3, 0);
       shelf(-1, 0.8, D - 0.8, 4, (u, y, w, rI) => bx(inn, 0.3, 0.14, 0.34, u, y + 0.07, w, CLOTH[(rI * 2 + Math.round(w * 2)) % 8]));                                                                                  // folded sweaters
       for (const [mu, mw] of [[oW - 0.9, 0.9], [-oW + 0.9, 0.9]]) { bx(inn, 0.5, 0.12, 0.5, mu, 0.06, mw, WHITE); bx(inn, 0.3, 0.8, 0.2, mu, 0.52, mw, [0.12, 0.12, 0.14]); bx(inn, 0.42, 0.62, 0.24, mu, 1.2, mw, CLOTH[(si + (mu > 0 ? 3 : 5)) % 8]); cy(inn, 0.1, 0.1, 0.22, mu, 1.64, mw, WHITE, 8); block(mu, mw, 0.35); } }   // mannequins in the windows
@@ -134,8 +164,8 @@ function updateWalkers(dt, cam) {
 /* ---- being in a shop ---- */
 function shopTick() { const was = sk.shopIn; sk.shopIn = null; nearCounter = null; if (!(sk.mode === "ski" || sk.mode === "walk") || COMP.run) return;
   for (const s of SHOPS) if (Math.abs(s.dx - sk.p.x) + Math.abs(s.dz - sk.p.z) < 30 && shopInside(s, sk.p.x, sk.p.z)) { sk.shopIn = s; if (sk.sp < 4 && Math.hypot(s.cx - sk.p.x, s.cz - sk.p.z) < 1.5) nearCounter = s; }
-  if (sk.shopIn && sk.shopIn !== was) toast(sk.shopIn.name + (isGear(sk.shopIn) ? " · E to browse" : ""), 2.5);
-  if (was && !sk.shopIn && basket.length) { const n = basket.length; basketKeep(false); sfx("alarm"); toast("You ran out without paying! " + (n === 1 ? "It is" : "They are") + " in your locker now.", 4); }   // out of the door with the goods
+  if (sk.shopIn && sk.shopIn !== was && !loot) toast(sk.shopIn.name + (isGear(sk.shopIn) ? " · E to browse" : ""), 2.5);
+  if (was && !sk.shopIn && basket.length) chaseStart(was);   // out of the door with the goods: the owner comes after you
 }
 function shopUse() { const s = sk.shopIn; if (!s) return;   // E in a shop
   if (isGear(s)) { if (nearCounter && basket.length) storePay(); else storeOpen(s); return; }
