@@ -76,6 +76,7 @@ function landmarkOf(b, area) {
   if (/safeway|whole foods|trader joe|diablo foods|lunardi|grocery outlet/.test(t) && area > 800) return "market";
   return null;
 }
+const EATS = /caf[eé]|coffee|restaurant|grill|pizza|taqueria|bistro|kitchen|bakery|deli\b|sushi|thai|burger|creamery|brew|cantina|trattoria|diner|bbq|ramen|pho\b|taco|wine|pub\b|boulange|yogurt|ice cream|bagel|donut|eatery|chow|noodle|cucina|tavern/;
 const AWN = [[0.34, 0.07, 0.07], [0.07, 0.20, 0.13], [0.09, 0.13, 0.28], [0.52, 0.45, 0.33], [0.16, 0.16, 0.17], [0.55, 0.30, 0.10]];
 const PU0 = 2.3 / TILE_W, PU1 = 2.6 / TILE_W, PUV = [PU0, rowV(1, 0.2), PU1, rowV(1, 0.2), PU0, rowV(1, 0.5), PU1, rowV(1, 0.5)];   // a featureless strip of plain render, for trim and small parts
 const BRICKC = [[1, 1, 1], [0.86, 0.80, 0.78], [1.10, 0.98, 0.90], [0.78, 0.76, 0.78], [1.18, 1.10, 0.96], [0.92, 0.90, 0.86]];
@@ -119,6 +120,11 @@ function planFronts() {
     const s = kind === 0 && hash2(b, 8, 29) < 0.5 ? L - gw / 2 : gw / 2, x = P[li * 2] + dx * s / L, z = P[li * 2 + 1] + dz * s / L, nx = dz / L, nz = -dx / L; let len = kind === 0 ? 6 : 0;
     for (let d = 1.5; d <= 22; d += 1) { if (hiAt(x + nx * d, z + nz * d, 2) > 0.5) { len = Math.min(len, d - 1.5); break; } if (hiAt(x + nx * d, z + nz * d, 0) > 0.5) { len = d + 1.5; break; } }
     if (len > 1) jobs.push([x, z, nx, nz, gw / 2 - 0.25, len, hash2(b, 8, 31) < 0.6 ? 1 : 0]);   // most drives are concrete, the rest tarmac
+    if (kind === 0) {   // and a path from the front door to the drive or the street
+      const dw = Math.min(2, L - gw), sd = hash2(b, 8, 29) < 0.5 ? L - gw - dw / 2 : gw + dw / 2, px = P[li * 2] + dx * sd / L, pz = P[li * 2 + 1] + dz * sd / L; let pl = 0;
+      for (let d = 1.5; d <= 16; d += 1) { if (hiAt(px + nx * d, pz + nz * d, 2) > 0.5) break; if (hiAt(px + nx * d, pz + nz * d, 0) > 0.5) { pl = d + 1; break; } }
+      if (pl > 2.5) jobs.push([px, pz, nx, nz, 0.45, pl, 1]);
+    }
   }
   for (const [x, z, nx, nz, hw, len, conc] of jobs) for (let d = 0.3; d <= len; d += 0.7) for (let u = -hw; u <= hw; u += 0.7) {
     const px = x + nx * d - nz * u, pz = z + nz * d + nx * u, i = Math.floor((px - X0) / HICELL), jj = Math.floor((pz - Z0) / HICELL); if (i < 0 || jj < 0 || i >= HIW || jj >= HIH) continue;
@@ -223,6 +229,17 @@ function addBuilding(b, W, Rf) {
       face(Rf, [lx, y1, lz, rx, y1, rz, lx + px, y0, lz + pz, rx + px, y0, rz + pz], uv, rc, _up); face(Rf, [lx, y1 - 0.1, lz, rx, y1 - 0.1, rz, lx + px, y0 - 0.1, lz + pz, rx + px, y0 - 0.1, rz + pz], uv, [wc[0] * 0.75, wc[1] * 0.75, wc[2] * 0.75], _dn);
       face(W, [lx + px, y0 - 0.14, lz + pz, rx + px, y0 - 0.14, rz + pz, lx + px, y0 + 0.02, lz + pz, rx + px, y0 + 0.02, rz + pz], PUV, tc, _out.set(nx, 0, nz));
       for (const s of [-1, 1]) { face(W, [x + tx * hw * s, y1 - 0.12, z + tz * hw * s, x + tx * hw * s + px, y0 - 0.12, z + tz * hw * s + pz, x + tx * hw * s, y1, z + tz * hw * s, x + tx * hw * s + px, y0, z + tz * hw * s + pz], PUV, tc, _out.set(tx * s, 0, tz * s)); addBox(W, x + tx * (hw - 0.09) * s + nx * (d - 0.09), z + tz * (hw - 0.09) * s + nz * (d - 0.09), tx, tz, 0.055, 0.055, floorY - 0.03, y0 - 0.1, tc); }
+    }
+  }
+  if (kind === 2 && fi >= 0 && !lm && SIGNS.has(b) && EATS.test(SIGNS.get(b).join(" ").toLowerCase())) {   // places that serve food put tables out front under umbrellas
+    const j = (fi + 1) % n, dx = P[j * 2] - P[fi * 2], dz = P[j * 2 + 1] - P[fi * 2 + 1], L = Math.hypot(dx, dz) || 1, ux = dx / L, uz = dz / L, nx = uz, nz = -ux, uc = AWN[Math.floor(hash2(b, 5, 71) * AWN.length)], ud = [uc[0] * 0.6, uc[1] * 0.6, uc[2] * 0.6];
+    for (const t of L < 9 ? [0.3] : L < 16 ? [0.2, 0.8] : [0.15, 0.38, 0.85]) {
+      const x = P[fi * 2] + dx * t + nx * 2.3, z = P[fi * 2 + 1] + dz * t + nz * 2.3; if (hiAt(x, z, 2) > 0.4) continue; const gy = H(x, z) + 0.02;
+      addBox(W, x, z, ux, uz, 0.045, 0.045, gy, gy + 0.72, [0.25, 0.25, 0.26]); addBox(W, x, z, ux, uz, 0.42, 0.42, gy + 0.72, gy + 0.76, [0.3, 0.3, 0.31], [0.55, 0.42, 0.3]);
+      for (const c of [-0.72, 0.72]) addBox(W, x + ux * c, z + uz * c, ux, uz, 0.2, 0.2, gy, gy + 0.46, [0.2, 0.2, 0.21], [0.3, 0.3, 0.31]);
+      addBox(W, x + nx * 0.5, z + nz * 0.5, ux, uz, 0.025, 0.025, gy, gy + 2.5, [0.8, 0.8, 0.78]);
+      const ax = x + nx * 0.5, az = z + nz * 0.5, C = [[-1.25, -1.25], [1.25, -1.25], [1.25, 1.25], [-1.25, 1.25]].map(([a, c]) => [ax + ux * a + nx * c, az + uz * a + nz * c]);
+      for (let k = 0; k < 4; k++) { const p0 = C[k], p1 = C[(k + 1) % 4], pts = [p0[0], gy + 2.1, p0[1], p1[0], gy + 2.1, p1[1], ax, gy + 2.55, az]; face(Rf, pts, [0, 0, 0.3, 0, 0.15, 0.3], uc, _up); face(Rf, pts, [0, 0, 0.3, 0, 0.15, 0.3], ud, _dn); }
     }
   }
   if (lm && fi >= 0) landmarkExtras(lm, P, n, fi, floorY, topY, wc, tc, W, Rf);

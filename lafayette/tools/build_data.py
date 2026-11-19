@@ -388,6 +388,24 @@ try:
             if n.lower() not in seen and len(seen) < 2: seen.add(n.lower()); signs.append([i, n])
 except Exception as e: print("signs skipped:", repr(e))
 print("name boards", len(signs), "on", len({i for i, _ in signs}), "buildings")
+# shops and offices stand in asphalt, not lawn: on commercial land, and close round every shop, ground that the satellite sees
+# as bare in both spring and summer is car park or forecourt
+_j = np.load(RAW + "s2_jul.npz")["inner"]; _m = np.load(RAW + "s2_may.npz")["inner"]
+_nd = np.maximum((_j[3] - _j[2]) / np.maximum(_j[3] + _j[2], 1), (_m[3] - _m[2]) / np.maximum(_m[3] + _m[2], 1))
+_bare = Image.fromarray((np.clip((0.30 - _nd) / 0.10, 0, 1) * 255).astype(np.uint8)).resize((W1, H1), Image.BILINEAR)
+_com = Image.new("L", (W1, H1), 0); _dc = ImageDraw.Draw(_com)
+for f in landuse:
+    if f["properties"].get("class") in ("commercial", "retail") and f["geometry"]["type"] in ("Polygon", "MultiPolygon"):
+        for rings in polys(f["geometry"]): _dc.polygon(px(xz(rings[0])), fill=255)
+for i_, k_ in enumerate(b_kind):
+    if k_ in (2, 7) and b_poly[i_] is not None:
+        try:
+            g_ = b_poly[i_].buffer(18.0, join_style=2)
+            if g_.geom_type == "Polygon": _dc.polygon(px(np.asarray(g_.exterior.coords)), fill=255)
+        except Exception: pass
+_lot = (np.asarray(_com) > 0) & (np.asarray(_bare) > 140)
+_pv = np.asarray(paved); print("car parks and forecourts added: %.1f ha" % ((_lot & (_pv < 128)).sum() * SS * SS / 1e4))
+paved = Image.fromarray(np.where(_lot, np.maximum(_pv, 235), _pv).astype(np.uint8)); del _com, _bare, _lot, _pv, _j, _m, _nd
 def down(im): return np.asarray(im.resize((W1 // 2, H1 // 2), Image.BOX))
 Mp, Md, Ms = down(paved), down(dirt), down(struct); del paved, dirt, struct, dp, dd, ds
 Md = np.where(Mp > 128, 0, Md).astype(np.uint8)

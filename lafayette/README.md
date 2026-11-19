@@ -35,6 +35,9 @@ Every footprint, height and use comes from the map; everything else is built by 
   canopies or covered walks, pilasters, parapets and roof plant. Blocks of flats get balconies.
 - Walls are boards, render or brick (three rows of one texture atlas, chosen per building; brick carries its own colour).
   Flat roofs read as a seamed membrane, pitched roofs as shingles. Parking structures show open decks.
+- Around shops the bake paves what the satellite sees as bare ground on commercial land (car parks and forecourts), and places
+  whose names say they serve food put tables and umbrellas out front. Houses get shrubs under the front windows and a path from
+  the front door to the street.
 - A few places are dressed for what they are, from their mapped names: the saloon has a western false front and boardwalk, the
   cinema a marquee and blade sign, supermarkets a tall entrance bay, filling stations a pump canopy.
 - The bake (`tools/build_data.py`) levels a pad under every building at the height of the street it fronts and cuts or fills the
@@ -42,6 +45,12 @@ Every footprint, height and use comes from the map; everything else is built by 
 
 Measured roof shapes would need the county's lidar point cloud (USGS, Contra Costa 2007). Its download server answers
 automated requests with HTTP 429, so roof types remain a per-building choice.
+
+## Trees
+
+`src/06_veg.js`: broadleaf crowns are several rounded masses of leaf cards on visible limbs, each shaded as its own ball and
+darker toward the heart of the crown; looking toward the sun, light comes through the leaves. Far trees use a lower alpha
+cut-off so crowns stay full. Some street trees turn gold or plum.
 
 ## Staying smooth
 

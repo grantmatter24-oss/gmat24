@@ -1,11 +1,11 @@
 /* ---------- how each machine moves ---------- */
 const RHO = 1.2;
 const SPEC = {
-  car: { four: true, m: 1780, L: 2.62, tr: 1.60, rw: 0.39, cg: 0.74, rest: 0.36, travel: 0.20, k: 54000, c: 4600, mu: [1.05, 0.78, 0.66], crr: [0.014, 0.035, 0.07], steer: 0.68, latG: 1.0, P: 155e3, Fmax: 0.78, vmax: 52, brake: 10.5, cda: 0.98, drive: [1, 1, 1, 1], hull: [0.92, 0.55, 2.15, 1.05], rpm: [800, 6200], gears: [3.6, 2.2, 1.5, 1.1, 0.85, 0.68], final: 4.1 },
-  quad: { four: true, m: 385, L: 1.28, tr: 0.96, rw: 0.29, cg: 0.50, latG: 0.95, rest: 0.25, travel: 0.17, k: 12500, c: 1250, mu: [0.82, 0.86, 0.8], crr: [0.022, 0.035, 0.05], steer: 0.74, P: 33e3, Fmax: 0.72, vmax: 29, brake: 8.5, cda: 0.9, drive: [1, 1, 1, 1], hull: [0.5, 0.4, 1.0, 0.55], rpm: [1300, 8000], gears: [3.0, 2.0, 1.45, 1.1, 0.9], final: 9.5 },
-  dirt: { m: 195, L: 1.48, rf: 0.345, rr: 0.33, cg: 0.74, b: 0.67, kf: 7400, cf: 540, rbf: 1450, tf: 0.30, kr: 16000, cr: 900, rbr: 2350, trv: 0.31, mu: [0.95, 0.92, 0.84], crr: [0.018, 0.028, 0.04], steer: 0.78, P: 39e3, Fmax: 0.60, vmax: 38, brake: 9.5, cda: 0.55, kp: 0.56, rpm: [1700, 11500], gears: [2.6, 1.9, 1.5, 1.25, 1.05], final: 13 },
-  mtb: { m: 99, L: 1.19, rf: 0.37, rr: 0.37, cg: 0.98, b: 0.47, kf: 7800, cf: 420, rbf: 950, tf: 0.14, kr: 62000, cr: 1100, rbr: 1700, trv: 0.03, mu: [0.9, 0.88, 0.8], crr: [0.007, 0.016, 0.03], steer: 0.75, P: 430, Fmax: 0.5, vmax: 26, brake: 8.0, cda: 0.46, kp: 0.55, human: true },
-  scoot: { m: 101, L: 0.86, rf: 0.108, rr: 0.108, cg: 0.95, b: 0.36, kf: 95000, cf: 1500, tf: 0.02, kr: 95000, cr: 1500, trv: 0.02, mu: [0.85, 0.55, 0.45], crr: [0.014, 0.07, 0.13], steer: 0.65, P: 750, Fmax: 0.3, vmax: 11.6, brake: 6.0, cda: 0.52, kp: 0.5, electric: true },
+  car: { four: true, m: 1780, L: 2.62, tr: 1.60, rw: 0.39, cg: 0.74, rest: 0.36, travel: 0.20, k: 54000, c: 4600, mu: [1.38, 0.98, 0.84], crr: [0.014, 0.035, 0.07], steer: 0.80, latG: 1.32, P: 155e3, Fmax: 0.78, vmax: 52, brake: 10.5, cda: 0.98, drive: [1, 1, 1, 1], hull: [0.92, 0.55, 2.15, 1.05], rpm: [800, 6200], gears: [3.6, 2.2, 1.5, 1.1, 0.85, 0.68], final: 4.1 },
+  quad: { four: true, m: 385, L: 1.28, tr: 0.96, rw: 0.29, cg: 0.50, latG: 1.22, rest: 0.25, travel: 0.17, k: 12500, c: 1250, mu: [1.12, 1.10, 1.02], crr: [0.022, 0.035, 0.05], steer: 0.88, P: 33e3, Fmax: 0.72, vmax: 29, brake: 8.5, cda: 0.9, drive: [1, 1, 1, 1], hull: [0.5, 0.4, 1.0, 0.55], rpm: [1300, 8000], gears: [3.0, 2.0, 1.45, 1.1, 0.9], final: 9.5 },
+  dirt: { m: 195, L: 1.48, rf: 0.345, rr: 0.33, cg: 0.74, b: 0.67, kf: 7400, cf: 540, rbf: 1450, tf: 0.30, kr: 16000, cr: 900, rbr: 2350, trv: 0.31, mu: [1.24, 1.18, 1.08], crr: [0.018, 0.028, 0.04], steer: 0.92, P: 39e3, Fmax: 0.60, vmax: 38, brake: 9.5, cda: 0.55, kp: 0.56, rpm: [1700, 11500], gears: [2.6, 1.9, 1.5, 1.25, 1.05], final: 13 },
+  mtb: { m: 99, L: 1.19, rf: 0.37, rr: 0.37, cg: 0.98, b: 0.47, kf: 7800, cf: 420, rbf: 950, tf: 0.14, kr: 62000, cr: 1100, rbr: 1700, trv: 0.03, mu: [1.15, 1.10, 1.02], crr: [0.007, 0.016, 0.03], steer: 0.90, P: 430, Fmax: 0.5, vmax: 26, brake: 8.0, cda: 0.46, kp: 0.55, human: true },
+  scoot: { m: 101, L: 0.86, rf: 0.108, rr: 0.108, cg: 0.95, b: 0.36, kf: 95000, cf: 1500, tf: 0.02, kr: 95000, cr: 1500, trv: 0.02, mu: [1.08, 0.74, 0.62], crr: [0.014, 0.07, 0.13], steer: 0.82, P: 750, Fmax: 0.3, vmax: 11.6, brake: 6.0, cda: 0.52, kp: 0.5, electric: true },
 };
 const ROUGH = [0, 0.028, 0.042, 0];   // bump height by surface: asphalt, dirt, grass, water
 const _v = { a: new THREE.Vector3(), b: new THREE.Vector3(), c: new THREE.Vector3(), d: new THREE.Vector3(), e: new THREE.Vector3(), f: new THREE.Vector3(), n: new THREE.Vector3(), tf: new THREE.Vector3(), ts: new THREE.Vector3(), F: new THREE.Vector3(), T: new THREE.Vector3(), q: new THREE.Quaternion(), m: new THREE.Matrix4(), out: { x: 0, z: 0 } };
@@ -55,7 +55,7 @@ function stepFour(v, inp, h) {
   if (inp.throttle > 0 && fwdSpeed < -0.6) { brake = Math.max(brake, inp.throttle); drive = 0; }
   const steerLim = Math.min(S.steer, Math.atan(S.L * (S.latG || 0.82) * G / Math.max(1, fwdSpeed * fwdSpeed)) * 1.9);
   // power and lock together break the back end loose, and the handbrake does it at once: that is the drift
-  const drift = inp.throttle * sstep(0.5, 0.95, Math.abs(inp.steer)) * sstep(5, 11, Math.abs(fwdSpeed)), rearGrip = inp.hand ? 0.55 : 1 - 0.5 * drift;
+  const drift = inp.throttle * sstep(0.5, 0.95, Math.abs(inp.steer)) * sstep(5, 11, Math.abs(fwdSpeed)), rearGrip = inp.hand ? 0.55 : 1 - 0.42 * drift;
   v.steer = damp(v.steer, inp.steer * steerLim, 9, h * 4) * 1; let nc = 0, slip = 0, surfSum = 0;
   for (let i = 0; i < 4; i++) {
     const wx = WPOS[i][0] * S.tr / 2, wz = WPOS[i][1] * S.L / 2, wy = -(S.cg - S.rw) - S.sag + S.rest;   // suspension top, in the body

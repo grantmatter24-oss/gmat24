@@ -1,10 +1,10 @@
 /* ---------- trees: placed where the satellite sees canopy, kept off streets, roofs and water ---------- */
 const TC = 128, TSTEP = 6.4, treeChunks = new Map();
 const SPECIES = [   // height range, crown radius as a share of height, tint
-  { h: [7, 12.5], r: 0.56, c: [0.80, 0.86, 0.66] },     // coast live oak: low, wide, dark
-  { h: [11, 18], r: 0.36, c: [1.0, 1.08, 0.76] },      // valley oak, bay, sycamore: taller and brighter
+  { h: [7, 12.5], r: 0.58, c: [0.86, 0.92, 0.66] },     // coast live oak: low, wide, dark
+  { h: [11, 18], r: 0.40, c: [1.04, 1.12, 0.74] },      // valley oak, bay, sycamore: taller and brighter
   { h: [4.2, 7.5], r: 0.46, c: [1.08, 1.16, 0.74] },    // garden and street trees
-  { h: [15, 27], r: 0.17, c: [0.72, 0.86, 0.78] },      // redwood, pine, cedar
+  { h: [15, 27], r: 0.17, c: [0.78, 0.92, 0.74] },      // redwood, pine, cedar
 ];
 function treeChunk(cx, cz) {
   const key = cx * 4096 + cz; let c = treeChunks.get(key); if (c) return c;
@@ -25,9 +25,22 @@ function treeChunk(cx, cz) {
     const h = lerp(S.h[0], S.h[1], r2) * (0.82 + 0.3 * cover), r = h * S.r * (0.85 + 0.3 * r3) + (sp === 3 ? 0.8 : 0), y = H(x, z);
     if (inside && (waterAt(x, z) > -1e8 || deckAt(x, z, 1e9) > -1e8)) continue;   // nothing grows in the water or up through a bridge
     p.set(x, y - 0.25, z); q.setFromAxisAngle(_up, r3 * TAU); s.set(r, h, r); m4.compose(p, q, s);
-    const T = sp === 3 ? C : B, k = 0.86 + 0.3 * hash2(ix, iz, 7), plum = sp === 2 && hash2(ix, iz, 8) < 0.07;
-    for (let e = 0; e < 16; e++) T.m.push(m4.elements[e]); T.col.push((plum ? 1.5 : S.c[0]) * k, (plum ? 0.55 : S.c[1]) * k, (plum ? 0.6 : S.c[2]) * k); T.n++;
+    const T = sp === 3 ? C : B, k = 0.86 + 0.3 * hash2(ix, iz, 7), plum = sp === 2 && hash2(ix, iz, 8) < 0.07, gold = sp === 2 && !plum && hash2(ix, iz, 8) > 0.9;
+    for (let e = 0; e < 16; e++) T.m.push(m4.elements[e]); T.col.push((plum ? 1.5 : gold ? 1.6 : S.c[0]) * k, (plum ? 0.55 : gold ? 1.12 : S.c[1]) * k, (plum ? 0.6 : gold ? 0.42 : S.c[2]) * k); T.n++;
     if (inside) tr.push(x, z, Math.max(0.16, r * (sp === 3 ? 0.13 : 0.075)), h);
+  }
+  // shrubs planted along the front of each house, under the windows
+  const bt = typeof bldTiles !== "undefined" && BFRONT ? bldTiles.get(Math.floor(cx * TC / BT) * 4096 + Math.floor(cz * TC / BT)) : null;
+  if (bt) for (const b of bt.list) {
+    if (V.bKind[b] !== 0 || BFRONT[b] < 0 || Math.floor((BLD.minx[b] + BLD.maxx[b]) / 2 / TC) !== cx || Math.floor((BLD.minz[b] + BLD.maxz[b]) / 2 / TC) !== cz) continue;
+    const P = bldRing(b), n = P.length / 2, i = BFRONT[b], j = (i + 1) % n, dx = P[j * 2] - P[i * 2], dz = P[j * 2 + 1] - P[i * 2 + 1], L = Math.hypot(dx, dz); if (i >= n || L < 6) continue;
+    const gw = garageWidth(0, L), rest = L - gw - 2, s0 = hash2(b, 8, 29) < 0.5 ? 0 : gw + 2, nx = dz / L, nz = -dx / L;
+    for (let u = 0.7 + hash2(b, 1, 61) * 1.2, k = 0; u < rest - 0.6 && k < 8; u += 1.8 + hash2(b, k, 62) * 1.7, k++) {
+      const sd = s0 + u, x = P[i * 2] + dx * sd / L + nx * 0.95, z = P[i * 2 + 1] + dz * sd / L + nz * 0.95; if (hiAt(x, z, 0) > 0.3) continue;
+      const hh = 0.9 + 0.9 * hash2(b, k, 63), rr = 0.7 + 0.5 * hash2(b, k, 64), kk = 0.8 + 0.3 * hash2(b, k, 66), red = hash2(b, k, 67) < 0.08;
+      p.set(x, H(x, z) - 0.60 * hh, z); q.setFromAxisAngle(_up, hash2(b, k, 65) * TAU); s.set(rr, hh * 1.5, rr); m4.compose(p, q, s);
+      for (let e = 0; e < 16; e++) B.m.push(m4.elements[e]); B.col.push((red ? 1.5 : 0.82) * kk, (red ? 0.6 : 1.0) * kk, (red ? 0.5 : 0.62) * kk); B.n++;
+    }
   }
   const pack = T => {   // far away, every other tree is drawn half as big again: the same wood for half the work
     const o = { n: T.n, m: Float32Array.from(T.m), col: Float32Array.from(T.col) }, fn = (T.n + 1) >> 1; o.fn = fn; o.fm = new Float32Array(fn * 16); o.fcol = new Float32Array(fn * 3);
@@ -48,10 +61,11 @@ function leafAtlas() {
   const S = 256, c = document.createElement("canvas"); c.width = c.height = S * 2; const g = c.getContext("2d"), r = rng(77);
   for (let t = 0; t < 2; t++) {   // two broadleaf clusters
     const ox = t * S + S / 2, oy = S / 2, leaves = [];
-    for (let i = 0; i < 1100; i++) { const a = r() * TAU, d = 114 * Math.pow(r(), 0.6); leaves.push([ox + Math.cos(a) * d, oy + Math.sin(a) * d * 0.92, r()]); }
+    for (let i = 0; i < 9; i++) { const a = r() * TAU, d = 58 * r(), rad = 34 + r() * 22, gr = g.createRadialGradient(ox + Math.cos(a) * d, oy + Math.sin(a) * d, rad * 0.5, ox + Math.cos(a) * d, oy + Math.sin(a) * d, rad); gr.addColorStop(0, "rgba(40,54,24,1)"); gr.addColorStop(1, "rgba(40,54,24,0)"); g.fillStyle = gr; g.fillRect(t * S, 0, S, S); }
+    for (let i = 0; i < 820; i++) { const a = r() * TAU, d = 112 * Math.pow(r(), 0.7); leaves.push([ox + Math.cos(a) * d, oy + Math.sin(a) * d * 0.92, r()]); }
     leaves.sort((a, b) => a[2] - b[2]);
     g.strokeStyle = "rgba(58,44,30,0.9)"; g.lineWidth = 3; for (let i = 0; i < 7; i++) { const a = r() * TAU; g.beginPath(); g.moveTo(ox, oy); g.quadraticCurveTo(ox + Math.cos(a) * 50, oy + Math.sin(a) * 50, ox + Math.cos(a + 0.4) * 100, oy + Math.sin(a + 0.4) * 100); g.stroke(); }
-    for (const [x, y, d] of leaves) { const l = 13 + d * 25 + r() * 7, hue = 66 + r() * 34; g.fillStyle = `hsl(${hue},${26 + r() * 20}%,${l}%)`; g.save(); g.translate(x, y); g.rotate(r() * TAU); g.beginPath(); g.ellipse(0, 0, 3.6 + r() * 3.4, 1.8 + r() * 1.7, 0, 0, TAU); g.fill(); g.restore(); }
+    for (const [x, y, d] of leaves) { const l = 15 + d * 29 + r() * 8, hue = 68 + r() * 32; g.fillStyle = `hsl(${hue},${28 + r() * 20}%,${l}%)`; g.save(); g.translate(x, y); g.rotate(r() * TAU); g.beginPath(); g.ellipse(0, 0, 5 + r() * 4.5, 2.4 + r() * 2.2, 0, 0, TAU); g.fill(); g.restore(); }
   }
   { const ox = S / 2, oy = S + S / 2;   // conifer spray
     for (let i = 0; i < 46; i++) { const a = r() * TAU, d0 = r() * 40, len = 50 + r() * 62, x0 = ox + Math.cos(a) * d0, y0 = oy + Math.sin(a) * d0, x1 = ox + Math.cos(a) * (d0 + len), y1 = oy + Math.sin(a) * (d0 + len);
@@ -68,9 +82,17 @@ function treeGeometry(conifer, cards, size, trunkSides, seed) {
     for (const [a, y, rr] of [[a0, 0, tr], [a1, 0, tr], [a0, th, tr * (conifer ? 0.15 : 0.6)], [a1, th, tr * (conifer ? 0.15 : 0.6)]]) b.vert(Math.cos(a) * rr, y, Math.sin(a) * rr, Math.cos(a), 0, Math.sin(a), 0.52 + 0.46 * (a / TAU), 0.02 + 0.46 * y, 0.8, 0.8, 0.8);
     b.i.push(base, base + 2, base + 1, base + 1, base + 2, base + 3);
   }
+  const nl = cards >= 24 ? 6 : 4, lobes = conifer || cards <= 6 ? null : Array.from({ length: nl }, (_, i) => { const a = (i + r() * 0.6) / nl * TAU, up = i === 0 ? 0.95 : r() * 0.8 - 0.1, hr = i === 0 ? 0.12 : Math.sqrt(Math.max(0, 1 - up * up)) * (0.46 + 0.2 * r()); return [Math.cos(a) * hr, 0.68 + up * 0.19, Math.sin(a) * hr, 0.40 + 0.14 * r()]; });
+  if (lobes) for (const Lb of lobes) for (const a of [0, Math.PI / 2]) {   // a limb from the fork out into each mass of leaves
+    const base = b.v, wx = Math.cos(a) * 0.028, wz = Math.sin(a) * 0.028, ex = Lb[0] * 0.8, ey = Lb[1] - 0.05, ez = Lb[2] * 0.8;
+    b.vert(-wx * 1.6, 0.36, -wz * 1.6, wz, 0, -wx, 0.55, 0.05, 0.7, 0.7, 0.7); b.vert(wx * 1.6, 0.36, wz * 1.6, wz, 0, -wx, 0.75, 0.05, 0.7, 0.7, 0.7); b.vert(ex - wx, ey, ez - wz, wz, 0, -wx, 0.55, 0.45, 0.6, 0.6, 0.6); b.vert(ex + wx, ey, ez + wz, wz, 0, -wx, 0.75, 0.45, 0.6, 0.6, 0.6); b.quad(base, base + 1, base + 2, base + 3);
+  }
   for (let k = 0; k < cards; k++) {
     let cx, cy, cz, sz, ao;
     if (conifer) { const y = 0.16 + 0.82 * Math.pow((k + r()) / cards, 0.85), a = r() * TAU, rad = (1 - y) * 0.95 + 0.04, rr = rad * (0.35 + 0.6 * r()); cx = Math.cos(a) * rr; cz = Math.sin(a) * rr; cy = y; d.set(Math.cos(a), 0.45, Math.sin(a)).normalize(); sz = size * (0.5 + 0.7 * (1 - y)); ao = 0.5 + 0.5 * (rr / rad); }
+    else if (lobes) {   // broadleaf: leaves gathered in several rounded masses, each shaded as its own ball, dark toward the heart of the crown
+      const Lb = lobes[k % lobes.length]; d.set(r() * 2 - 1, r() * 1.6 - 0.5, r() * 2 - 1).normalize(); const rr = 0.25 + 0.75 * Math.pow(r(), 0.6); cx = Lb[0] + d.x * Lb[3] * rr; cy = Lb[1] + d.y * Lb[3] * 0.42 * rr; cz = Lb[2] + d.z * Lb[3] * rr; sz = size * (0.60 + 0.3 * r());
+      const core = Math.hypot(cx, cz, (cy - 0.66) * 2.4); ao = clamp(0.34 + 0.68 * core / 0.95, 0.34, 1) * (0.76 + 0.24 * clamp((cy - 0.42) / 0.5, 0, 1)); d.set(cx * 0.55 + d.x * 0.6, (cy - 0.62) * 1.2 + d.y * 0.6, cz * 0.55 + d.z * 0.6).normalize(); }
     else { d.set(r() * 2 - 1, r() * 1.5 - 0.4, r() * 2 - 1).normalize(); const rr = 0.42 + 0.56 * Math.pow(r(), 0.7); cx = d.x * 0.9 * rr; cy = 0.66 + d.y * 0.33 * rr; cz = d.z * 0.9 * rr; sz = size * (0.8 + 0.45 * r()); ao = (0.5 + 0.5 * rr) * (0.78 + 0.22 * (d.y * 0.5 + 0.5)); }
     nn.copy(d).add(t1.set(r() - 0.5, r() - 0.5, r() - 0.5).multiplyScalar(0.9)).normalize();
     t1.set(-nn.z, 0, nn.x); if (t1.lengthSq() < 1e-4) t1.set(1, 0, 0); t1.normalize(); t2.crossVectors(nn, t1).normalize();
@@ -85,7 +107,7 @@ function treeGeometry(conifer, cards, size, trunkSides, seed) {
 }
 const TREES = { lods: [], last: new THREE.Vector3(1e9, 0, 0), t: 0 };
 function buildTrees() {
-  const tex = leafAtlas(), mat = new THREE.MeshStandardMaterial({ map: tex, alphaTest: 0.42, side: THREE.DoubleSide, vertexColors: true, roughness: 0.82, metalness: 0 });
+  const tex = leafAtlas(), mkMat = cut => { const mat = new THREE.MeshStandardMaterial({ map: tex, alphaTest: cut, side: THREE.DoubleSide, vertexColors: true, roughness: 0.82, metalness: 0 });
   mat.onBeforeCompile = sh => {
     shareUniforms(sh);
     sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nuniform float uTime;").replace("#include <begin_vertex>", `#include <begin_vertex>
@@ -93,13 +115,16 @@ function buildTrees() {
        float ph = instanceMatrix[3].x * 0.37 + instanceMatrix[3].z * 0.23; float wy = position.y * position.y;
        transformed.x += ( sin( uTime * 1.1 + ph + position.y * 4.0 ) + sin( uTime * 2.7 + ph * 1.7 + position.x * 9.0 ) * 0.35 ) * 0.022 * wy; transformed.z += cos( uTime * 0.9 + ph * 1.3 + position.y * 3.0 ) * 0.022 * wy;
       #endif`);
-    sh.fragmentShader = sh.fragmentShader.replace("#include <normal_fragment_begin>", "float faceDirection = 1.0; vec3 normal = normalize( vNormal ); vec3 nonPerturbedNormal = normal;");
+    sh.fragmentShader = sh.fragmentShader.replace("#include <normal_fragment_begin>", "float faceDirection = 1.0; vec3 normal = normalize( vNormal ); vec3 nonPerturbedNormal = normal;")
+      .replace("#include <common>", "#include <common>\nuniform float uNight;").replace("#include <lights_fragment_end>", `#include <lights_fragment_end>
+      { vec3 sdir = normalize( ( viewMatrix * vec4( uFogSun, 0.0 ) ).xyz ); float back = pow( clamp( dot( -normalize( vViewPosition ), sdir ), 0.0, 1.0 ), 3.0 );   // looking toward the sun, light comes through the leaves
+        reflectedLight.directDiffuse += diffuseColor.rgb * uFogSunCol * vec3( 1.0, 1.05, 0.55 ) * back * 1.05 * ( 1.0 - uNight ); }`);
   };
-  mat.customProgramCacheKey = () => "tree";
+  mat.customProgramCacheKey = () => "tree"; return mat; }, mats = [mkMat(0.42), mkMat(0.3), mkMat(0.22)];
   const depth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: tex, alphaTest: 0.42, side: THREE.DoubleSide });
-  const caps = [[1200, 300], [9000, 2200], [46000, 9000]], spec = [[30, 0.52, 6], [9, 0.82, 4], [4, 1, 3]];
+  const caps = [[1200, 300], [9000, 2200], [46000, 9000]], spec = [[54, 0.45, 6], [12, 0.80, 4], [4, 1, 3]];
   for (let l = 0; l < 3; l++) for (let c = 0; c < 2; c++) {
-    const geo = treeGeometry(c === 1, c === 1 ? Math.max(4, Math.round(spec[l][0] * 0.8)) : spec[l][0], spec[l][1], spec[l][2], 100 + l * 10 + c), im = new THREE.InstancedMesh(geo, mat, caps[l][c]);
+    const geo = treeGeometry(c === 1, c === 1 ? Math.max(4, Math.round(spec[l][0] * 0.62)) : spec[l][0], spec[l][1], spec[l][2], 100 + l * 10 + c), im = new THREE.InstancedMesh(geo, mats[l], caps[l][c]);
     im.count = 0; im.frustumCulled = false; im.castShadow = l === 0; im.receiveShadow = l < 2; im.customDepthMaterial = depth; im.matrixAutoUpdate = false; im.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(caps[l][c] * 3), 3);
     scene.add(im); TREES.lods.push(im);
   }
