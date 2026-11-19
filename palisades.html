@@ -178,13 +178,13 @@
       <dt>Shift + turn</dt><dd>Slash: a hard, sharp turn that scrubs speed and throws snow</dd>
       <dt>J</dt><dd>Brake</dd>
       <dt>E</dt><dd>Load a lift, enter a competition, or get on and off a snowmobile (parked beside the Base to Base gondola): W throttle, S brake and reverse, A D steer. Each carries two: if a friend is driving, E puts you on the back</dd>
-      <dt>Village</dt><dd>The shops on the cobbled plaza are real rooms: ski or walk in through the open door. In Parallel Mountain Sports (nearest the lifts), The Ski Wall (designer wide skis) and The Goggle Shop (nearest the Base to Base) press E to browse, pick things up, then pay at the counter with trick points or run out holding Shift: the owner chases you for ten seconds, and if you are caught it goes back. What you get goes in your locker (Outfit) In The Auld Dubliner order as many pints as you like at the bar (E each), press E by a chair to sit, then E drinks one from the stein. Every second pint the room sways for three seconds.</dd>
+      <dt>Village</dt><dd>The shops on the cobbled plaza are real rooms: ski or walk in through the open door. In Parallel Mountain Sports (nearest the lifts), The Ski Wall (designer wide skis), Summit Accessories (packs, bandanas, helmet cameras, hats and helmets) and The Goggle Shop (nearest the Base to Base) press E to browse, pick things up, then pay at the counter with trick points or run out holding Shift: the owner chases you for ten seconds, and if you are caught it goes back. What you get goes in your locker (Outfit) In The Auld Dubliner order as many pints as you like at the bar (E each), press E by a chair to sit, then E drinks one from the stein. Every second pint the room sways for three seconds.</dd>
       <dt>L</dt><dd>Competitions: venues, leaderboards, trophies and what they unlock. Press E under a start arch to enter a heat</dd>
       <dt>Space</dt><dd>Hold to charge a jump (the bar fills), release to pop. In the air, hold for a tail grab. On a rail it pops you off</dd>
       <dt>Q · E · C · F</dt><dd>Japan, nose, indy and safety grabs in the air. X is also a nose grab</dd>
       <dt>G</dt><dd>Slow-motion in the air</dd>
       <dt>R</dt><dd>Hold to rewind, up to the last 30 seconds</dd>
-      <dt>B</dt><dd>Stop, then B takes your skis off to walk: W forward, A D turn, Shift hurries. B again clicks back in</dd>
+      <dt>B</dt><dd>Stop, then B takes your skis off to walk: W forward, A D turn, Shift runs. B again clicks back in</dd>
       <dt>E</dt><dd>On snow at a lift's bottom station: load the lift. On a lift, hold F to fast-forward or Enter to skip to the top</dd>
       <dt>V · M</dt><dd>Chase view / first person (drag the mouse to look around) · trail map: click any spot to drop in there</dd>
       <dt>1 2 3 4 · P · N</dt><dd>Bluebird, golden hour, flat light, snowing · pause · mute</dd>
@@ -2091,6 +2091,7 @@ let rig = null, fpv = store.get("pal-fpv", false), units = store.get("pal-units"
 /* Goggles: an extra the Kicker Run rider does not have. They are sold at the goggle shop in the village and worn over whatever is on your head. */
 const GOGGLES = { none: null, fire: [0x141414, 0xff7a1a], ice: [0xf2f4f7, 0x3aa0ff], rose: [0x7a1420, 0xff5fa2], jade: [0x0f3a2a, 0x39d98a], gold: [0x1a1a1a, 0xf2c230], night: [0x1b1e24, 0x2a2d33] };
 KR.OUTFIT_OPTS.goggles = { none: "No goggles", fire: "Fire lens goggles", ice: "Ice blue goggles", rose: "Rose lens goggles", jade: "Jade lens goggles", gold: "Gold mirror goggles", night: "Blackout goggles" }; KR.OUTFIT_DEFAULT.goggles = "none";
+const ACC_NEW = { pack: "Backpack", bandana: "Face bandana", hippack: "Hip pack", cam: "Helmet camera" }; Object.assign(KR.OUTFIT_OPTS.accessory, ACC_NEW);   // extras sold at the accessory shop
 /* Designer skis: wide boards with printed top sheets, sold at the ski shop in the village. Across the canvas the left half is the top of
    the ski and the right half its base; down the canvas runs the length of the ski. */
 const SKI_DESIGNS = {
@@ -2109,7 +2110,7 @@ for (const k in SKI_DESIGNS) KR.OUTFIT_OPTS.skis[k] = SKI_DESIGNS[k][0];
 let skiDesignTex = null;
 function skiDesigns() { if (skiDesignTex) return skiDesignTex; skiDesignTex = {}; for (const k in SKI_DESIGNS) { const c = document.createElement("canvas"); c.width = 128; c.height = 512; const x = c.getContext("2d"); x.save(); x.beginPath(); x.rect(0, 0, 64, 512); x.clip(); SKI_DESIGNS[k][1](x, 64, 512); x.restore(); x.fillStyle = "#0d0f12"; x.fillRect(64, 0, 64, 512); x.fillStyle = "#e9edf2"; x.fillRect(92, 0, 8, 512);   // the design on top, a plain black base with one stripe
     const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; skiDesignTex[k] = t; } return skiDesignTex; }
-function dressRig(R, of) { if (!R.skiDes) { R.skiDes = true; Object.assign(R.skiTexes, skiDesigns()); } KR.dress(R, of); if (of && SKI_DESIGNS[of.skis]) R.skiMeshes.forEach(m => { m.scale.x = 1.4; }); const q = R.gog, c = q && GOGGLES[of && of.goggles]; if (!q) return; q.grp.visible = !!c; if (c) { q.frame.color.setHex(c[0]); q.lens.color.setHex(c[1]); } }
+function dressRig(R, of) { if (!R.skiDes) { R.skiDes = true; Object.assign(R.skiTexes, skiDesigns()); } KR.dress(R, of); if (of && SKI_DESIGNS[of.skis]) R.skiMeshes.forEach(m => { m.scale.x = 1.4; }); const q = R.gog, c = q && GOGGLES[of && of.goggles]; if (!q) return; q.grp.visible = !!c; if (c) { q.frame.color.setHex(c[0]); q.lens.color.setHex(c[1]); q.lens.emissive.setHex(c[1]); q.stripe.color.setHex(c[1]); } }
 let outfit = Object.assign({}, KR.OUTFIT_DEFAULT, store.get("kickerOutfit", null) || {}, store.get("pal-outfit", null) || {});
 for (const k of ["jacket", "pants"]) if (!KR[k === "jacket" ? "JACKETS" : "PANTS"][outfit[k]]) outfit[k] = KR.OUTFIT_DEFAULT[k];
 const fwdOf = (yaw, out) => out.set(Math.sin(yaw), 0, Math.cos(yaw));
@@ -2342,18 +2343,20 @@ function stepRewind(dt) {
 /* ---------- on foot: skis off and carried, to boot-pack up to the ridges and summits no lift reaches ---------- */
 function toggleWalk() {
   if (sk.mode === "walk") { sk.mode = "ski"; sk.parked = true; sk.sp = 0; sk.v.set(0, 0, 0); toast("Skis on"); }
-  else if (sk.mode === "ski" && sk.ground && !sk.crashed && sk.sp < 5) { sk.mode = "walk"; sk.sp = 0; sk.v.set(0, 0, 0); sk.sw = false; sk.spin = 0; sk.turn = sk.carve = 0; sk.walkPh = 0; charging = false; popReq = false; toast("Skis off · W walks, A D turn, Shift hurries · B to click back in", 4); }
+  else if (sk.mode === "ski" && sk.ground && !sk.crashed && sk.sp < 5) { sk.mode = "walk"; sk.sp = 0; sk.v.set(0, 0, 0); sk.sw = false; sk.spin = 0; sk.turn = sk.carve = 0; sk.walkPh = 0; sk.wv = 0; charging = false; popReq = false; toast("Skis off · W walks, A D turn, Shift runs · B to click back in", 4); }
   else if (sk.mode === "ski") toast("Stop first to take your skis off");
   const b = $("walkBtn"); if (b) b.textContent = sk.mode === "walk" ? "Ski" : "Walk";
 }
+const WALK = { walk: 3.1, run: 7.0, back: 1.8 };   // m/s: a brisk walk, a proper run (Shift), backing up
 function stepWalk(dt) {
-  if (PUB.seat) { const q = PUB.seat; sk.p.x = q.x; sk.p.z = q.z; sk.p.y = H(q.x, q.z); sk.yaw = Math.atan2(q.tx - q.x, q.tz - q.z); sk.sp = 0; sk.turn = 0; return; }   // sat at a table in the pub
-  const p = sk.p, steer = ((K.spinR || K.right) ? 1 : 0) - ((K.spinL || K.left) ? 1 : 0), go = (K.up ? 1 : 0) - (K.down ? 1 : 0); sk.yaw -= steer * 1.9 * dt;
+  if (PUB.seat) { const q = PUB.seat; sk.p.x = q.x; sk.p.z = q.z; sk.p.y = H(q.x, q.z); sk.yaw = Math.atan2(q.tx - q.x, q.tz - q.z); sk.sp = 0; sk.wv = 0; sk.turn = 0; return; }   // sat at a table in the pub
+  const p = sk.p, steer = ((K.spinR || K.right) ? 1 : 0) - ((K.spinL || K.left) ? 1 : 0), go = (K.up ? 1 : 0) - (K.down ? 1 : 0), running = go > 0 && K.boost; sk.yaw -= steer * (running ? 2.4 : 3.0) * dt;
   const sA = tangent(sk.yaw); sk.slope = sA; readSurface();
-  let v = go > 0 ? (K.boost ? 3.9 : 2.5) : go < 0 ? -1.4 : 0; v *= clamp(1 - Math.sin(sA) * go * 0.9, 0.45, 1.2) * (1 - 0.25 * sk.surf.powder);   // slower up the steeps and in deep snow
-  const nx = p.x + Math.sin(sk.yaw) * v * dt, nz = p.z + Math.cos(sk.yaw) * v * dt;
-  if (!buildingAt(nx, nz) && !treeHit(nx, nz, 0.15) && inWorld(nx, nz, 75) && !(sk.shopIn && sk.shopIn.obst.some(o => Math.hypot(o[0] - nx, o[1] - nz) < o[2] + 0.25))) { p.x = nx; p.z = nz; } else v = 0;
-  p.y = H(p.x, p.z); sk.sp = Math.abs(v); sk.walkPh = (sk.walkPh || 0) + v * dt * 4.3; sk.turn = lerp(sk.turn, 0, Math.min(1, 8 * dt));
+  let want = go > 0 ? (running ? WALK.run : WALK.walk) : go < 0 ? -WALK.back : 0; want *= clamp(1 - Math.sin(sA) * go * 0.9, 0.45, 1.2) * (1 - 0.25 * sk.surf.powder);   // slower up the steeps and in deep snow
+  let v = sk.wv || 0; v += clamp(want - v, -20 * dt, (Math.abs(want) > Math.abs(v) ? 12 : 20) * dt);   // you get up to speed over a few steps and pull up short
+  const dx = Math.sin(sk.yaw) * v * dt, dz = Math.cos(sk.yaw) * v * dt, free = (x, z) => !buildingAt(x, z) && !treeHit(x, z, 0.15) && inWorld(x, z, 75) && !(sk.shopIn && sk.shopIn.obst.some(o => Math.hypot(o[0] - x, o[1] - z) < o[2] + 0.25));
+  if (free(p.x + dx, p.z + dz)) { p.x += dx; p.z += dz; } else if (free(p.x + dx, p.z)) { p.x += dx; v *= 1 - 3 * dt; } else if (free(p.x, p.z + dz)) { p.z += dz; v *= 1 - 3 * dt; } else v = 0;   // into a wall at an angle you slide along it
+  sk.wv = v; p.y = H(p.x, p.z); sk.sp = Math.abs(v); sk.walkPh = (sk.walkPh || 0) + v * dt * lerp(4.3, 2.0, smooth((Math.abs(v) - 3.4) / 2.6)); sk.turn = lerp(sk.turn, 0, Math.min(1, 8 * dt));   // a run takes longer strides, not just quicker ones
   const dy = sk.lastY !== undefined ? p.y - sk.lastY : 0; sk.lastY = p.y; sk.climb = (sk.climb || 0) + Math.max(0, dy);
   sk.safeT += dt; if (sk.safeT > 1.5) { sk.safeT = 0; sk.safe.copy(p); sk.safeYaw = sk.yaw; }
 }
@@ -2486,11 +2489,40 @@ function initSnowfall() {
 let camSnap = true, camSlope = 0, camAir = 0, look = { yaw: 0, pit: 0, drag: false, idle: 0 }; const camPos = new THREE.Vector3(), camTgt = new THREE.Vector3(), camDir = new THREE.Vector3(0, 0, 1), _m4 = new THREE.Matrix4(), _qa = new THREE.Quaternion(), _qb = new THREE.Quaternion(), _x = new THREE.Vector3(), _y = new THREE.Vector3(), _z = new THREE.Vector3();
 function makeRider(of) { // Kicker Run's skier faces -z; the holder faces +z and stands on the slope
   const R = KR.build(of), hold = new THREE.Group(); R.root.rotation.y = Math.PI; R.root.position.y = 0.025; hold.add(R.root); R.hold = hold; scene.add(hold);
-  { const grp = new THREE.Group(), frame = new THREE.MeshStandardMaterial({ color: 0x141414, roughness: 0.6 }), lens = new THREE.MeshStandardMaterial({ color: 0xff7a1a, roughness: 0.08, metalness: 0.85 });   // strap round the head, frame and a curved mirror lens over the eyes
-    const strap = new THREE.Mesh(new THREE.TorusGeometry(0.124, 0.017, 6, 22), frame); strap.rotation.x = Math.PI / 2; strap.position.y = 0.022; strap.scale.set(1, 1, 1.9); grp.add(strap);
-    const fr = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.085, 0.04), frame); fr.position.set(0, 0.02, -0.108); grp.add(fr); const ln = new THREE.Mesh(new THREE.SphereGeometry(0.1, 14, 8, 0, Math.PI, 0.9, 1.3), lens); ln.rotation.y = Math.PI; ln.scale.set(0.96, 0.5, 0.42); ln.position.set(0, 0.02, -0.098); grp.add(ln);
-    R.head.add(grp); R.gog = { grp, frame, lens }; dressRig(R, of || {}); }
+  { const grp = new THREE.Group(), frame = new THREE.MeshStandardMaterial({ color: 0x141414, roughness: 0.75, side: THREE.DoubleSide }), lens = new THREE.MeshStandardMaterial({ color: 0xff7a1a, roughness: 0.14, metalness: 0.55, emissive: 0xff7a1a, emissiveIntensity: 0.28, side: THREE.DoubleSide }), stripe = new THREE.MeshStandardMaterial({ color: 0xff7a1a, roughness: 0.7, side: THREE.DoubleSide });
+    /* ski goggles: one wide lens wrapped round the face with a notch for the nose, the frame showing round its edge, and a strap right round the helmet */
+    const shield = (half, top, bot, rad, notch, mat) => { const nU = 28, nV = 5, pos = [], idx = []; for (let a = 0; a <= nU; a++) { const u = -1 + 2 * a / nU, ang = u * half, e = Math.sqrt(1 - Math.pow(Math.abs(u), 5)), yT = top * (0.5 + 0.5 * e), yB = -bot * (0.45 + 0.55 * e) + notch * Math.exp(-u * u / 0.03); for (let b = 0; b <= nV; b++) { const v = b / nV, r = rad * (1 - 0.06 * Math.pow(2 * v - 1, 2)); pos.push(Math.sin(ang) * r, yB + (yT - yB) * v, -Math.cos(ang) * r); } }
+      for (let a = 0; a < nU; a++) for (let b = 0; b < nV; b++) { const p0 = a * (nV + 1) + b, p1 = p0 + nV + 1; idx.push(p0, p1, p0 + 1, p0 + 1, p1, p1 + 1); } const ge = new THREE.BufferGeometry(); ge.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); ge.setIndex(idx); ge.computeVertexNormals(); const m = new THREE.Mesh(ge, mat); m.position.set(0, -0.006, 0.012); grp.add(m); return m; };
+    shield(1.02, 0.052, 0.054, 0.1455, 0.012, frame); shield(0.94, 0.042, 0.044, 0.1495, 0.017, lens);
+    const band = (r, h, mat) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 28, 1, true, Math.PI + 0.98, 2 * Math.PI - 1.96), mat); m.position.set(0, -0.004, 0.012); grp.add(m); }; band(0.1445, 0.04, frame); band(0.1462, 0.01, stripe);
+    for (const sd of [-1, 1]) { const c = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.05, 0.03), frame); c.position.set(sd * 0.1225, -0.004, 0.012 - 0.078); c.rotation.y = -sd * 1.0; grp.add(c); }   // the clips where the strap meets the frame
+    R.head.add(grp); R.gog = { grp, frame, lens, stripe }; }
+  { const mk = par => { const q = new THREE.Group(); q.visible = false; par.add(q); return q; }, M = (c, r) => new THREE.MeshStandardMaterial({ color: c, roughness: r || 0.85 }), put = (q, geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; q.add(m); return m; };
+    /* accessories sold at Summit Accessories. The rider faces -z, so +z is the back. */
+    const pack = mk(R.torso), orange = M(0xd9541e), dark = M(0x1c1f24), grey = M(0x8a9099); put(pack, new THREE.SphereGeometry(0.15, 16, 12), orange, 0, 0.36, 0.205).scale.set(1.12, 1.5, 0.72); put(pack, new THREE.SphereGeometry(0.1, 12, 10), dark, 0, 0.27, 0.3).scale.set(1.2, 1.1, 0.5); put(pack, new THREE.SphereGeometry(0.11, 12, 8), dark, 0, 0.55, 0.2).scale.set(1.25, 0.5, 0.75);
+    for (const sd of [-1, 1]) { const st = put(pack, new THREE.TorusGeometry(0.17, 0.02, 6, 16, Math.PI * 1.15), dark, sd * 0.13, 0.4, 0.02); st.rotation.set(0, Math.PI / 2, 0); st.rotation.z = -0.3; st.scale.set(1, 1.05, 1); } put(pack, new THREE.BoxGeometry(0.26, 0.03, 0.02), grey, 0, 0.4, -0.175);
+    const bandana = mk(R.head), red = M(0xb3202a); put(bandana, new THREE.SphereGeometry(0.119, 18, 10, 0, Math.PI * 2, Math.PI * 0.52, Math.PI * 0.3), red, 0, 0, 0).material.side = THREE.DoubleSide; { const t = put(bandana, new THREE.ConeGeometry(0.085, 0.13, 3), red, 0, -0.13, -0.075); t.rotation.set(Math.PI + 0.25, Math.PI, 0); t.scale.z = 0.35; } for (let k = 0; k < 5; k++) put(bandana, new THREE.SphereGeometry(0.008, 5, 4), M(0xf2f2f2), (k - 2) * 0.03, -0.045 - 0.012 * (k % 2), -0.113 + 0.004 * Math.abs(k - 2));
+    const hip = mk(R.hipG), teal = M(0x138a8a); put(hip, new THREE.SphereGeometry(0.1, 14, 10), teal, 0, 0.1, 0.19).scale.set(1.5, 0.75, 0.6); put(hip, new THREE.BoxGeometry(0.2, 0.012, 0.02), dark, 0, 0.11, 0.252); { const b = put(hip, new THREE.TorusGeometry(0.235, 0.013, 6, 26), dark, 0, 0.1, 0.0); b.rotation.x = Math.PI / 2; b.scale.set(1.16, 0.8, 1); }
+    const cam = mk(R.head); put(cam, new THREE.BoxGeometry(0.055, 0.042, 0.04), dark, 0, 0.19, -0.035); put(cam, new THREE.CylinderGeometry(0.014, 0.014, 0.014, 10), grey, 0, 0.192, -0.06).rotation.x = Math.PI / 2; put(cam, new THREE.BoxGeometry(0.03, 0.03, 0.03), dark, 0, 0.158, -0.03); put(cam, new THREE.SphereGeometry(0.005, 5, 4), new THREE.MeshBasicMaterial({ color: 0xff2a2a }), 0.02, 0.205, -0.055);
+    Object.assign(R.acc, { pack, bandana, hippack: hip, cam }); dressRig(R, of || {}); }
   const carry = new THREE.Group(); R.skiMeshes.forEach((m, i) => { const c = new THREE.Mesh(m.geometry, m.material); c.position.set(i ? 0.035 : -0.035, 0, 0); if (i) c.rotation.z = Math.PI; c.castShadow = true; carry.add(c); }); carry.position.set(0.25, 1.36, 0.1); carry.rotation.set(1.18, 0, 0.06); carry.visible = false; R.rig.add(carry); R.carry = carry; return R;
+}
+/* On foot the skis and bindings come off but the boots stay on: everything in the ski groups that is not a boot is put away. */
+function footGear(R, on) { if (!R.footBits) { R.footBits = []; R.skiG.forEach(sg => sg.traverse(o => { if (o.isMesh && o.material !== R.mats.boot) R.footBits.push(o); })); R.footOn = true; }
+  if (R.footOn === on) return; R.footOn = on; R.footBits.forEach(o => { if (!on) { o.userData.wv = o.visible; o.visible = false; } else if (o.userData.wv !== undefined) o.visible = o.userData.wv; }); }
+/* Walking and running: upright over the feet, each foot placed by the same two-bone leg solve the skiing pose uses. The stride lengthens, the knees lift,
+   the body leans in and the elbows fold as the pace turns into a run. */
+function walkPose(R, q) {
+  const a = R.a, b = R.b, foot = 0.26, sp = q.sp || 0, mv = smooth(sp / 0.9), run = smooth((sp - 3.4) / 2.6), ph = q.walkPh || 0;
+  const stride = (0.26 + 0.3 * run) * mv, lift = (0.07 + 0.19 * run) * mv, lean = 0.03 + 0.04 * mv + 0.2 * run, hip0 = foot + (a + b) * (0.96 - 0.05 * run), hY = hip0 + mv * (0.014 + 0.03 * run) * Math.cos(2 * ph);
+  R.legs.forEach((l, i) => { const th = ph + i * Math.PI, s = Math.sin(th), sw = Math.max(0, Math.cos(th));   // sw > 0: this foot is off the ground and coming forward
+    const aZ = -stride * s, aY = foot + lift * Math.pow(sw, 1.2) + 0.16 * run * sw * Math.max(0, -s), ddy = hY - aY, dist = Math.min(Math.hypot(ddy, aZ), a + b - 0.004), phi = Math.atan2(aZ, ddy);
+    const t1 = Math.acos(clamp((a * a + dist * dist - b * b) / (2 * a * dist), -1, 1)) - phi, t2 = Math.atan2(-aZ - a * Math.sin(t1), ddy - a * Math.cos(t1));
+    l.hip.position.set(l.x, hY, 0.04); l.hip.rotation.set(t1, 0, 0); l.knee.rotation.x = t2 - t1;
+    const sg = R.skiG[i]; sg.visible = true; sg.scale.setScalar(1); sg.position.set(i ? 0.13 : -0.13, 0.2 + (aY - foot), 0.06 + aZ); sg.rotation.set(0.7 * t2 * mv, 0, 0); });
+  R.hipG.position.set(0, hY + 0.02, 0.04); R.hipG.rotation.set(0, 0.07 * mv * (1 + run) * Math.sin(ph), 0); R.hipG.updateMatrix();
+  R.torso.rotation.set(-lean, -0.11 * mv * (1 + run) * Math.sin(ph), 0); R.torso.updateMatrix(); R.head.rotation.set(lean * 0.8, 0, 0); R.head.position.set(0, 0.8, 0);
+  R.arms.forEach((ar, i) => { const sw = Math.sin(ph + (i ? 0 : Math.PI)) * (0.4 + 0.5 * run) * mv; ar.pole.visible = false; ar.sh.rotation.set(sw + 0.12 * run, 0, (i ? 1 : -1) * 0.09); ar.el.rotation.set(0.16 + 1.3 * run + Math.max(0, sw) * 0.4, 0, 0); });   // hands empty: arms swing against the legs
 }
 function poseRider(R, q, keys, slope, dt, time, snap) {
   const hold = R.hold, onSnow = q.ground && (q.mode === "ski" || q.mode === "walk" || q.mode === "sled") && !q.crashed && !(q === sk && sk.shopIn);
@@ -2505,10 +2537,8 @@ function poseRider(R, q, keys, slope, dt, time, snap) {
     if (q.lost) R.arms.forEach(a => { a.pole.visible = false; }); }
   if (q.mode === "sled" || q.lost) { R.arms.forEach(a => { a.pole.visible = false; }); R.skiG.forEach(sg => { sg.visible = false; }); }   // on a snowmobile the skis and poles are off; in a yard sale they are gone
   R.rig.rotation.y = -(q.spin + (q.sw ? Math.PI : 0));
-  const walking = q.mode === "walk"; R.carry.visible = false; R.skiMeshes.forEach(m => { m.visible = !walking && q.mode !== "sled" && !q.lost; });
-  if (walking) { const mv = clamp(q.sp / 1.2, 0, 1), ph = q.walkPh || 0; R.legs.forEach((l, i) => { const sw = Math.sin(ph + i * Math.PI) * 0.5 * mv; l.hip.rotation.x += sw; l.knee.rotation.x -= Math.max(0, -Math.cos(ph + i * Math.PI)) * 0.55 * mv; const sg = R.skiG[i]; sg.position.z -= Math.sin(sw) * 0.82; sg.position.y += Math.max(0, -Math.cos(ph + i * Math.PI)) * 0.12 * mv; sg.rotation.x = 0; sg.rotation.z = 0; }); }
-  if (walking) { const mv = clamp(q.sp / 1.2, 0, 1), ph = q.walkPh || 0, run = clamp((q.sp - 2.6) / 1.2, 0, 1);   // on foot your hands are empty: no skis, no poles, and your arms swing against your legs
-    R.skiG.forEach(sg => { sg.visible = false; }); R.arms.forEach((a, i) => { const sw = Math.sin(ph + (i ? 0 : Math.PI)) * (0.42 + 0.35 * run) * mv; a.pole.visible = false; a.sh.rotation.set(sw, 0, (i ? 1 : -1) * 0.1); a.el.rotation.set(0.22 + 0.9 * run + Math.max(0, sw) * 0.5, 0, 0); }); }
+  const walking = q.mode === "walk"; R.carry.visible = false; footGear(R, !walking); R.root.position.y = walking ? -0.065 : 0.025;   /* without skis and bindings under them the boots stand on the ground */ R.skiMeshes.forEach(m => { m.visible = !walking && q.mode !== "sled" && !q.lost; });
+  if (walking) walkPose(R, q);
   if (q.sit && walking) pubPose(R, q); else if (R.stein) R.stein.visible = false;
   const wob = q.stumT > 0 && !q.crashed ? Math.min(1, q.stumT / 0.9) : 0, seated = q.mode === "lift";
   R.pivot.rotation.x = (q.crashed ? q.rot : q.ground ? 0 : q.rot - 0) + wob * (0.28 * Math.sin(time * 9) - 0.12) - (seated ? 0.25 : 0);
@@ -2806,7 +2836,7 @@ const MP = { myName: String(store.get("pal-name", "") || "").slice(0, 20), room:
 const r2 = v => Math.round(v * 100) / 100;
 function mpPack() {
   let k = 0; MP_KEYS.forEach((n, i) => { if (K[n]) k |= 1 << i; });
-  const o = mpPack0(k); if (MP.myName) o.nm = MP.myName; if (sk.mode === "sled" && sk.sled) { o.sdi = SLEDS.indexOf(sk.sled); o.sdr = sk.sledRole || 1; } if (sk.shopIn) o.shop = sk.shopIn.name; if (sk.sit) o.sit = +(1 + (sk.sipK || 0)).toFixed(2); return o;
+  const o = mpPack0(k); if (MP.myName) o.nm = MP.myName; if (sk.mode === "sled" && sk.sled) { o.sdi = SLEDS.indexOf(sk.sled); o.sdr = sk.sledRole || 1; } if (sk.shopIn) o.shop = sk.shopIn.name; if (sk.sit) { o.sit = +(1 + (sk.sipK || 0)).toFixed(2); o.pb = PUB.beers; } return o;
 }
 function mpPack0(k) {
   return { v: 2, res: "palisades", id: MP.myId, play: sk.mode !== "menu", x: r2(sk.p.x), y: r2(sk.p.y), z: r2(sk.p.z), yaw: r2(sk.yaw), spin: r2(sk.spin), rot: r2(sk.rot), rotV: r2(sk.rotV), sw: !!sk.sw, gr: !!sk.ground, cr: !!sk.crashed, tz: r2(sk.tumZ), turn: r2(sk.turn), carve: r2(sk.carve), sp: r2(sk.sp), chg: r2(sk.chg), st: r2(Math.max(0, sk.stumT)), k, md: sk.mode, gd: sk.grind ? 1 : 0, wp: r2(sk.walkPh || 0), li: sk.lift ? sk.lift.id : -1, sl: r2(sk.slope), sc: sk.pts, vt: Math.round(sk.vert),
@@ -2827,7 +2857,7 @@ function mpSync(peers) {
     if (r.ofk !== ofk) { r.ofk = ofk; dressRig(r.R, st.of); dressRig(rig, outfit); }   // dressing sets the ski tune, so put ours back
     r.st = st; r.by = by; r.isMe = p.isMe;
   }
-  for (const [peer, r] of MP.remotes) if (!seen.has(peer)) { scene.remove(r.R.hold); MP.remotes.delete(peer); }
+  for (const [peer, r] of MP.remotes) if (!seen.has(peer)) { scene.remove(r.R.hold); pubRemoteGone(r); MP.remotes.delete(peer); }
   MP.others = others; MP.dirty = true;
 }
 async function mpList() {
@@ -2854,7 +2884,7 @@ const _rs = { p: new THREE.Vector3() };
 function updateRemotes(dt, time) {
   MP.listT += dt; if (MP.dirty && MP.listT > 0.5) { MP.listT = 0; mpList(); } else if (MP.listT > 2 && MP.remotes.size) { MP.listT = 0; mpList(); }
   const a = 1 - Math.exp(-12 * dt);
-  for (const r of MP.remotes.values()) poseRemote(r, dt, time, a);
+  for (const r of MP.remotes.values()) { poseRemote(r, dt, time, a); pubRemote(r); }
 }
 function poseRemote(r, dt, time, a) { // stand a rider (a friend, or a competition rival) where their state says, in the pose it implies
     const st = r.st, R = r.R; if (!st) return; const far = Math.hypot(st.x - sk.p.x, st.z - sk.p.z);
@@ -2863,7 +2893,7 @@ function poseRemote(r, dt, time, a) { // stand a rider (a friend, or a competiti
     const jump = !r.q || Math.hypot(st.x - r.q.p.x, st.z - r.q.p.z) > 30;
     if (jump) r.q = { p: new THREE.Vector3(st.x, st.y, st.z), yaw: st.yaw, spin: st.spin, rot: st.rot, grind: null, boxT: 0, bike: false, finished: false, bikeJump: false, pumpT: 0, landT: 0, popT: 0, airT: 1, vx: 0, vs: 0 };
     const q = r.q; q.p.x += (st.x - q.p.x) * a; q.p.y += (st.y - q.p.y) * a; q.p.z += (st.z - q.p.z) * a; q.yaw += wrap(st.yaw - q.yaw) * a; q.spin += (st.spin - q.spin) * a; q.rot += (st.rot - q.rot) * a;
-    q.rotV = st.rotV || 0; q.sw = st.sw; q.ground = st.gr; q.air = !st.gr && st.md === "ski"; q.crashed = st.cr; q.tumZ = st.tz || 0; q.turn = st.turn; q.carve = st.carve; q.sp = st.sp; q.vs = st.sp; q.chg = L && L.type.startsWith("chair") ? 0.85 : st.md === "sled" ? 0 : st.chg || 0; q.stumT = st.st || 0; q.stumD = 1; q.mode = st.md; q.sit = st.sit >= 1; q.sipK = q.sit ? clamp(st.sit - 1, 0, 1) : 0; q.walkPh = st.wp || 0; q.grind = st.gd ? 1 : null;
+    q.rotV = st.rotV || 0; q.sw = st.sw; q.ground = st.gr; q.air = !st.gr && st.md === "ski"; q.crashed = st.cr; q.tumZ = st.tz || 0; q.turn = st.turn; q.carve = st.carve; q.sp = st.sp; q.vs = st.sp; q.chg = L && L.type.startsWith("chair") ? 0.85 : st.md === "sled" ? 0 : st.chg || 0; q.stumT = st.st || 0; q.stumD = 1; q.mode = st.md; q.sit = st.sit >= 1; q.sipK = q.sit ? clamp(st.sit - 1, 0, 1) : 0; q.pb = st.pb; q.walkPh = st.wp || 0; q.grind = st.gd ? 1 : null;
     MP_KEYS.forEach((n, i) => { r.keys[n] = st.k & (1 << i) ? 1 : 0; }); if (q.ground) { r.keys.boost = r.keys.up; r.keys.up = 0; } else r.keys.boost = 0;   // on snow W is the tuck, as it is for you: other riders do not nose butter along
     poseRider(R, q, st.md === "ski" ? r.keys : NOKEYS, st.sl || 0, dt, time, jump); if (L && L.type.startsWith("chair")) R.hold.position.y += 0.2;
     if (st.md === "sled") { // another player on a snowmobile: the driver's state moves the machine itself; both riders sit on its seat
@@ -2883,7 +2913,7 @@ async function fbInit() {
     else { g.className = "gbtn out"; g.textContent = "Sign out"; g.addEventListener("click", () => auth.signOut()); box.append("Signed in as " + who, g); } };
   auth.onAuthStateChanged(u => {
     if (presRef) { presRef.remove().catch(() => { }); presRef = null; } if (off) { off(); off = null; }
-    MP.room = null; MP.remotes.forEach(r => scene.remove(r.R.hold)); MP.remotes.clear(); MP.others = [];
+    MP.room = null; MP.remotes.forEach(r => { scene.remove(r.R.hold); pubRemoteGone(r); }); MP.remotes.clear(); MP.others = [];
     if (!u) { MP.myId = null; MP.status = "Solo · sign in to ride with others"; signBtn(true); MP.dirty = true; return; }
     MP.myId = u.uid; myName = ((u.displayName && u.displayName.split(" ")[0]) || (u.email && u.email.indexOf("@") > 0 ? u.email.slice(0, u.email.indexOf("@")) : "") || "Rider").slice(0, 20); signBtn(false, myName);
     if (!MP.myName) { MP.myName = myName; $("nameIn").value = myName; }   // your Google first name, until you type another
@@ -3160,9 +3190,10 @@ function planShops() { // before the buildings are built: choose the shop fronts
     const gd = WORLD.lifts.find(l => l.t === "gondola"); if (gd) { let gb = null, gdd = 1e9; for (const q of SHOPS) { if (q.name === "Parallel Mountain Sports") continue; const d = Math.hypot(q.dx - gd.pts[0][0], q.dz - gd.pts[0][1]); if (d < gdd) { gdd = d; gb = q; } } if (gb) { gb.name = "The Goggle Shop"; gb.kind = "goggle"; } }   // the front shop nearest the Base to Base
     { const sw = SHOPS.find(q => q.name === "Estelle Sports") || SHOPS.find(q => !isGear(q) && q.kind !== "bar"); if (sw) { sw.name = "The Ski Wall"; sw.kind = "skiwall"; } }   // a shop of nothing but skis
     { const pb = SHOPS.find(q => q.name === "Auld Dubliner") || SHOPS.find(q => q.kind === "bar"); if (pb) { pb.pub = true; pb.name = "The Auld Dubliner"; pb.seats = []; } }   // the Irish pub: order pints, sit and drink them
+    { const ac = SHOPS.find(q => q.name === "Euro Sweets") || SHOPS.find(q => q.kind === "market"); if (ac) { ac.name = "Summit Accessories"; ac.kind = "acc"; } }   // packs, bandanas, cameras, hats and helmets
     // the gear shops get as much floor as their building can give them
     const clear = (s, hw, D) => { for (let k = 0; k <= 8; k++) { const f = k / 8; for (const q of [[-hw, 0.4 + f * D], [hw, 0.4 + f * D], [(-1 + 2 * f) * hw, D + 0.3]]) { const x = s.dx + s.tx * q[0] + s.nx * q[1], z = s.dz + s.tz * q[0] + s.nz * q[1]; if (!inPoly(s.bd.p, x, z) || SHOPS.some(o => o !== s && shopInside({ dx: o.dx, dz: o.dz, tx: o.tx, tz: o.tz, nx: o.nx, nz: o.nz, hw: o.hw + 0.6, D: o.D + 0.6 }, x, z))) return false; } } return true; };
-    for (const s of SHOPS) { if (!isGear(s) && !s.pub) continue; const maxD = s.kind === "goggle" ? 11 : s.kind === "skiwall" || s.pub ? 13 : 16, maxW = s.kind === "goggle" ? 6 : s.kind === "skiwall" || s.pub ? 7.5 : 8.5; let grew = true; while (grew) { grew = false; if (s.D + 0.5 <= maxD && clear(s, s.hw, s.D + 0.5)) { s.D += 0.5; grew = true; } if (s.hw + 0.4 <= maxW && clear(s, s.hw + 0.4, s.D)) { s.hw += 0.4; grew = true; } }
+    for (const s of SHOPS) { if (!isGear(s) && !s.pub) continue; const maxD = s.kind === "goggle" || s.kind === "acc" ? 11 : s.kind === "skiwall" || s.pub ? 13 : 16, maxW = s.kind === "goggle" || s.kind === "acc" ? 6 : s.kind === "skiwall" || s.pub ? 7.5 : 8.5; let grew = true; while (grew) { grew = false; if (s.D + 0.5 <= maxD && clear(s, s.hw, s.D + 0.5)) { s.D += 0.5; grew = true; } if (s.hw + 0.4 <= maxW && clear(s, s.hw + 0.4, s.D)) { s.hw += 0.4; grew = true; } }
       let fy = -1e9; for (const u of [-1, 0, 1]) for (const w of [-1.2, 0.2, s.D / 2, s.D]) fy = Math.max(fy, H(s.dx + s.tx * u * s.hw + s.nx * w, s.dz + s.tz * u * s.hw + s.nz * w)); const e = s.bd.shopEdges; for (const k in e) if (e[k].yF === s.floorY) { e[k].yF = fy + 0.05; e[k].yT = fy + 2.8; } s.floorY = fy + 0.05; } }
 }
 /* ---- Parallel Mountain Sports: skis and clothes for your locker ----
@@ -3171,9 +3202,9 @@ function planShops() { // before the buildings are built: choose the shop fronts
 const STORE_CATS = [["skis", "Skis", 15000], ["jacket", "Jackets", 11000], ["pants", "Pants", 7500], ["helmet", "Hats and helmets", 5500], ["accessory", "Accessories", 3500], ["poles", "Poles", 3000], ["goggles", "Goggles", 4500]];   // in trick points: a good jump line pays a few thousand
 const OWNED = store.get("pal-owned", null) || {}; let basket = [], ownDone = false;
 function ownInit() { if (ownDone) return; ownDone = true; for (const [cat] of STORE_CATS) { const a = Array.isArray(OWNED[cat]) ? OWNED[cat] : (OWNED[cat] = []); for (const k of [outfit[cat], KR.OUTFIT_DEFAULT[cat]]) if (k && !a.includes(k)) a.push(k); } store.set("pal-owned", OWNED); }
-const owns = (cat, k) => Array.isArray(OWNED[cat]) && OWNED[cat].includes(k), isGear = s => s && (s.kind === "ski" || s.kind === "wear" || s.kind === "goggle" || s.kind === "skiwall");
-const priceOf = (cat, k) => Math.round((cat === "skis" && SKI_DESIGNS[k] ? 24000 : STORE_CATS.find(q => q[0] === cat)[2]) * (1 - Math.min(0.5, 0.1 * medalPoints())) / 10) * 10, basketTotal = () => basket.reduce((a, b) => a + priceOf(b.cat, b.k), 0);
-const sells = (s, cat, k) => s.kind === "goggle" ? cat === "goggles" : s.kind === "skiwall" ? cat === "skis" : cat !== "goggles" && !(cat === "skis" && SKI_DESIGNS[k]);   // goggles at the goggle shop, every ski at the ski shop, the rest (and plain skis) at the others
+const owns = (cat, k) => Array.isArray(OWNED[cat]) && OWNED[cat].includes(k), isGear = s => s && (s.kind === "ski" || s.kind === "wear" || s.kind === "goggle" || s.kind === "skiwall" || s.kind === "acc");
+const priceOf = (cat, k) => Math.round((cat === "skis" && SKI_DESIGNS[k] ? 24000 : cat === "accessory" && ACC_NEW[k] ? 6000 : STORE_CATS.find(q => q[0] === cat)[2]) * (1 - Math.min(0.5, 0.1 * medalPoints())) / 10) * 10, basketTotal = () => basket.reduce((a, b) => a + priceOf(b.cat, b.k), 0);
+const sells = (s, cat, k) => s.kind === "goggle" ? cat === "goggles" : s.kind === "skiwall" ? cat === "skis" : s.kind === "acc" ? cat === "accessory" || cat === "helmet" : cat !== "goggles" && !(cat === "skis" && SKI_DESIGNS[k]) && !(cat === "accessory" && ACC_NEW[k]);   // goggles at the goggle shop, every ski at the ski shop, the rest (and plain skis) at the others
 function basketWear() { const of = Object.assign({}, outfit); for (const b of basket.length ? basket : loot || []) of[b.cat] = b.k; dressRig(rig, of); }
 function storeOpen(s) {
   ownInit(); const card = $("storeCard"), el = (tag, txt, cls) => { const e = document.createElement(tag); if (txt != null) e.textContent = txt; if (cls) e.className = cls; return e; }; card.textContent = "";
@@ -3200,7 +3231,7 @@ function chaseStart(shop) {
 }
 function chaseTick(dt, time) {
   const c = chaser; if (!c || !c.on) return; const q = c.q, dx = sk.p.x - q.p.x, dz = sk.p.z - q.p.z, d = Math.hypot(dx, dz); c.t += dt;
-  if (loot) { const v = c.t < 0.9 ? 0 : 3.4,   /* a little slower than you can run: keep going and you get away, hesitate and you do not */ st = v * dt, ux = dx / (d || 1), uz = dz / (d || 1); let nx = q.p.x + ux * st, nz = q.p.z + uz * st;
+  if (loot) { const v = c.t < 0.9 ? 0 : 6.1,   /* a little slower than you can run: keep going and you get away, hesitate and you do not */ st = v * dt, ux = dx / (d || 1), uz = dz / (d || 1); let nx = q.p.x + ux * st, nz = q.p.z + uz * st;
     if (buildingAt(nx, nz)) { if (!buildingAt(nx, q.p.z)) nz = q.p.z; else if (!buildingAt(q.p.x, nz)) nx = q.p.x; else { nx = q.p.x; nz = q.p.z; } }   // round the corner of a building
     q.p.set(nx, H(nx, nz), nz); q.sp = v; q.vs = v; q.walkPh += st * 4.3; q.yaw += wrap(Math.atan2(dx, dz) - q.yaw) * Math.min(1, 8 * dt);
     if (d < 1.3) { loot = null; dressRig(rig, outfit); c.t = 0; sfx("thump", 0.6); toast("Caught! The gear goes back on the rack.", 3.5); }
@@ -3261,6 +3292,12 @@ function initPlaza() {
       for (const sd of [-1, 1]) { bx(inn, 0.05, 2.3, D - 2.4, sd * (hw - 0.04), 1.4, D / 2 + 0.6, [0.2, 0.2, 0.22]); for (let w = 2.2; w < D - 1.0; w += 0.4) hang(sd * (hw - 0.075), w, bw + sd * Math.PI / 2, keys[n++ % keys.length]); }
       for (const [tu, tw] of [[-hw * 0.4, D * 0.4], [hw * 0.35, D * 0.33]]) { bx(inn, 1.9, 0.45, 0.5, tu, 0.22, tw, WOOD); block(tu - 0.5, tw, 0.55); block(tu + 0.5, tw, 0.55); }   // benches to sit and look
       for (let k = -2; k <= 2; k++) bx(inn, 0.5, 0.06, 0.3, k * hw * 0.4, 2.86, D - 1.0, [1.9, 1.8, 1.5]); }                                                         // spotlights on the wall
+    else if (s.kind === "acc") { const ball = (u, y, w, r, c) => { const p = L(u, y, w); inn.add(new THREE.SphereGeometry(r, 8, 6), _gm.makeTranslation(p[0], p[1], p[2]), c); };
+      shelf(-1, 0.8, D - 0.8, 4, (u, y, w, rI) => { const c = CLOTH[(rI * 3 + Math.round(w * 2)) % 8]; bx(inn, 0.26, 0.34, 0.3, u, y + 0.17, w, c); bx(inn, 0.06, 0.16, 0.2, u + 0.16, y + 0.12, w, [0.1, 0.1, 0.11]); });                 // backpacks along one wall
+      shelf(1, 0.8, D - 2.4, 4, (u, y, w, rI) => { const c = CLOTH[(rI + Math.round(w * 3)) % 8]; if (rI % 2) { ball(u, y + 0.1, w, 0.13, c); bx(inn, 0.2, 0.03, 0.26, u, y + 0.02, w, c); } else cy(inn, 0.1, 0.13, 0.16, u, y + 0.08, w, c, 10); });   // helmets and hats along the other
+      for (const [tu, tw] of [[-hw * 0.35, D * 0.32], [hw * 0.2, D * 0.6]]) { cy(inn, 0.03, 0.03, 1.75, tu, 0.875, tw, STEELc, 6); cy(inn, 0.3, 0.3, 0.04, tu, 0.02, tw, DARK2, 10); for (let k = 0; k < 9; k++) { const a = k * 2.1; ball(tu + Math.sin(a) * 0.2, 0.75 + (k % 3) * 0.36, tw + Math.cos(a) * 0.2, 0.115, CLOTH[(k * 3 + si) % 8]); } block(tu, tw, 0.45); }   // hat trees
+      bx(inn, 1.7, 0.9, 0.8, -hw * 0.3, 0.45, D * 0.7, WHITE); bx(inn, 1.76, 0.04, 0.86, -hw * 0.3, 0.92, D * 0.7, [0.75, 0.86, 0.92]); block(-hw * 0.3 - 0.45, D * 0.7, 0.6); block(-hw * 0.3 + 0.45, D * 0.7, 0.6);
+      for (let k = 0; k < 4; k++) { const u = -hw * 0.3 - 0.6 + k * 0.4; bx(inn, 0.13, 0.1, 0.1, u, 1.0, D * 0.7, [0.1, 0.1, 0.11]); bx(inn, 0.2, 0.03, 0.2, u, 1.07, D * 0.7 + 0.02, CLOTH[(k * 2 + 1) % 8]); } }   // a case of cameras and headphones
     else if (s.kind === "goggle") { const LENS = [[1, 0.48, 0.1], [0.23, 0.63, 1], [1, 0.37, 0.64], [0.22, 0.85, 0.54], [0.95, 0.76, 0.19], [0.16, 0.18, 0.2]];
       for (const sd of [-1, 1]) { bx(inn, 0.06, 1.9, D - 1.6, sd * (hw - 0.04), 1.45, D / 2 + 0.2, WHITE); for (let rI = 0; rI < 5; rI++) for (let w = 1.2; w < D - 1.0; w += 0.34) { bx(inn, 0.07, 0.075, 0.19, sd * (hw - 0.1), 0.75 + rI * 0.33, w, LENS[(rI + Math.round(w * 3) + (sd > 0 ? 2 : 0)) % 6]); bx(inn, 0.05, 0.1, 0.23, sd * (hw - 0.08), 0.75 + rI * 0.33, w, [0.08, 0.08, 0.09]); } }   // walls of goggles
       for (const [tu, tw] of [[-hw * 0.45, D * 0.35], [hw * 0.4, D * 0.3], [-hw * 0.45, D * 0.68]]) { bx(inn, 1.5, 0.9, 0.8, tu, 0.45, tw, WHITE); bx(inn, 1.56, 0.04, 0.86, tu, 0.92, tw, [0.75, 0.86, 0.92]); for (let k = 0; k < 4; k++) { bx(inn, 0.19, 0.075, 0.07, tu - 0.5 + k * 0.33, 1.0, tw, LENS[(k + Math.round(tw)) % 6]); bx(inn, 0.23, 0.1, 0.05, tu - 0.5 + k * 0.33, 1.0, tw + 0.03, [0.08, 0.08, 0.09]); } block(tu - 0.4, tw, 0.6); block(tu + 0.4, tw, 0.6); }   // display tables
@@ -3340,13 +3377,13 @@ function makeStein() { const g = new THREE.Group(), b = new THREE.Group(); b.pos
 function steinLevel(st, k) { st.beer.visible = k > 0.02; st.beer.scale.y = Math.max(0.02, k); st.foam.visible = k > 0.02; st.foam.position.y = 0.014 + 0.165 * k; }
 const sipLift = t => smooth(t / 0.28) * (1 - smooth((t - 0.76) / 0.24));   // up to the mouth, hold, back down, over one sip
 function pubPose(R, q) {   // sat at a table: thighs along the seat, shins down, one hand round the stein
-  const s = q.sipK || 0; R.legs.forEach(l => { l.hip.rotation.x = 1.48; l.hip.rotation.z = 0; l.knee.rotation.x = -1.48; }); R.skiG.forEach(sg => { sg.visible = false; }); R.skiMeshes.forEach(m => { m.visible = false; });
+  const s = q.sipK || 0; R.legs.forEach(l => { l.hip.rotation.x = 1.48; l.hip.rotation.z = 0; l.knee.rotation.x = -1.48; }); R.skiG.forEach((sg, i) => { const l = R.legs[i]; sg.visible = true; sg.scale.setScalar(1); sg.position.set(i ? 0.13 : -0.13, 0.2 + (l.hip.position.y - R.a * Math.cos(1.48) - R.b - 0.26), 0.06 - R.a * Math.sin(1.48)); sg.rotation.set(0, 0, 0); });   /* boots flat on the floor under the knees */
   R.arms.forEach((a, i) => { a.pole.visible = false; if (i !== 1) { a.sh.rotation.set(0.42, 0, 0); a.el.rotation.set(0.98, 0, 0); return; }
     const sx = 0.4 + 0.4 * s, ex = 0.95 + 1.25 * s; a.sh.rotation.set(sx, 0, -a.sd * 0.42 * s); a.el.rotation.set(ex, 0, 0);
     if (!R.stein) { R.stein = makeStein(); R.stein.position.y = -0.335; a.el.add(R.stein); } R.stein.rotation.set(-(sx + ex) + 1.05 * s, 0, a.sd * 0.42 * s); });   // kept upright in the hand, tipped as it reaches the mouth
-  R.head.rotation.x += 0.28 * s; R.stein.visible = q !== sk || PUB.beers > 0 || PUB.drunk > 0; steinLevel(R.stein, q === sk ? (PUB.sip > 0 ? 1 - smooth((1 - PUB.sip - 0.3) / 0.45) : PUB.beers > 0 ? 1 : 0) : 1 - 0.7 * s);
+  R.head.rotation.x += 0.28 * s; R.stein.visible = q !== sk || PUB.beers > 0 || PUB.drunk > 0; steinLevel(R.stein, q === sk ? (PUB.sip > 0 ? 1 - smooth((1 - PUB.sip - 0.3) / 0.45) : PUB.beers > 0 ? 1 : 0) : q.pb === 0 ? 0 : 1 - 0.7 * s);
   if (q !== sk) { const pb = SHOPS.find(o => o.pub); R.hold.position.y = (pb && shopInside(pb, q.p.x, q.p.z) ? pb.floorY : q.p.y) - SIT_DROP; } }
-function pubSeatY(R) { R.hold.updateMatrixWorld(true); SIT_DROP = R.legs[0].hip.getWorldPosition(_wp).y - R.hold.position.y - 0.6; R.hold.position.y -= SIT_DROP; }   // hips to the height of the chair
+function pubSeatY(R) { R.hold.updateMatrixWorld(true); SIT_DROP = R.legs[0].hip.getWorldPosition(_wp).y - R.hold.position.y - 0.63; R.hold.position.y -= SIT_DROP; }   // hips to the height of the chair
 function pubSit(q) { if (sk.mode === "ski") toggleWalk(); if (sk.mode !== "walk") return; const s = sk.shopIn, dl = Math.hypot(q.tx - q.x, q.tz - q.z) || 1, fx = (q.tx - q.x) / dl, fz = (q.tz - q.z) / dl, mx = q.x + fx * 0.4, mz = q.z + fz * 0.4; let best = null;
   for (const sd of [1, -1]) { let cx = mx + fz * sd * 3.0, cz = mz - fx * sd * 3.0; if (s) { const rx = cx - s.dx, rz = cz - s.dz, u = clamp(rx * s.tx + rz * s.tz, -s.hw + 0.3, s.hw - 0.3), w = clamp(rx * s.nx + rz * s.nz, 0.4, s.D - 0.3); cx = s.dx + s.tx * u + s.nx * w; cz = s.dz + s.tz * u + s.nz * w; } const d = Math.hypot(cx - mx, cz - mz); if (!best || d > best[2]) best = [cx, cz, d]; }   // the side with more room to stand the camera back
   PUB.seat = q; PUB.shop = s; q.cam = best; q.mx = mx; q.mz = mz; PUB.sip = 0; toast(PUB.beers ? "E drinks · any move key stands you up" : "No pint yet: order at the bar. Any move key stands you up.", 3.5); }
@@ -3355,10 +3392,18 @@ function pubTick(dt) { nearSeat = null; if (PUB.dizzy > 0) PUB.dizzy = Math.max(
   if (q && (sk.mode !== "walk" || Math.hypot(sk.p.x - q.x, sk.p.z - q.z) > 0.6)) PUB.seat = null;   // skis back on, or taken somewhere else
   if (PUB.seat) { if (PUB.sip > 0) { PUB.sip -= dt / 1.9; if (PUB.sip <= 0) { PUB.sip = 0; PUB.beers--; PUB.drunk++; if (PUB.drunk % 2 === 0) { PUB.dizzy = 3; toast("That is " + PUB.drunk + ". The room moves a little.", 2.6); } } }
     else if (K.up || K.down || K.left || K.right || K.spinL || K.spinR) { PUB.seat = null; toast("On your feet", 1.2); } }
-  else { const s = sk.shopIn; if (s && s.pub && (sk.mode === "walk" || sk.mode === "ski") && sk.sp < 3) { let bd = 1.05; for (const c of s.seats) { const d = Math.hypot(c.x - sk.p.x, c.z - sk.p.z); if (d < bd) { bd = d; nearSeat = c; } } } PUB.sip = 0; }
+  else { const s = sk.shopIn; if (s && s.pub && (sk.mode === "walk" || sk.mode === "ski") && sk.sp < 3) { let bd = 1.05; for (const c of s.seats) { const d = Math.hypot(c.x - sk.p.x, c.z - sk.p.z); if (d < bd && !seatTaken(c)) { bd = d; nearSeat = c; } } } PUB.sip = 0; }
   sk.sit = !!PUB.seat; sk.sipK = PUB.seat && PUB.sip > 0 ? sipLift(1 - PUB.sip) : 0;
-  const n = PUB.seat ? Math.min(6, PUB.beers - 1) : 0; if (n > 0 && !tableSteins) { tableSteins = []; for (let k = 0; k < 6; k++) { const st = makeStein(); steinLevel(st, 1); st.visible = false; scene.add(st); tableSteins.push(st); } }   // the rest of the round stands on the table
-  if (tableSteins) tableSteins.forEach((st, k) => { st.visible = k < n; if (k < n) { const a = k * 1.05 + 0.5; st.position.set(PUB.seat.tx + Math.sin(a) * 0.24, (PUB.shop ? PUB.shop.floorY : sk.p.y) + 0.775 + 0.09, PUB.seat.tz + Math.cos(a) * 0.24); st.rotation.y = a; } }); }
+  tableSteins = roundOnTable(tableSteins, PUB.seat, PUB.seat ? PUB.beers - 1 : 0, PUB.shop ? PUB.shop.floorY : sk.p.y); }
+/* The rest of someone's round stands on the table in front of them: a row of full steins across their side of it. */
+function roundOnTable(list, seat, n, floorY) { n = seat ? Math.min(6, n) : 0; if (n > 0 && !list) { list = []; for (let k = 0; k < 6; k++) { const st = makeStein(); steinLevel(st, 1); st.visible = false; scene.add(st); list.push(st); } }
+  if (list) { let ux = 0, uz = 0; if (seat) { const d = Math.hypot(seat.x - seat.tx, seat.z - seat.tz) || 1; ux = (seat.x - seat.tx) / d; uz = (seat.z - seat.tz) / d; }
+    list.forEach((st, k) => { st.visible = k < n; if (k < n) { const lat = (k - (n - 1) / 2) * 0.125, row = 0.07 - 0.05 * Math.abs(k - (n - 1) / 2); st.position.set(seat.tx + ux * row + uz * lat, floorY + 0.775 + 0.09, seat.tz + uz * row - ux * lat); st.rotation.y = Math.atan2(ux, uz) + Math.PI; } }); } return list; }
+const seatTaken = c => { for (const r of MP.remotes.values()) if (r.q && r.q.sit && r.R.hold.visible && Math.hypot(r.q.p.x - c.x, r.q.p.z - c.z) < 0.5) return true; return false; };
+function pubRemote(r) {   // a friend at a table: their pints stand in front of them too
+  const q = r.q, pb = SHOPS.find(o => o.pub); let c = null; if (pb && q && q.sit && r.R.hold.visible) { let bd = 1.2; for (const s of pb.seats) { const d = Math.hypot(s.x - q.p.x, s.z - q.p.z); if (d < bd) { bd = d; c = s; } } }
+  if (c || r.steins) r.steins = roundOnTable(r.steins, c, c ? (q.pb || 0) - 1 : 0, pb ? pb.floorY : 0); }
+function pubRemoteGone(r) { if (r.steins) r.steins.forEach(st => scene.remove(st)); r.steins = null; }
 function pubCam(dt) { const q = PUB.seat, F = PUB.shop ? PUB.shop.floorY : sk.p.y;   // sat down, the view moves round to the side of the table
   camPos.lerp(tmp.set(q.cam[0], F + 1.3, q.cam[1]), 1 - Math.exp(-3.5 * dt)); camTgt.lerp(tmp.set(q.mx, F + 1.02, q.mz), 1 - Math.exp(-5 * dt));
   camera.fov = lerp(camera.fov, 46, Math.min(1, 3 * dt)); camera.near = 0.1; camera.updateProjectionMatrix(); camera.position.copy(camPos); camera.up.set(0, 1, 0); camera.lookAt(camTgt); camSnap = false; }
@@ -3427,7 +3472,7 @@ async function boot() {
   for (let i = 0; i < 300; i++) if (!updateTerrain(camera.position, 40)) break;
   for (let i = 0; i < 40; i++) { updateTrees(camera.position); updateRocks(camera.position); }
   $("load").hidden = true; renderer.info.autoReset = false; requestAnimationFrame(tick);
-  window.__pal = { PUB, pubTick, pubUse, pubSit, nearSeat: () => nearSeat, dizzyEl: () => dzC, sitDrop: () => SIT_DROP, chaseTick, chaser: () => chaser, loot: () => loot, dressRig, GOGGLES, rigRef: () => rig, OWNED, owns, storeOpen, storePay, basket: () => basket, priceOf, isGear, rigY: () => rig.hold.position.y, nearCounter: () => nearCounter, SHOPS, WALKERS, PLAZA, shopInside, shopUse, shopTick, updateWalkers, plazaK, buildingAt, updateCamera, mpPack, makeGhost: () => ({ R: makeRider(outfit), tag: null, q: null, keys: Object.assign({}, NOKEYS), st: null }), drawMap, mapPick, poseRemote, updateFriendArrows, camYaw: () => Math.atan2(camDir.x, camDir.z), LOOSE, crash, rockLift, updateLoose, CLIFFS2: 0, SLEDS, sledToggle, stepSled, sledTick, COMP, compEnter, compTick, compFinish, medalPoints, liftLocked, treeMask, trkMesh: () => trkMesh, updateRig, layTracks, getCat: () => CATG, creekD, onRock, catBench, viewFrom: a => { camFix = a; }, CLIFFS, buildCliff, updateTerrain, setCam: a => { camFix = a; sk.mode = "menu"; $("menu").hidden = true; $("hud").hidden = true; }, cliffK, hBase, PARK, REW, stepRewind, recordRewind, toggleWalk, stepWalk, clearTracks, goHome, toggleMap, runAt, npcs, KR, gDown, gUp, landing, stepSki, stepLift, updateLifts, findNearLift, nrm, sk, K, LIFTS, WORLD, H, camera, scene, renderer, setWeather, placeSkier, boardLift, unloadAt, spawnAt, MP, chunks, nearTiles, treeTiles, Q };
+  window.__pal = { WALK, walkPose, MP, pubRemote, ACC_NEW, PUB, pubTick, pubUse, pubSit, nearSeat: () => nearSeat, dizzyEl: () => dzC, sitDrop: () => SIT_DROP, chaseTick, chaser: () => chaser, loot: () => loot, dressRig, GOGGLES, rigRef: () => rig, OWNED, owns, storeOpen, storePay, basket: () => basket, priceOf, isGear, rigY: () => rig.hold.position.y, nearCounter: () => nearCounter, SHOPS, WALKERS, PLAZA, shopInside, shopUse, shopTick, updateWalkers, plazaK, buildingAt, updateCamera, mpPack, makeGhost: () => ({ R: makeRider(outfit), tag: null, q: null, keys: Object.assign({}, NOKEYS), st: null }), drawMap, mapPick, poseRemote, updateFriendArrows, camYaw: () => Math.atan2(camDir.x, camDir.z), LOOSE, crash, rockLift, updateLoose, CLIFFS2: 0, SLEDS, sledToggle, stepSled, sledTick, COMP, compEnter, compTick, compFinish, medalPoints, liftLocked, treeMask, trkMesh: () => trkMesh, updateRig, layTracks, getCat: () => CATG, creekD, onRock, catBench, viewFrom: a => { camFix = a; }, CLIFFS, buildCliff, updateTerrain, setCam: a => { camFix = a; sk.mode = "menu"; $("menu").hidden = true; $("hud").hidden = true; }, cliffK, hBase, PARK, REW, stepRewind, recordRewind, toggleWalk, stepWalk, clearTracks, goHome, toggleMap, runAt, npcs, KR, gDown, gUp, landing, stepSki, stepLift, updateLifts, findNearLift, nrm, sk, K, LIFTS, WORLD, H, camera, scene, renderer, setWeather, placeSkier, boardLift, unloadAt, spawnAt, MP, chunks, nearTiles, treeTiles, Q };
   window.__info = () => ({ mode: sk.mode, p: [Math.round(sk.p.x), Math.round(sk.p.y), Math.round(sk.p.z)], sp: +sk.sp.toFixed(1), ground: sk.ground, crashed: sk.crashed, trees: treeCount, calls: renderer.info.render.calls, tris: renderer.info.render.triangles, lift: sk.lift && sk.lift.name, liftS: Math.round(sk.liftS) });
 }
 boot().catch(e => { const d = document.createElement("div"); d.id = "err"; d.textContent = String(e && e.stack || e); document.body.appendChild(d); console.error(e); });

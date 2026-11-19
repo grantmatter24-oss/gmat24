@@ -229,7 +229,7 @@ const MP = { myName: String(store.get("pal-name", "") || "").slice(0, 20), room:
 const r2 = v => Math.round(v * 100) / 100;
 function mpPack() {
   let k = 0; MP_KEYS.forEach((n, i) => { if (K[n]) k |= 1 << i; });
-  const o = mpPack0(k); if (MP.myName) o.nm = MP.myName; if (sk.mode === "sled" && sk.sled) { o.sdi = SLEDS.indexOf(sk.sled); o.sdr = sk.sledRole || 1; } if (sk.shopIn) o.shop = sk.shopIn.name; if (sk.sit) o.sit = +(1 + (sk.sipK || 0)).toFixed(2); return o;
+  const o = mpPack0(k); if (MP.myName) o.nm = MP.myName; if (sk.mode === "sled" && sk.sled) { o.sdi = SLEDS.indexOf(sk.sled); o.sdr = sk.sledRole || 1; } if (sk.shopIn) o.shop = sk.shopIn.name; if (sk.sit) { o.sit = +(1 + (sk.sipK || 0)).toFixed(2); o.pb = PUB.beers; } return o;
 }
 function mpPack0(k) {
   return { v: 2, res: "palisades", id: MP.myId, play: sk.mode !== "menu", x: r2(sk.p.x), y: r2(sk.p.y), z: r2(sk.p.z), yaw: r2(sk.yaw), spin: r2(sk.spin), rot: r2(sk.rot), rotV: r2(sk.rotV), sw: !!sk.sw, gr: !!sk.ground, cr: !!sk.crashed, tz: r2(sk.tumZ), turn: r2(sk.turn), carve: r2(sk.carve), sp: r2(sk.sp), chg: r2(sk.chg), st: r2(Math.max(0, sk.stumT)), k, md: sk.mode, gd: sk.grind ? 1 : 0, wp: r2(sk.walkPh || 0), li: sk.lift ? sk.lift.id : -1, sl: r2(sk.slope), sc: sk.pts, vt: Math.round(sk.vert),
@@ -250,7 +250,7 @@ function mpSync(peers) {
     if (r.ofk !== ofk) { r.ofk = ofk; dressRig(r.R, st.of); dressRig(rig, outfit); }   // dressing sets the ski tune, so put ours back
     r.st = st; r.by = by; r.isMe = p.isMe;
   }
-  for (const [peer, r] of MP.remotes) if (!seen.has(peer)) { scene.remove(r.R.hold); MP.remotes.delete(peer); }
+  for (const [peer, r] of MP.remotes) if (!seen.has(peer)) { scene.remove(r.R.hold); pubRemoteGone(r); MP.remotes.delete(peer); }
   MP.others = others; MP.dirty = true;
 }
 async function mpList() {
@@ -277,7 +277,7 @@ const _rs = { p: new THREE.Vector3() };
 function updateRemotes(dt, time) {
   MP.listT += dt; if (MP.dirty && MP.listT > 0.5) { MP.listT = 0; mpList(); } else if (MP.listT > 2 && MP.remotes.size) { MP.listT = 0; mpList(); }
   const a = 1 - Math.exp(-12 * dt);
-  for (const r of MP.remotes.values()) poseRemote(r, dt, time, a);
+  for (const r of MP.remotes.values()) { poseRemote(r, dt, time, a); pubRemote(r); }
 }
 function poseRemote(r, dt, time, a) { // stand a rider (a friend, or a competition rival) where their state says, in the pose it implies
     const st = r.st, R = r.R; if (!st) return; const far = Math.hypot(st.x - sk.p.x, st.z - sk.p.z);
@@ -286,7 +286,7 @@ function poseRemote(r, dt, time, a) { // stand a rider (a friend, or a competiti
     const jump = !r.q || Math.hypot(st.x - r.q.p.x, st.z - r.q.p.z) > 30;
     if (jump) r.q = { p: new THREE.Vector3(st.x, st.y, st.z), yaw: st.yaw, spin: st.spin, rot: st.rot, grind: null, boxT: 0, bike: false, finished: false, bikeJump: false, pumpT: 0, landT: 0, popT: 0, airT: 1, vx: 0, vs: 0 };
     const q = r.q; q.p.x += (st.x - q.p.x) * a; q.p.y += (st.y - q.p.y) * a; q.p.z += (st.z - q.p.z) * a; q.yaw += wrap(st.yaw - q.yaw) * a; q.spin += (st.spin - q.spin) * a; q.rot += (st.rot - q.rot) * a;
-    q.rotV = st.rotV || 0; q.sw = st.sw; q.ground = st.gr; q.air = !st.gr && st.md === "ski"; q.crashed = st.cr; q.tumZ = st.tz || 0; q.turn = st.turn; q.carve = st.carve; q.sp = st.sp; q.vs = st.sp; q.chg = L && L.type.startsWith("chair") ? 0.85 : st.md === "sled" ? 0 : st.chg || 0; q.stumT = st.st || 0; q.stumD = 1; q.mode = st.md; q.sit = st.sit >= 1; q.sipK = q.sit ? clamp(st.sit - 1, 0, 1) : 0; q.walkPh = st.wp || 0; q.grind = st.gd ? 1 : null;
+    q.rotV = st.rotV || 0; q.sw = st.sw; q.ground = st.gr; q.air = !st.gr && st.md === "ski"; q.crashed = st.cr; q.tumZ = st.tz || 0; q.turn = st.turn; q.carve = st.carve; q.sp = st.sp; q.vs = st.sp; q.chg = L && L.type.startsWith("chair") ? 0.85 : st.md === "sled" ? 0 : st.chg || 0; q.stumT = st.st || 0; q.stumD = 1; q.mode = st.md; q.sit = st.sit >= 1; q.sipK = q.sit ? clamp(st.sit - 1, 0, 1) : 0; q.pb = st.pb; q.walkPh = st.wp || 0; q.grind = st.gd ? 1 : null;
     MP_KEYS.forEach((n, i) => { r.keys[n] = st.k & (1 << i) ? 1 : 0; }); if (q.ground) { r.keys.boost = r.keys.up; r.keys.up = 0; } else r.keys.boost = 0;   // on snow W is the tuck, as it is for you: other riders do not nose butter along
     poseRider(R, q, st.md === "ski" ? r.keys : NOKEYS, st.sl || 0, dt, time, jump); if (L && L.type.startsWith("chair")) R.hold.position.y += 0.2;
     if (st.md === "sled") { // another player on a snowmobile: the driver's state moves the machine itself; both riders sit on its seat
@@ -306,7 +306,7 @@ async function fbInit() {
     else { g.className = "gbtn out"; g.textContent = "Sign out"; g.addEventListener("click", () => auth.signOut()); box.append("Signed in as " + who, g); } };
   auth.onAuthStateChanged(u => {
     if (presRef) { presRef.remove().catch(() => { }); presRef = null; } if (off) { off(); off = null; }
-    MP.room = null; MP.remotes.forEach(r => scene.remove(r.R.hold)); MP.remotes.clear(); MP.others = [];
+    MP.room = null; MP.remotes.forEach(r => { scene.remove(r.R.hold); pubRemoteGone(r); }); MP.remotes.clear(); MP.others = [];
     if (!u) { MP.myId = null; MP.status = "Solo · sign in to ride with others"; signBtn(true); MP.dirty = true; return; }
     MP.myId = u.uid; myName = ((u.displayName && u.displayName.split(" ")[0]) || (u.email && u.email.indexOf("@") > 0 ? u.email.slice(0, u.email.indexOf("@")) : "") || "Rider").slice(0, 20); signBtn(false, myName);
     if (!MP.myName) { MP.myName = myName; $("nameIn").value = myName; }   // your Google first name, until you type another

@@ -19,6 +19,7 @@ let rig = null, fpv = store.get("pal-fpv", false), units = store.get("pal-units"
 /* Goggles: an extra the Kicker Run rider does not have. They are sold at the goggle shop in the village and worn over whatever is on your head. */
 const GOGGLES = { none: null, fire: [0x141414, 0xff7a1a], ice: [0xf2f4f7, 0x3aa0ff], rose: [0x7a1420, 0xff5fa2], jade: [0x0f3a2a, 0x39d98a], gold: [0x1a1a1a, 0xf2c230], night: [0x1b1e24, 0x2a2d33] };
 KR.OUTFIT_OPTS.goggles = { none: "No goggles", fire: "Fire lens goggles", ice: "Ice blue goggles", rose: "Rose lens goggles", jade: "Jade lens goggles", gold: "Gold mirror goggles", night: "Blackout goggles" }; KR.OUTFIT_DEFAULT.goggles = "none";
+const ACC_NEW = { pack: "Backpack", bandana: "Face bandana", hippack: "Hip pack", cam: "Helmet camera" }; Object.assign(KR.OUTFIT_OPTS.accessory, ACC_NEW);   // extras sold at the accessory shop
 /* Designer skis: wide boards with printed top sheets, sold at the ski shop in the village. Across the canvas the left half is the top of
    the ski and the right half its base; down the canvas runs the length of the ski. */
 const SKI_DESIGNS = {
@@ -37,7 +38,7 @@ for (const k in SKI_DESIGNS) KR.OUTFIT_OPTS.skis[k] = SKI_DESIGNS[k][0];
 let skiDesignTex = null;
 function skiDesigns() { if (skiDesignTex) return skiDesignTex; skiDesignTex = {}; for (const k in SKI_DESIGNS) { const c = document.createElement("canvas"); c.width = 128; c.height = 512; const x = c.getContext("2d"); x.save(); x.beginPath(); x.rect(0, 0, 64, 512); x.clip(); SKI_DESIGNS[k][1](x, 64, 512); x.restore(); x.fillStyle = "#0d0f12"; x.fillRect(64, 0, 64, 512); x.fillStyle = "#e9edf2"; x.fillRect(92, 0, 8, 512);   // the design on top, a plain black base with one stripe
     const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; skiDesignTex[k] = t; } return skiDesignTex; }
-function dressRig(R, of) { if (!R.skiDes) { R.skiDes = true; Object.assign(R.skiTexes, skiDesigns()); } KR.dress(R, of); if (of && SKI_DESIGNS[of.skis]) R.skiMeshes.forEach(m => { m.scale.x = 1.4; }); const q = R.gog, c = q && GOGGLES[of && of.goggles]; if (!q) return; q.grp.visible = !!c; if (c) { q.frame.color.setHex(c[0]); q.lens.color.setHex(c[1]); } }
+function dressRig(R, of) { if (!R.skiDes) { R.skiDes = true; Object.assign(R.skiTexes, skiDesigns()); } KR.dress(R, of); if (of && SKI_DESIGNS[of.skis]) R.skiMeshes.forEach(m => { m.scale.x = 1.4; }); const q = R.gog, c = q && GOGGLES[of && of.goggles]; if (!q) return; q.grp.visible = !!c; if (c) { q.frame.color.setHex(c[0]); q.lens.color.setHex(c[1]); q.lens.emissive.setHex(c[1]); q.stripe.color.setHex(c[1]); } }
 let outfit = Object.assign({}, KR.OUTFIT_DEFAULT, store.get("kickerOutfit", null) || {}, store.get("pal-outfit", null) || {});
 for (const k of ["jacket", "pants"]) if (!KR[k === "jacket" ? "JACKETS" : "PANTS"][outfit[k]]) outfit[k] = KR.OUTFIT_DEFAULT[k];
 const fwdOf = (yaw, out) => out.set(Math.sin(yaw), 0, Math.cos(yaw));
@@ -270,18 +271,20 @@ function stepRewind(dt) {
 /* ---------- on foot: skis off and carried, to boot-pack up to the ridges and summits no lift reaches ---------- */
 function toggleWalk() {
   if (sk.mode === "walk") { sk.mode = "ski"; sk.parked = true; sk.sp = 0; sk.v.set(0, 0, 0); toast("Skis on"); }
-  else if (sk.mode === "ski" && sk.ground && !sk.crashed && sk.sp < 5) { sk.mode = "walk"; sk.sp = 0; sk.v.set(0, 0, 0); sk.sw = false; sk.spin = 0; sk.turn = sk.carve = 0; sk.walkPh = 0; charging = false; popReq = false; toast("Skis off · W walks, A D turn, Shift hurries · B to click back in", 4); }
+  else if (sk.mode === "ski" && sk.ground && !sk.crashed && sk.sp < 5) { sk.mode = "walk"; sk.sp = 0; sk.v.set(0, 0, 0); sk.sw = false; sk.spin = 0; sk.turn = sk.carve = 0; sk.walkPh = 0; sk.wv = 0; charging = false; popReq = false; toast("Skis off · W walks, A D turn, Shift runs · B to click back in", 4); }
   else if (sk.mode === "ski") toast("Stop first to take your skis off");
   const b = $("walkBtn"); if (b) b.textContent = sk.mode === "walk" ? "Ski" : "Walk";
 }
+const WALK = { walk: 3.1, run: 7.0, back: 1.8 };   // m/s: a brisk walk, a proper run (Shift), backing up
 function stepWalk(dt) {
-  if (PUB.seat) { const q = PUB.seat; sk.p.x = q.x; sk.p.z = q.z; sk.p.y = H(q.x, q.z); sk.yaw = Math.atan2(q.tx - q.x, q.tz - q.z); sk.sp = 0; sk.turn = 0; return; }   // sat at a table in the pub
-  const p = sk.p, steer = ((K.spinR || K.right) ? 1 : 0) - ((K.spinL || K.left) ? 1 : 0), go = (K.up ? 1 : 0) - (K.down ? 1 : 0); sk.yaw -= steer * 1.9 * dt;
+  if (PUB.seat) { const q = PUB.seat; sk.p.x = q.x; sk.p.z = q.z; sk.p.y = H(q.x, q.z); sk.yaw = Math.atan2(q.tx - q.x, q.tz - q.z); sk.sp = 0; sk.wv = 0; sk.turn = 0; return; }   // sat at a table in the pub
+  const p = sk.p, steer = ((K.spinR || K.right) ? 1 : 0) - ((K.spinL || K.left) ? 1 : 0), go = (K.up ? 1 : 0) - (K.down ? 1 : 0), running = go > 0 && K.boost; sk.yaw -= steer * (running ? 2.4 : 3.0) * dt;
   const sA = tangent(sk.yaw); sk.slope = sA; readSurface();
-  let v = go > 0 ? (K.boost ? 3.9 : 2.5) : go < 0 ? -1.4 : 0; v *= clamp(1 - Math.sin(sA) * go * 0.9, 0.45, 1.2) * (1 - 0.25 * sk.surf.powder);   // slower up the steeps and in deep snow
-  const nx = p.x + Math.sin(sk.yaw) * v * dt, nz = p.z + Math.cos(sk.yaw) * v * dt;
-  if (!buildingAt(nx, nz) && !treeHit(nx, nz, 0.15) && inWorld(nx, nz, 75) && !(sk.shopIn && sk.shopIn.obst.some(o => Math.hypot(o[0] - nx, o[1] - nz) < o[2] + 0.25))) { p.x = nx; p.z = nz; } else v = 0;
-  p.y = H(p.x, p.z); sk.sp = Math.abs(v); sk.walkPh = (sk.walkPh || 0) + v * dt * 4.3; sk.turn = lerp(sk.turn, 0, Math.min(1, 8 * dt));
+  let want = go > 0 ? (running ? WALK.run : WALK.walk) : go < 0 ? -WALK.back : 0; want *= clamp(1 - Math.sin(sA) * go * 0.9, 0.45, 1.2) * (1 - 0.25 * sk.surf.powder);   // slower up the steeps and in deep snow
+  let v = sk.wv || 0; v += clamp(want - v, -20 * dt, (Math.abs(want) > Math.abs(v) ? 12 : 20) * dt);   // you get up to speed over a few steps and pull up short
+  const dx = Math.sin(sk.yaw) * v * dt, dz = Math.cos(sk.yaw) * v * dt, free = (x, z) => !buildingAt(x, z) && !treeHit(x, z, 0.15) && inWorld(x, z, 75) && !(sk.shopIn && sk.shopIn.obst.some(o => Math.hypot(o[0] - x, o[1] - z) < o[2] + 0.25));
+  if (free(p.x + dx, p.z + dz)) { p.x += dx; p.z += dz; } else if (free(p.x + dx, p.z)) { p.x += dx; v *= 1 - 3 * dt; } else if (free(p.x, p.z + dz)) { p.z += dz; v *= 1 - 3 * dt; } else v = 0;   // into a wall at an angle you slide along it
+  sk.wv = v; p.y = H(p.x, p.z); sk.sp = Math.abs(v); sk.walkPh = (sk.walkPh || 0) + v * dt * lerp(4.3, 2.0, smooth((Math.abs(v) - 3.4) / 2.6)); sk.turn = lerp(sk.turn, 0, Math.min(1, 8 * dt));   // a run takes longer strides, not just quicker ones
   const dy = sk.lastY !== undefined ? p.y - sk.lastY : 0; sk.lastY = p.y; sk.climb = (sk.climb || 0) + Math.max(0, dy);
   sk.safeT += dt; if (sk.safeT > 1.5) { sk.safeT = 0; sk.safe.copy(p); sk.safeYaw = sk.yaw; }
 }
@@ -414,11 +417,40 @@ function initSnowfall() {
 let camSnap = true, camSlope = 0, camAir = 0, look = { yaw: 0, pit: 0, drag: false, idle: 0 }; const camPos = new THREE.Vector3(), camTgt = new THREE.Vector3(), camDir = new THREE.Vector3(0, 0, 1), _m4 = new THREE.Matrix4(), _qa = new THREE.Quaternion(), _qb = new THREE.Quaternion(), _x = new THREE.Vector3(), _y = new THREE.Vector3(), _z = new THREE.Vector3();
 function makeRider(of) { // Kicker Run's skier faces -z; the holder faces +z and stands on the slope
   const R = KR.build(of), hold = new THREE.Group(); R.root.rotation.y = Math.PI; R.root.position.y = 0.025; hold.add(R.root); R.hold = hold; scene.add(hold);
-  { const grp = new THREE.Group(), frame = new THREE.MeshStandardMaterial({ color: 0x141414, roughness: 0.6 }), lens = new THREE.MeshStandardMaterial({ color: 0xff7a1a, roughness: 0.08, metalness: 0.85 });   // strap round the head, frame and a curved mirror lens over the eyes
-    const strap = new THREE.Mesh(new THREE.TorusGeometry(0.124, 0.017, 6, 22), frame); strap.rotation.x = Math.PI / 2; strap.position.y = 0.022; strap.scale.set(1, 1, 1.9); grp.add(strap);
-    const fr = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.085, 0.04), frame); fr.position.set(0, 0.02, -0.108); grp.add(fr); const ln = new THREE.Mesh(new THREE.SphereGeometry(0.1, 14, 8, 0, Math.PI, 0.9, 1.3), lens); ln.rotation.y = Math.PI; ln.scale.set(0.96, 0.5, 0.42); ln.position.set(0, 0.02, -0.098); grp.add(ln);
-    R.head.add(grp); R.gog = { grp, frame, lens }; dressRig(R, of || {}); }
+  { const grp = new THREE.Group(), frame = new THREE.MeshStandardMaterial({ color: 0x141414, roughness: 0.75, side: THREE.DoubleSide }), lens = new THREE.MeshStandardMaterial({ color: 0xff7a1a, roughness: 0.14, metalness: 0.55, emissive: 0xff7a1a, emissiveIntensity: 0.28, side: THREE.DoubleSide }), stripe = new THREE.MeshStandardMaterial({ color: 0xff7a1a, roughness: 0.7, side: THREE.DoubleSide });
+    /* ski goggles: one wide lens wrapped round the face with a notch for the nose, the frame showing round its edge, and a strap right round the helmet */
+    const shield = (half, top, bot, rad, notch, mat) => { const nU = 28, nV = 5, pos = [], idx = []; for (let a = 0; a <= nU; a++) { const u = -1 + 2 * a / nU, ang = u * half, e = Math.sqrt(1 - Math.pow(Math.abs(u), 5)), yT = top * (0.5 + 0.5 * e), yB = -bot * (0.45 + 0.55 * e) + notch * Math.exp(-u * u / 0.03); for (let b = 0; b <= nV; b++) { const v = b / nV, r = rad * (1 - 0.06 * Math.pow(2 * v - 1, 2)); pos.push(Math.sin(ang) * r, yB + (yT - yB) * v, -Math.cos(ang) * r); } }
+      for (let a = 0; a < nU; a++) for (let b = 0; b < nV; b++) { const p0 = a * (nV + 1) + b, p1 = p0 + nV + 1; idx.push(p0, p1, p0 + 1, p0 + 1, p1, p1 + 1); } const ge = new THREE.BufferGeometry(); ge.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); ge.setIndex(idx); ge.computeVertexNormals(); const m = new THREE.Mesh(ge, mat); m.position.set(0, -0.006, 0.012); grp.add(m); return m; };
+    shield(1.02, 0.052, 0.054, 0.1455, 0.012, frame); shield(0.94, 0.042, 0.044, 0.1495, 0.017, lens);
+    const band = (r, h, mat) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 28, 1, true, Math.PI + 0.98, 2 * Math.PI - 1.96), mat); m.position.set(0, -0.004, 0.012); grp.add(m); }; band(0.1445, 0.04, frame); band(0.1462, 0.01, stripe);
+    for (const sd of [-1, 1]) { const c = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.05, 0.03), frame); c.position.set(sd * 0.1225, -0.004, 0.012 - 0.078); c.rotation.y = -sd * 1.0; grp.add(c); }   // the clips where the strap meets the frame
+    R.head.add(grp); R.gog = { grp, frame, lens, stripe }; }
+  { const mk = par => { const q = new THREE.Group(); q.visible = false; par.add(q); return q; }, M = (c, r) => new THREE.MeshStandardMaterial({ color: c, roughness: r || 0.85 }), put = (q, geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; q.add(m); return m; };
+    /* accessories sold at Summit Accessories. The rider faces -z, so +z is the back. */
+    const pack = mk(R.torso), orange = M(0xd9541e), dark = M(0x1c1f24), grey = M(0x8a9099); put(pack, new THREE.SphereGeometry(0.15, 16, 12), orange, 0, 0.36, 0.205).scale.set(1.12, 1.5, 0.72); put(pack, new THREE.SphereGeometry(0.1, 12, 10), dark, 0, 0.27, 0.3).scale.set(1.2, 1.1, 0.5); put(pack, new THREE.SphereGeometry(0.11, 12, 8), dark, 0, 0.55, 0.2).scale.set(1.25, 0.5, 0.75);
+    for (const sd of [-1, 1]) { const st = put(pack, new THREE.TorusGeometry(0.17, 0.02, 6, 16, Math.PI * 1.15), dark, sd * 0.13, 0.4, 0.02); st.rotation.set(0, Math.PI / 2, 0); st.rotation.z = -0.3; st.scale.set(1, 1.05, 1); } put(pack, new THREE.BoxGeometry(0.26, 0.03, 0.02), grey, 0, 0.4, -0.175);
+    const bandana = mk(R.head), red = M(0xb3202a); put(bandana, new THREE.SphereGeometry(0.119, 18, 10, 0, Math.PI * 2, Math.PI * 0.52, Math.PI * 0.3), red, 0, 0, 0).material.side = THREE.DoubleSide; { const t = put(bandana, new THREE.ConeGeometry(0.085, 0.13, 3), red, 0, -0.13, -0.075); t.rotation.set(Math.PI + 0.25, Math.PI, 0); t.scale.z = 0.35; } for (let k = 0; k < 5; k++) put(bandana, new THREE.SphereGeometry(0.008, 5, 4), M(0xf2f2f2), (k - 2) * 0.03, -0.045 - 0.012 * (k % 2), -0.113 + 0.004 * Math.abs(k - 2));
+    const hip = mk(R.hipG), teal = M(0x138a8a); put(hip, new THREE.SphereGeometry(0.1, 14, 10), teal, 0, 0.1, 0.19).scale.set(1.5, 0.75, 0.6); put(hip, new THREE.BoxGeometry(0.2, 0.012, 0.02), dark, 0, 0.11, 0.252); { const b = put(hip, new THREE.TorusGeometry(0.235, 0.013, 6, 26), dark, 0, 0.1, 0.0); b.rotation.x = Math.PI / 2; b.scale.set(1.16, 0.8, 1); }
+    const cam = mk(R.head); put(cam, new THREE.BoxGeometry(0.055, 0.042, 0.04), dark, 0, 0.19, -0.035); put(cam, new THREE.CylinderGeometry(0.014, 0.014, 0.014, 10), grey, 0, 0.192, -0.06).rotation.x = Math.PI / 2; put(cam, new THREE.BoxGeometry(0.03, 0.03, 0.03), dark, 0, 0.158, -0.03); put(cam, new THREE.SphereGeometry(0.005, 5, 4), new THREE.MeshBasicMaterial({ color: 0xff2a2a }), 0.02, 0.205, -0.055);
+    Object.assign(R.acc, { pack, bandana, hippack: hip, cam }); dressRig(R, of || {}); }
   const carry = new THREE.Group(); R.skiMeshes.forEach((m, i) => { const c = new THREE.Mesh(m.geometry, m.material); c.position.set(i ? 0.035 : -0.035, 0, 0); if (i) c.rotation.z = Math.PI; c.castShadow = true; carry.add(c); }); carry.position.set(0.25, 1.36, 0.1); carry.rotation.set(1.18, 0, 0.06); carry.visible = false; R.rig.add(carry); R.carry = carry; return R;
+}
+/* On foot the skis and bindings come off but the boots stay on: everything in the ski groups that is not a boot is put away. */
+function footGear(R, on) { if (!R.footBits) { R.footBits = []; R.skiG.forEach(sg => sg.traverse(o => { if (o.isMesh && o.material !== R.mats.boot) R.footBits.push(o); })); R.footOn = true; }
+  if (R.footOn === on) return; R.footOn = on; R.footBits.forEach(o => { if (!on) { o.userData.wv = o.visible; o.visible = false; } else if (o.userData.wv !== undefined) o.visible = o.userData.wv; }); }
+/* Walking and running: upright over the feet, each foot placed by the same two-bone leg solve the skiing pose uses. The stride lengthens, the knees lift,
+   the body leans in and the elbows fold as the pace turns into a run. */
+function walkPose(R, q) {
+  const a = R.a, b = R.b, foot = 0.26, sp = q.sp || 0, mv = smooth(sp / 0.9), run = smooth((sp - 3.4) / 2.6), ph = q.walkPh || 0;
+  const stride = (0.26 + 0.3 * run) * mv, lift = (0.07 + 0.19 * run) * mv, lean = 0.03 + 0.04 * mv + 0.2 * run, hip0 = foot + (a + b) * (0.96 - 0.05 * run), hY = hip0 + mv * (0.014 + 0.03 * run) * Math.cos(2 * ph);
+  R.legs.forEach((l, i) => { const th = ph + i * Math.PI, s = Math.sin(th), sw = Math.max(0, Math.cos(th));   // sw > 0: this foot is off the ground and coming forward
+    const aZ = -stride * s, aY = foot + lift * Math.pow(sw, 1.2) + 0.16 * run * sw * Math.max(0, -s), ddy = hY - aY, dist = Math.min(Math.hypot(ddy, aZ), a + b - 0.004), phi = Math.atan2(aZ, ddy);
+    const t1 = Math.acos(clamp((a * a + dist * dist - b * b) / (2 * a * dist), -1, 1)) - phi, t2 = Math.atan2(-aZ - a * Math.sin(t1), ddy - a * Math.cos(t1));
+    l.hip.position.set(l.x, hY, 0.04); l.hip.rotation.set(t1, 0, 0); l.knee.rotation.x = t2 - t1;
+    const sg = R.skiG[i]; sg.visible = true; sg.scale.setScalar(1); sg.position.set(i ? 0.13 : -0.13, 0.2 + (aY - foot), 0.06 + aZ); sg.rotation.set(0.7 * t2 * mv, 0, 0); });
+  R.hipG.position.set(0, hY + 0.02, 0.04); R.hipG.rotation.set(0, 0.07 * mv * (1 + run) * Math.sin(ph), 0); R.hipG.updateMatrix();
+  R.torso.rotation.set(-lean, -0.11 * mv * (1 + run) * Math.sin(ph), 0); R.torso.updateMatrix(); R.head.rotation.set(lean * 0.8, 0, 0); R.head.position.set(0, 0.8, 0);
+  R.arms.forEach((ar, i) => { const sw = Math.sin(ph + (i ? 0 : Math.PI)) * (0.4 + 0.5 * run) * mv; ar.pole.visible = false; ar.sh.rotation.set(sw + 0.12 * run, 0, (i ? 1 : -1) * 0.09); ar.el.rotation.set(0.16 + 1.3 * run + Math.max(0, sw) * 0.4, 0, 0); });   // hands empty: arms swing against the legs
 }
 function poseRider(R, q, keys, slope, dt, time, snap) {
   const hold = R.hold, onSnow = q.ground && (q.mode === "ski" || q.mode === "walk" || q.mode === "sled") && !q.crashed && !(q === sk && sk.shopIn);
@@ -433,10 +465,8 @@ function poseRider(R, q, keys, slope, dt, time, snap) {
     if (q.lost) R.arms.forEach(a => { a.pole.visible = false; }); }
   if (q.mode === "sled" || q.lost) { R.arms.forEach(a => { a.pole.visible = false; }); R.skiG.forEach(sg => { sg.visible = false; }); }   // on a snowmobile the skis and poles are off; in a yard sale they are gone
   R.rig.rotation.y = -(q.spin + (q.sw ? Math.PI : 0));
-  const walking = q.mode === "walk"; R.carry.visible = false; R.skiMeshes.forEach(m => { m.visible = !walking && q.mode !== "sled" && !q.lost; });
-  if (walking) { const mv = clamp(q.sp / 1.2, 0, 1), ph = q.walkPh || 0; R.legs.forEach((l, i) => { const sw = Math.sin(ph + i * Math.PI) * 0.5 * mv; l.hip.rotation.x += sw; l.knee.rotation.x -= Math.max(0, -Math.cos(ph + i * Math.PI)) * 0.55 * mv; const sg = R.skiG[i]; sg.position.z -= Math.sin(sw) * 0.82; sg.position.y += Math.max(0, -Math.cos(ph + i * Math.PI)) * 0.12 * mv; sg.rotation.x = 0; sg.rotation.z = 0; }); }
-  if (walking) { const mv = clamp(q.sp / 1.2, 0, 1), ph = q.walkPh || 0, run = clamp((q.sp - 2.6) / 1.2, 0, 1);   // on foot your hands are empty: no skis, no poles, and your arms swing against your legs
-    R.skiG.forEach(sg => { sg.visible = false; }); R.arms.forEach((a, i) => { const sw = Math.sin(ph + (i ? 0 : Math.PI)) * (0.42 + 0.35 * run) * mv; a.pole.visible = false; a.sh.rotation.set(sw, 0, (i ? 1 : -1) * 0.1); a.el.rotation.set(0.22 + 0.9 * run + Math.max(0, sw) * 0.5, 0, 0); }); }
+  const walking = q.mode === "walk"; R.carry.visible = false; footGear(R, !walking); R.root.position.y = walking ? -0.065 : 0.025;   /* without skis and bindings under them the boots stand on the ground */ R.skiMeshes.forEach(m => { m.visible = !walking && q.mode !== "sled" && !q.lost; });
+  if (walking) walkPose(R, q);
   if (q.sit && walking) pubPose(R, q); else if (R.stein) R.stein.visible = false;
   const wob = q.stumT > 0 && !q.crashed ? Math.min(1, q.stumT / 0.9) : 0, seated = q.mode === "lift";
   R.pivot.rotation.x = (q.crashed ? q.rot : q.ground ? 0 : q.rot - 0) + wob * (0.28 * Math.sin(time * 9) - 0.12) - (seated ? 0.25 : 0);
