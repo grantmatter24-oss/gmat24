@@ -35,12 +35,12 @@ function initSleds() {
 }
 const _sy = new THREE.Vector3(), _sz = new THREE.Vector3(), _sx = new THREE.Vector3(), _sm = new THREE.Matrix4();
 function sledPlace(S) { const up = normalAt(S.x, S.z, 0.9, _sy); _sz.set(Math.sin(S.yaw), 0, Math.cos(S.yaw)); _sx.crossVectors(up, _sz).normalize(); _sz.crossVectors(_sx, up).normalize(); S.mesh.quaternion.setFromRotationMatrix(_sm.makeBasis(_sx, up, _sz)); S.mesh.position.set(S.x, H(S.x, S.z), S.z); }
-function sledTick() { nearSled = null; for (const S of SLEDS) if (S.remote && !sledDriver(S)) { S.remote = null; S.v = 0; } if (sk.mode !== "ski" || sk.sp > 6 || !sk.ground) return; let bd = 3.6; for (const S of SLEDS) { const d = Math.hypot(S.x - sk.p.x, S.z - sk.p.z); if (d < bd) { bd = d; nearSled = S; } } }
+function sledTick() { nearSled = null; for (const S of SLEDS) if (S.remote && !sledDriver(S)) { S.remote = null; S.v = 0; } if (!(sk.mode === "ski" || sk.mode === "walk") || sk.sp > 6 || !sk.ground || sk.shopIn || PUB.seat) return; let bd = 3.6; for (const S of SLEDS) { const d = Math.hypot(S.x - sk.p.x, S.z - sk.p.z); if (d < bd) { bd = d; nearSled = S; } } }
 function sledToggle() {
   if (sk.mode === "sled") { const S = sk.sled, pass = sk.sledRole === 2; if (Math.abs(S.v) > 4) return toast(pass ? "Wait until it slows down to hop off" : "Slow down to get off", 1.5);
     if (!pass) { S.v = 0; S.thr = 0; } sk.sled = null; sk.sledRole = 0; let x = S.x - Math.cos(S.yaw) * 1.5, z = S.z + Math.sin(S.yaw) * 1.5; if (buildingAt(x, z) || treeHit(x, z, 0.3)) { x = S.x + Math.cos(S.yaw) * 1.5; z = S.z - Math.sin(S.yaw) * 1.5; }
     placeSkier(x, z, S.yaw, 0); toast("Off the snowmobile", 1.5); return; }
-  if (sk.mode !== "ski" || !nearSled) return; const S = nearSled, drv = sledDriver(S); if (drv && Math.abs(S.v) > 4) return toast("It is moving too fast to hop on", 1.5);
+  if (!(sk.mode === "ski" || sk.mode === "walk") || !nearSled) return; sk.dance = 0; const S = nearSled, drv = sledDriver(S); if (drv && Math.abs(S.v) > 4) return toast("It is moving too fast to hop on", 1.5);
   sk.mode = "sled"; sk.sled = S; sk.sledRole = drv ? 2 : 1; sk.p.set(S.x, H(S.x, S.z), S.z); sk.yaw = S.yaw; sk.sp = 0; sk.v.set(0, 0, 0); sk.ground = true; sk.air = false; sk.sw = false; sk.spin = sk.rot = 0; sk.turn = sk.carve = 0; sk.slip = 0; charging = false; popReq = false; nearSled = null; camSnap = true;
   toast(drv ? "On the back · the driver steers · E to hop off" : "Snowmobile · W throttle, S brake and reverse, A D steer · E to get off · a friend can press E to ride on the back", 4);
 }

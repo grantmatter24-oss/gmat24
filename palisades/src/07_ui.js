@@ -47,12 +47,10 @@ function updateHUD(dt) {
   const pr = $("prompt"), lb = $("liftBar");
   if (sk.mode === "ski" && COMP.near && !COMP.run) { pr.hidden = false; pr.innerHTML = "<kbd>E</kbd> Enter the " + COMP.near.name; }
   else if (sk.shopIn && isGear(sk.shopIn)) { pr.hidden = false; pr.innerHTML = nearCounter && basket.length ? "<kbd>E</kbd> Pay " + basketTotal().toLocaleString() + " pts" : "<kbd>E</kbd> Browse" + (basket.length ? " · carrying " + basket.length + " (" + basketTotal().toLocaleString() + " pts): pay at the counter, or run with Shift" : ""); }
-  else if (PUB.seat) { pr.hidden = false; pr.innerHTML = PUB.sip > 0 ? "Sláinte" : PUB.beers > 0 ? "<kbd>E</kbd> Drink · " + PUB.beers + (PUB.beers === 1 ? " pint" : " pints") + " on the table · move to stand up" : "Glass empty · move to stand up, order more at the bar"; }
-  else if (nearSeat) { pr.hidden = false; pr.innerHTML = "<kbd>E</kbd> Sit down" + (PUB.beers ? " with your " + (PUB.beers === 1 ? "pint" : PUB.beers + " pints") : ""); }
-  else if (nearCounter && nearCounter.pub) { pr.hidden = false; pr.innerHTML = "<kbd>E</kbd> Order a pint" + (PUB.beers ? " · " + PUB.beers + " poured, take a seat at a table" : ""); }
+  else if (villagePrompt()) { pr.hidden = false; pr.innerHTML = villagePrompt(); }
   else if (nearCounter) { pr.hidden = false; pr.innerHTML = "<kbd>E</kbd> Order"; }
   else if (sk.mode === "sled") { pr.hidden = false; pr.innerHTML = sk.sledRole === 2 ? "<kbd>E</kbd> Hop off" : "<kbd>E</kbd> Get off the snowmobile"; }
-  else if (sk.mode === "ski" && nearSled && !COMP.run) { pr.hidden = false; pr.innerHTML = sledDriver(nearSled) ? "<kbd>E</kbd> Hop on the back" : "<kbd>E</kbd> Ride the snowmobile"; }
+  else if ((sk.mode === "ski" || sk.mode === "walk") && nearSled && !COMP.run) { pr.hidden = false; pr.innerHTML = sledDriver(nearSled) ? "<kbd>E</kbd> Hop on the back" : "<kbd>E</kbd> Ride the snowmobile"; }
   else if (sk.mode === "ski" && nearLift && !COMP.run) { pr.hidden = false; if (liftLocked(nearLift)) pr.textContent = nearLift.name + " is locked: needs " + LIFT_LOCK[nearLift.name] + " medal points, you have " + medalPoints() + ". Win trophies in competitions (L)."; else pr.innerHTML = "<kbd>E</kbd> Load " + nearLift.name; } else pr.hidden = true;
   if (sk.mode === "wait" || sk.mode === "lift") {
     const L = sk.lift; lb.hidden = false; $("liftName").textContent = L.name;
@@ -146,7 +144,7 @@ function updateAudio() {
   const on = sk.mode === "ski" && sk.ground && !sk.crashed;
   carveG.gain.setTargetAtTime(live && on ? clamp(sp / 28, 0, 1) * (0.018 + sk.carve * Math.abs(sk.turn) * 0.09 + sk.brakeK * 0.2 + Math.min(0.1, Math.abs(sk.slip || 0) * 0.08) + (sk.surf.rock || 0) * 0.3) * (1 - 0.5 * sk.surf.powder) : 0, t, 0.04);
   carveF.frequency.setTargetAtTime(1800 + sk.surf.groom * 1600 + sk.brakeK * 900 - (sk.surf.rock || 0) * 900, t, 0.08);   // rock scrapes lower and louder than snow
-  liftAudio(t, live);
+  liftAudio(t, live); stageAudio();
   const S = sk.mode === "sled" ? sk.sled : null; sledG.gain.setTargetAtTime(live && S ? 0.05 + 0.05 * Math.abs(S.thr) + 0.02 * clamp(Math.abs(S.v) / 20, 0, 1) : 0, t, 0.08); if (S) sledO.frequency.setTargetAtTime(46 + Math.abs(S.v) * 4.2 + (S.thr > 0 ? 24 : 0), t, 0.12);
 }
 function sfx(kind, k = 1) {
@@ -181,9 +179,9 @@ function initInput() {
     else if (key === "n") { muted = !muted; store.set("pal-mute", muted); toast(muted ? "Sound off" : "Sound on", 1.2); }
     else if (key === "r") { rewKey = !COMP.run; if (COMP.run) toast("No rewinding in a competition", 1.5); }
     else if (key === "e" && sk.mode === "ski" && COMP.near && !COMP.run && sk.ground) compEnter(COMP.near);
-    else if (key === "e" && (PUB.seat || nearSeat)) pubUse();
+    else if (key === "e" && villageUse()) { }
     else if (key === "e" && (nearCounter || isGear(sk.shopIn))) shopUse();
-    else if (key === "e" && (sk.mode === "sled" || (sk.mode === "ski" && nearSled && !COMP.run))) sledToggle();
+    else if (key === "e" && (sk.mode === "sled" || ((sk.mode === "ski" || sk.mode === "walk") && nearSled && !COMP.run))) sledToggle();
     else if (key === "e" && sk.mode === "ski" && nearLift && sk.ground && !COMP.run) { if (liftLocked(nearLift)) toast(nearLift.name + " is locked", 2); else boardLift(nearLift); }
     else if (key === "l" && sk.mode !== "menu") compList($("compList").hidden);
     else if (key === "Enter" && (sk.mode === "wait" || sk.mode === "lift")) { const L = sk.lift; unloadAt(L); toast("Top of " + L.name + " · " + fmtAlt(sk.p.y)); }
@@ -229,7 +227,7 @@ const MP = { myName: String(store.get("pal-name", "") || "").slice(0, 20), room:
 const r2 = v => Math.round(v * 100) / 100;
 function mpPack() {
   let k = 0; MP_KEYS.forEach((n, i) => { if (K[n]) k |= 1 << i; });
-  const o = mpPack0(k); if (MP.myName) o.nm = MP.myName; if (sk.mode === "sled" && sk.sled) { o.sdi = SLEDS.indexOf(sk.sled); o.sdr = sk.sledRole || 1; } if (sk.shopIn) o.shop = sk.shopIn.name; if (sk.sit) { o.sit = +(1 + (sk.sipK || 0)).toFixed(2); o.pb = PUB.beers; } return o;
+  const o = mpPack0(k); if (MP.myName) o.nm = MP.myName; if (sk.mode === "sled" && sk.sled) { o.sdi = SLEDS.indexOf(sk.sled); o.sdr = sk.sledRole || 1; } if (sk.shopIn) o.shop = sk.shopIn.name; if (sk.sit) { o.sit = +(1 + (sk.sipK || 0)).toFixed(2); o.pb = PUB.tray.length; o.it = PUB.tray[0] || PUB.last || ""; } if (sk.dance) o.dn = sk.dance; return o;
 }
 function mpPack0(k) {
   return { v: 2, res: "palisades", id: MP.myId, play: sk.mode !== "menu", x: r2(sk.p.x), y: r2(sk.p.y), z: r2(sk.p.z), yaw: r2(sk.yaw), spin: r2(sk.spin), rot: r2(sk.rot), rotV: r2(sk.rotV), sw: !!sk.sw, gr: !!sk.ground, cr: !!sk.crashed, tz: r2(sk.tumZ), turn: r2(sk.turn), carve: r2(sk.carve), sp: r2(sk.sp), chg: r2(sk.chg), st: r2(Math.max(0, sk.stumT)), k, md: sk.mode, gd: sk.grind ? 1 : 0, wp: r2(sk.walkPh || 0), li: sk.lift ? sk.lift.id : -1, sl: r2(sk.slope), sc: sk.pts, vt: Math.round(sk.vert),
@@ -286,7 +284,7 @@ function poseRemote(r, dt, time, a) { // stand a rider (a friend, or a competiti
     const jump = !r.q || Math.hypot(st.x - r.q.p.x, st.z - r.q.p.z) > 30;
     if (jump) r.q = { p: new THREE.Vector3(st.x, st.y, st.z), yaw: st.yaw, spin: st.spin, rot: st.rot, grind: null, boxT: 0, bike: false, finished: false, bikeJump: false, pumpT: 0, landT: 0, popT: 0, airT: 1, vx: 0, vs: 0 };
     const q = r.q; q.p.x += (st.x - q.p.x) * a; q.p.y += (st.y - q.p.y) * a; q.p.z += (st.z - q.p.z) * a; q.yaw += wrap(st.yaw - q.yaw) * a; q.spin += (st.spin - q.spin) * a; q.rot += (st.rot - q.rot) * a;
-    q.rotV = st.rotV || 0; q.sw = st.sw; q.ground = st.gr; q.air = !st.gr && st.md === "ski"; q.crashed = st.cr; q.tumZ = st.tz || 0; q.turn = st.turn; q.carve = st.carve; q.sp = st.sp; q.vs = st.sp; q.chg = L && L.type.startsWith("chair") ? 0.85 : st.md === "sled" ? 0 : st.chg || 0; q.stumT = st.st || 0; q.stumD = 1; q.mode = st.md; q.sit = st.sit >= 1; q.sipK = q.sit ? clamp(st.sit - 1, 0, 1) : 0; q.pb = st.pb; q.walkPh = st.wp || 0; q.grind = st.gd ? 1 : null;
+    q.rotV = st.rotV || 0; q.sw = st.sw; q.ground = st.gr; q.air = !st.gr && st.md === "ski"; q.crashed = st.cr; q.tumZ = st.tz || 0; q.turn = st.turn; q.carve = st.carve; q.sp = st.sp; q.vs = st.sp; q.chg = L && L.type.startsWith("chair") ? 0.85 : st.md === "sled" ? 0 : st.chg || 0; q.stumT = st.st || 0; q.stumD = 1; q.mode = st.md; q.sit = st.sit >= 1; q.sipK = q.sit ? clamp(st.sit - 1, 0, 1) : 0; q.pb = st.pb; q.it = typeof st.it === "string" && FOOD[st.it] ? st.it : "pint"; q.dance = st.md === "walk" ? st.dn | 0 : 0; q.walkPh = st.wp || 0; q.grind = st.gd ? 1 : null;
     MP_KEYS.forEach((n, i) => { r.keys[n] = st.k & (1 << i) ? 1 : 0; }); if (q.ground) { r.keys.boost = r.keys.up; r.keys.up = 0; } else r.keys.boost = 0;   // on snow W is the tuck, as it is for you: other riders do not nose butter along
     poseRider(R, q, st.md === "ski" ? r.keys : NOKEYS, st.sl || 0, dt, time, jump); if (L && L.type.startsWith("chair")) R.hold.position.y += 0.2;
     if (st.md === "sled") { // another player on a snowmobile: the driver's state moves the machine itself; both riders sit on its seat

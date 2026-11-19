@@ -474,6 +474,7 @@ function initSnowGuns() {
     for (let k = 0; k < 3; k++) { const hy = h * (0.45 + 0.17 * k), a = yw + k * 2.2; b.cyl(0.02, 0.045, 1.3 - k * 0.25, x + Math.sin(a) * 0.5, y + hy, z + Math.cos(a) * 0.5, tr, 4, 1.15, 0, a); } m++; }
   if (b.p.length) { const mesh = new THREE.Mesh(b.build(), worldShade(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85 }))); mesh.castShadow = true; mesh.frustumCulled = false; scene.add(mesh); }
 }
+const FIREPITS = [], PLAZA_OBST = [];   // the plaza's fire pits (with the places to sit round them) and the things on it you walk round
 function initVillage() {
   const b = new GeoBag(), tram = LIFTS.find(l => l.type === "tram");
   if (tram) { const fx = Math.sin(tram.dir), fz = Math.cos(tram.dir), x0 = tram.bot.x - fx * 12.25, z0 = tram.bot.z - fz * 12.25, y0 = tram.bot.g + 9.2, rx = -fz, rz = fx, yaw = Math.atan2(-fx, -fz);
@@ -488,8 +489,8 @@ function initVillage() {
     for (let k = 0; k < 34; k++) { const a = k * 2.399, r = 10 + k * 2.6, x = x0 + Math.sin(a) * r * asp, z = z0 + Math.cos(a) * r; if (!free(x, z)) continue; const g = H(x, z);
       b.cyl(0.05, 0.075, 3.9, x, g + 1.55, z, DARK, 6); b.box(0.34, 0.42, 0.34, x, g + 3.6, z, [0.95, 0.86, 0.6]); b.box(0.46, 0.07, 0.46, x, g + 3.84, z, DARK); towerHits.push({ x, z, r: 0.2 }); }
     for (let k = 0; k < 5; k++) { const a = 0.8 + k * 1.3, x = x0 + Math.sin(a) * 24 * asp, z = z0 + Math.cos(a) * 24; if (!free(x, z) || !free(x + 2, z) || !free(x - 2, z)) continue; const g = H(x, z);
-      b.cyl(0.95, 1.05, 0.7, x, g + 0.1, z, [0.33, 0.31, 0.29], 12); b.cyl(0.72, 0.72, 0.06, x, g + 0.46, z, [0.95, 0.42, 0.06], 10); towerHits.push({ x, z, r: 1.1 });
-      for (let j = 0; j < 3; j++) { const ba = a + 1 + j * 2.09, bx2 = x + Math.sin(ba) * 2.3, bz2 = z + Math.cos(ba) * 2.3, gb = H(bx2, bz2); b.box(1.7, 0.08, 0.46, bx2, gb + 0.46, bz2, WOOD, ba + Math.PI / 2); b.box(1.5, 0.62, 0.1, bx2, gb + 0.12, bz2, DARK, ba + Math.PI / 2); } }
+      b.cyl(0.95, 1.05, 0.7, x, g + 0.1, z, [0.33, 0.31, 0.29], 12); b.cyl(0.72, 0.72, 0.06, x, g + 0.46, z, [0.95, 0.42, 0.06], 10); towerHits.push({ x, z, r: 1.1 }); const pit = { x, z, g, a, seats: [] }; FIREPITS.push(pit); PLAZA_OBST.push([x, z, 1.05]);
+      for (let j = 0; j < 3; j++) { const ba = a + 1 + j * 2.09, bx2 = x + Math.sin(ba) * 2.3, bz2 = z + Math.cos(ba) * 2.3, gb = H(bx2, bz2); b.box(1.7, 0.08, 0.46, bx2, gb + 0.46, bz2, WOOD, ba + Math.PI / 2); b.box(1.5, 0.62, 0.1, bx2, gb + 0.12, bz2, DARK, ba + Math.PI / 2); for (const e of [-0.42, 0.42]) pit.seats.push({ x: bx2 + Math.cos(ba) * e, z: bz2 - Math.sin(ba) * e, tx: x, tz: z, bench: true }); } }
     for (let k = 0; k < 6; k++) { const x = x0 - 12 + k * 4.5, z = z0 - 24; if (buildingAt(x, z)) continue; const g = H(x, z); b.cyl(0.04, 0.06, 9, x, g + 4, z, STEEL, 6); b.box(1.5, 0.95, 0.03, x + 0.8, g + 7.9, z, FL[k]); towerHits.push({ x, z, r: 0.2 }); }
     const fu = LIFTS.find(l => l.type === "funitel");
     if (fu) { const dx = fu.bot.x - x0, dz = fu.bot.z - z0, l = Math.hypot(dx, dz) || 1, ux = dx / l, uz = dz / l, px = x0 + ux * l * 0.62, pz = z0 + uz * l * 0.62, yaw = Math.atan2(ux, uz), g = H(px, pz);

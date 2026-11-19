@@ -192,9 +192,10 @@ function stepSki(dt) {
     sk.slip = slash ? clamp(sk.slip * Math.exp(-0.7 * dt) + dyaw * 0.42, -0.5, 0.5) : sk.slip * Math.exp(-4.5 * dt);
     const sA = tangent(sk.yaw - sk.slip), sn = Math.sin(sA), s = readSurface(); sk.slope = sA;   // gravity and travel follow the way you are sliding, not the way the skis point
     // linear scrub from turning plus air drag that grows with speed, so there is no hard cap
-    const lin = ((0.1 + 0.07 * (1 - clamp(sk.sp / 12, 0, 1))) * s.powder + 0.05 + Math.abs(steer) * (0.34 - 0.24 * sk.carve) * (0.85 + sk.sp / 90) * PH.scrub * (1 + 0.5 * (s.deep || 0)) + s.road * 0.25 + (slash ? 0.6 : 0) + 0.55 * Math.abs(Math.sin(sk.slip))) * (0.5 + 0.5 * PH.drag), quad = (K.down || K.up ? 0.0052 : 0.0072) * PH.drag, push = K.up && !slash ? 7 : 0, brk = K.brake ? 16 : 0;
+    const DRG = PH.drag * (sk.wax > 0 ? 0.78 : 1);   // a fresh hot wax runs faster
+    const lin = ((0.1 + 0.07 * (1 - clamp(sk.sp / 12, 0, 1))) * s.powder + 0.05 + Math.abs(steer) * (0.34 - 0.24 * sk.carve) * (0.85 + sk.sp / 90) * PH.scrub * (1 + 0.5 * (s.deep || 0)) + s.road * 0.25 + (slash ? 0.6 : 0) + 0.55 * Math.abs(Math.sin(sk.slip))) * (0.5 + 0.5 * DRG), quad = (K.down || K.up ? 0.0052 : 0.0072) * DRG, push = K.up && !slash ? 7 : 0, brk = K.brake ? 16 : 0;
     // Rock under the skis: you can scrape over it, but it grabs, chatters and can throw you off balance.
-    const rk = s.rock; if (rk > 0.05 && sk.sp > 1) { if (Math.random() < 0.6) spray(p, 0.4 + Math.random(), (Math.random() - 0.5) * 2, v, 0.5); if (rk > 0.5 && sk.sp > 12 && sk.stumT <= 0 && Math.random() < 0.9 * dt) { sk.stumT = 0.9; sk.stumD = Math.random() < 0.5 ? -1 : 1; sk.sp *= 0.85; } }
+    const rk = s.rock; if (rk > 0.05 && sk.sp > 1) { if (Math.random() < 0.6) spray(p, 0.4 + Math.random(), (Math.random() - 0.5) * 2, v, 0.5); if (rk > 0.5 && sk.sp > 12 && sk.stumT <= 0 && Math.random() < 0.6 * dt) { sk.stumT = 0.9; sk.stumD = Math.random() < 0.5 ? -1 : 1; } }   /* rock scrapes and rattles you, but it does not slow you down */
     const acc = -G * sn - (lin + 1.5 * rk) * sk.sp - quad * sk.sp * sk.sp + push - brk - rk * (1.5 + 3 * Math.random());
     sk.sp = sk.sp < 0.25 && acc < 0.6 && !push ? 0 : clamp(sk.sp + acc * dt, 0, MAXV);   // unlike the course runs, here you can stop: across the hill, on the flat, or with J
     if (sk.sp > 1 && creekWet(p.x, p.z)) { sk.sp *= Math.exp(-2.6 * dt); if (Math.random() < 0.8) for (let i = 0; i < 3; i++) spray(p, 1 + Math.random() * 3, (Math.random() - 0.5) * 4, v, 0.6); }   // open water drags hard
@@ -279,12 +280,13 @@ function toggleWalk() {
 }
 const WALK = { walk: 3.1, run: 7.0, back: 1.8 };   // m/s: a brisk walk, a proper run (Shift), backing up
 function stepWalk(dt) {
+  if (sk.dance) { sk.sp = 0; sk.wv = 0; sk.walkPh = 0; return; }   // dancing on the spot
   if (PUB.seat) { const q = PUB.seat; sk.p.x = q.x; sk.p.z = q.z; sk.p.y = H(q.x, q.z); sk.yaw = Math.atan2(q.tx - q.x, q.tz - q.z); sk.sp = 0; sk.wv = 0; sk.turn = 0; return; }   // sat at a table in the pub
   const p = sk.p, steer = ((K.spinR || K.right) ? 1 : 0) - ((K.spinL || K.left) ? 1 : 0), go = (K.up ? 1 : 0) - (K.down ? 1 : 0), running = go > 0 && K.boost; sk.yaw -= steer * (running ? 2.4 : 3.0) * dt;
   const sA = tangent(sk.yaw); sk.slope = sA; readSurface();
   let want = go > 0 ? (running ? WALK.run : WALK.walk) : go < 0 ? -WALK.back : 0; want *= clamp(1 - Math.sin(sA) * go * 0.9, 0.45, 1.2) * (1 - 0.25 * sk.surf.powder);   // slower up the steeps and in deep snow
   let v = sk.wv || 0; v += clamp(want - v, -20 * dt, (Math.abs(want) > Math.abs(v) ? 12 : 20) * dt);   // you get up to speed over a few steps and pull up short
-  const dx = Math.sin(sk.yaw) * v * dt, dz = Math.cos(sk.yaw) * v * dt, free = (x, z) => !buildingAt(x, z) && !treeHit(x, z, 0.15) && inWorld(x, z, 75) && !(sk.shopIn && sk.shopIn.obst.some(o => Math.hypot(o[0] - x, o[1] - z) < o[2] + 0.25));
+  const dx = Math.sin(sk.yaw) * v * dt, dz = Math.cos(sk.yaw) * v * dt, free = (x, z) => !buildingAt(x, z) && !treeHit(x, z, 0.15) && inWorld(x, z, 75) && !(sk.shopIn && sk.shopIn.obst.some(o => Math.hypot(o[0] - x, o[1] - z) < o[2] + 0.25)) && !PLAZA_OBST.some(o => Math.hypot(o[0] - x, o[1] - z) < o[2] + 0.25);
   if (free(p.x + dx, p.z + dz)) { p.x += dx; p.z += dz; } else if (free(p.x + dx, p.z)) { p.x += dx; v *= 1 - 3 * dt; } else if (free(p.x, p.z + dz)) { p.z += dz; v *= 1 - 3 * dt; } else v = 0;   // into a wall at an angle you slide along it
   sk.wv = v; p.y = H(p.x, p.z); sk.sp = Math.abs(v); sk.walkPh = (sk.walkPh || 0) + v * dt * lerp(4.3, 2.0, smooth((Math.abs(v) - 3.4) / 2.6)); sk.turn = lerp(sk.turn, 0, Math.min(1, 8 * dt));   // a run takes longer strides, not just quicker ones
   const dy = sk.lastY !== undefined ? p.y - sk.lastY : 0; sk.lastY = p.y; sk.climb = (sk.climb || 0) + Math.max(0, dy);
@@ -303,6 +305,7 @@ function nextCarrier(L) { // the carrier that reaches the load point soonest, an
   return [bk, bt];
 }
 function boardLift(L) {
+  if (sk.wax > 0) { sk.wax--; store.set("pal-wax", sk.wax); toast(sk.wax ? "Wax: good for " + sk.wax + " more lift " + (sk.wax === 1 ? "ride" : "rides") : "That wax is worn off. The Wax Room in the village does another.", 3); }
   sk.mode = "wait"; sk.lift = L; sk.v.set(0, 0, 0); sk.sp = 0; sk.sw = false; sk.carve = 0; sk.turn = 0; sk.brakeK = 0; sk.spin = 0; charging = false; popReq = false;
   if (L.carpet) { sk.mode = "lift"; sk.car = -1; sk.liftS = 0.5; return; }
   sk.car = nextCarrier(L)[0];
@@ -469,7 +472,8 @@ function poseRider(R, q, keys, slope, dt, time, snap) {
   R.rig.rotation.y = -(q.spin + (q.sw ? Math.PI : 0));
   const walking = q.mode === "walk"; R.carry.visible = false; footGear(R, !walking); R.root.position.y = walking ? -0.065 : 0.025;   /* without skis and bindings under them the boots stand on the ground */ R.skiMeshes.forEach(m => { m.visible = !walking && q.mode !== "sled" && !q.lost; });
   if (walking) walkPose(R, q);
-  if (q.sit && walking) pubPose(R, q); else if (R.stein) R.stein.visible = false;
+  if (q.sit && walking) pubPose(R, q); else if (R.held) R.held.visible = false;
+  if (q.dance && walking && !q.sit) dancePose(R, q, time);
   const wob = q.stumT > 0 && !q.crashed ? Math.min(1, q.stumT / 0.9) : 0, seated = q.mode === "lift";
   R.pivot.rotation.x = (q.crashed ? q.rot : q.ground ? 0 : q.rot - 0) + wob * (0.28 * Math.sin(time * 9) - 0.12) - (seated ? 0.25 : 0);
   R.pivot.rotation.z = (q.crashed ? q.tumZ : -(R.pose.vt !== undefined ? R.pose.vt : q.turn) * (0.3 + 0.32 * q.carve) * (q.air ? 0.3 : 1)) + (wob ? wob * (q.stumD || 1) * 0.45 * Math.sin(time * 12) : 0);
