@@ -176,6 +176,7 @@
       <dt>Shift + turn</dt><dd>Slash: a hard, sharp turn that scrubs speed and throws snow</dd>
       <dt>J</dt><dd>Brake</dd>
       <dt>E</dt><dd>Load a lift, enter a competition, or get on and off a snowmobile (parked beside the Base to Base gondola): W throttle, S brake and reverse, A D steer. Each carries two: if a friend is driving, E puts you on the back</dd>
+      <dt>Village</dt><dd>Ski or walk up to a shop door on the cobbled plaza and press E to go in. At the counter of a gear shop E opens your outfit; E elsewhere takes you back out</dd>
       <dt>L</dt><dd>Competitions: venues, leaderboards, trophies and what they unlock. Press E under a start arch to enter a heat</dd>
       <dt>Space</dt><dd>Hold to charge a jump (the bar fills), release to pop. In the air, hold for a tail grab. On a rail it pops you off</dd>
       <dt>Q · E · C · F</dt><dd>Japan, nose, indy and safety grabs in the air. X is also a nose grab</dd>
@@ -506,7 +507,7 @@ function noiseTexture() {
 const noiseTex = noiseTexture();
 const U = { // uniforms shared by every material that reads the world
   uTT: { value: null }, uMA: { value: null }, uMB: { value: null }, uNoise: { value: noiseTex },
-  uTrk: { value: null }, uTraffic: { value: null }, uCrk: { value: null }, uCrkPool: { value: 0 },
+  uTrk: { value: null }, uTraffic: { value: null }, uCrk: { value: null }, uCrkPool: { value: 0 }, uPlaza: { value: new THREE.Vector4(0, 0, 0, 0) },
   uSunDir: { value: sunDir }, uSunCol: { value: new THREE.Color() }, uTime: { value: 0 }, uShadowR: { value: 160 }, uTreeNear: { value: 260 }, uSkyAmb: { value: new THREE.Color() }, uWet: { value: 0 }
 };
 const GLSL_WORLD = `
@@ -675,7 +676,7 @@ function setWeather(name, quick) {
 
 /* ---------- terrain ---------- */
 const TERRAIN_FRAG_PARS = GLSL_WORLD + `
-varying vec3 vWp; varying vec3 vWn; varying float vLake; uniform sampler2D uTrk, uTraffic, uCrk; uniform float uCrkPool;
+varying vec3 vWp; varying vec3 vWn; varying float vLake; uniform sampler2D uTrk, uTraffic, uCrk; uniform float uCrkPool; uniform vec4 uPlaza;
 #ifdef ROCKMESH
 uniform vec3 uRkLo, uRkHi;
 #endif
@@ -730,13 +731,15 @@ const TERRAIN_FRAG_COLOR = `
   // grooming: corduroy up close, cat passes from a distance. Four fixed stripe fields blended by the run's direction.
   vec2 d2 = mB.gb * 2.0 - 1.0; d2 /= max(length(d2), 0.05);
   vec4 wk = vec4(max(d2.x, 0.0), max(d2.y, 0.0), max(-d2.x, 0.0), max(-d2.y, 0.0)); wk *= wk;
-  vec2 cordG = vec2(0.0); float bandV = 0.0, bandE = 0.0;
+  vec2 cordG = vec2(0.0), cordW = vec2(0.0); float bandV = 0.0, bandE = 0.0, stripe = 0.0;
   float scr = 0.0, trk = 0.0;
-  #define CORD(PK, W) { float a = dot(vWp.xz, PK); trk += W * texture2D(uTrk, vec2(a / 24.0, dot(vWp.xz, vec2(-PK.y, PK.x)) / 96.0)).r; scr += W * texture2D(uNoise, vec2(a * 0.55, dot(vWp.xz, vec2(-PK.y, PK.x)) * 0.012)).r; float ph = a * 125.66; float vis = clamp(1.0 - fwidth(ph) * 0.45, 0.0, 1.0); cordG += PK * cos(ph) * W * vis; float b = a / 4.4, fb = fract(b); bandV += W * (texture2D(uNoise, vec2(floor(b) * 0.0391, 0.3), -8.0).r - 0.5); bandE += W * smoothstep(0.05, 0.0, min(fb, 1.0 - fb)); }
+  #define CORD(PK, W) { float a = dot(vWp.xz, PK); trk += W * texture2D(uTrk, vec2(a / 24.0, dot(vWp.xz, vec2(-PK.y, PK.x)) / 96.0)).r; scr += W * texture2D(uNoise, vec2(a * 0.55, dot(vWp.xz, vec2(-PK.y, PK.x)) * 0.012)).r; float ph = a * 125.66; float vis = clamp(1.0 - fwidth(ph) * 0.45, 0.0, 1.0); cordG += PK * cos(ph) * W * vis; float p2 = a * 20.94; float v2 = clamp(1.0 - fwidth(p2) * 0.55, 0.0, 1.0); stripe += W * (0.5 + 0.5 * cos(p2)) * v2; cordW += PK * sin(p2) * W * v2; float b = a / 4.4, fb = fract(b); bandV += W * (texture2D(uNoise, vec2(floor(b) * 0.0391, 0.3), -8.0).r - 0.5); bandE += W * smoothstep(0.05, 0.0, min(fb, 1.0 - fb)); }
   CORD(vec2(0.0, 1.0), wk.x) CORD(vec2(-0.7071, 0.7071), wk.y) CORD(vec2(-1.0, 0.0), wk.z) CORD(vec2(-0.7071, -0.7071), wk.w)
   float groomK = smoothstep(0.25, 0.6, groom);   // a groomed surface has a definite edge
-  Nw.xz += cordG * 0.30 * groomK; snow *= 1.0 + groomK * (bandV * 0.05 - bandE * 0.035 * smoothstep(900.0, 60.0, tDist));
-  snow *= 1.0 - groomK * (0.07 + (scr - 0.5) * 0.18 * smoothstep(260.0, 8.0, tDist));
+  Nw.xz += (cordG * 0.34 + cordW * 0.16) * groomK; snow *= 1.0 + groomK * (bandV * 0.05 - bandE * 0.05 * smoothstep(900.0, 60.0, tDist));
+  snow = mix(snow, vec3(0.945, 0.958, 0.978), groomK * 0.55);                                   // a groomed run is clean, bright and even
+  snow = mix(snow, snow * vec3(0.84, 0.885, 0.965), groomK * stripe * 0.6);                     // the cat's ribs: fine blue-shadowed lines down the fall of the run, as clear as Kicker Run's
+  snow *= 1.0 - groomK * (0.025 + (scr - 0.5) * 0.10 * smoothstep(260.0, 8.0, tDist));
   #ifndef OUTER
     snow *= 1.0 - groomK * trk * texture2D(uTraffic, (vWp.xz - vec2(${X0.toFixed(1)}, ${Z0.toFixed(1)})) / vec2(${(X1 - X0).toFixed(1)}, ${(Z1 - Z0).toFixed(1)})).r * 0.42 * smoothstep(420.0, 12.0, tDist);   // other skiers' tracks, thickest where the traffic is
   #endif   // packed and scored by skis, against the untouched snow beside it
@@ -776,6 +779,14 @@ const TERRAIN_FRAG_COLOR = `
   float tRough = mix(mix(0.76, 0.52, groomK), 0.93, max(rock, road));
   float snowAmt = (1.0 - rock) * (1.0 - road);
   #ifndef OUTER
+  { // the village plaza: cobblestones swept of snow, with white left in the joints and corners
+    float pd = length(vWp.xz - uPlaza.xy), pk = (1.0 - smoothstep(uPlaza.z - 10.0, uPlaza.z, pd + (nB - 0.5) * 12.0)) * step(1.0, uPlaza.z) * (1.0 - road) * (1.0 - smoothstep(0.2, 0.6, groom));   // the groomed ways through to the lifts stay snow
+    vec2 cq = vWp.xz * 3.4; cq.x += floor(cq.y) * 0.5; vec2 cf = fract(cq) - 0.5, ci = floor(cq); float cfade = clamp(1.0 - fwidth(cq.x) * 1.6, 0.0, 1.0);
+    float joint = smoothstep(0.36, 0.47, max(abs(cf.x), abs(cf.y))) * cfade, cn = texture2D(uNoise, (ci + 0.5) / 256.0, -8.0).r;
+    vec3 stone = mix(vec3(0.19, 0.18, 0.17), vec3(0.40, 0.37, 0.33), mix(0.5, cn, cfade)) * (1.0 - 0.5 * joint);
+    float dust = clamp(smoothstep(0.5, 0.8, nC * 0.55 + nA * 0.5 + joint * 0.3) * 0.7 + smoothstep(uPlaza.z - 26.0, uPlaza.z - 6.0, pd) * 0.6, 0.0, 1.0);
+    alb = mix(alb, mix(stone, snow, dust), pk); tRough = mix(tRough, 0.82, pk * (1.0 - dust)); snowAmt *= 1.0 - pk * (1.0 - dust);
+    Nw = normalize(mix(Nw, vec3(cf.x * joint * 0.5, 1.0, cf.y * joint * 0.5), pk * 0.8)); }
   { // creeks: dark moving water in a channel through the snow, with wet stones at the edge
     float cv = texture2D(uCrk, (vWp.xz - vec2(${X0.toFixed(1)}, ${Z0.toFixed(1)})) / vec2(${(X1 - X0).toFixed(1)}, ${(Z1 - Z0).toFixed(1)})).r;
     float cd = 12.0 * (1.0 - cv) + (nC - 0.5) * 0.9 + (nB - 0.5) * 0.7 - clamp(tDist / 300.0, 0.0, 1.6);
@@ -1382,7 +1393,11 @@ function initBuildings() {
       if (chalet) { quad(lo - 1.5, hi + 2.7, STUCCO, 0, per, per + len, lo - hi, 2.7); quad(hi + 2.7, top, wc, 0, per, per + len, 2.7, bd.h); }   // pale ground floor, timber above
       else quad(lo - 1.5, top, wc, 0, per, per + len, lo - hi, bd.h);
       const mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2, sgn = inPoly(P, mx + nx * 0.4, mz + nz * 0.4) ? -1 : 1, ox = nx * sgn, oz = nz * sgn, along = !gable || Math.abs(tx * bx.ux + tz * bx.uz) > 0.7;
-      if (lodge && !gc && len >= 9) for (let y = hi + 6; y < top - 1.2; y += 3) { obox(mx + ox * 0.6, y - 0.07, mz + oz * 0.6, tx, tz, len / 2 - 0.9, 0.07, 0.6, TIMBER); obox(mx + ox * 1.16, y + 0.5, mz + oz * 1.16, tx, tz, len / 2 - 0.9, 0.5, 0.05, TIMBER); }   // a balcony along every upper floor
+      if (lodge && !gc && len >= 7) { const nB = Math.max(1, Math.floor((len - 1.6) / 4.3)), sp = len / nB;   // the hotel floors: a private balcony for every room, each with its glass door, timber rail and posts
+        for (let y = hi + 6; y < top - 1.2; y += 3) for (let k = 0; k < nB; k++) { const u = (k + 0.5) * sp - len / 2, bx0 = mx + tx * u, bz0 = mz + tz * u, hw = Math.min(1.55, sp / 2 - 0.35);
+          obox(bx0 + ox * 0.62, y - 0.07, bz0 + oz * 0.62, tx, tz, hw, 0.07, 0.62, TIMBER); obox(bx0 + ox * 1.2, y + 0.5, bz0 + oz * 1.2, tx, tz, hw, 0.05, 0.04, TIMBER); obox(bx0 + ox * 1.2, y + 0.98, bz0 + oz * 1.2, tx, tz, hw, 0.045, 0.05, TIMBER);
+          for (let q = -2; q <= 2; q++) obox(bx0 + tx * q * hw / 2 + ox * 1.2, y + 0.5, bz0 + tz * q * hw / 2 + oz * 1.2, tx, tz, 0.035, 0.5, 0.035, TIMBER); for (const e of [-1, 1]) obox(bx0 + tx * e * hw + ox * 0.62, y + 0.5, bz0 + tz * e * hw + oz * 0.62, ox, oz, 0.6, 0.5, 0.035, TIMBER);
+          obox(bx0 + ox * 0.05, y + 1.05, bz0 + oz * 0.05, tx, tz, 0.8, 1.05, 0.04, [0.05, 0.08, 0.11]); } }
       if (lodge && !gc && len >= 7 && along && bd.h >= 6) { // gabled dormers standing on the eaves
         const nD = Math.max(1, Math.floor(len / 9.5)), dw = 2.0, eh = 2.3, gh = 1.7, dd = 5.2, y0 = top - 0.25, y1 = top + eh, y2 = y1 + gh;
         for (let k = 0; k < nD; k++) { const sK = (k + 0.5) / nD * len, c0 = a[0] + tx * sK, c1 = a[1] + tz * sK, F = (u, d, y) => [c0 + tx * u + ox * d, y, c1 + tz * u + oz * d], u0 = lo0 + 2.6 * (3 + 7 * k + 13 * i);
@@ -2056,6 +2071,7 @@ for (const k of ["jacket", "pants"]) if (!KR[k === "jacket" ? "JACKETS" : "PANTS
 const fwdOf = (yaw, out) => out.set(Math.sin(yaw), 0, Math.cos(yaw));
 function tangent(yaw) { normalAt(sk.p.x, sk.p.z, 0.7, nrm); fwdOf(yaw, fw).addScaledVector(nrm, -fw.dot(nrm)).normalize(); rt.set(-Math.cos(yaw), 0, Math.sin(yaw)); return Math.asin(clamp(fw.y, -1, 1)); }
 function placeSkier(x, z, yaw, speed = 0) {
+  if (sk.inShop) { sk.inShop = null; if (shopRoom) { scene.remove(shopRoom); shopRoom = null; } }
   sk.p.set(x, H(x, z), z); sk.yaw = yaw; sk.sp = speed; sk.v.set(0, 0, 0); sk.slope = tangent(yaw);
   sk.ground = true; sk.air = false; sk.airT = 0; sk.crashed = false; sk.sw = false; sk.spin = sk.spinV = sk.rot = sk.rotV = sk.spinTarget = 0; sk.turn = sk.carve = 0; sk.mode = "ski"; sk.lift = null; sk.car = -1; sk.stumT = 0; sk.butSpun = false;
   sk.slip = 0; sk.grind = null; REW.length = 0; sk.safe.copy(sk.p); sk.safeYaw = yaw; camSnap = true; sk.parked = !speed; sk.lastY = sk.p.y; charging = false; popReq = false;
@@ -2129,10 +2145,11 @@ function standUp() {
   if (rockAt(sk.p.x, sk.p.z) > 0.75 || !inWorld(sk.p.x, sk.p.z, 60)) { placeSkier(sk.safe.x, sk.safe.z, sk.safeYaw); return; }
   placeSkier(sk.p.x, sk.p.z, yaw);
 }
+const PLAZA = { x: 0, z: 0, r: 0 }, plazaK = (x, z) => PLAZA.r ? 1 - sstep(PLAZA.r - 10, PLAZA.r, Math.hypot(x - PLAZA.x, z - PLAZA.z)) : 0;   // the cobbled village plaza
 function readSurface() {
-  const m = maskAt(sk.p.x, sk.p.z), s = sk.surf; s.groom = m[0]; s.road = m[2]; s.mogul = m[3]; s.rock = sstep(0.215, 0.33, 1 - nrm.y) * (1 - m[0]) * sstep(0.35, 0.75, rockAt(sk.p.x, sk.p.z));   // only true cliff bands count as rock under the skis
-  s.deep = (1 - sstep(0.15, 0.6, m[0])) * (1 - m[2]) * (1 - s.rock);   // new snow lying untouched: everywhere the cats have not been
-  s.powder = (1 - m[0]) * (1 - m[2]) * (1 - s.rock) * (wx.snow ? 1 : 0.6); return s;
+  const m = maskAt(sk.p.x, sk.p.z), s = sk.surf; s.groom = m[0]; s.road = Math.max(m[2], plazaK(sk.p.x, sk.p.z) * (1 - sstep(0.2, 0.6, m[0]))); s.mogul = m[3]; s.rock = sstep(0.215, 0.33, 1 - nrm.y) * (1 - m[0]) * sstep(0.35, 0.75, rockAt(sk.p.x, sk.p.z));   // only true cliff bands count as rock under the skis
+  s.deep = (1 - sstep(0.15, 0.6, m[0])) * (1 - s.road) * (1 - s.rock);   // new snow lying untouched: everywhere the cats have not been
+  s.powder = (1 - m[0]) * (1 - s.road) * (1 - s.rock) * (wx.snow ? 1 : 0.6); return s;
 }
 function railAt(x, y, z) { const c = parkCell(x, z); if (!c) return null; for (const f of c) { if (f.k !== "rail") continue; const rx = x - f.x, rz = z - f.z, s = rx * f.dx + rz * f.dz; if (s < -0.6 || s > f.len - 0.5 || Math.abs(-rx * f.dz + rz * f.dx) > 0.9) continue; const ry = lerp(f.y0, f.y1, clamp(s / f.len, 0, 1)); if (y <= ry + 0.45 && y >= ry - 1.4) return f; } return null; }
 const _rkN = new THREE.Vector3(), onRock = (x, z) => cliffK(x, z) > 0.35 && normalAt(x, z, 1.2, _rkN).y < 0.72;   // bare cliff face: steeper than about 45 degrees inside a surveyed cliff
@@ -2281,12 +2298,14 @@ function stepRewind(dt) {
 }
 /* ---------- on foot: skis off and carried, to boot-pack up to the ridges and summits no lift reaches ---------- */
 function toggleWalk() {
+  if (sk.inShop) return;
   if (sk.mode === "walk") { sk.mode = "ski"; sk.parked = true; sk.sp = 0; sk.v.set(0, 0, 0); toast("Skis on"); }
   else if (sk.mode === "ski" && sk.ground && !sk.crashed && sk.sp < 5) { sk.mode = "walk"; sk.sp = 0; sk.v.set(0, 0, 0); sk.sw = false; sk.spin = 0; sk.turn = sk.carve = 0; sk.walkPh = 0; charging = false; popReq = false; toast("Skis off · W walks, A D turn, Shift hurries · B to click back in", 4); }
   else if (sk.mode === "ski") toast("Stop first to take your skis off");
   const b = $("walkBtn"); if (b) b.textContent = sk.mode === "walk" ? "Ski" : "Walk";
 }
 function stepWalk(dt) {
+  if (sk.inShop) return stepShop(dt);
   const p = sk.p, steer = ((K.spinR || K.right) ? 1 : 0) - ((K.spinL || K.left) ? 1 : 0), go = (K.up ? 1 : 0) - (K.down ? 1 : 0); sk.yaw -= steer * 1.9 * dt;
   const sA = tangent(sk.yaw); sk.slope = sA; readSurface();
   let v = go > 0 ? (K.boost ? 3.9 : 2.5) : go < 0 ? -1.4 : 0; v *= clamp(1 - Math.sin(sA) * go * 0.9, 0.45, 1.2) * (1 - 0.25 * sk.surf.powder);   // slower up the steeps and in deep snow
@@ -2384,7 +2403,7 @@ function clearTracks(say) { trkN = 0; trkClock = 0; trkPrev = null; trkMesh.geom
 function layTracks(dt) {
   trkClock += dt; if (trkClock > TRACK_LIFE) clearTracks(trkN > 40);
   const walking = sk.mode === "walk", sled = sk.mode === "sled";
-  if (!(sk.mode === "ski" || walking || sled) || !sk.ground || sk.crashed) { trkPrev = null; return; }
+  if (!(sk.mode === "ski" || walking || sled) || !sk.ground || sk.crashed || sk.inShop) { trkPrev = null; return; }
   const yawM = sled ? sk.yaw : sk.yaw - sk.spin, back = sled ? 0.9 : 0.3, x = sk.p.x - Math.sin(yawM) * back, z = sk.p.z - Math.cos(yawM) * back; if (Math.hypot(x - trkLast.x, z - trkLast.z) < 0.45) return;
   const s = sk.surf, pv = trkPrev, open = (1 - s.rock) * (1 - s.road), d = ((walking ? 0.04 : 0.016) + (sk.sink || 0) + 0.03 * sk.brakeK) * open; trkLast.set(x, 0, z);
   if (!sled && d < 0.008) { trkPrev = null; return; }
@@ -2428,7 +2447,7 @@ function makeRider(of) { // Kicker Run's skier faces -z; the holder faces +z and
   const carry = new THREE.Group(); R.skiMeshes.forEach((m, i) => { const c = new THREE.Mesh(m.geometry, m.material); c.position.set(i ? 0.035 : -0.035, 0, 0); if (i) c.rotation.z = Math.PI; c.castShadow = true; carry.add(c); }); carry.position.set(0.25, 1.36, 0.1); carry.rotation.set(1.18, 0, 0.06); carry.visible = false; R.rig.add(carry); R.carry = carry; return R;
 }
 function poseRider(R, q, keys, slope, dt, time, snap) {
-  const hold = R.hold, onSnow = q.ground && (q.mode === "ski" || q.mode === "walk" || q.mode === "sled") && !q.crashed;
+  const hold = R.hold, onSnow = q.ground && (q.mode === "ski" || q.mode === "walk" || q.mode === "sled") && !q.crashed && !(q === sk && sk.inShop);
   const up = onSnow ? normalAt(q.p.x, q.p.z, 0.7, _y) : _y.set(0, 1, 0); fwdOf(q.yaw, _z); _x.crossVectors(up, _z).normalize(); _z.crossVectors(_x, up).normalize();
   _qa.setFromRotationMatrix(_m4.makeBasis(_x, up, _z)); if (snap) hold.quaternion.copy(_qa); else hold.quaternion.slerp(_qa, Math.min(1, (onSnow ? 7 : 16) * dt));
   hold.position.copy(q.p); if (onSnow && q !== sk && q.mode !== "sled") { q.sinkR = (q.sinkR || 0) + ((1 - maskAt(q.p.x, q.p.z)[0]) * (1 - maskAt(q.p.x, q.p.z)[2]) * (q.mode === "walk" ? 0.2 : 0.14) - (q.sinkR || 0)) * Math.min(1, 5 * dt); hold.position.y -= q.sinkR; }   // other riders sink too; your own depth is set in updateRig   // 20 cm of fresh: boots go to the bottom of it, skis float most of the way
@@ -2460,7 +2479,7 @@ function updateRig(dt, time) {
   { const on = sk.mode === "ski" && sk.ground && !sk.crashed, want = on || sk.crashed ? rockLift(sk.p.x, sk.p.z) : 0; sk.rkLift = (sk.rkLift || 0) + (want - (sk.rkLift || 0)) * Math.min(1, 9 * dt);   // the rock stands out from the surveyed slope: ride on its surface, not inside it
     R.hold.position.y += sk.rkLift + (on ? sk.surf.rock * 0.03 * Math.sin(time * 61) * clamp(sk.sp / 8, 0, 1) : 0); }
   // Powder: you ride in the snow, not on it. Deeper when slow, floating up as you pick up speed; skis and boots go under the surface.
-  { const want = (sk.mode === "ski" || sk.mode === "walk") && sk.ground && !sk.crashed ? (sk.surf.deep || 0) * (sk.mode === "walk" ? 0.26 : 0.11 + 0.11 * (1 - clamp(sk.sp / 14, 0, 1))) : 0; sk.sink = (sk.sink || 0) + (want - (sk.sink || 0)) * Math.min(1, 6 * dt); R.hold.position.y -= sk.sink; }
+  { const want = (sk.mode === "ski" || sk.mode === "walk") && sk.ground && !sk.crashed && !sk.inShop ? (sk.surf.deep || 0) * (sk.mode === "walk" ? 0.26 : 0.11 + 0.11 * (1 - clamp(sk.sp / 14, 0, 1))) : 0; sk.sink = (sk.sink || 0) + (want - (sk.sink || 0)) * Math.min(1, 6 * dt); R.hold.position.y -= sk.sink; }
   R.head.visible = !(fpv && !cabin);
 }
 function updateCamera(dt) {
@@ -2490,6 +2509,7 @@ function updateCamera(dt) {
   tmp.set(p.x - dx * dist, p.y + hgtC + slopeY * 0.6, p.z - dz * dist);
   const gh = H(tmp.x, tmp.z) + 1.1; if (tmp.y < gh) tmp.y = gh;
   if (camSnap) camPos.copy(tmp); else { const k = sk.mode === "sled" ? 1 : 1 - Math.exp(-(onLift ? 5 : 7) * dt); camPos.x += (tmp.x - camPos.x) * k; camPos.z += (tmp.z - camPos.z) * k;   /* rigidly behind a snowmobile */ camPos.y += (tmp.y - camPos.y) * (1 - Math.exp(-(tmp.y > camPos.y ? 7 : sk.ground ? 5 : 2.2) * dt)); if (camPos.y < H(camPos.x, camPos.z) + 0.9) camPos.y = H(camPos.x, camPos.z) + 0.9; }
+  if (sk.inShop) { camPos.x = clamp(camPos.x, ROOM.x - ROOM.hx + 0.3, ROOM.x + ROOM.hx - 0.3); camPos.z = clamp(camPos.z, ROOM.z - ROOM.hz + 0.3, ROOM.z + ROOM.hz - 0.3); camPos.y = Math.min(p.y + 2.3, ROOM.y + ROOM.h - 0.3); }   // indoors the camera stays inside the room
   camera.position.copy(camPos); camera.up.set(0, 1, 0);
   tmp.set(p.x + dx * (3 + sp * 0.22), p.y + 1.25 - camSlope * dist * 0.14 + (onLift ? -1 : 0), p.z + dz * (3 + sp * 0.22));
   if (camSnap || sk.mode === "sled") camTgt.copy(tmp); else camTgt.lerp(tmp, 1 - Math.exp(-9 * dt)); camera.lookAt(camTgt);
@@ -2549,6 +2569,8 @@ function updateHUD(dt) {
   // lift prompt and ride bar
   const pr = $("prompt"), lb = $("liftBar");
   if (sk.mode === "ski" && COMP.near && !COMP.run) { pr.hidden = false; pr.innerHTML = "<kbd>E</kbd> Enter the " + COMP.near.name; }
+  else if (sk.inShop) { pr.hidden = false; pr.innerHTML = Math.hypot(sk.p.x - ROOM.x - 1.6, sk.p.z - ROOM.z - 1.75) < 1.5 ? "<kbd>E</kbd> " + (sk.inShop.kind === "ski" || sk.inShop.kind === "wear" ? "Look at the gear" : "Order") : "<kbd>E</kbd> Leave " + sk.inShop.name; }
+  else if (nearShop) { pr.hidden = false; pr.innerHTML = "<kbd>E</kbd> Go into " + nearShop.name; }
   else if (sk.mode === "sled") { pr.hidden = false; pr.innerHTML = sk.sledRole === 2 ? "<kbd>E</kbd> Hop off" : "<kbd>E</kbd> Get off the snowmobile"; }
   else if (sk.mode === "ski" && nearSled && !COMP.run) { pr.hidden = false; pr.innerHTML = sledDriver(nearSled) ? "<kbd>E</kbd> Hop on the back" : "<kbd>E</kbd> Ride the snowmobile"; }
   else if (sk.mode === "ski" && nearLift && !COMP.run) { pr.hidden = false; if (liftLocked(nearLift)) pr.textContent = nearLift.name + " is locked: needs " + LIFT_LOCK[nearLift.name] + " medal points, you have " + medalPoints() + ". Win trophies in competitions (L)."; else pr.innerHTML = "<kbd>E</kbd> Load " + nearLift.name; } else pr.hidden = true;
@@ -2678,6 +2700,8 @@ function initInput() {
     else if (key === "n") { muted = !muted; store.set("pal-mute", muted); toast(muted ? "Sound off" : "Sound on", 1.2); }
     else if (key === "r") { rewKey = !COMP.run; if (COMP.run) toast("No rewinding in a competition", 1.5); }
     else if (key === "e" && sk.mode === "ski" && COMP.near && !COMP.run && sk.ground) compEnter(COMP.near);
+    else if (key === "e" && sk.inShop) shopUse();
+    else if (key === "e" && nearShop) shopEnter(nearShop);
     else if (key === "e" && (sk.mode === "sled" || (sk.mode === "ski" && nearSled && !COMP.run))) sledToggle();
     else if (key === "e" && sk.mode === "ski" && nearLift && sk.ground && !COMP.run) { if (liftLocked(nearLift)) toast(nearLift.name + " is locked", 2); else boardLift(nearLift); }
     else if (key === "l" && sk.mode !== "menu") compList($("compList").hidden);
@@ -2724,7 +2748,7 @@ const MP = { myName: String(store.get("pal-name", "") || "").slice(0, 20), room:
 const r2 = v => Math.round(v * 100) / 100;
 function mpPack() {
   let k = 0; MP_KEYS.forEach((n, i) => { if (K[n]) k |= 1 << i; });
-  const o = mpPack0(k); if (MP.myName) o.nm = MP.myName; if (sk.mode === "sled" && sk.sled) { o.sdi = SLEDS.indexOf(sk.sled); o.sdr = sk.sledRole || 1; } return o;
+  const o = mpPack0(k); if (MP.myName) o.nm = MP.myName; if (sk.mode === "sled" && sk.sled) { o.sdi = SLEDS.indexOf(sk.sled); o.sdr = sk.sledRole || 1; } if (sk.inShop) { o.play = false; o.shop = sk.inShop.name; } return o;
 }
 function mpPack0(k) {
   return { v: 2, res: "palisades", id: MP.myId, play: sk.mode !== "menu", x: r2(sk.p.x), y: r2(sk.p.y), z: r2(sk.p.z), yaw: r2(sk.yaw), spin: r2(sk.spin), rot: r2(sk.rot), rotV: r2(sk.rotV), sw: !!sk.sw, gr: !!sk.ground, cr: !!sk.crashed, tz: r2(sk.tumZ), turn: r2(sk.turn), carve: r2(sk.carve), sp: r2(sk.sp), chg: r2(sk.chg), st: r2(Math.max(0, sk.stumT)), k, md: sk.mode, gd: sk.grind ? 1 : 0, wp: r2(sk.walkPh || 0), li: sk.lift ? sk.lift.id : -1, sl: r2(sk.slope), sc: sk.pts, vt: Math.round(sk.vert),
@@ -2756,7 +2780,7 @@ async function mpList() {
   // Finding friends: each rider is listed with where they are and how far away, and a Join button that drops you in beside them.
   for (const o of MP.others) { if (o.st.res !== "palisades") continue; n++; const nm = (typeof o.st.nm === "string" && o.st.nm.trim().slice(0, 20)) || nameOf(o.by, o.isMe ? "You (other tab)" : "Rider " + n), r = MP.remotes.get(o.peer); if (r) mpTagText(r.tag, nm);   // the name they typed, else the one from their account
     const st = o.st, rn = st.play === false ? null : runAt(st.x, st.z), ar = rn ? null : areaAt(st.x, st.z), dist = Math.hypot(st.x - sk.p.x, st.z - sk.p.z);
-    const where = st.play === false ? "at the home screen" : st.md === "lift" && LIFTS[st.li] ? "riding " + LIFTS[st.li].name : rn && rn.n ? "on " + rn.n : ar ? "in " + ar.n : "off piste";
+    const where = st.play === false ? (typeof st.shop === "string" ? "in " + st.shop.slice(0, 30) : "at the home screen") : st.md === "lift" && LIFTS[st.li] ? "riding " + LIFTS[st.li].name : rn && rn.n ? "on " + rn.n : ar ? "in " + ar.n : "off piste";
     for (const [bx, far] of [[box, true], [mbox, false]]) { const d = document.createElement("div"); d.className = "r"; const dot = document.createElement("span"); dot.className = "dot"; dot.style.background = r ? r.col : "#ffd24a"; const b = document.createElement("b"); b.textContent = nm;
       const s = document.createElement("span"); s.className = "where"; s.textContent = where + (far && sk.mode !== "menu" ? " · " + (units === "imp" ? (dist * FT > 2640 ? (dist / 1609.34).toFixed(1) + " mi" : Math.round(dist * FT / 10) * 10 + " ft") : dist > 1000 ? (dist / 1000).toFixed(1) + " km" : Math.round(dist / 10) * 10 + " m") : "");
       d.append(dot, b, s); if (st.play !== false) { const j = document.createElement("button"); j.className = "join"; j.textContent = "Join"; j.addEventListener("pointerdown", e => { e.preventDefault(); e.stopPropagation(); joinRider(o.peer, nm); }); d.append(j); } bx.appendChild(d); } }
@@ -2867,8 +2891,9 @@ function initComp() {
       for (const o of [GATE_IN, GATE_IN + GATE_W]) { const x = path[i][0] - q[1] * sd * o, z = path[i][1] + q[0] * sd * o, g = H(x, z); for (const e of [-0.36, 0.36]) b.cyl(0.018, 0.018, 1.9, x + Math.cos(yaw) * e, g + 0.75, z - Math.sin(yaw) * e, col, 5); b.box(0.74, 0.5, 0.02, x, g + 1.42, z, col, yaw); }
       v.gates.push({ s: S[i], sd }); }
     // Rope lines down both sides of a fenced course: posts every 12 m with an orange rope and flags. Crossing one ends the run.
-    if (v.fence) for (const sd of [-1, 1]) { let prev = null; for (let i = 0; i < path.length; i += 2) { const q = dir(i), x = path[i][0] - q[1] * sd * v.fence, z = path[i][1] + q[0] * sd * v.fence, g = H(x, z); b.cyl(0.028, 0.028, 1.7, x, g + 0.55, z, [0.9, 0.35, 0.08], 5); if ((i / 2) % 3 === 0) b.box(0.3, 0.2, 0.02, x, g + 1.25, z, [0.9, 0.35, 0.08], Math.atan2(q[0], q[1]));
+    if (v.fence) { const b = new GeoBag(); for (const sd of [-1, 1]) { let prev = null; for (let i = 0; i < path.length; i += 2) { const q = dir(i), x = path[i][0] - q[1] * sd * v.fence, z = path[i][1] + q[0] * sd * v.fence, g = H(x, z); b.cyl(0.028, 0.028, 1.7, x, g + 0.55, z, [0.9, 0.35, 0.08], 5); if ((i / 2) % 3 === 0) b.box(0.3, 0.2, 0.02, x, g + 1.25, z, [0.9, 0.35, 0.08], Math.atan2(q[0], q[1]));
         if (prev) { const dx = x - prev[0], dz = z - prev[2], dy = g - prev[1], hl = Math.hypot(dx, dz); b.box(0.03, 0.03, Math.hypot(hl, dy), (x + prev[0]) / 2, (g + prev[1]) / 2 + 1.05, (z + prev[2]) / 2, [0.9, 0.35, 0.08], Math.atan2(dx, dz), -Math.atan2(dy, hl)); } prev = [x, g, z]; } }
+      const fm = new THREE.Mesh(b.build(), liftMat); fm.castShadow = true; fm.frustumCulled = false; fm.visible = false; scene.add(fm); v.fenceMesh = fm; }   // put up for a heat, taken down after it
     COMP.venues.push(v); compSave(v);
   }
   if (b.p.length) { const m = new THREE.Mesh(b.build(), liftMat); m.castShadow = true; m.frustumCulled = false; scene.add(m); }
@@ -2904,8 +2929,9 @@ function compEnter(v) {
   const airs = []; { let a0 = null; rec.S.forEach((q, i) => { if (!q.gr && a0 === null) a0 = q.t; if ((q.gr || i === rec.S.length - 1) && a0 !== null) { if (q.t - a0 > 0.4) airs.push([a0, q.t]); a0 = null; } }); }   // every time the run leaves the ground
   COMP.run = { v, rec, airs, t: -3.2, S: [], recT: 0, pts0: sk.pts, air: 0, vsum: 0, vn: 0, crash: 0, wasCr: false, gate: 0, miss: 0, idx: 0, sP: 0, lastX: sk.p.x, lastZ: sk.p.z, done: false };
   setOverlay("comp", false); setOverlay("compList", false); if (!$("menu").hidden) startPlay(); paused = false; $("compHud").hidden = false;
+  for (const q of COMP.venues) if (q.fenceMesh) q.fenceMesh.visible = q === v;
 }
-function compEnd(msg) { COMP.run = null; COMP.hold = false; $("compHud").hidden = true; for (const g of COMP.ghosts) g.R.hold.visible = false; if (msg) toast(msg, 3); }
+function compEnd(msg) { COMP.run = null; COMP.hold = false; for (const v of COMP.venues) if (v.fenceMesh) v.fenceMesh.visible = false; $("compHud").hidden = true; for (const g of COMP.ghosts) g.R.hold.visible = false; if (msg) toast(msg, 3); }
 function compTick(dt, time) {
   const r = COMP.run;
   if (!r) { COMP.near = null; if (sk.mode === "ski" && sk.sp < 9) for (const v of COMP.venues) if (Math.hypot(sk.p.x - v.start.x, sk.p.z - v.start.z) < 15) COMP.near = v; return; }
@@ -3041,6 +3067,94 @@ function stepSled(dt) {
   const dy = sk.lastY !== undefined ? p.y - sk.lastY : 0; sk.lastY = p.y; sk.safeT += dt; if (sk.safeT > 1.5) { sk.safeT = 0; sk.safe.copy(p); sk.safeYaw = sk.yaw; }
 }
 
+/* ---------- the village on foot: cobbled plaza, people strolling, and shops you can walk into ----------
+   The plaza between the village buildings is cobbled and swept. People walk about it slowly. The shops and restaurants have their
+   doors and signs on the plaza; ski or walk up to a door and press E to go in. Inside, the counter of a gear shop opens your outfit;
+   walk back to the door (or press E away from the counter) to leave. */
+const SHOP_LIST = [ // names as I recall them from the Village at Palisades Tahoe; kind decides what is inside
+  ["Parallel Mountain Sports", "ski"], ["The North Face", "wear"], ["Alice's Mountain Market", "food"], ["Fireside Pizza Co.", "food"], ["Auld Dubliner", "bar"],
+  ["Tremigo Mexican Kitchen", "food"], ["Coffeebar", "cafe"], ["Gallery Keoki", "art"], ["Estelle Sports", "wear"], ["Mamasake Sushi", "food"], ["Uncorked", "bar"], ["Squaw Dogs", "cafe"]
+];
+const SHOPS = [], WALKERS = []; let nearShop = null, walkerMesh = null, shopRoom = null;
+const ROOM = { x: 0, y: 5200, z: 0, hx: 5, hz: 4, h: 3.2 };   // the one interior, built to suit whichever shop you are in; it stands far above the mountain, out of sight
+function initPlaza() {
+  const ct = WORLD.blds.find(bd => /clock tower/i.test(bd.n || "")); if (!ct) return;
+  const near = WORLD.blds.filter(bd => Math.hypot(bd.cx - ct.cx, bd.cz - ct.cz) < 150 && polyArea(bd.p) > 250); if (near.length < 3) return;
+  let cx = 0, cz = 0; for (const bd of near) { cx += bd.cx / near.length; cz += bd.cz / near.length; } let r = 0; for (const bd of near) r = Math.max(r, Math.hypot(bd.cx - cx, bd.cz - cz));
+  PLAZA.x = cx; PLAZA.z = cz; PLAZA.r = clamp(r * 0.7, 40, 82); U.uPlaza.value.set(cx, cz, PLAZA.r, 0);
+  // shop fronts: one on each building, on the wall that faces the middle of the plaza
+  const b = new GeoBag(), signs = []; let k = 0;
+  for (const bd of near.sort((p, q) => Math.hypot(p.cx - cx, p.cz - cz) - Math.hypot(q.cx - cx, q.cz - cz))) { if (k >= SHOP_LIST.length || /clock tower/i.test(bd.n || "")) continue; const P = bd.p, n = P.length; let best = null;
+    for (let i = 0; i < n; i++) { const a = P[i], c = P[(i + 1) % n], len = Math.hypot(c[0] - a[0], c[1] - a[1]); if (len < 6) continue; const tx = (c[0] - a[0]) / len, tz = (c[1] - a[1]) / len, mx = (a[0] + c[0]) / 2, mz = (a[1] + c[1]) / 2, sg = inPoly(P, mx - tz * 0.4, mz + tx * 0.4) ? -1 : 1, ox = -tz * sg, oz = tx * sg;
+      const face = ((cx - mx) * ox + (cz - mz) * oz) / (Math.hypot(cx - mx, cz - mz) || 1), dx = mx + ox * 1.6, dz = mz + oz * 1.6; if (face < 0.2 || buildingAt(dx, dz)) continue; const sc = face * Math.min(len, 14); if (!best || sc > best.sc) best = { sc, mx, mz, ox, oz, tx, tz }; }
+    if (!best) continue; const [name, kind] = SHOP_LIST[k++], g = H(best.mx + best.ox * 1.2, best.mz + best.oz * 1.2), yaw = Math.atan2(best.ox, best.oz), col = [[0.55, 0.12, 0.1], [0.1, 0.25, 0.45], [0.12, 0.35, 0.2], [0.6, 0.42, 0.08]][k % 4];
+    const at = (u, y, o) => [best.mx + best.tx * u + best.ox * o, y, best.mz + best.tz * u + best.oz * o], bx = (w, h, d, u, y, o, c) => { const p = at(u, y, o); b.box(w, h, d, p[0], p[1], p[2], c, yaw); };
+    bx(1.5, 2.4, 0.12, 0, g + 1.1, 0.04, [0.2, 0.13, 0.08]); bx(1.1, 2.0, 0.05, 0, g + 1.05, 0.12, [0.06, 0.09, 0.12]); bx(0.06, 0.3, 0.06, 0.38, g + 1.05, 0.17, [0.75, 0.62, 0.3]);   // door, its glass and handle
+    for (const sd of [-1, 1]) bx(2.2, 1.5, 0.06, sd * 2.4, g + 1.45, 0.06, [0.07, 0.1, 0.13]);                                                                              // display windows
+    bx(6.6, 0.12, 1.5, 0, g + 2.75, 0.75, col); bx(6.6, 0.3, 0.06, 0, g + 2.6, 1.5, col); bx(5.2, 0.7, 0.1, 0, g + 3.3, 0.1, [0.12, 0.08, 0.05]);                              // awning and sign board
+    signs.push([at(0, g + 3.3, 0.16), yaw, name]); SHOPS.push({ name, kind, x: best.mx + best.ox * 1.3, z: best.mz + best.oz * 1.3, yaw: yaw + Math.PI }); }
+  if (b.p.length) { const m = new THREE.Mesh(b.build(), liftMat); m.castShadow = true; m.frustumCulled = false; scene.add(m); }
+  for (const [p, yaw, name] of signs) { const m = new THREE.Mesh(new THREE.PlaneGeometry(5, 0.6), textPlate(name, "#1f140c", "#f3e7c9")); m.position.set(p[0], p[1], p[2]); m.rotation.y = yaw; scene.add(m); }
+  // people on the plaza
+  const pb = new GeoBag(), W = [1, 1, 1], D = [0.09, 0.1, 0.12];
+  for (const sx of [-1, 1]) { pb.box(0.15, 0.82, 0.17, sx * 0.1, 0.41, 0, D); pb.box(0.16, 0.08, 0.28, sx * 0.1, 0.04, 0.05, [0.05, 0.05, 0.05]); pb.box(0.11, 0.58, 0.13, sx * 0.27, 1.12, 0, W); }
+  pb.cyl(0.2, 0.19, 0.64, 0, 1.14, 0, W, 10); pb.add(new THREE.SphereGeometry(0.115, 10, 8), _gm.makeTranslation(0, 1.6, 0), [0.85, 0.68, 0.56]); pb.cyl(0.125, 0.12, 0.1, 0, 1.68, 0, D, 10);
+  const N = 28, JK = [0xd8362b, 0x1f6fd6, 0xf2b61b, 0x2a9d62, 0x8a4fd1, 0xe86a1c, 0x1b1e24, 0xe9edf2, 0x16a3a3, 0xd9438c], c = new THREE.Color();
+  walkerMesh = new THREE.InstancedMesh(pb.build(), worldShade(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85 })), N); walkerMesh.castShadow = true; walkerMesh.frustumCulled = false; scene.add(walkerMesh);
+  for (let i = 0; i < N; i++) { const w = { x: cx, z: cz, tx: cx, tz: cz, v: 0.6 + 0.6 * hash2(i, 3, 301), ph: i * 1.7, wait: 0 }; walkerSpot(w, i * 13.1); w.x = w.tx; w.z = w.tz; walkerSpot(w, i * 5.3 + 1); WALKERS.push(w); walkerMesh.setColorAt(i, c.setHex(JK[(i * 3 + 1) % JK.length])); }
+}
+function textPlate(txt, bg, fg) { const cv = document.createElement("canvas"); cv.width = 1024; cv.height = 128; const g = cv.getContext("2d"); g.fillStyle = bg; g.fillRect(0, 0, 1024, 128); g.fillStyle = fg; g.textAlign = "center"; g.textBaseline = "middle"; let fs = 78; g.font = "800 " + fs + "px 'Big Shoulders Display', 'Arial Narrow', Impact, sans-serif"; while (g.measureText(txt).width > 960 && fs > 28) { fs -= 4; g.font = "800 " + fs + "px 'Big Shoulders Display', 'Arial Narrow', Impact, sans-serif"; } g.fillText(txt, 512, 68);
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return new THREE.MeshBasicMaterial({ map: t }); }
+function walkerSpot(w, seed) { for (let k = 0; k < 12; k++) { const a = hash2(seed, k, 302) * TAU, r = Math.sqrt(hash2(seed, k, 303)) * (PLAZA.r - 12), x = PLAZA.x + Math.sin(a) * r, z = PLAZA.z + Math.cos(a) * r; if (!buildingAt(x, z) && !buildingAt(x + 1.2, z) && !buildingAt(x, z + 1.2) && maskCh(x, z, 0) < 0.3) { w.tx = x; w.tz = z; return; } } }   // on the cobbles, off the snow people ski on
+function updateWalkers(dt, cam) {
+  if (!walkerMesh || Math.abs(cam.x - PLAZA.x) + Math.abs(cam.z - PLAZA.z) > 700) return;
+  WALKERS.forEach((w, i) => { const dx = w.tx - w.x, dz = w.tz - w.z, d = Math.hypot(dx, dz);
+    if (w.wait > 0) w.wait -= dt; else if (d < 0.6) { w.wait = hash2(i, liftTime | 0, 304) * 5; walkerSpot(w, i * 7.7 + liftTime); }   // stop a moment, then stroll on somewhere else
+    else { const st = w.v * dt, nx = w.x + dx / d * st, nz = w.z + dz / d * st; if (buildingAt(nx, nz)) walkerSpot(w, i * 3.1 + liftTime * 1.3); else { w.x = nx; w.z = nz; w.ph += st * 3.2; w.yaw = Math.atan2(dx, dz); } }
+    _lq.setFromEuler(_ne.set(0, w.yaw || 0, w.wait > 0 ? 0 : Math.sin(w.ph) * 0.04, "YXZ")); _lm.compose(_lp.set(w.x, H(w.x, w.z) + (w.wait > 0 ? 0 : Math.abs(Math.sin(w.ph)) * 0.035), w.z), _lq, _ls); walkerMesh.setMatrixAt(i, _lm); });
+  walkerMesh.instanceMatrix.needsUpdate = true;
+}
+/* ---- going into a shop ---- */
+function shopTick() { nearShop = null; if (sk.inShop || !(sk.mode === "ski" || sk.mode === "walk") || sk.sp > 5 || !sk.ground || COMP.run) return; let bd = 2.8; for (const s of SHOPS) { const d = Math.hypot(s.x - sk.p.x, s.z - sk.p.z); if (d < bd) { bd = d; nearShop = s; } } }
+function buildRoom(shop) {
+  if (shopRoom) { scene.remove(shopRoom); shopRoom.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
+  const g = new THREE.Group(), b = new GeoBag(), R = ROOM, y0 = R.y, K = shop.kind, wood = [0.5, 0.36, 0.22], dark = [0.16, 0.11, 0.07], wall = K === "bar" ? [0.32, 0.2, 0.13] : K === "art" ? [0.82, 0.8, 0.76] : [0.72, 0.66, 0.56], obst = [];
+  const bx = (w, h, d, x, y, z, c, ry) => b.box(w, h, d, R.x + x, y0 + y, R.z + z, c, ry || 0), block = (x, z, hx, hz) => obst.push([x - hx, x + hx, z - hz, z + hz]);
+  bx(2 * R.hx, 0.2, 2 * R.hz, 0, -0.1, 0, wood); for (let i = -4; i <= 4; i++) bx(0.03, 0.01, 2 * R.hz, i * 1.1, 0.005, 0, dark);                         // plank floor
+  bx(2 * R.hx, 0.2, 2 * R.hz, 0, R.h + 0.1, 0, [0.8, 0.78, 0.74]); for (const x of [-2.5, 0, 2.5]) bx(1.2, 0.05, 0.3, x, R.h - 0.03, 0.5, [1.6, 1.5, 1.25]);   // ceiling and its lights
+  bx(0.2, R.h, 2 * R.hz, -R.hx - 0.1, R.h / 2, 0, wall); bx(0.2, R.h, 2 * R.hz, R.hx + 0.1, R.h / 2, 0, wall); bx(2 * R.hx, R.h, 0.2, 0, R.h / 2, R.hz + 0.1, wall); bx(2 * R.hx, R.h, 0.2, 0, R.h / 2, -R.hz - 0.1, wall);
+  bx(2 * R.hx, 0.9, 0.04, 0, 0.45, R.hz - 0.02, dark); bx(1.3, 2.2, 0.05, 0, 1.1, -R.hz + 0.03, [0.2, 0.13, 0.08]); bx(0.95, 1.8, 0.03, 0, 1.15, -R.hz + 0.06, [0.75, 0.86, 0.95]);                // wainscot; the door, daylight in its glass
+  for (const x of [-3, 3]) { bx(1.9, 1.4, 0.04, x, 1.7, -R.hz + 0.03, [0.78, 0.88, 0.96]); bx(2.0, 0.08, 0.1, x, 0.96, -R.hz + 0.06, dark); }                                                 // windows onto the plaza
+  bx(3.6, 1.05, 0.7, 1.6, 0.52, 2.6, dark); bx(3.7, 0.06, 0.8, 1.6, 1.08, 2.6, wood); bx(0.4, 0.3, 0.35, 2.9, 1.26, 2.6, [0.1, 0.1, 0.11]); block(1.6, 2.6, 1.95, 0.55);                        // the counter and its till
+  bx(0.34, 0.75, 0.22, 1.2, 1.35, 3.35, [0.18, 0.3, 0.5]); b.add(new THREE.SphereGeometry(0.12, 10, 8), _gm.makeTranslation(R.x + 1.2, y0 + 1.86, R.z + 3.35), [0.85, 0.68, 0.56]);                // someone behind it
+  if (K === "ski" || K === "wear") { const cols = [[0.75, 0.1, 0.08], [0.1, 0.3, 0.7], [0.9, 0.7, 0.1], [0.1, 0.5, 0.3], [0.5, 0.2, 0.6], [0.9, 0.9, 0.92], [0.1, 0.1, 0.12]];
+    if (K === "ski") { for (let i = 0; i < 14; i++) bx(0.1, 1.7, 0.03, -4.86, 0.95, -3 + i * 0.44, cols[i % 7], 0); bx(0.1, 0.08, 6.3, -4.9, 1.85, -0.1, dark);                                // skis racked along the wall
+      for (let s = 0; s < 3; s++) { bx(0.4, 0.05, 3.4, 4.75, 0.6 + s * 0.55, -1, wood); for (let i = 0; i < 6; i++) bx(0.3, 0.32, 0.3, 4.75, 0.78 + s * 0.55, -2.4 + i * 0.56, cols[(i + s) % 7]); } }   // boots on shelves
+    for (const [rx, rz] of [[-2.4, 0.2], [-2.4, -1.9], [2.9, -1.3]]) { bx(2.2, 0.05, 0.05, rx, 1.55, rz, [0.6, 0.62, 0.65]); for (const e of [-1, 1]) bx(0.05, 1.55, 0.05, rx + e * 1.1, 0.78, rz, [0.6, 0.62, 0.65]); for (let i = 0; i < 9; i++) bx(0.16, 0.85, 0.5, rx - 0.9 + i * 0.225, 1.08, rz, cols[(i * 2 + (rx > 0 ? 1 : 0)) % 7]); block(rx, rz, 1.2, 0.35); }   // racks of jackets
+  } else if (K === "art") { const pic = [[0.2, 0.4, 0.7], [0.85, 0.55, 0.2], [0.3, 0.55, 0.4], [0.7, 0.2, 0.25], [0.15, 0.2, 0.35]];
+    for (let i = 0; i < 4; i++) { bx(0.05, 1.1, 1.5, -4.95, 1.75, -2.7 + i * 1.8, dark); bx(0.04, 0.95, 1.35, -4.92, 1.75, -2.7 + i * 1.8, pic[i % 5]); bx(0.05, 1.1, 1.5, 4.95, 1.75, -2.7 + i * 1.8, dark); bx(0.04, 0.95, 1.35, 4.92, 1.75, -2.7 + i * 1.8, pic[(i + 2) % 5]); }
+    for (const [px, pz] of [[-2, 0], [2.2, -1.3]]) { bx(0.6, 1.0, 0.6, px, 0.5, pz, [0.9, 0.9, 0.88]); bx(0.3, 0.5, 0.3, px, 1.25, pz, [0.5, 0.42, 0.2]); block(px, pz, 0.4, 0.4); }
+  } else { // somewhere to eat or drink: tables and stools, bottles or a menu behind the counter
+    for (const [tx2, tz2] of [[-3.4, -1.9], [-3.4, 0.9], [-1.5, -0.5], [3.2, -1.6]]) { b.cyl(0.5, 0.5, 0.06, R.x + tx2, y0 + 0.76, R.z + tz2, wood, 12); b.cyl(0.06, 0.2, 0.74, R.x + tx2, y0 + 0.37, R.z + tz2, dark, 6); block(tx2, tz2, 0.5, 0.5); for (const a of [0, 2.1, 4.2]) b.cyl(0.17, 0.17, 0.46, R.x + tx2 + Math.sin(a) * 0.85, y0 + 0.23, R.z + tz2 + Math.cos(a) * 0.85, [0.5, 0.12, 0.1], 8); }
+    bx(3.6, 0.06, 0.3, 1.6, 1.75, 3.85, wood); bx(3.6, 0.06, 0.3, 1.6, 2.2, 3.85, wood); const bc = [[0.1, 0.35, 0.15], [0.45, 0.25, 0.08], [0.6, 0.1, 0.1], [0.8, 0.75, 0.5]]; for (let i = 0; i < 12; i++) for (const yy of [1.93, 2.38]) b.cyl(0.045, 0.05, 0.3, R.x + 0.05 + i * 0.28, y0 + yy, R.z + 3.85, bc[(i + (yy > 2 ? 1 : 0)) % 4], 6); }
+  const mesh = new THREE.Mesh(b.build(), new THREE.MeshBasicMaterial({ vertexColors: true })); mesh.frustumCulled = false; g.add(mesh);
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 0.5), textPlate(shop.name, "#1f140c", "#f3e7c9")); sign.position.set(R.x - 1.4, y0 + 2.55, R.z + R.hz - 0.03); sign.rotation.y = Math.PI; g.add(sign);
+  scene.add(g); shopRoom = g; ROOM.obst = obst;
+}
+function shopEnter(s) { buildRoom(s); sk.inShop = s; sk.shopFrom = sk.mode; sk.mode = "walk"; sk.p.set(ROOM.x, ROOM.y, ROOM.z - ROOM.hz + 0.9); sk.yaw = 0; sk.sp = 0; sk.v.set(0, 0, 0); sk.walkPh = 0; sk.sw = false; sk.spin = 0; sk.turn = sk.carve = 0; sk.slip = 0; trkPrev = null; camSnap = true; nearShop = null; charging = false; popReq = false;
+  toast(s.name + (s.kind === "ski" || s.kind === "wear" ? " · the counter opens your gear" : "") + " · W walks, A D turn · E at the door to leave", 4.5); }
+function shopLeave() { const s = sk.inShop; if (!s) return; sk.inShop = null; if (shopRoom) { scene.remove(shopRoom); shopRoom = null; } placeSkier(s.x, s.z, s.yaw + Math.PI, 0); if (sk.shopFrom === "walk") toggleWalk(); }
+function shopUse() { // E inside: at the counter you are served; anywhere else you head out
+  const s = sk.inShop, atCounter = Math.hypot(sk.p.x - ROOM.x - 1.6, sk.p.z - ROOM.z - 1.75) < 1.5; if (!atCounter) return shopLeave();
+  if (s.kind === "ski" || s.kind === "wear") { setOverlay("fit", true); paused = true; } else toast(s.kind === "art" ? "Prints of the Palisades at first light. Not today." : s.kind === "bar" ? "A pint by the fire. One more run, though." : "Something hot. Legs feel fresh again.", 3);
+}
+function stepShop(dt) {
+  const p = sk.p, R = ROOM, steer = ((K.spinR || K.right) ? 1 : 0) - ((K.spinL || K.left) ? 1 : 0), go = (K.up ? 1 : 0) - (K.down ? 1 : 0); sk.yaw -= steer * 2.2 * dt;
+  const v = go > 0 ? 1.7 : go < 0 ? -1 : 0, nx = clamp(p.x + Math.sin(sk.yaw) * v * dt, R.x - R.hx + 0.35, R.x + R.hx - 0.35), nz = clamp(p.z + Math.cos(sk.yaw) * v * dt, R.z - R.hz + 0.35, R.z + R.hz - 0.35), lx = nx - R.x, lz = nz - R.z;
+  if (!(R.obst || []).some(o => lx > o[0] - 0.3 && lx < o[1] + 0.3 && lz > o[2] - 0.3 && lz < o[3] + 0.3)) { p.x = nx; p.z = nz; }
+  p.y = R.y; sk.sp = Math.abs(v); sk.walkPh = (sk.walkPh || 0) + v * dt * 4.3; sk.slope = 0; sk.turn = 0; sk.ground = true; sk.lastY = p.y; sk.surf.deep = 0; sk.surf.rock = 0; sk.surf.groom = 1; sk.surf.powder = 0;
+}
+
 /* ---------- boot and main loop ---------- */
 /* If the machine cannot hold 30 fps the graphics level steps down by itself, once per level, unless you picked a level yourself. */
 let aqT = 0, aqN = 0, aqSlow = 0, gfxPicked = false;
@@ -3067,7 +3181,7 @@ function tick(t) {
     else if (sk.mode === "ski") { acc += dt * timeScale; let n = 0; while (acc >= 1 / 120 && n < 8) { stepSki(1 / 120); acc -= 1 / 120; n++; } if (n === 8) acc = 0; recordRewind(dt); }
     updateLifts(dt * ff, camera.position, frame); updateNPCs(dt, camera.position);
     if (sk.mode === "wait" || sk.mode === "lift") stepLift(dt * ff); else if (sk.mode === "walk") stepWalk(dt); else if (sk.mode === "sled") stepSled(dt);
-    findNearLift(); sledTick(); emitSpray(dt); layTracks(dt); updateParticles(dt); updateRig(dt, now); updateCamera(dt); if (camFix) { camera.position.set(camFix[0], camFix[1], camFix[2]); camera.up.set(0, 1, 0); camera.lookAt(camFix[3], camFix[4], camFix[5]); camera.fov = camFix[6] || 50; camera.updateProjectionMatrix(); } updateRemotes(dt, now); mpSend(dt); compTick(dt, now); updateLoose(dt);
+    findNearLift(); sledTick(); shopTick(); updateWalkers(dt, camera.position); emitSpray(dt); layTracks(dt); updateParticles(dt); updateRig(dt, now); updateCamera(dt); if (camFix) { camera.position.set(camFix[0], camFix[1], camFix[2]); camera.up.set(0, 1, 0); camera.lookAt(camFix[3], camFix[4], camFix[5]); camera.fov = camFix[6] || 50; camera.updateProjectionMatrix(); } updateRemotes(dt, now); mpSend(dt); compTick(dt, now); updateLoose(dt);
   }
   rig.hold.visible = sk.mode !== "menu" && rig.hold.visible;
   updateSun(); skyMesh.position.copy(camera.position); skyMesh.scale.setScalar(40000);
@@ -3084,7 +3198,7 @@ async function boot() {
   await progress("Shaping the mountain", 0.2); initCreeks(); initCat(); initRocks(); buildTerrainTex(); buildComposer(); initTrees();
   await progress("Setting the light", 0.35); setWeather(wxName);
   await progress("Laying snow", 0.45); initChunks(); buildOuter();
-  await progress("Stringing the lifts", 0.6); initLifts(); initBuildings(); initRuns(); initCars(); initSigns(); initSlow(); initNPCs(); initVillage(); initParkMeshes(); initSnowGuns(); initComp(); initSleds();
+  await progress("Stringing the lifts", 0.6); initLifts(); initBuildings(); initRuns(); initCars(); initSigns(); initSlow(); initNPCs(); initVillage(); initParkMeshes(); initSnowGuns(); initComp(); initSleds(); initPlaza();
   await progress("Planting the forest", 0.72); buildBillboards();
   await progress("Drawing the trail map", 0.88); rig = makeRider(outfit); initParticles(); initTracks(); initSnowfall(); buildMap(); initInput(); mpInit();
   await progress("Ready", 1);
@@ -3098,7 +3212,7 @@ async function boot() {
   for (let i = 0; i < 300; i++) if (!updateTerrain(camera.position, 40)) break;
   for (let i = 0; i < 40; i++) { updateTrees(camera.position); updateRocks(camera.position); }
   $("load").hidden = true; renderer.info.autoReset = false; requestAnimationFrame(tick);
-  window.__pal = { updateCamera, mpPack, makeGhost: () => ({ R: makeRider(outfit), tag: null, q: null, keys: Object.assign({}, NOKEYS), st: null }), drawMap, mapPick, poseRemote, updateFriendArrows, camYaw: () => Math.atan2(camDir.x, camDir.z), LOOSE, crash, rockLift, updateLoose, CLIFFS2: 0, SLEDS, sledToggle, stepSled, sledTick, COMP, compEnter, compTick, compFinish, medalPoints, liftLocked, treeMask, trkMesh: () => trkMesh, updateRig, layTracks, getCat: () => CATG, creekD, onRock, catBench, viewFrom: a => { camFix = a; }, CLIFFS, buildCliff, updateTerrain, setCam: a => { camFix = a; sk.mode = "menu"; $("menu").hidden = true; $("hud").hidden = true; }, cliffK, hBase, PARK, REW, stepRewind, recordRewind, toggleWalk, stepWalk, clearTracks, goHome, toggleMap, runAt, npcs, KR, gDown, gUp, landing, stepSki, stepLift, updateLifts, findNearLift, nrm, sk, K, LIFTS, WORLD, H, camera, scene, renderer, setWeather, placeSkier, boardLift, unloadAt, spawnAt, MP, chunks, nearTiles, treeTiles, Q };
+  window.__pal = { SHOPS, WALKERS, PLAZA, ROOM, shopEnter, shopLeave, shopUse, shopTick, stepShop, updateWalkers, plazaK, updateCamera, mpPack, makeGhost: () => ({ R: makeRider(outfit), tag: null, q: null, keys: Object.assign({}, NOKEYS), st: null }), drawMap, mapPick, poseRemote, updateFriendArrows, camYaw: () => Math.atan2(camDir.x, camDir.z), LOOSE, crash, rockLift, updateLoose, CLIFFS2: 0, SLEDS, sledToggle, stepSled, sledTick, COMP, compEnter, compTick, compFinish, medalPoints, liftLocked, treeMask, trkMesh: () => trkMesh, updateRig, layTracks, getCat: () => CATG, creekD, onRock, catBench, viewFrom: a => { camFix = a; }, CLIFFS, buildCliff, updateTerrain, setCam: a => { camFix = a; sk.mode = "menu"; $("menu").hidden = true; $("hud").hidden = true; }, cliffK, hBase, PARK, REW, stepRewind, recordRewind, toggleWalk, stepWalk, clearTracks, goHome, toggleMap, runAt, npcs, KR, gDown, gUp, landing, stepSki, stepLift, updateLifts, findNearLift, nrm, sk, K, LIFTS, WORLD, H, camera, scene, renderer, setWeather, placeSkier, boardLift, unloadAt, spawnAt, MP, chunks, nearTiles, treeTiles, Q };
   window.__info = () => ({ mode: sk.mode, p: [Math.round(sk.p.x), Math.round(sk.p.y), Math.round(sk.p.z)], sp: +sk.sp.toFixed(1), ground: sk.ground, crashed: sk.crashed, trees: treeCount, calls: renderer.info.render.calls, tris: renderer.info.render.triangles, lift: sk.lift && sk.lift.name, liftS: Math.round(sk.liftS) });
 }
 boot().catch(e => { const d = document.createElement("div"); d.id = "err"; d.textContent = String(e && e.stack || e); document.body.appendChild(d); console.error(e); });

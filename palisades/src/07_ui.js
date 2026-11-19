@@ -44,6 +44,8 @@ function updateHUD(dt) {
   // lift prompt and ride bar
   const pr = $("prompt"), lb = $("liftBar");
   if (sk.mode === "ski" && COMP.near && !COMP.run) { pr.hidden = false; pr.innerHTML = "<kbd>E</kbd> Enter the " + COMP.near.name; }
+  else if (sk.inShop) { pr.hidden = false; pr.innerHTML = Math.hypot(sk.p.x - ROOM.x - 1.6, sk.p.z - ROOM.z - 1.75) < 1.5 ? "<kbd>E</kbd> " + (sk.inShop.kind === "ski" || sk.inShop.kind === "wear" ? "Look at the gear" : "Order") : "<kbd>E</kbd> Leave " + sk.inShop.name; }
+  else if (nearShop) { pr.hidden = false; pr.innerHTML = "<kbd>E</kbd> Go into " + nearShop.name; }
   else if (sk.mode === "sled") { pr.hidden = false; pr.innerHTML = sk.sledRole === 2 ? "<kbd>E</kbd> Hop off" : "<kbd>E</kbd> Get off the snowmobile"; }
   else if (sk.mode === "ski" && nearSled && !COMP.run) { pr.hidden = false; pr.innerHTML = sledDriver(nearSled) ? "<kbd>E</kbd> Hop on the back" : "<kbd>E</kbd> Ride the snowmobile"; }
   else if (sk.mode === "ski" && nearLift && !COMP.run) { pr.hidden = false; if (liftLocked(nearLift)) pr.textContent = nearLift.name + " is locked: needs " + LIFT_LOCK[nearLift.name] + " medal points, you have " + medalPoints() + ". Win trophies in competitions (L)."; else pr.innerHTML = "<kbd>E</kbd> Load " + nearLift.name; } else pr.hidden = true;
@@ -173,6 +175,8 @@ function initInput() {
     else if (key === "n") { muted = !muted; store.set("pal-mute", muted); toast(muted ? "Sound off" : "Sound on", 1.2); }
     else if (key === "r") { rewKey = !COMP.run; if (COMP.run) toast("No rewinding in a competition", 1.5); }
     else if (key === "e" && sk.mode === "ski" && COMP.near && !COMP.run && sk.ground) compEnter(COMP.near);
+    else if (key === "e" && sk.inShop) shopUse();
+    else if (key === "e" && nearShop) shopEnter(nearShop);
     else if (key === "e" && (sk.mode === "sled" || (sk.mode === "ski" && nearSled && !COMP.run))) sledToggle();
     else if (key === "e" && sk.mode === "ski" && nearLift && sk.ground && !COMP.run) { if (liftLocked(nearLift)) toast(nearLift.name + " is locked", 2); else boardLift(nearLift); }
     else if (key === "l" && sk.mode !== "menu") compList($("compList").hidden);
@@ -219,7 +223,7 @@ const MP = { myName: String(store.get("pal-name", "") || "").slice(0, 20), room:
 const r2 = v => Math.round(v * 100) / 100;
 function mpPack() {
   let k = 0; MP_KEYS.forEach((n, i) => { if (K[n]) k |= 1 << i; });
-  const o = mpPack0(k); if (MP.myName) o.nm = MP.myName; if (sk.mode === "sled" && sk.sled) { o.sdi = SLEDS.indexOf(sk.sled); o.sdr = sk.sledRole || 1; } return o;
+  const o = mpPack0(k); if (MP.myName) o.nm = MP.myName; if (sk.mode === "sled" && sk.sled) { o.sdi = SLEDS.indexOf(sk.sled); o.sdr = sk.sledRole || 1; } if (sk.inShop) { o.play = false; o.shop = sk.inShop.name; } return o;
 }
 function mpPack0(k) {
   return { v: 2, res: "palisades", id: MP.myId, play: sk.mode !== "menu", x: r2(sk.p.x), y: r2(sk.p.y), z: r2(sk.p.z), yaw: r2(sk.yaw), spin: r2(sk.spin), rot: r2(sk.rot), rotV: r2(sk.rotV), sw: !!sk.sw, gr: !!sk.ground, cr: !!sk.crashed, tz: r2(sk.tumZ), turn: r2(sk.turn), carve: r2(sk.carve), sp: r2(sk.sp), chg: r2(sk.chg), st: r2(Math.max(0, sk.stumT)), k, md: sk.mode, gd: sk.grind ? 1 : 0, wp: r2(sk.walkPh || 0), li: sk.lift ? sk.lift.id : -1, sl: r2(sk.slope), sc: sk.pts, vt: Math.round(sk.vert),
@@ -251,7 +255,7 @@ async function mpList() {
   // Finding friends: each rider is listed with where they are and how far away, and a Join button that drops you in beside them.
   for (const o of MP.others) { if (o.st.res !== "palisades") continue; n++; const nm = (typeof o.st.nm === "string" && o.st.nm.trim().slice(0, 20)) || nameOf(o.by, o.isMe ? "You (other tab)" : "Rider " + n), r = MP.remotes.get(o.peer); if (r) mpTagText(r.tag, nm);   // the name they typed, else the one from their account
     const st = o.st, rn = st.play === false ? null : runAt(st.x, st.z), ar = rn ? null : areaAt(st.x, st.z), dist = Math.hypot(st.x - sk.p.x, st.z - sk.p.z);
-    const where = st.play === false ? "at the home screen" : st.md === "lift" && LIFTS[st.li] ? "riding " + LIFTS[st.li].name : rn && rn.n ? "on " + rn.n : ar ? "in " + ar.n : "off piste";
+    const where = st.play === false ? (typeof st.shop === "string" ? "in " + st.shop.slice(0, 30) : "at the home screen") : st.md === "lift" && LIFTS[st.li] ? "riding " + LIFTS[st.li].name : rn && rn.n ? "on " + rn.n : ar ? "in " + ar.n : "off piste";
     for (const [bx, far] of [[box, true], [mbox, false]]) { const d = document.createElement("div"); d.className = "r"; const dot = document.createElement("span"); dot.className = "dot"; dot.style.background = r ? r.col : "#ffd24a"; const b = document.createElement("b"); b.textContent = nm;
       const s = document.createElement("span"); s.className = "where"; s.textContent = where + (far && sk.mode !== "menu" ? " · " + (units === "imp" ? (dist * FT > 2640 ? (dist / 1609.34).toFixed(1) + " mi" : Math.round(dist * FT / 10) * 10 + " ft") : dist > 1000 ? (dist / 1000).toFixed(1) + " km" : Math.round(dist / 10) * 10 + " m") : "");
       d.append(dot, b, s); if (st.play !== false) { const j = document.createElement("button"); j.className = "join"; j.textContent = "Join"; j.addEventListener("pointerdown", e => { e.preventDefault(); e.stopPropagation(); joinRider(o.peer, nm); }); d.append(j); } bx.appendChild(d); } }

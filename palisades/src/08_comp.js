@@ -44,8 +44,9 @@ function initComp() {
       for (const o of [GATE_IN, GATE_IN + GATE_W]) { const x = path[i][0] - q[1] * sd * o, z = path[i][1] + q[0] * sd * o, g = H(x, z); for (const e of [-0.36, 0.36]) b.cyl(0.018, 0.018, 1.9, x + Math.cos(yaw) * e, g + 0.75, z - Math.sin(yaw) * e, col, 5); b.box(0.74, 0.5, 0.02, x, g + 1.42, z, col, yaw); }
       v.gates.push({ s: S[i], sd }); }
     // Rope lines down both sides of a fenced course: posts every 12 m with an orange rope and flags. Crossing one ends the run.
-    if (v.fence) for (const sd of [-1, 1]) { let prev = null; for (let i = 0; i < path.length; i += 2) { const q = dir(i), x = path[i][0] - q[1] * sd * v.fence, z = path[i][1] + q[0] * sd * v.fence, g = H(x, z); b.cyl(0.028, 0.028, 1.7, x, g + 0.55, z, [0.9, 0.35, 0.08], 5); if ((i / 2) % 3 === 0) b.box(0.3, 0.2, 0.02, x, g + 1.25, z, [0.9, 0.35, 0.08], Math.atan2(q[0], q[1]));
+    if (v.fence) { const b = new GeoBag(); for (const sd of [-1, 1]) { let prev = null; for (let i = 0; i < path.length; i += 2) { const q = dir(i), x = path[i][0] - q[1] * sd * v.fence, z = path[i][1] + q[0] * sd * v.fence, g = H(x, z); b.cyl(0.028, 0.028, 1.7, x, g + 0.55, z, [0.9, 0.35, 0.08], 5); if ((i / 2) % 3 === 0) b.box(0.3, 0.2, 0.02, x, g + 1.25, z, [0.9, 0.35, 0.08], Math.atan2(q[0], q[1]));
         if (prev) { const dx = x - prev[0], dz = z - prev[2], dy = g - prev[1], hl = Math.hypot(dx, dz); b.box(0.03, 0.03, Math.hypot(hl, dy), (x + prev[0]) / 2, (g + prev[1]) / 2 + 1.05, (z + prev[2]) / 2, [0.9, 0.35, 0.08], Math.atan2(dx, dz), -Math.atan2(dy, hl)); } prev = [x, g, z]; } }
+      const fm = new THREE.Mesh(b.build(), liftMat); fm.castShadow = true; fm.frustumCulled = false; fm.visible = false; scene.add(fm); v.fenceMesh = fm; }   // put up for a heat, taken down after it
     COMP.venues.push(v); compSave(v);
   }
   if (b.p.length) { const m = new THREE.Mesh(b.build(), liftMat); m.castShadow = true; m.frustumCulled = false; scene.add(m); }
@@ -81,8 +82,9 @@ function compEnter(v) {
   const airs = []; { let a0 = null; rec.S.forEach((q, i) => { if (!q.gr && a0 === null) a0 = q.t; if ((q.gr || i === rec.S.length - 1) && a0 !== null) { if (q.t - a0 > 0.4) airs.push([a0, q.t]); a0 = null; } }); }   // every time the run leaves the ground
   COMP.run = { v, rec, airs, t: -3.2, S: [], recT: 0, pts0: sk.pts, air: 0, vsum: 0, vn: 0, crash: 0, wasCr: false, gate: 0, miss: 0, idx: 0, sP: 0, lastX: sk.p.x, lastZ: sk.p.z, done: false };
   setOverlay("comp", false); setOverlay("compList", false); if (!$("menu").hidden) startPlay(); paused = false; $("compHud").hidden = false;
+  for (const q of COMP.venues) if (q.fenceMesh) q.fenceMesh.visible = q === v;
 }
-function compEnd(msg) { COMP.run = null; COMP.hold = false; $("compHud").hidden = true; for (const g of COMP.ghosts) g.R.hold.visible = false; if (msg) toast(msg, 3); }
+function compEnd(msg) { COMP.run = null; COMP.hold = false; for (const v of COMP.venues) if (v.fenceMesh) v.fenceMesh.visible = false; $("compHud").hidden = true; for (const g of COMP.ghosts) g.R.hold.visible = false; if (msg) toast(msg, 3); }
 function compTick(dt, time) {
   const r = COMP.run;
   if (!r) { COMP.near = null; if (sk.mode === "ski" && sk.sp < 9) for (const v of COMP.venues) if (Math.hypot(sk.p.x - v.start.x, sk.p.z - v.start.z) < 15) COMP.near = v; return; }

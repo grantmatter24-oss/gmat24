@@ -269,7 +269,11 @@ function initBuildings() {
       if (chalet) { quad(lo - 1.5, hi + 2.7, STUCCO, 0, per, per + len, lo - hi, 2.7); quad(hi + 2.7, top, wc, 0, per, per + len, 2.7, bd.h); }   // pale ground floor, timber above
       else quad(lo - 1.5, top, wc, 0, per, per + len, lo - hi, bd.h);
       const mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2, sgn = inPoly(P, mx + nx * 0.4, mz + nz * 0.4) ? -1 : 1, ox = nx * sgn, oz = nz * sgn, along = !gable || Math.abs(tx * bx.ux + tz * bx.uz) > 0.7;
-      if (lodge && !gc && len >= 9) for (let y = hi + 6; y < top - 1.2; y += 3) { obox(mx + ox * 0.6, y - 0.07, mz + oz * 0.6, tx, tz, len / 2 - 0.9, 0.07, 0.6, TIMBER); obox(mx + ox * 1.16, y + 0.5, mz + oz * 1.16, tx, tz, len / 2 - 0.9, 0.5, 0.05, TIMBER); }   // a balcony along every upper floor
+      if (lodge && !gc && len >= 7) { const nB = Math.max(1, Math.floor((len - 1.6) / 4.3)), sp = len / nB;   // the hotel floors: a private balcony for every room, each with its glass door, timber rail and posts
+        for (let y = hi + 6; y < top - 1.2; y += 3) for (let k = 0; k < nB; k++) { const u = (k + 0.5) * sp - len / 2, bx0 = mx + tx * u, bz0 = mz + tz * u, hw = Math.min(1.55, sp / 2 - 0.35);
+          obox(bx0 + ox * 0.62, y - 0.07, bz0 + oz * 0.62, tx, tz, hw, 0.07, 0.62, TIMBER); obox(bx0 + ox * 1.2, y + 0.5, bz0 + oz * 1.2, tx, tz, hw, 0.05, 0.04, TIMBER); obox(bx0 + ox * 1.2, y + 0.98, bz0 + oz * 1.2, tx, tz, hw, 0.045, 0.05, TIMBER);
+          for (let q = -2; q <= 2; q++) obox(bx0 + tx * q * hw / 2 + ox * 1.2, y + 0.5, bz0 + tz * q * hw / 2 + oz * 1.2, tx, tz, 0.035, 0.5, 0.035, TIMBER); for (const e of [-1, 1]) obox(bx0 + tx * e * hw + ox * 0.62, y + 0.5, bz0 + tz * e * hw + oz * 0.62, ox, oz, 0.6, 0.5, 0.035, TIMBER);
+          obox(bx0 + ox * 0.05, y + 1.05, bz0 + oz * 0.05, tx, tz, 0.8, 1.05, 0.04, [0.05, 0.08, 0.11]); } }
       if (lodge && !gc && len >= 7 && along && bd.h >= 6) { // gabled dormers standing on the eaves
         const nD = Math.max(1, Math.floor(len / 9.5)), dw = 2.0, eh = 2.3, gh = 1.7, dd = 5.2, y0 = top - 0.25, y1 = top + eh, y2 = y1 + gh;
         for (let k = 0; k < nD; k++) { const sK = (k + 0.5) / nD * len, c0 = a[0] + tx * sK, c1 = a[1] + tz * sK, F = (u, d, y) => [c0 + tx * u + ox * d, y, c1 + tz * u + oz * d], u0 = lo0 + 2.6 * (3 + 7 * k + 13 * i);

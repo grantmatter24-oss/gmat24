@@ -21,6 +21,7 @@ for (const k of ["jacket", "pants"]) if (!KR[k === "jacket" ? "JACKETS" : "PANTS
 const fwdOf = (yaw, out) => out.set(Math.sin(yaw), 0, Math.cos(yaw));
 function tangent(yaw) { normalAt(sk.p.x, sk.p.z, 0.7, nrm); fwdOf(yaw, fw).addScaledVector(nrm, -fw.dot(nrm)).normalize(); rt.set(-Math.cos(yaw), 0, Math.sin(yaw)); return Math.asin(clamp(fw.y, -1, 1)); }
 function placeSkier(x, z, yaw, speed = 0) {
+  if (sk.inShop) { sk.inShop = null; if (shopRoom) { scene.remove(shopRoom); shopRoom = null; } }
   sk.p.set(x, H(x, z), z); sk.yaw = yaw; sk.sp = speed; sk.v.set(0, 0, 0); sk.slope = tangent(yaw);
   sk.ground = true; sk.air = false; sk.airT = 0; sk.crashed = false; sk.sw = false; sk.spin = sk.spinV = sk.rot = sk.rotV = sk.spinTarget = 0; sk.turn = sk.carve = 0; sk.mode = "ski"; sk.lift = null; sk.car = -1; sk.stumT = 0; sk.butSpun = false;
   sk.slip = 0; sk.grind = null; REW.length = 0; sk.safe.copy(sk.p); sk.safeYaw = yaw; camSnap = true; sk.parked = !speed; sk.lastY = sk.p.y; charging = false; popReq = false;
@@ -94,10 +95,11 @@ function standUp() {
   if (rockAt(sk.p.x, sk.p.z) > 0.75 || !inWorld(sk.p.x, sk.p.z, 60)) { placeSkier(sk.safe.x, sk.safe.z, sk.safeYaw); return; }
   placeSkier(sk.p.x, sk.p.z, yaw);
 }
+const PLAZA = { x: 0, z: 0, r: 0 }, plazaK = (x, z) => PLAZA.r ? 1 - sstep(PLAZA.r - 10, PLAZA.r, Math.hypot(x - PLAZA.x, z - PLAZA.z)) : 0;   // the cobbled village plaza
 function readSurface() {
-  const m = maskAt(sk.p.x, sk.p.z), s = sk.surf; s.groom = m[0]; s.road = m[2]; s.mogul = m[3]; s.rock = sstep(0.215, 0.33, 1 - nrm.y) * (1 - m[0]) * sstep(0.35, 0.75, rockAt(sk.p.x, sk.p.z));   // only true cliff bands count as rock under the skis
-  s.deep = (1 - sstep(0.15, 0.6, m[0])) * (1 - m[2]) * (1 - s.rock);   // new snow lying untouched: everywhere the cats have not been
-  s.powder = (1 - m[0]) * (1 - m[2]) * (1 - s.rock) * (wx.snow ? 1 : 0.6); return s;
+  const m = maskAt(sk.p.x, sk.p.z), s = sk.surf; s.groom = m[0]; s.road = Math.max(m[2], plazaK(sk.p.x, sk.p.z) * (1 - sstep(0.2, 0.6, m[0]))); s.mogul = m[3]; s.rock = sstep(0.215, 0.33, 1 - nrm.y) * (1 - m[0]) * sstep(0.35, 0.75, rockAt(sk.p.x, sk.p.z));   // only true cliff bands count as rock under the skis
+  s.deep = (1 - sstep(0.15, 0.6, m[0])) * (1 - s.road) * (1 - s.rock);   // new snow lying untouched: everywhere the cats have not been
+  s.powder = (1 - m[0]) * (1 - s.road) * (1 - s.rock) * (wx.snow ? 1 : 0.6); return s;
 }
 function railAt(x, y, z) { const c = parkCell(x, z); if (!c) return null; for (const f of c) { if (f.k !== "rail") continue; const rx = x - f.x, rz = z - f.z, s = rx * f.dx + rz * f.dz; if (s < -0.6 || s > f.len - 0.5 || Math.abs(-rx * f.dz + rz * f.dx) > 0.9) continue; const ry = lerp(f.y0, f.y1, clamp(s / f.len, 0, 1)); if (y <= ry + 0.45 && y >= ry - 1.4) return f; } return null; }
 const _rkN = new THREE.Vector3(), onRock = (x, z) => cliffK(x, z) > 0.35 && normalAt(x, z, 1.2, _rkN).y < 0.72;   // bare cliff face: steeper than about 45 degrees inside a surveyed cliff
@@ -246,12 +248,14 @@ function stepRewind(dt) {
 }
 /* ---------- on foot: skis off and carried, to boot-pack up to the ridges and summits no lift reaches ---------- */
 function toggleWalk() {
+  if (sk.inShop) return;
   if (sk.mode === "walk") { sk.mode = "ski"; sk.parked = true; sk.sp = 0; sk.v.set(0, 0, 0); toast("Skis on"); }
   else if (sk.mode === "ski" && sk.ground && !sk.crashed && sk.sp < 5) { sk.mode = "walk"; sk.sp = 0; sk.v.set(0, 0, 0); sk.sw = false; sk.spin = 0; sk.turn = sk.carve = 0; sk.walkPh = 0; charging = false; popReq = false; toast("Skis off · W walks, A D turn, Shift hurries · B to click back in", 4); }
   else if (sk.mode === "ski") toast("Stop first to take your skis off");
   const b = $("walkBtn"); if (b) b.textContent = sk.mode === "walk" ? "Ski" : "Walk";
 }
 function stepWalk(dt) {
+  if (sk.inShop) return stepShop(dt);
   const p = sk.p, steer = ((K.spinR || K.right) ? 1 : 0) - ((K.spinL || K.left) ? 1 : 0), go = (K.up ? 1 : 0) - (K.down ? 1 : 0); sk.yaw -= steer * 1.9 * dt;
   const sA = tangent(sk.yaw); sk.slope = sA; readSurface();
   let v = go > 0 ? (K.boost ? 3.9 : 2.5) : go < 0 ? -1.4 : 0; v *= clamp(1 - Math.sin(sA) * go * 0.9, 0.45, 1.2) * (1 - 0.25 * sk.surf.powder);   // slower up the steeps and in deep snow
@@ -349,7 +353,7 @@ function clearTracks(say) { trkN = 0; trkClock = 0; trkPrev = null; trkMesh.geom
 function layTracks(dt) {
   trkClock += dt; if (trkClock > TRACK_LIFE) clearTracks(trkN > 40);
   const walking = sk.mode === "walk", sled = sk.mode === "sled";
-  if (!(sk.mode === "ski" || walking || sled) || !sk.ground || sk.crashed) { trkPrev = null; return; }
+  if (!(sk.mode === "ski" || walking || sled) || !sk.ground || sk.crashed || sk.inShop) { trkPrev = null; return; }
   const yawM = sled ? sk.yaw : sk.yaw - sk.spin, back = sled ? 0.9 : 0.3, x = sk.p.x - Math.sin(yawM) * back, z = sk.p.z - Math.cos(yawM) * back; if (Math.hypot(x - trkLast.x, z - trkLast.z) < 0.45) return;
   const s = sk.surf, pv = trkPrev, open = (1 - s.rock) * (1 - s.road), d = ((walking ? 0.04 : 0.016) + (sk.sink || 0) + 0.03 * sk.brakeK) * open; trkLast.set(x, 0, z);
   if (!sled && d < 0.008) { trkPrev = null; return; }
@@ -393,7 +397,7 @@ function makeRider(of) { // Kicker Run's skier faces -z; the holder faces +z and
   const carry = new THREE.Group(); R.skiMeshes.forEach((m, i) => { const c = new THREE.Mesh(m.geometry, m.material); c.position.set(i ? 0.035 : -0.035, 0, 0); if (i) c.rotation.z = Math.PI; c.castShadow = true; carry.add(c); }); carry.position.set(0.25, 1.36, 0.1); carry.rotation.set(1.18, 0, 0.06); carry.visible = false; R.rig.add(carry); R.carry = carry; return R;
 }
 function poseRider(R, q, keys, slope, dt, time, snap) {
-  const hold = R.hold, onSnow = q.ground && (q.mode === "ski" || q.mode === "walk" || q.mode === "sled") && !q.crashed;
+  const hold = R.hold, onSnow = q.ground && (q.mode === "ski" || q.mode === "walk" || q.mode === "sled") && !q.crashed && !(q === sk && sk.inShop);
   const up = onSnow ? normalAt(q.p.x, q.p.z, 0.7, _y) : _y.set(0, 1, 0); fwdOf(q.yaw, _z); _x.crossVectors(up, _z).normalize(); _z.crossVectors(_x, up).normalize();
   _qa.setFromRotationMatrix(_m4.makeBasis(_x, up, _z)); if (snap) hold.quaternion.copy(_qa); else hold.quaternion.slerp(_qa, Math.min(1, (onSnow ? 7 : 16) * dt));
   hold.position.copy(q.p); if (onSnow && q !== sk && q.mode !== "sled") { q.sinkR = (q.sinkR || 0) + ((1 - maskAt(q.p.x, q.p.z)[0]) * (1 - maskAt(q.p.x, q.p.z)[2]) * (q.mode === "walk" ? 0.2 : 0.14) - (q.sinkR || 0)) * Math.min(1, 5 * dt); hold.position.y -= q.sinkR; }   // other riders sink too; your own depth is set in updateRig   // 20 cm of fresh: boots go to the bottom of it, skis float most of the way
@@ -425,7 +429,7 @@ function updateRig(dt, time) {
   { const on = sk.mode === "ski" && sk.ground && !sk.crashed, want = on || sk.crashed ? rockLift(sk.p.x, sk.p.z) : 0; sk.rkLift = (sk.rkLift || 0) + (want - (sk.rkLift || 0)) * Math.min(1, 9 * dt);   // the rock stands out from the surveyed slope: ride on its surface, not inside it
     R.hold.position.y += sk.rkLift + (on ? sk.surf.rock * 0.03 * Math.sin(time * 61) * clamp(sk.sp / 8, 0, 1) : 0); }
   // Powder: you ride in the snow, not on it. Deeper when slow, floating up as you pick up speed; skis and boots go under the surface.
-  { const want = (sk.mode === "ski" || sk.mode === "walk") && sk.ground && !sk.crashed ? (sk.surf.deep || 0) * (sk.mode === "walk" ? 0.26 : 0.11 + 0.11 * (1 - clamp(sk.sp / 14, 0, 1))) : 0; sk.sink = (sk.sink || 0) + (want - (sk.sink || 0)) * Math.min(1, 6 * dt); R.hold.position.y -= sk.sink; }
+  { const want = (sk.mode === "ski" || sk.mode === "walk") && sk.ground && !sk.crashed && !sk.inShop ? (sk.surf.deep || 0) * (sk.mode === "walk" ? 0.26 : 0.11 + 0.11 * (1 - clamp(sk.sp / 14, 0, 1))) : 0; sk.sink = (sk.sink || 0) + (want - (sk.sink || 0)) * Math.min(1, 6 * dt); R.hold.position.y -= sk.sink; }
   R.head.visible = !(fpv && !cabin);
 }
 function updateCamera(dt) {
@@ -455,6 +459,7 @@ function updateCamera(dt) {
   tmp.set(p.x - dx * dist, p.y + hgtC + slopeY * 0.6, p.z - dz * dist);
   const gh = H(tmp.x, tmp.z) + 1.1; if (tmp.y < gh) tmp.y = gh;
   if (camSnap) camPos.copy(tmp); else { const k = sk.mode === "sled" ? 1 : 1 - Math.exp(-(onLift ? 5 : 7) * dt); camPos.x += (tmp.x - camPos.x) * k; camPos.z += (tmp.z - camPos.z) * k;   /* rigidly behind a snowmobile */ camPos.y += (tmp.y - camPos.y) * (1 - Math.exp(-(tmp.y > camPos.y ? 7 : sk.ground ? 5 : 2.2) * dt)); if (camPos.y < H(camPos.x, camPos.z) + 0.9) camPos.y = H(camPos.x, camPos.z) + 0.9; }
+  if (sk.inShop) { camPos.x = clamp(camPos.x, ROOM.x - ROOM.hx + 0.3, ROOM.x + ROOM.hx - 0.3); camPos.z = clamp(camPos.z, ROOM.z - ROOM.hz + 0.3, ROOM.z + ROOM.hz - 0.3); camPos.y = Math.min(p.y + 2.3, ROOM.y + ROOM.h - 0.3); }   // indoors the camera stays inside the room
   camera.position.copy(camPos); camera.up.set(0, 1, 0);
   tmp.set(p.x + dx * (3 + sp * 0.22), p.y + 1.25 - camSlope * dist * 0.14 + (onLift ? -1 : 0), p.z + dz * (3 + sp * 0.22));
   if (camSnap || sk.mode === "sled") camTgt.copy(tmp); else camTgt.lerp(tmp, 1 - Math.exp(-9 * dt)); camera.lookAt(camTgt);

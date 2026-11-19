@@ -39,7 +39,7 @@ function noiseTexture() {
 const noiseTex = noiseTexture();
 const U = { // uniforms shared by every material that reads the world
   uTT: { value: null }, uMA: { value: null }, uMB: { value: null }, uNoise: { value: noiseTex },
-  uTrk: { value: null }, uTraffic: { value: null }, uCrk: { value: null }, uCrkPool: { value: 0 },
+  uTrk: { value: null }, uTraffic: { value: null }, uCrk: { value: null }, uCrkPool: { value: 0 }, uPlaza: { value: new THREE.Vector4(0, 0, 0, 0) },
   uSunDir: { value: sunDir }, uSunCol: { value: new THREE.Color() }, uTime: { value: 0 }, uShadowR: { value: 160 }, uTreeNear: { value: 260 }, uSkyAmb: { value: new THREE.Color() }, uWet: { value: 0 }
 };
 const GLSL_WORLD = `
@@ -208,7 +208,7 @@ function setWeather(name, quick) {
 
 /* ---------- terrain ---------- */
 const TERRAIN_FRAG_PARS = GLSL_WORLD + `
-varying vec3 vWp; varying vec3 vWn; varying float vLake; uniform sampler2D uTrk, uTraffic, uCrk; uniform float uCrkPool;
+varying vec3 vWp; varying vec3 vWn; varying float vLake; uniform sampler2D uTrk, uTraffic, uCrk; uniform float uCrkPool; uniform vec4 uPlaza;
 #ifdef ROCKMESH
 uniform vec3 uRkLo, uRkHi;
 #endif
@@ -263,13 +263,15 @@ const TERRAIN_FRAG_COLOR = `
   // grooming: corduroy up close, cat passes from a distance. Four fixed stripe fields blended by the run's direction.
   vec2 d2 = mB.gb * 2.0 - 1.0; d2 /= max(length(d2), 0.05);
   vec4 wk = vec4(max(d2.x, 0.0), max(d2.y, 0.0), max(-d2.x, 0.0), max(-d2.y, 0.0)); wk *= wk;
-  vec2 cordG = vec2(0.0); float bandV = 0.0, bandE = 0.0;
+  vec2 cordG = vec2(0.0), cordW = vec2(0.0); float bandV = 0.0, bandE = 0.0, stripe = 0.0;
   float scr = 0.0, trk = 0.0;
-  #define CORD(PK, W) { float a = dot(vWp.xz, PK); trk += W * texture2D(uTrk, vec2(a / 24.0, dot(vWp.xz, vec2(-PK.y, PK.x)) / 96.0)).r; scr += W * texture2D(uNoise, vec2(a * 0.55, dot(vWp.xz, vec2(-PK.y, PK.x)) * 0.012)).r; float ph = a * 125.66; float vis = clamp(1.0 - fwidth(ph) * 0.45, 0.0, 1.0); cordG += PK * cos(ph) * W * vis; float b = a / 4.4, fb = fract(b); bandV += W * (texture2D(uNoise, vec2(floor(b) * 0.0391, 0.3), -8.0).r - 0.5); bandE += W * smoothstep(0.05, 0.0, min(fb, 1.0 - fb)); }
+  #define CORD(PK, W) { float a = dot(vWp.xz, PK); trk += W * texture2D(uTrk, vec2(a / 24.0, dot(vWp.xz, vec2(-PK.y, PK.x)) / 96.0)).r; scr += W * texture2D(uNoise, vec2(a * 0.55, dot(vWp.xz, vec2(-PK.y, PK.x)) * 0.012)).r; float ph = a * 125.66; float vis = clamp(1.0 - fwidth(ph) * 0.45, 0.0, 1.0); cordG += PK * cos(ph) * W * vis; float p2 = a * 20.94; float v2 = clamp(1.0 - fwidth(p2) * 0.55, 0.0, 1.0); stripe += W * (0.5 + 0.5 * cos(p2)) * v2; cordW += PK * sin(p2) * W * v2; float b = a / 4.4, fb = fract(b); bandV += W * (texture2D(uNoise, vec2(floor(b) * 0.0391, 0.3), -8.0).r - 0.5); bandE += W * smoothstep(0.05, 0.0, min(fb, 1.0 - fb)); }
   CORD(vec2(0.0, 1.0), wk.x) CORD(vec2(-0.7071, 0.7071), wk.y) CORD(vec2(-1.0, 0.0), wk.z) CORD(vec2(-0.7071, -0.7071), wk.w)
   float groomK = smoothstep(0.25, 0.6, groom);   // a groomed surface has a definite edge
-  Nw.xz += cordG * 0.30 * groomK; snow *= 1.0 + groomK * (bandV * 0.05 - bandE * 0.035 * smoothstep(900.0, 60.0, tDist));
-  snow *= 1.0 - groomK * (0.07 + (scr - 0.5) * 0.18 * smoothstep(260.0, 8.0, tDist));
+  Nw.xz += (cordG * 0.34 + cordW * 0.16) * groomK; snow *= 1.0 + groomK * (bandV * 0.05 - bandE * 0.05 * smoothstep(900.0, 60.0, tDist));
+  snow = mix(snow, vec3(0.945, 0.958, 0.978), groomK * 0.55);                                   // a groomed run is clean, bright and even
+  snow = mix(snow, snow * vec3(0.84, 0.885, 0.965), groomK * stripe * 0.6);                     // the cat's ribs: fine blue-shadowed lines down the fall of the run, as clear as Kicker Run's
+  snow *= 1.0 - groomK * (0.025 + (scr - 0.5) * 0.10 * smoothstep(260.0, 8.0, tDist));
   #ifndef OUTER
     snow *= 1.0 - groomK * trk * texture2D(uTraffic, (vWp.xz - vec2(${X0.toFixed(1)}, ${Z0.toFixed(1)})) / vec2(${(X1 - X0).toFixed(1)}, ${(Z1 - Z0).toFixed(1)})).r * 0.42 * smoothstep(420.0, 12.0, tDist);   // other skiers' tracks, thickest where the traffic is
   #endif   // packed and scored by skis, against the untouched snow beside it
@@ -309,6 +311,14 @@ const TERRAIN_FRAG_COLOR = `
   float tRough = mix(mix(0.76, 0.52, groomK), 0.93, max(rock, road));
   float snowAmt = (1.0 - rock) * (1.0 - road);
   #ifndef OUTER
+  { // the village plaza: cobblestones swept of snow, with white left in the joints and corners
+    float pd = length(vWp.xz - uPlaza.xy), pk = (1.0 - smoothstep(uPlaza.z - 10.0, uPlaza.z, pd + (nB - 0.5) * 12.0)) * step(1.0, uPlaza.z) * (1.0 - road) * (1.0 - smoothstep(0.2, 0.6, groom));   // the groomed ways through to the lifts stay snow
+    vec2 cq = vWp.xz * 3.4; cq.x += floor(cq.y) * 0.5; vec2 cf = fract(cq) - 0.5, ci = floor(cq); float cfade = clamp(1.0 - fwidth(cq.x) * 1.6, 0.0, 1.0);
+    float joint = smoothstep(0.36, 0.47, max(abs(cf.x), abs(cf.y))) * cfade, cn = texture2D(uNoise, (ci + 0.5) / 256.0, -8.0).r;
+    vec3 stone = mix(vec3(0.19, 0.18, 0.17), vec3(0.40, 0.37, 0.33), mix(0.5, cn, cfade)) * (1.0 - 0.5 * joint);
+    float dust = clamp(smoothstep(0.5, 0.8, nC * 0.55 + nA * 0.5 + joint * 0.3) * 0.7 + smoothstep(uPlaza.z - 26.0, uPlaza.z - 6.0, pd) * 0.6, 0.0, 1.0);
+    alb = mix(alb, mix(stone, snow, dust), pk); tRough = mix(tRough, 0.82, pk * (1.0 - dust)); snowAmt *= 1.0 - pk * (1.0 - dust);
+    Nw = normalize(mix(Nw, vec3(cf.x * joint * 0.5, 1.0, cf.y * joint * 0.5), pk * 0.8)); }
   { // creeks: dark moving water in a channel through the snow, with wet stones at the edge
     float cv = texture2D(uCrk, (vWp.xz - vec2(${X0.toFixed(1)}, ${Z0.toFixed(1)})) / vec2(${(X1 - X0).toFixed(1)}, ${(Z1 - Z0).toFixed(1)})).r;
     float cd = 12.0 * (1.0 - cv) + (nC - 0.5) * 0.9 + (nB - 0.5) * 0.7 - clamp(tDist / 300.0, 0.0, 1.6);
