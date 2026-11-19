@@ -10,7 +10,7 @@ const OUTFITS = {
   dirt: { top: [0.78, 0.10, 0.08], top2: [0.92, 0.92, 0.90], legs: [0.07, 0.07, 0.08], glove: [0.05, 0.05, 0.05], boot: [0.06, 0.06, 0.06], helmet: "mx", shell: 0xe8e8e4, accent: 0xc8201a, shorts: false, pack: false, bootH: 0.3 },
   quad: { top: [0.10, 0.22, 0.48], top2: [0.85, 0.85, 0.85], legs: [0.12, 0.12, 0.13], glove: [0.05, 0.05, 0.05], boot: [0.08, 0.07, 0.06], helmet: "mx", shell: 0x15171a, accent: 0x2f7fd0, shorts: false, pack: false, bootH: 0.26 },
   mtb: { top: [0.16, 0.40, 0.36], top2: [0.10, 0.10, 0.11], legs: [0.09, 0.09, 0.10], glove: [0.07, 0.07, 0.07], boot: [0.10, 0.10, 0.11], helmet: "half", shell: 0x202326, accent: 0x202326, shorts: true, pack: true, bootH: 0 },
-  scoot: { top: [0.22, 0.24, 0.28], top2: [0.22, 0.24, 0.28], legs: [0.13, 0.19, 0.30], glove: null, boot: [0.80, 0.80, 0.78], helmet: "half", shell: 0xd8d8d2, accent: 0xd8d8d2, shorts: false, pack: true, bootH: 0 },
+  scoot: { top: [0.22, 0.24, 0.28], top2: [0.22, 0.24, 0.28], legs: [0.13, 0.19, 0.30], glove: null, boot: [0.16, 0.17, 0.19], helmet: "half", shell: 0xd8d8d2, accent: 0xd8d8d2, shorts: false, pack: true, bootH: 0 },
   car: { top: [0.62, 0.64, 0.66], top2: [0.62, 0.64, 0.66], legs: [0.12, 0.15, 0.22], glove: null, boot: [0.25, 0.18, 0.12], helmet: "none", shell: 0, accent: 0, shorts: false, pack: false, bootH: 0 },
 };
 const SKIN = [0.62, 0.42, 0.31];
@@ -20,8 +20,8 @@ function makeRider(type) {
   for (const n of RNAMES) { const p = RPAR[n], a = RB[n], q = p ? RB[p] : [0, 0, 0]; bones[n].position.set(a[0] - q[0], a[1] - q[1], a[2] - q[2]); if (p) bones[p].add(bones[n]); }
   const SEG = 12, pos = [], col = [], si = [], sw = [], uv = [], idx = []; const bi = n => RNAMES.indexOf(n);
   // a tube of elliptical rings; each ring: [x, y, z, rx, rz, boneA, boneB, weightA, colour]
-  const tube = (rings, capTop, capBot) => {
-    const base = pos.length / 3;
+  const tube = (rings, capTop, capBot, fat = 1) => {
+    const base = pos.length / 3; if (fat !== 1) rings = rings.map(r => { const q = r.slice(); q[3] *= fat; q[4] *= fat; return q; });
     rings.forEach((r, k) => { for (let s = 0; s < SEG; s++) { const a = s / SEG * TAU; pos.push(r[0] + Math.cos(a) * r[3], r[1], r[2] + Math.sin(a) * r[4]); col.push(r[8][0], r[8][1], r[8][2]); si.push(bi(r[5]), bi(r[6]), 0, 0); sw.push(r[7], 1 - r[7], 0, 0); uv.push(s / SEG * 3, r[1] * 6); } });
     for (let k = 0; k < rings.length - 1; k++) for (let s = 0; s < SEG; s++) { const a = base + k * SEG + s, b = base + k * SEG + (s + 1) % SEG, c = a + SEG, d = b + SEG; idx.push(a, b, c, c, b, d); }
     for (const [on, k, flip] of [[capTop, 0, false], [capBot, rings.length - 1, true]]) { if (!on) continue; const r = rings[k], c = pos.length / 3; pos.push(r[0], r[1], r[2]); col.push(r[8][0], r[8][1], r[8][2]); si.push(bi(r[5]), bi(r[6]), 0, 0); sw.push(r[7], 1 - r[7], 0, 0); uv.push(0, 0);
@@ -29,14 +29,14 @@ function makeRider(type) {
   };
   const T = O.top, T2 = O.top2, Lg = O.legs, sk = SKIN;
   tube([[0, 1.565, 0.012, 0.050, 0.054, "head", "neck", 0.6, sk], [0, 1.50, 0.008, 0.054, 0.058, "neck", "neck", 1, sk], [0, 1.468, 0, 0.085, 0.078, "neck", "spine2", 0.5, T], [0, 1.435, 0, 0.185, 0.098, "spine2", "spine2", 1, T], [0, 1.37, 0.004, 0.182, 0.118, "spine2", "spine2", 1, T],
-    [0, 1.27, 0.008, 0.170, 0.116, "spine2", "spine1", 0.6, T2], [0, 1.17, 0.006, 0.150, 0.102, "spine1", "spine1", 1, T], [0, 1.08, 0.004, 0.146, 0.098, "spine1", "pelvis", 0.5, T], [0, 1.0, 0, 0.160, 0.104, "pelvis", "pelvis", 1, Lg], [0, 0.93, 0, 0.172, 0.108, "pelvis", "pelvis", 1, Lg], [0, 0.865, 0, 0.09, 0.085, "pelvis", "pelvis", 1, Lg]], false, true);
+    [0, 1.27, 0.008, 0.170, 0.116, "spine2", "spine1", 0.6, T2], [0, 1.17, 0.006, 0.150, 0.102, "spine1", "spine1", 1, T], [0, 1.08, 0.004, 0.146, 0.098, "spine1", "pelvis", 0.5, T], [0, 1.0, 0, 0.160, 0.104, "pelvis", "pelvis", 1, Lg], [0, 0.93, 0, 0.172, 0.108, "pelvis", "pelvis", 1, Lg], [0, 0.865, 0, 0.09, 0.085, "pelvis", "pelvis", 1, Lg]], false, true, 1.06);
   for (const s of [1, -1]) {
     const A = s > 0 ? "armL" : "armR", F = s > 0 ? "foreL" : "foreR", Hn = s > 0 ? "handL" : "handR", x = 0.2 * s, gl = O.glove || sk, slv = type === "car" || type === "mtb" ? sk : T;
     tube([[x, 1.47, 0, 0.03, 0.035, "spine2", A, 0.5, T], [x + 0.012 * s, 1.445, 0, 0.058, 0.060, A, "spine2", 0.6, T], [x + 0.012 * s, 1.40, 0, 0.056, 0.060, A, A, 1, T], [x + 0.01 * s, 1.30, 0, 0.050, 0.054, A, A, 1, T], [x, 1.19, 0, 0.044, 0.046, A, A, 1, slv],
-      [x, 1.15, 0, 0.041, 0.043, A, F, 0.7, slv], [x, 1.13, 0, 0.040, 0.042, A, F, 0.5, slv], [x, 1.11, 0, 0.041, 0.043, A, F, 0.3, slv], [x, 1.04, 0, 0.042, 0.044, F, F, 1, slv], [x, 0.94, 0, 0.034, 0.036, F, F, 1, slv], [x, 0.885, 0, 0.029, 0.031, F, Hn, 0.6, gl], [x, 0.86, 0, 0.027, 0.03, Hn, Hn, 1, gl]], true, true);
+      [x, 1.15, 0, 0.041, 0.043, A, F, 0.7, slv], [x, 1.13, 0, 0.040, 0.042, A, F, 0.5, slv], [x, 1.11, 0, 0.041, 0.043, A, F, 0.3, slv], [x, 1.04, 0, 0.042, 0.044, F, F, 1, slv], [x, 0.94, 0, 0.034, 0.036, F, F, 1, slv], [x, 0.885, 0, 0.029, 0.031, F, Hn, 0.6, gl], [x, 0.86, 0, 0.027, 0.03, Hn, Hn, 1, gl]], true, true, 1.14);
     const Th = s > 0 ? "thighL" : "thighR", Sh = s > 0 ? "shinL" : "shinR", Ft = s > 0 ? "footL" : "footR", lx = 0.095 * s, low = O.shorts ? sk : Lg, bt = O.bootH > 0 ? O.boot : low;
     tube([[lx, 0.985, 0, 0.082, 0.092, "pelvis", Th, 0.7, Lg], [lx, 0.93, 0, 0.088, 0.098, Th, "pelvis", 0.55, Lg], [lx, 0.86, 0, 0.086, 0.096, Th, Th, 1, Lg], [lx, 0.74, 0, 0.076, 0.084, Th, Th, 1, Lg], [lx, 0.62, 0, 0.064, 0.070, Th, Th, 1, Lg], [lx, 0.545, 0, 0.058, 0.062, Th, Sh, 0.75, O.shorts ? [0.05, 0.05, 0.05] : Lg],
-      [lx, 0.49, 0.004, 0.056, 0.060, Th, Sh, 0.5, O.shorts ? [0.05, 0.05, 0.05] : Lg], [lx, 0.44, 0, 0.054, 0.058, Th, Sh, 0.25, O.shorts ? [0.05, 0.05, 0.05] : Lg], [lx, 0.36, -0.006, 0.056, 0.062, Sh, Sh, 1, O.bootH > 0.28 ? bt : low], [lx, 0.25, -0.004, 0.048, 0.052, Sh, Sh, 1, bt], [lx, 0.14, 0, 0.038, 0.042, Sh, Sh, 1, bt], [lx, 0.09, 0, 0.036, 0.04, Sh, Ft, 0.5, O.boot]], true, true);
+      [lx, 0.49, 0.004, 0.056, 0.060, Th, Sh, 0.5, O.shorts ? [0.05, 0.05, 0.05] : Lg], [lx, 0.44, 0, 0.054, 0.058, Th, Sh, 0.25, O.shorts ? [0.05, 0.05, 0.05] : Lg], [lx, 0.36, -0.006, 0.056, 0.062, Sh, Sh, 1, O.bootH > 0.28 ? bt : low], [lx, 0.25, -0.004, 0.048, 0.052, Sh, Sh, 1, bt], [lx, 0.14, 0, 0.038, 0.042, Sh, Sh, 1, bt], [lx, 0.09, 0, 0.036, 0.04, Sh, Ft, 0.5, O.boot]], true, true, 1.13);
   }
   const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute("color", new THREE.Float32BufferAttribute(col, 3)); g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
   g.setAttribute("skinIndex", new THREE.Uint16BufferAttribute(si, 4)); g.setAttribute("skinWeight", new THREE.Float32BufferAttribute(sw, 4)); g.setIndex(idx); g.computeVertexNormals();
@@ -76,13 +76,13 @@ function makeRider(type) {
   for (const s of [1, -1]) {
     const fb = bones[s > 0 ? "footL" : "footR"], sh = new THREE.Shape(); const tall = O.bootH > 0;
     sh.moveTo(-0.075, -0.075); sh.lineTo(0.165, -0.075); sh.quadraticCurveTo(0.2, -0.07, 0.195, -0.035); sh.quadraticCurveTo(0.17, 0.0, 0.09, 0.02); sh.lineTo(0.05, tall ? 0.09 : 0.03); sh.lineTo(-0.065, tall ? 0.09 : 0.03); sh.lineTo(-0.085, -0.03); sh.closePath();
-    const geo = new THREE.ExtrudeGeometry(sh, { depth: 0.07, bevelEnabled: true, bevelSize: 0.012, bevelThickness: 0.012, bevelSegments: 2, steps: 1 }); geo.translate(0, 0, -0.035); geo.rotateY(-Math.PI / 2);
-    fb.add(M(geo, rgb(O.boot), { roughness: 0.7 })); const sole = M(new THREE.BoxGeometry(0.094, 0.016, 0.275), 0x0a0a0a, { roughness: 0.95 }); sole.position.set(0, -0.078, 0.045); fb.add(sole);
+    const geo = new THREE.ExtrudeGeometry(sh, { depth: 0.07, bevelEnabled: true, bevelSize: 0.012, bevelThickness: 0.012, bevelSegments: 2, steps: 1 }); geo.translate(0, 0, -0.035); geo.rotateY(-Math.PI / 2); if (!tall) geo.scale(0.9, 0.86, 0.84);
+    fb.add(M(geo, rgb(O.boot), { roughness: 0.7 })); const sole = M(new THREE.BoxGeometry(tall ? 0.094 : 0.085, 0.016, tall ? 0.275 : 0.232), tall ? 0x0a0a0a : 0xdedcd4, { roughness: 0.95 }); sole.position.set(0, tall ? -0.078 : -0.068, tall ? 0.045 : 0.038); fb.add(sole);
   }
   if (O.pack) { const pk = M(new THREE.CapsuleGeometry(0.085, 0.2, 4, 10), 0x16181b, { roughness: 0.9 }); pk.scale.set(1.25, 1, 0.62); pk.position.set(0, 0.08, -0.15); bones.spine2.add(pk); }
   if (type === "dirt") { const plate = M(new THREE.BoxGeometry(0.25, 0.26, 0.03), 0x111214, { roughness: 0.5 }); plate.position.set(0, 0.06, 0.118); bones.spine2.add(plate); }
   root.traverse(o => { o.frustumCulled = false; });
-  return { root, bones, body, type, s: { stand: 0, leanB: 0, pitchB: 0, look: 0, crank: 0, footDown: 0, bob: 0, vy: 0 } };
+  return { root, bones, body, head, type, s: { stand: 0, leanB: 0, pitchB: 0, look: 0, crank: 0, footDown: 0, bob: 0, vy: 0 } };
 }
 let _cloth = null;
 function riderCloth() { if (!_cloth) _cloth = canvasTex(128, (g, s) => { const im = g.createImageData(s, s), r = rng(6); for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) { const v = 128 + 40 * (vnoise(x * 0.11, y * 0.05, 2) - 0.5) + 26 * Math.sin(x * 1.9) * Math.sin(y * 1.9) + (r() - 0.5) * 22, k = (y * s + x) * 4; im.data[k] = im.data[k + 1] = im.data[k + 2] = v; im.data[k + 3] = 255; } g.putImageData(im, 0, 0); }, true, false); return _cloth; }

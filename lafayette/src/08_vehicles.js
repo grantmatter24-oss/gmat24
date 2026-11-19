@@ -139,7 +139,7 @@ function buildQuad() {
 }
 function buildCar() {
   const G = new THREE.Group(), body = new THREE.Group(); G.add(body);
-  const paint = vmat(0x51624a, 0.42, 0.35, { clearcoat: 1, clearcoatRoughness: 0.12 }), trim = vmat(0x17181a, 0.75), glass = new THREE.MeshPhysicalMaterial({ color: 0x0c1418, roughness: 0.05, metalness: 0.2, transparent: true, opacity: 0.48, side: THREE.DoubleSide }), chrome = vmat(0xc9ccd0, 0.2, 1), inter = vmat(0x1f2022, 0.9);
+  const paint = vmat(0x51624a, 0.42, 0.35, { clearcoat: 1, clearcoatRoughness: 0.12 }), trim = vmat(0x17181a, 0.75), glass = new THREE.MeshPhysicalMaterial({ color: 0x0a1014, roughness: 0.04, metalness: 0.65, transparent: true, opacity: 0.93, side: THREE.DoubleSide }), panes = [], chrome = vmat(0xc9ccd0, 0.2, 1), inter = vmat(0x1f2022, 0.9);
   const L = 2.62, tr = 1.60, rw = 0.39, W = 1.84, zf = L / 2, zr = -L / 2, gy = 0.30;   // gy: sill height
   const arch = (zc, out) => { for (let k = 0; k <= 8; k++) { const a = Math.PI - k / 8 * Math.PI; out.push([zc + Math.cos(a) * (rw + 0.09), gy + 0.02 + Math.sin(a) * (rw + 0.14)]); } };
   const low = [[2.12, 0.50], [2.16, 0.62], [2.14, 0.98], [2.05, 1.04], [0.92, 1.10], [-2.08, 1.10], [-2.12, 0.60], [-2.06, 0.44]]; const pts = low.slice(); arch(zr, pts); pts.push([0, gy]); arch(zf, pts);
@@ -147,21 +147,21 @@ function buildCar() {
   vplate(body, [[0.98, 1.10], [0.52, 1.74], [0.30, 1.80], [-1.88, 1.80], [-2.04, 1.72], [-2.08, 1.10]], W - 0.16, paint, 0.06);                 // cabin
   vadd(body, new THREE.BoxGeometry(W - 0.34, 0.5, L + 1.0), inter, 0, 0.62, 0);                                                              // wheel tubs and floor
   // glazing: each pane sits a hair proud of the cabin so the pillars show between them
-  const pane = (o, x) => { const sh = new THREE.Shape(); o.forEach((p, i) => i ? sh.lineTo(p[0], p[1]) : sh.moveTo(p[0], p[1])); const g = new THREE.ShapeGeometry(sh); g.rotateY(-Math.PI / 2); const m = new THREE.Mesh(g, glass); m.position.x = x; body.add(m); };
+  const pane = (o, x) => { const sh = new THREE.Shape(); o.forEach((p, i) => i ? sh.lineTo(p[0], p[1]) : sh.moveTo(p[0], p[1])); const g = new THREE.ShapeGeometry(sh); g.rotateY(-Math.PI / 2); const m = new THREE.Mesh(g, glass); m.position.x = x; body.add(m); panes.push(m); };
   for (const s of [1, -1]) { const x = s * ((W - 0.16) / 2 + 0.004); pane([[0.84, 1.16], [0.50, 1.66], [-0.08, 1.70], [-0.08, 1.16]], x); pane([[-0.18, 1.16], [-0.18, 1.70], [-0.98, 1.70], [-0.98, 1.16]], x); pane([[-1.08, 1.16], [-1.08, 1.70], [-1.84, 1.70], [-1.96, 1.16]], x); }
-  const ws = new THREE.Mesh(new THREE.PlaneGeometry(W - 0.36, 0.74), glass); ws.position.set(0, 1.43, 0.765); ws.rotation.x = -Math.atan2(0.46, 0.64) - Math.PI / 2 + Math.PI / 2; ws.rotation.set(-0.622, 0, 0); body.add(ws);
-  const rg = new THREE.Mesh(new THREE.PlaneGeometry(W - 0.44, 0.5), glass); rg.position.set(0, 1.44, -2.075); rg.rotation.set(0.07, Math.PI, 0); body.add(rg);
+  const ws = new THREE.Mesh(new THREE.PlaneGeometry(W - 0.36, 0.74), glass); ws.position.set(0, 1.43, 0.765); ws.rotation.x = -Math.atan2(0.46, 0.64) - Math.PI / 2 + Math.PI / 2; ws.rotation.set(-0.622, 0, 0); body.add(ws); panes.push(ws);
+  const rg = new THREE.Mesh(new THREE.PlaneGeometry(W - 0.44, 0.5), glass); rg.position.set(0, 1.44, -2.075); rg.rotation.set(0.07, Math.PI, 0); body.add(rg); panes.push(rg);
   // front end
-  vadd(body, new THREE.BoxGeometry(1.0, 0.3, 0.05), trim, 0, 0.80, 2.15); for (let k = 0; k < 7; k++) vadd(body, new THREE.BoxGeometry(0.035, 0.26, 0.06), vmat(0x2c2e31, 0.4, 0.6), -0.36 + k * 0.12, 0.80, 2.16);
-  const hl = [], tl = []; for (const s of [1, -1]) { hl.push(lamp(body, 0.24, 0.2, 0.05, 0xf4f4ee, 0.70 * s, 0.82, 2.14, 0xfff2d0)); tl.push(lamp(body, 0.1, 0.34, 0.04, 0x7a1010, 0.80 * s, 0.86, -2.10, 0xff1a08)); vadd(body, new THREE.BoxGeometry(0.16, 0.06, 0.04), vmat(0xd08020, 0.3), 0.70 * s, 0.66, 2.15); }
-  vadd(body, new THREE.BoxGeometry(W + 0.02, 0.2, 0.2), trim, 0, 0.46, 2.1); vadd(body, new THREE.BoxGeometry(W + 0.02, 0.2, 0.18), trim, 0, 0.46, -2.06); vadd(body, new THREE.BoxGeometry(0.5, 0.12, 0.02), vmat(0xe8e8e2, 0.5), 0, 0.62, -2.135);
+  vadd(body, new THREE.BoxGeometry(1.0, 0.3, 0.05), trim, 0, 0.80, 2.215); for (let k = 0; k < 7; k++) vadd(body, new THREE.BoxGeometry(0.035, 0.26, 0.06), vmat(0x9a9da1, 0.3, 0.9), -0.36 + k * 0.12, 0.80, 2.225);
+  const hl = [], tl = []; for (const s of [1, -1]) { hl.push(lamp(body, 0.24, 0.2, 0.05, 0xf4f4ee, 0.70 * s, 0.82, 2.215, 0xfff2d0)); tl.push(lamp(body, 0.1, 0.34, 0.04, 0x9a1414, 0.80 * s, 0.86, -2.17, 0xff1a08)); vadd(body, new THREE.BoxGeometry(0.16, 0.06, 0.04), vmat(0xd08020, 0.3), 0.70 * s, 0.66, 2.215); }
+  vadd(body, new THREE.BoxGeometry(W + 0.02, 0.2, 0.3), trim, 0, 0.46, 2.13); vadd(body, new THREE.BoxGeometry(W + 0.02, 0.2, 0.28), trim, 0, 0.46, -2.09); vadd(body, new THREE.BoxGeometry(0.5, 0.12, 0.02), vmat(0xe8e8e2, 0.5), -0.5, 0.66, -2.185);
   for (const s of [1, -1]) {
     vadd(body, new THREE.BoxGeometry(0.05, 0.14, 1.9), trim, (W / 2 + 0.005) * s, 0.36, 0); vadd(body, new THREE.BoxGeometry(0.2, 0.03, 1.5), trim, (W / 2 + 0.06) * s, 0.30, 0);              // sills and steps
     for (const zc of [zf, zr]) { const fl = new THREE.Mesh(new THREE.TorusGeometry(rw + 0.11, 0.045, 6, 18, Math.PI), trim); fl.position.set((W / 2 - 0.01) * s, gy + 0.02, zc); fl.rotation.y = Math.PI / 2; fl.scale.set(1, 1.18, 1.6); body.add(fl); }
     vadd(body, new THREE.BoxGeometry(0.1, 0.13, 0.2), trim, (W / 2 + 0.05) * s, 1.18, 0.72); vtube(body, [(W / 2 - 0.22) * s, 1.83, 0.2], [(W / 2 - 0.22) * s, 1.83, -1.75], 0.02, trim, 6);
     for (const z of [0.42, -0.46]) vadd(body, new THREE.BoxGeometry(0.02, 0.03, 0.14), trim, (W / 2 + 0.002) * s, 1.02, z);
   }
-  const spare = makeWheel(rw, 0.25, 0.23, "alloy", false, 0x2a2c2f); spare.rotation.y = Math.PI / 2; spare.position.set(0.1, 1.02, -2.2); body.add(spare);
+  const spare = makeWheel(rw, 0.25, 0.23, "alloy", false, 0x2a2c2f); spare.rotation.y = Math.PI / 2; spare.position.set(0.12, 1.02, -2.3); body.add(spare);
   // cabin interior
   for (const s of [1, -1]) { vadd(body, new THREE.BoxGeometry(0.5, 0.14, 0.5), inter, 0.38 * s, 0.70, -0.02); vadd(body, new THREE.BoxGeometry(0.48, 0.66, 0.12), inter, 0.38 * s, 1.08, -0.30, 0.16); vadd(body, new THREE.BoxGeometry(0.24, 0.2, 0.1), inter, 0.38 * s, 1.50, -0.37, 0.1); }
   vadd(body, new THREE.BoxGeometry(1.5, 0.14, 0.5), inter, 0, 0.70, -0.98); vadd(body, new THREE.BoxGeometry(1.5, 0.6, 0.12), inter, 0, 1.06, -1.26, 0.16); vadd(body, new THREE.BoxGeometry(W - 0.3, 0.3, 0.34), inter, 0, 1.02, 0.86);
@@ -169,7 +169,7 @@ function buildCar() {
   vadd(swr, new THREE.TorusGeometry(0.18, 0.016, 8, 24), trim); vadd(swr, new THREE.BoxGeometry(0.34, 0.03, 0.012), trim); vadd(swr, new THREE.BoxGeometry(0.03, 0.17, 0.012), trim, 0, -0.085, 0); vtube(sw, [0, 0, 0], [0, 0, -0.3], 0.02, trim, 6);
   const wheels = [], knuckles = [];
   for (const [x, z] of [[tr / 2, zf], [-tr / 2, zf], [tr / 2, zr], [-tr / 2, zr]]) { const k = new THREE.Group(); k.position.set(x, rw, z); G.add(k); const w = makeWheel(rw, 0.27, 0.225, "alloy", false, 0x9a9da1); k.add(w); wheels.push(w); knuckles.push(k); }
-  return { group: G, body, steerWheel: swr, wheels, knuckles, seat: [0.38, 0.86, -0.1], wheelCenter: [0.38, 1.10, 0.56], wheelTilt: -1.12, pedals: [0.38, 0.46, 0.62], wheelbase: L, track: tr, rw, lights: hl, tails: tl, type: "car" };
+  return { group: G, body, steerWheel: swr, wheels, knuckles, seat: [0.38, 0.86, -0.1], wheelCenter: [0.38, 1.10, 0.56], wheelTilt: -1.12, pedals: [0.38, 0.46, 0.62], wheelbase: L, track: tr, rw, lights: hl, tails: tl, glass: panes, type: "car" };
 }
 const VEHICLES = {
   dirt: { name: "Dirt bike", sub: "450 cc four-stroke", build: buildDirtBike },

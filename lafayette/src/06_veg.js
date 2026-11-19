@@ -14,17 +14,17 @@ function treeChunk(cx, cz) {
     const ix = cx * n0 + gi, iz = cz * n0 + gj, x = (ix + 0.12 + 0.76 * hash2(ix, iz, 1)) * TSTEP, z = (iz + 0.12 + 0.76 * hash2(ix, iz, 2)) * TSTEP;
     const inside = inWorld(x, z, 3); let cover, urban = 0;
     if (inside) {
-      cover = loAt(x, z, 0); if (hiAt(x, z, 0) > 0.22 || hiAt(x, z, 2) > 0.18 || hiAt(x, z, 1) > 0.5) continue;
-      let hard = 0; for (const [dx, dz] of [[2, 0], [-2, 0], [0, 2], [0, -2]]) hard = Math.max(hard, hiAt(x + dx, z + dz, 0)); if (hard > 0.5) continue;
+      cover = loAt(x, z, 0); if (hiAt(x, z, 0) > 0.22 || hiAt(x, z, 2) > 0.18 || hiAt(x, z, 1) > 0.06) continue;
+      let hard = 0; for (const [dx, dz] of [[2, 0], [-2, 0], [0, 2], [0, -2], [1.5, 1.5], [-1.5, 1.5], [1.5, -1.5], [-1.5, -1.5]]) hard = Math.max(hard, hiAt(x + dx, z + dz, 0), hiAt(x + dx, z + dz, 1) * 2.5); if (hard > 0.5) continue;   // no trunks on or beside a street or trail
       for (const [dx, dz] of [[13, 0], [-13, 0], [0, 13], [0, -13], [9, 9], [-9, -9]]) urban = Math.max(urban, hiAt(x + dx, z + dz, 2), hiAt(x + dx, z + dz, 0) * 0.8);
     } else { if (Math.abs(x) > MR - 200 || Math.abs(z) > MR - 200) continue; cover = midTreeAt(x, z) * 0.82; }
     if (hash2(ix, iz, 3) > sstep(0.16, 0.72, cover) * 0.96) continue;
     const r1 = hash2(ix, iz, 4), r2 = hash2(ix, iz, 5), r3 = hash2(ix, iz, 6);
     const sp = urban > 0.3 ? (r1 < 0.13 ? 3 : r1 < 0.42 ? 2 : r1 < 0.68 ? 1 : 0) : (r1 < 0.035 ? 3 : r1 < 0.27 ? 1 : 0), S = SPECIES[sp];
     const h = lerp(S.h[0], S.h[1], r2) * (0.82 + 0.3 * cover), r = h * S.r * (0.85 + 0.3 * r3) + (sp === 3 ? 0.8 : 0), y = H(x, z);
-    if (inside && waterAt(x, z) > -1e8) continue;
+    if (inside && (waterAt(x, z) > -1e8 || deckAt(x, z, 1e9) > -1e8)) continue;   // nothing grows in the water or up through a bridge
     p.set(x, y - 0.25, z); q.setFromAxisAngle(_up, r3 * TAU); s.set(r, h, r); m4.compose(p, q, s);
-    const T = sp === 3 ? C : B, k = 0.86 + 0.28 * hash2(ix, iz, 7), plum = sp === 2 && hash2(ix, iz, 8) < 0.07;
+    const T = sp === 3 ? C : B, k = 1.1 + 0.36 * hash2(ix, iz, 7), plum = sp === 2 && hash2(ix, iz, 8) < 0.07;
     for (let e = 0; e < 16; e++) T.m.push(m4.elements[e]); T.col.push((plum ? 1.5 : S.c[0]) * k, (plum ? 0.55 : S.c[1]) * k, (plum ? 0.6 : S.c[2]) * k); T.n++;
     if (inside) tr.push(x, z, Math.max(0.16, r * (sp === 3 ? 0.13 : 0.075)), h);
   }

@@ -135,16 +135,17 @@ function indexBuildings() {
 }
 let bldCheck = 0;
 function updateBuildings(dt, force) {
-  bldCheck -= dt; if (bldCheck > 0 && !force) return; bldCheck = 0.1;
+  bldCheck -= dt; if (bldCheck > 0 && !force) return; bldCheck = 0.05;
   const R = uBldFar.value, cx = camera.position.x, cz = camera.position.z; let built = 0, best = null, bd = 1e9;
   for (let tx = Math.floor((cx - R) / BT); tx <= Math.floor((cx + R) / BT); tx++) for (let tz = Math.floor((cz - R) / BT); tz <= Math.floor((cz + R) / BT); tz++) {
     const t = bldTiles.get(tx * 4096 + tz); if (!t || t.group) continue; const d = Math.hypot((tx + 0.5) * BT - cx, (tz + 0.5) * BT - cz); if (d < R && d < bd) { bd = d; best = t; best.tx = tx; best.tz = tz; }
   }
-  while (best && built < (force ? 400 : 1)) {
+  const t0 = performance.now();
+  while (best && (force ? built < 400 : built < 1 || performance.now() - t0 < 5)) {   // a few milliseconds of building work per frame
     const W = new Buf(), Rf = new Buf(); for (const b of best.list) addBuilding(b, W, Rf);
     const g = new THREE.Group(); g.matrixAutoUpdate = false; for (const [bf, mat] of [[W, wallMat], [Rf, roofMat]]) { const geo = bf.geo(); if (!geo) continue; const m = new THREE.Mesh(geo, mat); m.castShadow = m.receiveShadow = true; m.matrixAutoUpdate = false; g.add(m); }
     best.group = g; scene.add(g); built++; best = null;
-    if (force) { bd = 1e9; for (let tx = Math.floor((cx - R) / BT); tx <= Math.floor((cx + R) / BT); tx++) for (let tz = Math.floor((cz - R) / BT); tz <= Math.floor((cz + R) / BT); tz++) { const t = bldTiles.get(tx * 4096 + tz); if (!t || t.group) continue; const d = Math.hypot((tx + 0.5) * BT - cx, (tz + 0.5) * BT - cz); if (d < R && d < bd) { bd = d; best = t; best.tx = tx; best.tz = tz; } } }
+    { bd = 1e9; for (let tx = Math.floor((cx - R) / BT); tx <= Math.floor((cx + R) / BT); tx++) for (let tz = Math.floor((cz - R) / BT); tz <= Math.floor((cz + R) / BT); tz++) { const t = bldTiles.get(tx * 4096 + tz); if (!t || t.group) continue; const d = Math.hypot((tx + 0.5) * BT - cx, (tz + 0.5) * BT - cz); if (d < R && d < bd) { bd = d; best = t; best.tx = tx; best.tz = tz; } } }
   }
   for (const t of bldTiles.values()) if (t.group && Math.hypot((t.tx + 0.5) * BT - cx, (t.tz + 0.5) * BT - cz) > R + 500) { scene.remove(t.group); t.group.traverse(o => { if (o.geometry) o.geometry.dispose(); }); t.group = null; }
 }

@@ -95,8 +95,10 @@ const DECKS = [], deckHash = new Map(), DH = 40;
 function buildDecks() {
   for (let r = 0; r < V.rKind.length; r++) {
     if (!(V.rFlag[r] & 2) || V.rYs[r] < 0) continue;
-    const a = V.rStart[r], n = V.rStart[r + 1] - a, P = new Float32Array(n * 3);
-    for (let i = 0; i < n; i++) { P[i * 3] = V.rP[(a + i) * 2]; P[i * 3 + 1] = V.rY[V.rYs[r] + i]; P[i * 3 + 2] = V.rP[(a + i) * 2 + 1]; }
+    const a = V.rStart[r], n0 = V.rStart[r + 1] - a, n = n0 + 2, P = new Float32Array(n * 3);
+    for (let i = 0; i < n0; i++) { P[(i + 1) * 3] = V.rP[(a + i) * 2]; P[(i + 1) * 3 + 1] = V.rY[V.rYs[r] + i]; P[(i + 1) * 3 + 2] = V.rP[(a + i) * 2 + 1]; }
+    // a 10 m run-on at each end ties the deck to the road it meets, so there is never a step at the abutment
+    for (const [e, f, g] of [[0, 1, 2], [n - 1, n - 2, n - 3]]) { const dx = P[f * 3] - P[g * 3], dz = P[f * 3 + 2] - P[g * 3 + 2], l = Math.hypot(dx, dz) || 1, x = P[f * 3] + dx / l * 10, z = P[f * 3 + 2] + dz / l * 10, h = H(x, z); P[e * 3] = x; P[e * 3 + 2] = z; P[e * 3 + 1] = Math.abs(h - P[f * 3 + 1]) < 4 ? h : P[f * 3 + 1]; }
     const d = { P, n, hw: V.rW[r] / 20 + (V.rKind[r] === 14 ? 0.6 : 0.5), kind: V.rKind[r], road: r }; DECKS.push(d);
     for (let i = 0; i < n - 1; i++) {
       const xa = Math.min(P[i * 3], P[i * 3 + 3]) - d.hw, xb = Math.max(P[i * 3], P[i * 3 + 3]) + d.hw, za = Math.min(P[i * 3 + 2], P[i * 3 + 5]) - d.hw, zb = Math.max(P[i * 3 + 2], P[i * 3 + 5]) + d.hw;
@@ -105,17 +107,18 @@ function buildDecks() {
   }
 }
 /* Height of the highest deck at (x, z) that something at height yRef could be standing on, or -Infinity. */
+let deckRunOn = false;
 function deckAt(x, z, yRef) {
-  const l = deckHash.get(Math.floor(x / DH) * 4096 + Math.floor(z / DH)); if (!l) return -Infinity; let best = -Infinity;
+  deckRunOn = false; const l = deckHash.get(Math.floor(x / DH) * 4096 + Math.floor(z / DH)); if (!l) return -Infinity; let best = -Infinity;
   for (let q = 0; q < l.length; q += 2) {
     const d = DECKS[l[q]], i = l[q + 1] * 3, P = d.P, ax = P[i], az = P[i + 2], bx = P[i + 3], bz = P[i + 5], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz;
     const t = clamp(((x - ax) * dx + (z - az) * dz) / L2, 0, 1), px = ax + dx * t - x, pz = az + dz * t - z; if (px * px + pz * pz > d.hw * d.hw) continue;
-    const y = P[i + 1] + (P[i + 4] - P[i + 1]) * t; if (y <= yRef + 1.3 && y > best) best = y;
+    const y = P[i + 1] + (P[i + 4] - P[i + 1]) * t; if (y <= yRef + 1.3 && y > best) { best = y; deckRunOn = l[q + 1] === 0 || l[q + 1] === d.n - 2; }
   }
   return best;
 }
 /* What the wheels are on: the higher of the terrain and any deck within reach from below. */
-function ground(x, z, yRef = 1e9) { const h = H(x, z), d = deckAt(x, z, yRef); return d > h ? d : h; }
+function ground(x, z, yRef = 1e9) { const h = H(x, z), d = deckAt(x, z, yRef); return d > h || (deckRunOn && d > h - 2.5) ? d : h; }
 const SURF = { ASPHALT: 0, DIRT: 1, GRASS: 2, WATER: 3 };
 function surfaceAt(x, z, y) {
   if (deckAt(x, z, y + 0.5) > H(x, z) + 0.5) return SURF.ASPHALT;
@@ -126,13 +129,13 @@ function surfaceAt(x, z, y) {
 
 /* ---------- spatial lookups: buildings, water, road names ---------- */
 const BH = 32, bldHash = new Map(), WATERS = [], roadHash = new Map(), RH = 48;
-const BLD = { minx: null, maxx: null, minz: null, maxz: null };
+const BLD = { minx: null, maxx: null, minz: null, maxz: null, top: null };
 function buildHashes() {
-  const nb = V.bKind.length; BLD.minx = new Float32Array(nb); BLD.maxx = new Float32Array(nb); BLD.minz = new Float32Array(nb); BLD.maxz = new Float32Array(nb);
+  const nb = V.bKind.length; BLD.minx = new Float32Array(nb); BLD.maxx = new Float32Array(nb); BLD.minz = new Float32Array(nb); BLD.maxz = new Float32Array(nb); BLD.top = new Float32Array(nb);
   for (let b = 0; b < nb; b++) {
     let xa = 1e9, xb = -1e9, za = 1e9, zb = -1e9;
-    for (let k = V.bStart[b]; k < V.bStart[b + 1]; k++) { const x = V.bP[k * 2], z = V.bP[k * 2 + 1]; if (x < xa) xa = x; if (x > xb) xb = x; if (z < za) za = z; if (z > zb) zb = z; }
-    BLD.minx[b] = xa; BLD.maxx[b] = xb; BLD.minz[b] = za; BLD.maxz[b] = zb;
+    let top = -1e9; for (let k = V.bStart[b]; k < V.bStart[b + 1]; k++) { const x = V.bP[k * 2], z = V.bP[k * 2 + 1]; if (x < xa) xa = x; if (x > xb) xb = x; if (z < za) za = z; if (z > zb) zb = z; top = Math.max(top, H(x, z)); }
+    BLD.top[b] = top + V.bH[b] / 10; BLD.minx[b] = xa; BLD.maxx[b] = xb; BLD.minz[b] = za; BLD.maxz[b] = zb;
     if (V.bKind[b] === 6) continue;   // open roofs do not stop anything
     for (let cx = Math.floor(xa / BH); cx <= Math.floor(xb / BH); cx++) for (let cz = Math.floor(za / BH); cz <= Math.floor(zb / BH); cz++) { const k = cx * 4096 + cz; let l = bldHash.get(k); if (!l) bldHash.set(k, l = []); l.push(b); }
   }
@@ -160,12 +163,12 @@ function roadNameAt(x, z) {   // the named street or trail under you, if any
   return WORLD.names[best] || "";
 }
 /* Push a circle out of any building it overlaps. Returns the wall normal of the deepest hit in `out` (x, z) and the depth, or 0. */
-function hitBuildings(x, z, r, out) {
+function hitBuildings(x, z, r, out, y) {
   let deep = 0;
   for (let cx = Math.floor((x - r) / BH); cx <= Math.floor((x + r) / BH); cx++) for (let cz = Math.floor((z - r) / BH); cz <= Math.floor((z + r) / BH); cz++) {
     const l = bldHash.get(cx * 4096 + cz); if (!l) continue;
     for (const b of l) {
-      if (x < BLD.minx[b] - r || x > BLD.maxx[b] + r || z < BLD.minz[b] - r || z > BLD.maxz[b] + r) continue;
+      if (x < BLD.minx[b] - r || x > BLD.maxx[b] + r || z < BLD.minz[b] - r || z > BLD.maxz[b] + r || y > BLD.top[b] + 0.4) continue;   // on a bridge above the roof: nothing to hit
       const a = V.bStart[b], n = V.bStart[b + 1] - a, P = V.bP; let bd = 1e9, nx = 0, nz = 0;
       for (let i = 0, j = n - 1; i < n; j = i++) {
         const ax = P[(a + j) * 2], az = P[(a + j) * 2 + 1], dx = P[(a + i) * 2] - ax, dz = P[(a + i) * 2 + 1] - az, t = clamp(((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz + 1e-9), 0, 1), px = x - ax - dx * t, pz = z - az - dz * t, d = Math.hypot(px, pz);

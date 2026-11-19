@@ -21,7 +21,7 @@ function syncVehicle(v, dt, time) {
     M.wheels[0].rotation.x = v.spin[0]; M.wheels[1].rotation.x = v.spin[1];
     if (M.crank) { M.crank.rotation.x = rs.crank; M.pedals[0].rotation.x = M.pedals[1].rotation.x = -rs.crank; }
   }
-  const on = v.lightsOn ? 1 : 0; for (const l of M.lights || []) l.material.emissiveIntensity = on * 6; for (const l of M.tails || []) l.material.emissiveIntensity = on * 1.5 + (v.brake > 0.05 ? 5 : 0);
+  const on = v.lightsOn ? 1 : 0; for (const l of M.lights || []) l.material.emissiveIntensity = on * 3; for (const l of M.tails || []) l.material.emissiveIntensity = on * 1.5 + (v.brake > 0.05 ? 5 : 0);
   if (v.crash > 0 && v.ragdoll) { poseRagdoll(v); return; }
   if (R.root.parent !== G0) { G0.add(R.root); R.root.position.set(0, 0, 0); R.root.quaternion.identity(); }
   // ---- the rider's body language ----
@@ -99,14 +99,14 @@ function resetVehicle(toSafe) {
 }
 /* ---------- camera ---------- */
 const CAMD = { dirt: [4.6, 1.75], car: [7.4, 2.5], quad: [5.2, 1.95], mtb: [4.3, 1.8], scoot: [4.0, 1.85] };
-function snapCamera() { const v = GAME.v, c = GAME.cam; c.yaw = v.psi; c.orbit = c.orbitP = 0; updateCamera(1, true); }
+function snapCamera() { const v = GAME.v, c = GAME.cam; syncVehicle(v, 0.016, GAME.time); c.yaw = v.psi; c.orbit = c.orbitP = 0; updateCamera(1, true); }
 function updateCamera(dt, snap) {
   const v = GAME.v, c = GAME.cam, D = CAMD[v.type], sp = v.speed;
   c.orbitT -= dt; if (c.orbitT < 0 && sp > 1.5) { c.orbit = damp(c.orbit, 0, 2.2, dt); c.orbitP = damp(c.orbitP, 0, 2.2, dt); }
   const head = v.S.four ? v.psi : v.psi, travel = sp > 2.5 ? Math.atan2(v.v.x, v.v.z) : head, want = v.S.four && v.rev ? head : head + wrap(travel - head) * 0.35;
   c.yaw += wrap(want - c.yaw) * (snap ? 1 : 1 - Math.exp(-(2.6 + sp * 0.07) * dt));
   const fovT = 56 + clamp(sp * 0.42, 0, 17); c.fov = damp(c.fov, fovT, 3, dt); if (Math.abs(camera.fov - c.fov) > 0.05) { camera.fov = c.fov; camera.updateProjectionMatrix(); }
-  const base = v.model.group.position;
+  const base = v.model.group.position; if (v.model.glass) for (const p of v.model.glass) p.visible = !c.fp; v.rider.head.visible = !c.fp || v.crash > 0;
   if (c.fp && !(v.crash > 0)) {
     const hb = v.rider.bones.head; v.model.group.updateMatrixWorld(true); hb.getWorldPosition(c.pos); _g.e.set(v.S.four ? 0 : clamp(v.th, -0.5, 0.5) * 0.6, v.psi + c.orbit + Math.PI, 0, "YXZ"); camera.quaternion.setFromEuler(_g.e);
     _g.q.setFromAxisAngle(_g.a.set(0, 0, 1), (v.S.four ? 0 : v.phi * 0.55)); camera.quaternion.multiply(_g.q); _g.q.setFromAxisAngle(_g.a.set(1, 0, 0), -c.orbitP - 0.06); camera.quaternion.multiply(_g.q);
@@ -174,10 +174,10 @@ function updateLamps() {
     const cx = v ? v.p.x : camera.position.x, cz = v ? v.p.z : camera.position.z, cand = [];
     for (let tx = Math.floor((cx - 70) / 128); tx <= Math.floor((cx + 70) / 128); tx++) for (let tz = Math.floor((cz - 70) / 128); tz <= Math.floor((cz + 70) / 128); tz++) { const l = L.hash.get(tx * 4096 + tz); if (l) for (const i of l) { const p = L.pts[i]; cand.push([(p.x - cx) ** 2 + (p.z - cz) ** 2, p]); } }
     cand.sort((a, b) => a[0] - b[0]);
-    for (let i = 0; i < 6; i++) { const l = L.lights[i], c = cand[i]; if (c && c[0] < 80 * 80) { l.position.set(c[1].lx, c[1].ly - 0.3, c[1].lz); l.intensity = 420 * night; } else l.intensity = 0; }
+    for (let i = 0; i < 6; i++) { const l = L.lights[i], c = cand[i]; if (c && c[0] < 80 * 80) { l.position.set(c[1].lx, c[1].ly - 0.3, c[1].lz); l.intensity = 85 * night; } else l.intensity = 0; }
   } else for (const l of L.lights) l.intensity = 0;
   if (v && v.lightsOn && !(v.crash > 0)) { const G0 = v.model.group, hgt = v.S.four ? 0.85 : v.type === "scoot" ? 0.95 : 1.0, f = v.S.L * 0.5 + 0.2; _g.a.set(0, hgt, f).applyQuaternion(G0.quaternion).add(G0.position); L.head.position.copy(_g.a); _g.b.set(0, hgt - 0.9, f + 14).applyQuaternion(G0.quaternion).add(G0.position); L.head.target.position.copy(_g.b); L.head.target.updateMatrixWorld();
-    L.head.intensity = (v.type === "car" ? 5200 : v.type === "scoot" || v.type === "mtb" ? 900 : 3000) * (0.25 + 0.75 * night); } else L.head.intensity = 0;
+    L.head.intensity = (v.type === "car" ? 900 : v.type === "scoot" || v.type === "mtb" ? 220 : 600) * (0.12 + 0.88 * night * night); } else L.head.intensity = 0;
 }
 function onTimeOfDay() { if (wallMat) wallMat.emissiveIntensity = tod.night > 0.5 ? 1.5 : tod.night > 0.1 ? 0.5 : 0; for (const k in GAME.fleet) GAME.fleet[k].lightsOn = tod.night > 0.2; }
 

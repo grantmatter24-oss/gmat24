@@ -68,8 +68,8 @@ function terrainMaterial(layer) {
           vec3 litter = vec3( 0.150, 0.118, 0.080 ) * ( 0.65 + 0.7 * n1.g );
           g = mix( g, mix( litter, g * 0.6, 0.4 ), can * nearT );
           g = mix( g, g * ( 0.55 + 0.9 * n2.b ) * vec3( 0.86, 0.95, 0.80 ), can * ( 1.0 - nearT ) );
-          float turf = lo.b * ( 1.0 - can ); g = mix( g, g * vec3( 0.80, 1.05, 0.72 ), turf * 0.5 );
-          vec3 dirtC = vec3( 0.36, 0.285, 0.20 ) * ( 0.72 + 0.56 * n1.g ) * ( 0.85 + 0.3 * n2.r ); g = mix( g, dirtC, smoothstep( 0.22, 0.6, hi.g ) );
+          float turf = lo.b * ( 1.0 - can ); g = mix( g, g * vec3( 0.80, 1.05, 0.72 ), turf * 0.5 ); g *= 1.0 - 0.24 * clamp( lo.g * 1.4, 0.0, 1.0 ) * ( 1.0 - can );   // soil under the blades is darker than their tips
+          vec3 dirtC = vec3( 0.36, 0.285, 0.20 ) * ( 0.72 + 0.56 * n1.g ) * ( 0.85 + 0.3 * n2.r ); g = mix( g, dirtC, smoothstep( 0.06, 0.42, hi.g ) );
           vec3 asph = vec3( 0.130, 0.131, 0.135 ) * ( 0.82 + 0.36 * n1.b ); g = mix( g, asph, smoothstep( 0.35, 0.62, hi.r ) );
           float st = hi.b; float bld = smoothstep( 0.45, 0.8, st ); vec2 rc = floor( wxz / 14.0 ); float rh = thash( rc );
           vec3 roof = mix( vec3( 0.20, 0.185, 0.17 ), vec3( 0.42, 0.40, 0.37 ), rh ); roof = mix( roof, vec3( 0.30, 0.17, 0.12 ), step( 0.82, thash( rc + 7.0 ) ) );

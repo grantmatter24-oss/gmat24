@@ -130,7 +130,11 @@ ok = np.isfinite(dist); idx = np.where(ok, idx, 0)
 core = shw[idx]; blend = sbl[idx]
 u = np.clip((dist - core) / blend, 0, 1); cov = np.where(ok, 1 - u * u * (3 - 2 * u), 0.0)            # 1 on the road, 0 beyond the cut bank
 wgt = np.where(ok, np.exp(-np.square(np.maximum(dist - core * 0.5, 0) / (core * 0.5 + 1.5))) * (cov > 0), 0.0) + 1e-12
-target = (wgt * sh[idx]).sum(1) / wgt.sum(1); B = cov.max(1)
+# where a street passes under another (an overpass abutment), each cell belongs to the street that covers it best: the two grades
+# must not be averaged into a ramp that neither street has
+rows = np.arange(len(dist)); score = np.where(ok, cov * 1000 - dist, -1e9); bi = score.argmax(1); hb = sh[idx][rows, bi]
+wgt = wgt * (np.abs(sh[idx] - hb[:, None]) < 1.5) + 1e-12
+target = (wgt * sh[idx]).sum(1) / wgt.sum(1); B = cov[rows, bi]
 Hn = H.ravel() * (1 - B) + target * B
 print("graded cells", int((B > 0.01).sum()), "max change %.1f m, mean |change| on roads %.2f m" % (float(np.abs(Hn - H.ravel()).max()), float(np.abs(Hn - H.ravel())[B > 0.9].mean())))
 H = Hn.reshape(H.shape); del dist, idx, core, blend, u, cov, wgt, target
@@ -176,11 +180,12 @@ for _ in range(3):
                         pt = o["P"][kk] + (o["P"][kk + 1] - o["P"][kk]) * hit[1]
                         if o["bridge"] and "R" in o: j = int(np.argmin(np.hypot(*(o["R"] - pt).T))); yo = o["y"][j]
                         else: yo = float(Hany(pt[0], pt[1]))
-                        need.append((s[k] + (s[k + 1] - s[k]) * hit[0], yo + (5.6 if o["kind"] != 14 else 6.2)))
+                        need.append((s[k] + (s[k + 1] - s[k]) * hit[0], yo + (4.3 if o["kind"] != 14 else 5.0)))   # enough for anything in the game to pass beneath, without humping the freeway
         for sc, yr in need:
+            if sc < 14.0 or sc > s[-1] - 14.0: continue          # a road joining at the abutment is not something to clear
             cur = float(np.interp(sc, s, q["y"])); d = yr - cur
             if d <= 0.05: continue
-            span = max(45.0, d * 14.0); bump = np.clip(1 - np.abs(s - sc) / span, 0, 1); q["y"] = q["y"] + d * (bump * bump * (3 - 2 * bump)); lifted += 1
+            span = max(60.0, d * 24.0); bump = np.clip(1 - np.abs(s - sc) / span, 0, 1) * np.clip(s / 16.0, 0, 1) * np.clip((s[-1] - s) / 16.0, 0, 1); q["y"] = q["y"] + d * (bump * bump * (3 - 2 * bump)); lifted += 1   # never at the ends: the deck meets the road there
 print("decks", len(decks), "clearance lifts", lifted)
 
 # ---------------------------------------------------------------- hi-res ground masks (2 m, drawn at 1 m)

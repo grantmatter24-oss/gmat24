@@ -59,7 +59,7 @@ function buildMenu() {
     if (e.repeat) return; const v = GAME.v;
     if (e.code === "Escape") { if (mapOpen) toggleMap(false); else if (GAME.mode === "play") openMenu(); else if (GAME.v) $("resume").click(); return; }
     if (GAME.mode !== "play") return;
-    if (e.code === "KeyR") resetVehicle(); else if (e.code === "KeyC" || e.code === "KeyV") { GAME.cam.fp = !GAME.cam.fp; v.rider.bones.head.children.forEach(o => { o.visible = !GAME.cam.fp; }); }
+    if (e.code === "KeyR") resetVehicle(); else if (e.code === "KeyC" || e.code === "KeyV") GAME.cam.fp = !GAME.cam.fp;
     else if (e.code === "KeyM") toggleMap(!mapOpen); else if (e.code === "KeyT") { const o = ["day", "sunset", "night"], k = o[(o.indexOf(todName) + 1) % 3]; setTimeOfDay(k); store.set("laf-tod", k); markMenu(); toast(TOD[k].label, 1.5); }
     else if (e.code === "KeyH") { v.lightsOn = !v.lightsOn; } else if (e.code === "KeyU") $("unitBtn").click(); else if (e.code === "KeyX" && GAME.trial) { GAME.trial = null; toast("Route cancelled", 1.5); }
     else if (/^Digit[1-5]$/.test(e.code)) { const k = VEH_ORDER[+e.code.slice(5) - 1]; if (k !== GAME.type) { if (v.speed > 3) toast("Stop first to change machine", 2); else { GAME.cam.fp = false; selectVehicle(k, true); snapCamera(); markMenu(); toast(VEHICLES[k].name, 1.5); } } }
