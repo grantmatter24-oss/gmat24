@@ -33,10 +33,15 @@ Every footprint, height and use comes from the map; everything else is built by 
   into the ground mask, so grass, tyres and sound all agree). Houses get a garage, front door, step, porch, chimney stack,
   fascia boards, soffits and, on some south-facing planes, solar panels. Shops get glazed fronts with doors, awnings, flat
   canopies or covered walks, pilasters, parapets and roof plant. Blocks of flats get balconies.
+- Walls are boards, render or brick (three rows of one texture atlas, chosen per building; brick carries its own colour).
+  Flat roofs read as a seamed membrane, pitched roofs as shingles. Parking structures show open decks.
 - A few places are dressed for what they are, from their mapped names: the saloon has a western false front and boardwalk, the
   cinema a marquee and blade sign, supermarkets a tall entrance bay, filling stations a pump canopy.
 - The bake (`tools/build_data.py`) levels a pad under every building at the height of the street it fronts and cuts or fills the
   slope around it, so doors meet the pavement. Roofs are tinted from the Sentinel-2 image.
+
+Measured roof shapes would need the county's lidar point cloud (USGS, Contra Costa 2007). Its download server answers
+automated requests with HTTP 429, so roof types remain a per-building choice.
 
 ## Staying smooth
 

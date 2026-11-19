@@ -137,8 +137,9 @@ function stepTwo(v, inp, h) {
   const aMax = (S.mu[Math.min(2, v.surf)]) * G * 0.9, lim = Math.min(S.steer, Math.atan(S.L * aMax / Math.max(1.2, fwdSpeed * fwdSpeed)) * 1.12);
   v.steer = damp(v.steer, inp.steer * lim, S.human || S.electric ? 7 : 6, h * 4);
   const vlatB = v.v.x * cp - v.v.z * sp; let psiDot = 0;
-  if (v.contact[0]) psiDot = fwdSpeed * Math.tan(v.steer) / S.L * clamp(1 - Math.abs(vlatB) / 9, 0.35, 1); else if (v.contact[1]) psiDot = fwdSpeed * Math.tan(v.steer) / S.L * 0.3; else psiDot = v.psiDot * (1 - 0.3 * h) + inp.steer * 2.4 * h;   // in the air the bars swing the bike round slowly (a whip); only steering back straightens it
+  if (v.contact[0]) psiDot = fwdSpeed * Math.tan(v.steer) / S.L * clamp(1 - Math.abs(vlatB) / 9, 0.35, 1); else if (v.contact[1]) psiDot = fwdSpeed * Math.tan(v.steer) / S.L * 0.3; else { psiDot = v.psiDot * (1 - 0.9 * h) + inp.steer * 1.9 * h; const off = wrap(v.psi - Math.atan2(v.v.x, v.v.z)), over = Math.abs(off) - 0.55; if (over > 0 && off * psiDot > 0 && Math.hypot(v.v.x, v.v.z) > 4) psiDot *= Math.max(0, 1 - over / 0.2); }   // in the air the bars swing the bike round slowly (a whip); only steering back straightens it, and a rider never lets it go fully sideways
   if (inp.hand && v.contact[1] && Math.abs(fwdSpeed) > 3) psiDot += inp.steer * 1.1;   // locked rear wheel swings round
+  if (v.landT > 0 && nc) psiDot -= wrap(v.psi - Math.atan2(v.v.x, v.v.z)) * 3.5 * sstep(3, 8, Math.hypot(v.v.x, v.v.z));   // touching down crossed up, the tyres bite and pull the bike straight
   v.psiDot = psiDot; v.psi += psiDot * h;
   const tgt = nc ? clamp(Math.atan(fwdSpeed * psiDot / G), -0.95, 0.95) * sstep(0.6, 3, Math.abs(fwdSpeed)) : clamp(wrap(v.psi - Math.atan2(v.v.x, v.v.z)) * 1.15, -1.2, 1.2) * sstep(2, 6, Math.hypot(v.v.x, v.v.z));   // whipped, the bike lies over toward the way it is turned
   v.wphi += ((tgt - v.phi) * 70 - v.wphi * 13) * h; v.phi += v.wphi * h;
