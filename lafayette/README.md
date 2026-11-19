@@ -20,6 +20,24 @@ darts), First Mile Cycle Works (tune-up, respray, ride out on a mountain bike), 
 Department (desk, notice board) and the Acalanes High School gym (free throws). The same file parks cars in the bays along
 every mapped car-park aisle. Name boards on buildings come from Overture place data, attached to footprints in the bake.
 
+## Buildings
+
+Every footprint, height and use comes from the map; everything else is built by rule, because no photographs are used.
+
+- `src/05a_roofs.js` roofs any plan shape: each wall line climbs inward at the roof pitch and the planes meet in hips, valleys
+  and ridges (a straight skeleton, with the splits that L, T and U plans need). A side marked as a gable stays upright instead.
+  Which ends are gables is a per-house choice, not a survey. `node tools/checks/roof_test.js .` checks every footprint: the planes must cover the plan
+  exactly once; the three footprints in 16,686 that fail get a flat roof.
+- `src/05_buildings.js` builds walls bay by bay. `planFronts()` runs before the ground is drawn: it picks the wall of each house
+  that faces the street, and paves a drive from the garage door to the road and the ground in front of every shopfront (written
+  into the ground mask, so grass, tyres and sound all agree). Houses get a garage, front door, step, porch, chimney stack,
+  fascia boards, soffits and, on some south-facing planes, solar panels. Shops get glazed fronts with doors, awnings, flat
+  canopies or covered walks, pilasters, parapets and roof plant. Blocks of flats get balconies.
+- A few places are dressed for what they are, from their mapped names: the saloon has a western false front and boardwalk, the
+  cinema a marquee and blade sign, supermarkets a tall entrance bay, filling stations a pump canopy.
+- The bake (`tools/build_data.py`) levels a pad under every building at the height of the street it fronts and cuts or fills the
+  slope around it, so doors meet the pavement. Roofs are tinted from the Sentinel-2 image.
+
 ## Staying smooth
 
 The game measures its own frame rate and moves between five detail steps (resolution, grass, tree and building distance, shadow

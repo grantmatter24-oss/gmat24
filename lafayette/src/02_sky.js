@@ -40,9 +40,9 @@ const sun = new THREE.DirectionalLight(0xffffff, 3); sun.castShadow = true; scen
 sun.shadow.mapSize.set(Q.shadow, Q.shadow); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.06;
 scene.fog = new THREE.FogExp2(0x9fb7d6, 0.00004);
 const TOD = {
-  day: { label: "Day", az: 212, el: 56, sunCol: [1.0, 0.95, 0.86], sunI: 6.6, zen: [0.075, 0.20, 0.50], hor: [0.46, 0.62, 0.84], hor2: [0.46, 0.62, 0.84], glow: [1.0, 0.9, 0.7], glowK: 0.5, ground: [0.10, 0.10, 0.07],
-    fog: [0.50, 0.64, 0.82], fogSun: [0.80, 0.80, 0.74], fogD: 0.000034, fogK: 0.5, exposure: 0.54, env: 0.55, stars: 0, cloud: 0.56, cloudLit: [1.0, 0.98, 0.95], cloudDark: [0.60, 0.66, 0.76], bloom: [0.16, 0.6, 0.92], night: 0 },
-  sunset: { label: "Sunset", az: 291, el: 4.2, sunCol: [1.0, 0.50, 0.20], sunI: 5.5, zen: [0.055, 0.105, 0.27], hor: [1.0, 0.44, 0.13], hor2: [0.36, 0.27, 0.40], glow: [1.0, 0.45, 0.12], glowK: 1.6, ground: [0.05, 0.04, 0.035],
+  day: { label: "Day", az: 212, el: 56, sunCol: [1.0, 0.95, 0.86], sunI: 6.6, zen: [0.075, 0.20, 0.50], hor: [0.46, 0.62, 0.84], hor2: [0.46, 0.62, 0.84], glow: [1.0, 0.9, 0.7], glowK: 0.5, ground: [0.25, 0.26, 0.18],
+    fog: [0.50, 0.64, 0.82], fogSun: [0.80, 0.80, 0.74], fogD: 0.000034, fogK: 0.5, exposure: 0.54, env: 0.74, stars: 0, cloud: 0.56, cloudLit: [1.0, 0.98, 0.95], cloudDark: [0.60, 0.66, 0.76], bloom: [0.16, 0.6, 0.92], night: 0 },
+  sunset: { label: "Sunset", az: 291, el: 4.2, sunCol: [1.0, 0.50, 0.20], sunI: 5.5, zen: [0.055, 0.105, 0.27], hor: [1.0, 0.44, 0.13], hor2: [0.36, 0.27, 0.40], glow: [1.0, 0.45, 0.12], glowK: 1.6, ground: [0.09, 0.065, 0.05],
     fog: [0.40, 0.33, 0.38], fogSun: [1.0, 0.50, 0.20], fogD: 0.000055, fogK: 0.95, exposure: 1.0, env: 1.5, stars: 0.05, cloud: 0.5, cloudLit: [1.0, 0.52, 0.30], cloudDark: [0.30, 0.22, 0.32], bloom: [0.3, 0.7, 0.85], night: 0.25 },
   night: { label: "Night", az: 150, el: 46, sunCol: [0.55, 0.68, 1.0], sunI: 0.16, zen: [0.0035, 0.006, 0.016], hor: [0.020, 0.022, 0.034], hor2: [0.034, 0.026, 0.022], glow: [0.5, 0.6, 0.9], glowK: 0.25, ground: [0.006, 0.006, 0.008],
     fog: [0.016, 0.019, 0.030], fogSun: [0.04, 0.05, 0.08], fogD: 0.00005, fogK: 0.4, exposure: 1.5, env: 1.6, stars: 1, cloud: 0.62, cloudLit: [0.06, 0.07, 0.10], cloudDark: [0.012, 0.014, 0.022], bloom: [0.32, 0.7, 0.85], night: 1 },

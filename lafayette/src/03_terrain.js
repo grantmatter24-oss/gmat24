@@ -60,7 +60,7 @@ function terrainMaterial(layer) {
         vec4 n1 = texture2D( tNoise, wxz * 0.23 ), n2 = texture2D( tNoise, wxz * 0.037 + 0.37 ), n3 = texture2D( tNoise, wxz * 0.0047 + 0.11 );
         #ifdef T_INNER
           vec2 uvS = ( uvR * vec2( ${LOW - 1}.0, ${LOH - 1}.0 ) + 0.5 ) / vec2( ${LOW}.0, ${LOH}.0 );
-          vec3 sat = texture2D( tSat, uvS ).rgb; vec3 lo = texture2D( tLo, uvS ).rgb; vec3 hi = texture2D( tHi, uvR ).rgb;
+          vec3 sat = texture2D( tSat, uvS ).rgb; vec3 lo = texture2D( tLo, uvS ).rgb; vec4 hi4 = texture2D( tHi, uvR ); vec3 hi = hi4.rgb;
           float nearK = 1.0 - smoothstep( 40.0, 160.0, dist );
           sat = mix( vec3( dot( sat, vec3( 0.3, 0.55, 0.15 ) ) ), sat, 1.3 ); vec3 g = sat * ( 0.80 + 0.40 * n2.g ) * ( 0.90 + 0.20 * n3.a ); g *= mix( 1.0, 0.72 + 0.56 * n1.r, nearK );
           float can = smoothstep( 0.30, 0.70, lo.r + ( n2.r - 0.5 ) * 0.25 );
@@ -70,7 +70,7 @@ function terrainMaterial(layer) {
           g = mix( g, g * ( 0.55 + 0.9 * n2.b ) * vec3( 0.86, 0.95, 0.80 ), can * ( 1.0 - nearT ) );
           float turf = lo.b * ( 1.0 - can ); g = mix( g, g * vec3( 0.80, 1.05, 0.72 ), turf * 0.5 ); g *= 1.0 - 0.24 * clamp( lo.g * 1.4, 0.0, 1.0 ) * ( 1.0 - can );   // soil under the blades is darker than their tips
           vec3 dirtC = vec3( 0.36, 0.285, 0.20 ) * ( 0.72 + 0.56 * n1.g ) * ( 0.85 + 0.3 * n2.r ); g = mix( g, dirtC, smoothstep( 0.06, 0.42, hi.g ) );
-          vec3 asph = vec3( 0.130, 0.131, 0.135 ) * ( 0.82 + 0.36 * n1.b ); g = mix( g, asph, smoothstep( 0.35, 0.62, hi.r ) );
+          vec3 asph = vec3( 0.130, 0.131, 0.135 ) * ( 0.82 + 0.36 * n1.b ); asph = mix( asph, vec3( 0.44, 0.43, 0.40 ) * ( 0.86 + 0.28 * n1.b ), smoothstep( 0.25, 0.6, 1.0 - hi4.a ) ); g = mix( g, asph, smoothstep( 0.35, 0.62, hi.r ) );
           float st = hi.b; float bld = smoothstep( 0.45, 0.8, st ); vec2 rc = floor( wxz / 14.0 ); float rh = thash( rc );
           vec3 roof = mix( vec3( 0.20, 0.185, 0.17 ), vec3( 0.42, 0.40, 0.37 ), rh ); roof = mix( roof, vec3( 0.30, 0.17, 0.12 ), step( 0.82, thash( rc + 7.0 ) ) );
           g = mix( g, mix( vec3( 0.20, 0.19, 0.175 ), roof, smoothstep( uBldFar * 0.82, uBldFar, dist ) ), bld );

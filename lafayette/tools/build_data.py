@@ -135,7 +135,7 @@ pieces = split; print("bridges implied by the survey", implied)
 # road surface profile: the lidar along the centreline, smoothed, then stamped into the height grid so every street is graded flat
 # across its width the way the real one is
 SIG = {0: 14, 1: 10, 2: 9, 3: 9, 4: 8, 5: 7, 6: 5, 7: 4, 8: 4, 9: 5, 12: 6, 14: 14}
-sx, sz, sh, shw, sbl = [], [], [], [], []; sn = []
+sx, sz, sh, shw, sbl = [], [], [], [], []; sn = []; skd = []
 for q in pieces:
     k = q["kind"]
     if k not in SIG or q["bridge"]: continue
@@ -145,8 +145,8 @@ for q in pieces:
     if not m.any(): continue
     h = bil(H, X0, Z0, CELL, R[:, 0], R[:, 1]); h = ndimage.gaussian_filter1d(h, SIG[k] / 2.0, mode="nearest")
     hw = q["w"] / 2; core = hw + (1.5 if k != 9 else 0.3); blend = max(5.0, hw) if k != 9 else 3.5
-    sn.append(int(m.sum())); sx.append(R[m, 0]); sz.append(R[m, 1]); sh.append(h[m]); shw.append(np.full(m.sum(), core)); sbl.append(np.full(m.sum(), blend))
-sx, sz, sh, shw, sbl = [np.concatenate(a) for a in (sx, sz, sh, shw, sbl)]
+    sn.append(int(m.sum())); skd.append(np.full(int(m.sum()), k)); sx.append(R[m, 0]); sz.append(R[m, 1]); sh.append(h[m]); shw.append(np.full(m.sum(), core)); sbl.append(np.full(m.sum(), blend))
+sx, sz, sh, shw, sbl = [np.concatenate(a) for a in (sx, sz, sh, shw, sbl)]; skd = np.concatenate(skd)
 tree = cKDTree(np.stack([sx, sz], 1)); K = 10
 dist, idx = tree.query(np.stack([gx.ravel(), gz.ravel()], 1), k=K, distance_upper_bound=34.0, workers=-1)
 ok = np.isfinite(dist); idx = np.where(ok, idx, 0)
@@ -175,6 +175,36 @@ rows = np.arange(len(dist)); bi = np.where(ok, cov * 1000 - dist, -1e9).argmax(1
 wgt = wgt * (np.abs(sh2[idx] - hb[:, None]) < 1.5) + 1e-12
 B = cov[rows, bi]; H = (H.ravel() * (1 - B) + (wgt * sh2[idx]).sum(1) / wgt.sum(1) * B).reshape(H.shape); del dist, idx, core, blend, u, cov, wgt
 print("second grading pass: largest change %.2f m" % float(np.abs(bil(H, X0, Z0, CELL, sx, sz) - hs).max()))
+# building pads: every building stands on level ground at the height of the street it fronts, cut into the slope behind it or
+# filled out in front, the way the real lots were graded. Streets keep their own grade.
+import shapely
+from shapely.geometry import Polygon as _Poly
+fm = np.isin(skd, [2, 3, 4, 5, 6, 7, 8]); treeF = cKDTree(np.stack([sx[fm], sz[fm]], 1)); shF = sh2[fm]
+num = np.zeros(H.shape); den = np.zeros(H.shape); mxw = np.zeros(H.shape); npad = 0; cut_max = 0.0
+for f in load("building"):
+    if f["properties"].get("is_underground") in (True, "True", "true"): continue
+    g = f["geometry"]; co = g["coordinates"][0] if g["type"] == "Polygon" else max(g["coordinates"], key=lambda c: len(c[0]))[0] if g["type"] == "MultiPolygon" else None
+    if co is None or len(co) < 4: continue
+    P = xz(co)
+    if not inb(P[:, 0].mean(), P[:, 1].mean(), -10): continue
+    try:
+        poly = _Poly(P)
+        if not poly.is_valid: poly = poly.buffer(0)
+        if poly.is_empty or poly.geom_type != "Polygon" or poly.area < 12: continue
+    except Exception: continue
+    bx0, bz0, bx1, bz1 = poly.bounds
+    i0 = max(0, int(np.floor((bx0 - 9 - X0) / CELL))); i1 = min(NX - 1, int(np.ceil((bx1 + 9 - X0) / CELL))); j0 = max(0, int(np.floor((bz0 - 9 - Z0) / CELL))); j1 = min(NZ - 1, int(np.ceil((bz1 + 9 - Z0) / CELL)))
+    if i1 < i0 or j1 < j0: continue
+    mxg, mzg = np.meshgrid(X0 + np.arange(i0, i1 + 1) * CELL, Z0 + np.arange(j0, j1 + 1) * CELL)
+    d = shapely.distance(poly, shapely.points(mxg.ravel(), mzg.ravel())).reshape(mxg.shape); w = np.clip(1 - (d - 2) / 7, 0, 1); w = w * w * (3 - 2 * w)
+    ring = np.asarray(poly.exterior.coords)[:-1]; bp = np.concatenate([ring, (ring + np.roll(ring, -1, 0)) / 2]); Ln = float(np.median(bil(H, X0, Z0, CELL, bp[:, 0], bp[:, 1])))
+    dd, ii = treeF.query(bp, k=1, distance_upper_bound=24.0); okb = np.isfinite(dd); Lp = Ln
+    if okb.any(): Lp = float(np.median(shF[ii[okb & (dd <= dd[okb].min() + 5)]]))
+    lim = 2.5 + math.sqrt(poly.area) / 15; Lp = min(max(Lp, Ln - lim), Ln + lim); cut_max = max(cut_max, abs(Lp - Ln))
+    num[j0:j1 + 1, i0:i1 + 1] += w * Lp; den[j0:j1 + 1, i0:i1 + 1] += w; mxw[j0:j1 + 1, i0:i1 + 1] = np.maximum(mxw[j0:j1 + 1, i0:i1 + 1], w); npad += 1
+kpad = mxw * (1 - B.reshape(H.shape)); Hp = np.where(den > 1e-6, num / np.maximum(den, 1e-6), H); dH = (Hp - H) * kpad
+print("building pads", npad, "cells moved", int((np.abs(dH) > 0.05).sum()), "largest %.2f m, mean |move| under buildings %.2f m, largest pad offset %.1f m" % (float(np.abs(dH).max()), float(np.abs(dH)[mxw > 0.99].mean()), cut_max))
+H = H + dH; del num, den, mxw, kpad, Hp, dH
 # seam: the outer 120 m of the playable grid eases onto the coarse surrounding surface so the two meshes share an edge
 edge = np.minimum(np.minimum(gx - X0, X1 - gx), np.minimum(gz - Z0, Z1 - gz)); t = np.clip(edge / 120.0, 0, 1); t = t * t * (3 - 2 * t)
 H = bil(Hmid, -MR, -MR, MC, gx, gz) * (1 - t) + H * t
@@ -273,7 +303,7 @@ BK = {"house": 0, "detached": 0, "residential": 0, "semidetached_house": 0, "gar
       "supermarket": 2, "apartments": 3, "school": 4, "library": 4, "fire_station": 4, "civic": 4, "church": 5, "parking": 7, "train_station": 8, "hospital": 2}
 BS = {"commercial": 2, "education": 4, "religious": 5, "civic": 4, "medical": 2, "transportation": 7, "entertainment": 2, "outbuilding": 1, "industrial": 2, "service": 2}
 b_start = [0]; b_xy = []; b_h = []; b_kind = []; ring_b = []
-nb = 0; dropped = 0; b_poly = []
+nb = 0; dropped = 0; b_poly = []; b_cen = []
 # footprints standing in a carriageway are mapping errors (machine-traced roofs over an overpass): leave them out
 from shapely.geometry import LineString
 street_lines = [LineString(q["P"]).buffer(max(0.5, q["w"] / 2 - 1.2), cap_style=2) for q in pieces if q["kind"] <= 5 and len(q["P"]) >= 2]; street_tree = STRtree(street_lines)
@@ -307,7 +337,7 @@ for f in load("building"):
             keep = [0] + [i for i in range(1, len(Q)) if (Q[i] != Q[i - 1]).any()]; Q = Q[keep]
             if len(Q) < 3: continue
             ds.polygon(px(P), fill=255 if kind != 6 else 120)
-            b_xy.append(np.concatenate([Q[:1], Q[1:] - Q[:-1]]).ravel()); b_start.append(b_start[-1] + len(Q)); b_h.append(int(round(h * 10))); b_kind.append(kind); nb += 1; b_poly.append(Polygon(P))
+            b_xy.append(np.concatenate([Q[:1], Q[1:] - Q[:-1]]).ravel()); b_start.append(b_start[-1] + len(Q)); b_h.append(int(round(h * 10))); b_kind.append(kind); nb += 1; b_poly.append(Polygon(P)); b_cen.append((cx, cz, area))
         else:
             # outside the map: just the footprint's bounding rectangle along its longest wall
             e = P[1:] - P[:-1]; L = np.hypot(e[:, 0], e[:, 1]); k = int(np.argmax(L)); ang = math.atan2(e[k, 1], e[k, 0]); c, s = math.cos(ang), math.sin(ang)
@@ -413,6 +443,9 @@ print("canopy %.3f wild grass %.3f turf %.3f" % (T4.mean(), G4.mean(), L4.mean()
 # real geometry, so the ground texture should only ever show soil and plants)
 def to_srgb(a, gain=2.9): v = np.clip(np.stack([a[2], a[1], a[0]], -1) / 10000.0 * gain, 0, 1); return v ** (1 / 2.2)
 col = to_srgb(mi); veg = np.clip(ss(0.22, 0.45, nmay) + ss(0.3, 0.5, nj), 0.02, 1)
+# roof colour as the satellite sees it, for every roof big enough to fill most of a 10 m pixel
+bc = np.array(b_cen); pi = np.clip(np.round((bc[:, 0] - X0) / 10).astype(int), 0, col.shape[1] - 1); pj = np.clip(np.round((bc[:, 1] - Z0) / 10).astype(int), 0, col.shape[0] - 1)
+b_roof = np.where((bc[:, 2] >= 110)[:, None], np.clip(col[pj, pi] * 255, 1, 255), 0).astype(np.uint8); print("roofs coloured from the image", int((bc[:, 2] >= 110).sum()), "of", len(bc))
 hard10 = np.asarray(Image.fromarray((hard * 255).astype(np.uint8)).resize((col.shape[1], col.shape[0]), Image.BOX)) / 255.0
 bright = ss(0.36, 0.6, col.mean(-1)) * (1 - ss(0.2, 0.4, nmay)); urban = np.clip(np.maximum(hard10 * 1.6, bright), 0, 1)
 wv = veg * (1 - urban) + 1e-3
@@ -469,7 +502,7 @@ for c, arms in node_arms.items():
     a = [k for k in arms if k <= 5]
     if len(a) >= 3 and c in node_pos and inb(*node_pos[c], 100): jx.append(node_pos[c][0]); jz.append(node_pos[c][1]); jr.append(max(WID2[k] for k in a))
 put("jX", np.round(np.array(jx) * 10), "i4"); put("jZ", np.round(np.array(jz) * 10), "i4"); put("jR", np.round(np.array(jr) * 10), "u1")
-put("bStart", b_start, "u4"); put("bXY", np.concatenate(b_xy), "i4"); put("bH", b_h, "u2"); put("bKind", b_kind, "u1")
+put("bStart", b_start, "u4"); put("bXY", np.concatenate(b_xy), "i4"); put("bH", b_h, "u2"); put("bKind", b_kind, "u1"); put("bRoof", b_roof.ravel(), "u1")
 rb = np.array(ring_b); put("qX", np.round(rb[:, 0]), "i2"); put("qZ", np.round(rb[:, 1]), "i2"); put("qW", np.clip(np.round(rb[:, 2] * 2), 1, 255), "u1"); put("qD", np.clip(np.round(rb[:, 3] * 2), 1, 255), "u1")
 put("qA", np.round(rb[:, 4] / math.pi * 255), "u1"); put("qH", np.clip(np.round(rb[:, 5] * 4), 1, 255), "u1")
 put("wStart", w_start, "u4"); put("wXY", np.concatenate(w_xy), "i4"); put("wY", w_y, "f4"); put("wKind", w_kind, "u1")

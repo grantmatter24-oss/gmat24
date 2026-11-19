@@ -64,7 +64,9 @@ function stepFour(v, inp, h) {
     let comp = (gy - (cy - S.rw)) / Math.max(0.35, uy); v.contact[i] = comp > 0; if (comp <= 0) { v.comp[i] = damp(v.comp[i], 0, 20, h); v.spin[i] += fwdSpeed / S.rw * h; continue; }
     nc++; surfSum += sf; const deck = gy > H(cx, cz) + 0.3, n = deck ? _v.n.set(0, 1, 0) : groundNormal(cx, cz, _v.n);
     const rx = cx - v.p.x, ry = gy - v.p.y, rz = cz - v.p.z, vcx = v.v.x + v.w.y * rz - v.w.z * ry, vcy = v.v.y + v.w.z * rx - v.w.x * rz, vcz = v.v.z + v.w.x * ry - v.w.y * rx;
-    const vn = vcx * n.x + vcy * n.y + vcz * n.z; let N = S.k * Math.min(comp, S.travel) - S.c * (vn > 0 ? 1.45 : 0.75) * vn;   // dampers resist the rebound harder than the hit if (comp > S.travel) N += S.k * (vn < 0 ? 7 : 1.2) * (comp - S.travel) - (vn < 0 ? S.c * 2.5 * vn : 0);   // the bump stop takes the hit and gives almost nothing back if (N < 0) N = 0; if (N > m * G * 4) N = m * G * 4; v.comp[i] = Math.min(comp, S.travel + 0.03);
+    const vn = vcx * n.x + vcy * n.y + vcz * n.z; let N = S.k * Math.min(comp, S.travel) - S.c * (vn > 0 ? 1.45 : 0.75) * vn;   // dampers resist the rebound harder than the hit
+    if (comp > S.travel) N += S.k * (vn < 0 ? 7 : 1.2) * (comp - S.travel) - (vn < 0 ? S.c * 2.5 * vn : 0);   // the bump stop takes the hit and gives almost nothing back
+    if (N < 0) N = 0; if (N > m * G * 4) N = m * G * 4; v.comp[i] = Math.min(comp, S.travel + 0.03);
     const st = i < 2 ? v.steer : 0, c = Math.cos(st), s = Math.sin(st); let tx = fx * c + lx * s, ty = fy * c + ly * s, tz = fz * c + lz * s; const dn = tx * n.x + ty * n.y + tz * n.z; tx -= n.x * dn; ty -= n.y * dn; tz -= n.z * dn; const tl = Math.hypot(tx, ty, tz) || 1; tx /= tl; ty /= tl; tz /= tl;
     const sx = n.y * tz - n.z * ty, sy = n.z * tx - n.x * tz, sz = n.x * ty - n.y * tx, vlong = vcx * tx + vcy * ty + vcz * tz, vlat = vcx * sx + vcy * sy + vcz * sz, mu = S.mu[Math.min(2, sf)] * (sf === 3 ? 0.5 : 1);
     const hand = inp.hand && i >= 2, bF = (brake * S.brake * m * (i < 2 ? 0.33 : 0.17) + (hand ? m * G * 0.5 : 0));   // two thirds of the braking is at the front, so the tail stays behind
@@ -100,7 +102,7 @@ function stepFour(v, inp, h) {
 /* ---- two wheels: a body that pitches on two sprung wheels and is steered and leaned by the rider ---- */
 function stepTwo(v, inp, h) {
   const S = v.S, m = S.m, sp = Math.sin(v.psi), cp = Math.cos(v.psi), st = Math.sin(v.th), ct = Math.cos(v.th);
-  const fwdSpeed = v.v.x * sp + v.v.z * cp; v.fwd = fwdSpeed; const F = _v.F.set(0, -m * G, 0); let tau = 0, nc = 0, Nsum = 0, slip = 0, surfSum = 0;
+  const fwdSpeed = v.v.x * sp + v.v.z * cp; v.fwd = fwdSpeed; const F = _v.F.set(0, -m * G, 0); let tau = 0, nc = 0, Nsum = 0, slip = 0, surfSum = 0, bott = 0;
   let thr = inp.throttle, brake = inp.brake; const rel = v.th - (v.slope || 0); if (!S.human) thr *= 1 - sstep(0.30, 0.60, rel);   // the rider rolls off as the front comes up, and dabs the back brake before it goes over
   const dab = sstep(0.56, 0.8, rel) * m * G * 0.7, endo = sstep(-0.12, -0.4, rel); brake *= 1 - endo;
   const drive = tractive(S, fwdSpeed, thr) * (v.pw === undefined ? 1 : v.pw), back = clamp(inp.lean, -1, 1), b = S.b - back * 0.07;
@@ -111,7 +113,8 @@ function stepTwo(v, inp, h) {
     nc++; surfSum += sf; const deck = gy > H(ax, az) + 0.3, n = deck ? _v.n.set(0, 1, 0) : groundNormal(ax, az, _v.n);
     const rx = ax - v.p.x, ry = ay - r - v.p.y, rz = az - v.p.z, hx = rx * sp + rz * cp;           // lever arm along the heading
     const vcx = v.v.x - sp * v.wth * ry, vcy = v.v.y + v.wth * hx, vcz = v.v.z - cp * v.wth * ry;   // contact velocity with the pitch rate (nose-up positive)
-    const vn = vcx * n.x + vcy * n.y + vcz * n.z, k = i ? S.kr : S.kf, c = vn > 0 ? (i ? S.rbr || S.cr : S.rbf || S.cf) : (i ? S.cr : S.cf); let N = k * Math.min(pen, trav) - c * (vn < 0 && v.landT > 0 ? 2.4 : 1) * vn; if (pen > trav) N += k * (vn < 0 ? 6 : 1) * (pen - trav) - (vn < 0 ? c * 3 * vn : 0); if (N < 0) N = 0; if (N > m * G * 3.5) N = m * G * 3.5;   // landing: legs and dampers swallow it, nothing springs back v.comp[i] = Math.min(pen, trav + 0.02); Nsum += N;
+    const vn = vcx * n.x + vcy * n.y + vcz * n.z, k = i ? S.kr : S.kf, c = vn > 0 ? (i ? S.rbr || S.cr : S.rbf || S.cf) : (i ? S.cr : S.cf); let N = k * Math.min(pen, trav) - c * (v.landT > 0 ? 2.6 : 1) * vn; if (pen > trav) N += k * (vn < 0 ? 6 : 1) * (pen - trav) - (vn < 0 ? c * 3 * vn : 0); if (N < 0) N = 0; { const cap = m * G * 7 * (i ? S.L - S.b : S.b) / S.L; if (N > cap) N = cap; }   // each wheel is capped in proportion to the load it carries, so a flat landing cannot pitch the bike
+    v.comp[i] = Math.min(pen, trav + 0.02); Nsum += N; if (pen > trav + 0.06) bott = Math.max(bott, pen - trav - 0.06);   // landing: legs and dampers swallow it, nothing springs back
     let tx = sp, ty = 0, tz = cp; const dn = tx * n.x + tz * n.z; tx -= n.x * dn; ty -= n.y * dn; tz -= n.z * dn; const tl = Math.hypot(tx, ty, tz) || 1; tx /= tl; ty /= tl; tz /= tl;
     const sx = n.y * tz - n.z * ty, sy = n.z * tx - n.x * tz, sz = n.x * ty - n.y * tx, vlong = vcx * tx + vcy * ty + vcz * tz, vlat = vcx * sx + vcy * sy + vcz * sz, mu = S.mu[Math.min(2, sf)] * (sf === 3 ? 0.5 : 1);
     const lock = inp.hand && i === 1, bshare = i ? 0.42 : 0.58, bF = brake * S.brake * m * bshare + (lock ? m * G * 0.6 : 0) + (i ? dab : 0);
@@ -126,8 +129,9 @@ function stepTwo(v, inp, h) {
   const spd = v.v.length(); F.addScaledVector(v.v, -0.5 * RHO * S.cda * spd);
   const wat = waterAt(v.p.x, v.p.z); if (wat > v.p.y - S.cg + 0.3) { F.addScaledVector(v.v, -m * 3); v.wet = (v.wet || 0) + h; } else v.wet = 0;
   v.v.addScaledVector(F, h / m);
-  const I = m * S.kp * S.kp; tau += back * (nc ? m * G * 0.11 : I * 4.5); tau -= v.wth * I * (nc ? (v.landT > 0 ? 4.5 : 1.2) : 0.35); if (v.landT > 0) v.landT -= h;
-  if (nc === 0 && !back) tau += ((clamp(Math.atan2(v.v.y, Math.abs(fwdSpeed) + 1) * 0.55, -0.5, 0.5) - v.th) * 7 - v.wth * 3) * I;   // in the air the rider keeps the bike pointing along its flight
+  const I = m * S.kp * S.kp; tau += back * (nc ? m * G * 0.11 : I * 4.5); if (nc && rel > 0.7) tau -= ((rel - 0.7) * 45 + Math.max(0, v.wth) * 6) * I;   // past the balance point the rider leans in and brings the front back down
+  tau -= v.wth * I * (nc ? (v.landT > 0 ? 4.5 : 1.2) : 0.35); if (v.landT > 0) { v.landT -= h; if (nc) tau += (((v.slope || 0) - v.th) * 40 - v.wth * 10) * I; }   // touching down, the rider holds the bike square to the ground
+  if (nc === 0 && !back) tau += ((clamp(v.slope || 0, -0.6, 0.6) - v.th) * 9 - v.wth * 4) * I;   // in the air the rider sets the bike level with the ground it is coming down on, so both wheels touch together
   v.wth += tau / I * h; v.th += v.wth * h;
   // steering and lean
   const aMax = (S.mu[Math.min(2, v.surf)]) * G * 0.9, lim = Math.min(S.steer, Math.atan(S.L * aMax / Math.max(1.2, fwdSpeed * fwdSpeed)) * 1.12);
@@ -139,7 +143,8 @@ function stepTwo(v, inp, h) {
   const tgt = nc ? clamp(Math.atan(fwdSpeed * psiDot / G), -0.95, 0.95) * sstep(0.6, 3, Math.abs(fwdSpeed)) : clamp(wrap(v.psi - Math.atan2(v.v.x, v.v.z)) * 1.15, -1.2, 1.2) * sstep(2, 6, Math.hypot(v.v.x, v.v.z));   // whipped, the bike lies over toward the way it is turned
   v.wphi += ((tgt - v.phi) * 70 - v.wphi * 13) * h; v.phi += v.wphi * h;
   v.p.addScaledVector(v.v, h);
-  if (nc === 0) v.air += h; else { if (v.air > 0.12) v.landT = 0.55; if (v.air > 0.25) { v.vyLand = Math.max(v.vyLand, -v.v.y); if (Math.abs(wrap(v.psi - Math.atan2(v.v.x, v.v.z))) > 1.05 && Math.hypot(v.v.x, v.v.z) > 7) { v.crash = Math.max(v.crash, 0.01); v.why = "landed sideways"; } const sl = Math.atan((ground(v.p.x + sp, v.p.z + cp, v.p.y) - ground(v.p.x - sp, v.p.z - cp, v.p.y)) / 2); if (Math.abs(v.th - sl) > 1.25 && v.air > 0.6) { v.crash = Math.max(v.crash, 0.01); v.why = "bad landing"; } } v.air = 0; }
+  if (bott > 0) { v.p.y += bott; if (v.v.y < -0.4) v.v.y = -0.4; v.wth *= 0.85; }   // suspension used up: the frame stops dead on the ground, it neither sinks in nor bounces off
+  if (nc === 0) v.air += h; else { if (v.air > 0.12) v.landT = 0.55; if (v.air > 0.25) { v.vyLand = Math.max(v.vyLand, -v.v.y); if (Math.abs(wrap(v.psi - Math.atan2(v.v.x, v.v.z))) > 1.05 && Math.hypot(v.v.x, v.v.z) > 7) { v.crash = Math.max(v.crash, 0.01); v.why = "landed sideways"; } const sl = Math.atan((ground(v.p.x + sp, v.p.z + cp, v.p.y) - ground(v.p.x - sp, v.p.z - cp, v.p.y)) / 2); if (Math.abs(v.th - sl) > 1.05 && v.air > 0.6) { v.crash = Math.max(v.crash, 0.01); v.why = "bad landing"; } } v.air = 0; }
   if (Math.abs(rel) > 1.5) { v.crash = Math.max(v.crash, 0.01); v.why = "flipped " + rel.toFixed(2); }
   v.slip = damp(v.slip, Math.min(1, slip), 12, h); if (nc) v.surf = Math.round(surfSum / nc); v.throttle = thr; v.brake = brake; v.latAcc = fwdSpeed * psiDot;
   if (S.human) v.crank += (thr > 0 ? clamp(Math.abs(fwdSpeed) * 0.9 + 2.5, 3, 11) : 0) * h;
@@ -156,7 +161,7 @@ function stepVehicle(v, inp, dt) {
   if (v.S.four) { const R = _v.m.makeRotationFromQuaternion(v.q), e = R.elements; for (const o of [0.62, 0, -0.62]) { const lv = _v.a.set(e[8] * o * v.S.hull[2], 0, e[10] * o * v.S.hull[2]); hard = Math.max(hard, collide(v, v.p.x + lv.x, v.p.z + lv.z, v.S.hull[0], lv)); } }
   else { hard = collide(v, v.p.x + Math.sin(v.psi) * 0.45, v.p.z + Math.cos(v.psi) * 0.45, 0.3, null); hard = Math.max(hard, collide(v, v.p.x - Math.sin(v.psi) * 0.3, v.p.z - Math.cos(v.psi) * 0.3, 0.3, null)); }
   if (hard > 1) v.hit = Math.max(v.hit, hard);
-  if (!v.S.four && (hard > 11 || v.vyLand > 17)) { v.crash = 0.01; v.why = hard > 11 ? "hit something at " + hard.toFixed(1) : "landed too hard"; } v.vyLand = 0;
+  if (!v.S.four && (hard > 11 || v.vyLand > 60)) { v.crash = 0.01; v.why = hard > 11 ? "hit something at " + hard.toFixed(1) : "landed too hard"; } v.vyLand = 0;
   v.speed = Math.hypot(v.v.x, v.v.z); v.acc = damp(v.acc, (v.fwd - v0) / dt, 8, dt); updateEngine(v, dt); if (v.edge > 0) v.edge -= dt;
   // remember the last place it was the right way up on dry land, for the reset
   v.safe.t += dt; const upright = v.S.four ? v.upright > 0.7 : true;
