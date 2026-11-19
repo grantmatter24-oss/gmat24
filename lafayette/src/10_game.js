@@ -152,10 +152,10 @@ function updateFx(dt) {
 const LAMPS = { pts: [], lights: [], head: null, glow: null, hash: new Map() };
 function buildLamps() {
   const add = (x, z, kind, yaw) => { if (!inWorld(x, z, 5)) return; const k = Math.floor(x / 128) * 4096 + Math.floor(z / 128); let l = LAMPS.hash.get(k); if (!l) LAMPS.hash.set(k, l = []); l.push(LAMPS.pts.length); LAMPS.pts.push({ x, z, y: H(x, z), kind, yaw }); };
-  for (let i = 0; i < V.pKind.length; i++) if (V.pKind[i] <= 1) add(V.pX[i] / 10, V.pZ[i] / 10, V.pKind[i], 0);
-  for (const st of STRIPS) {   // the main streets are lit along their length; side streets at their corners only
+  for (let i = 0; i < V.pKind.length; i++) if (V.pKind[i] <= 1) { const [x, z] = roadPush(V.pX[i] / 10, V.pZ[i] / 10, 0.9); add(x, z, V.pKind[i], 0); }   // never in the roadway
+  for (let si = 0; si < STRIPS.length; si++) { const st = STRIPS[si];   // the main streets are lit along their length; side streets at their corners only
     if (st.kind < 2 || st.kind > 4 || (st.flag & 10)) continue; let next = 20 + hash2(st.r, 1, 9) * 30, side = hash2(st.r, 2, 9) < 0.5 ? 1 : -1;
-    for (let i = 1; i < st.n; i++) if (st.S[i] >= next) { const o = (st.w / 2 + 1.1) * side; add(st.X[i] + st.LX[i] * o, st.Z[i] + st.LZ[i] * o, 1, Math.atan2(-st.LX[i] * side, -st.LZ[i] * side)); next += st.kind === 2 ? 46 : 62; side = -side; }
+    for (let i = 1; i < st.n; i++) if (st.S[i] >= next) { const o = (st.w / 2 + 1.1) * side; if (roadClear(st.X[i] + st.LX[i] * o, st.Z[i] + st.LZ[i] * o, si, 0.7)) add(st.X[i] + st.LX[i] * o, st.Z[i] + st.LZ[i] * o, 1, Math.atan2(-st.LX[i] * side, -st.LZ[i] * side)); next += st.kind === 2 ? 46 : 62; side = -side; }
   }
   const n = LAMPS.pts.length, pole = new THREE.CylinderGeometry(0.07, 0.11, 8.2, 8); pole.translate(0, 4.1, 0); const arm = new THREE.BoxGeometry(0.09, 0.09, 2.2); arm.translate(0, 8.1, 1.0); const hd = new THREE.BoxGeometry(0.28, 0.1, 0.62); hd.translate(0, 8.05, 2.0);
   const geo = mergeGeos([pole.toNonIndexed(), arm.toNonIndexed(), hd.toNonIndexed()].map(g => { g.deleteAttribute("uv"); return g; })), im = new THREE.InstancedMesh(geo, vmat(0x55585c, 0.55, 0.6), n), m = new THREE.Matrix4();

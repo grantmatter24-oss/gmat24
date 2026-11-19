@@ -78,6 +78,29 @@ function buildStrips() {
     let i0 = 0; while (i0 < n - 1) { let i1 = i0 + 1; while (i1 < n - 1 && S[i1] - S[i0] < 110) i1++; const mi = (i0 + i1) >> 1, key = Math.floor(px[mi] / RT) * 4096 + Math.floor(pz[mi] / RT); let t = roadTiles.get(key); if (!t) roadTiles.set(key, t = { parts: [], group: null }); t.parts.push(STRIPS.length - 1, i0, i1); i0 = i1; }
   }
 }
+/* Every carriageway as short segments in a grid, so anything built beside one street can tell when it would land on another. */
+let RSEG = null;
+function buildRoadIndex() {
+  RSEG = new Map();
+  for (let si = 0; si < STRIPS.length; si++) { const st = STRIPS[si]; if (st.kind > 8 || (st.flag & 2)) continue; const hw = st.w / 2, pad = hw + 2.5;
+    for (let i = 0; i < st.n - 1; i++) { const x0 = st.X[i], z0 = st.Z[i], x1 = st.X[i + 1], z1 = st.Z[i + 1];
+      for (let cx = Math.floor((Math.min(x0, x1) - pad) / 16); cx <= Math.floor((Math.max(x0, x1) + pad) / 16); cx++) for (let cz = Math.floor((Math.min(z0, z1) - pad) / 16); cz <= Math.floor((Math.max(z0, z1) + pad) / 16); cz++) { const k = cx * 4096 + cz; let l = RSEG.get(k); if (!l) RSEG.set(k, l = []); l.push(x0, z0, x1, z1, hw, si); } } }
+}
+/* True when (x, z) is clear of every carriageway but strip si's own, by at least `margin`. */
+function roadClear(x, z, si, margin) {
+  if (!RSEG) buildRoadIndex(); const l = RSEG.get(Math.floor(x / 16) * 4096 + Math.floor(z / 16)); if (!l) return true;
+  for (let q = 0; q < l.length; q += 6) { if (l[q + 5] === si) continue; const ax = l[q], az = l[q + 1], dx = l[q + 2] - ax, dz = l[q + 3] - az, t = clamp(((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz || 1), 0, 1), ex = x - ax - dx * t, ez = z - az - dz * t, r = l[q + 4] + margin; if (ex * ex + ez * ez < r * r) return false; }
+  return true;
+}
+/* Move a point that stands in a carriageway out to the nearest kerb (signals and lamps are often mapped at the middle of the junction they serve). */
+function roadPush(x, z, margin) {
+  if (!RSEG) buildRoadIndex();
+  for (let it = 0; it < 8; it++) { const l = RSEG.get(Math.floor(x / 16) * 4096 + Math.floor(z / 16)); if (!l) break; let moved = false;
+    for (let q = 0; q < l.length; q += 6) { const ax = l[q], az = l[q + 1], dx = l[q + 2] - ax, dz = l[q + 3] - az, L2 = dx * dx + dz * dz || 1, t = clamp(((x - ax) * dx + (z - az) * dz) / L2, 0, 1); let ex = x - ax - dx * t, ez = z - az - dz * t, d = Math.hypot(ex, ez); const r = l[q + 4] + margin; if (d >= r) continue;
+      if (d < 0.05) { const L = Math.sqrt(L2); ex = -dz / L; ez = dx / L; d = 1; } x += ex / d * (r - d + 0.05); z += ez / d * (r - d + 0.05); moved = true; break; }
+    if (!moved) break; }
+  return [x, z];
+}
 function nearJunction(x, z) {
   for (let cx = Math.floor((x - 16) / 64); cx <= Math.floor((x + 16) / 64); cx++) for (let cz = Math.floor((z - 16) / 64); cz <= Math.floor((z + 16) / 64); cz++) {
     const l = junHash.get(cx * 4096 + cz); if (!l) continue; for (let q = 0; q < l.length; q += 3) { const d = l[q + 2] * 0.5 + 3.5; if ((l[q] - x) ** 2 + (l[q + 1] - z) ** 2 < d * d) return true; }
@@ -109,26 +132,28 @@ function buildRoadTile(tile) {
     }
     if (!far && !bridge && kind >= 2 && kind <= 5) {   // gutter, kerb and sidewalk: every town street has the first two, the main streets and some side streets the third
       const sw = kind < 5 ? 1.85 : hash2(Math.round(st.X[0]), Math.round(st.Z[0]), 91) < 0.42 ? 1.5 : 0.3, PR = [[hw - 0.48, 0.045, 0.70], [hw + 0.04, 0.03, 0.70], [hw + 0.06, 0.16, 0.90], [hw + 0.24, 0.16, 0.95], [hw + sw, 0.16, 0.92], [hw + sw + 0.05, -0.08, 0.80]], np = PR.length;
-      for (const sd of [1, -1]) { const b = B.concrete; let prev = -1;
-        for (let i = i0; i <= i1; i++) {
-          if (nearJunction(st.X[i], st.Z[i])) { prev = -1; continue; } const base = b.v;
-          for (const [l, dy, c] of PR) { const x = st.X[i] + st.LX[i] * l * sd, z = st.Z[i] + st.LZ[i] * l * sd; b.vert(x, H(x, z) + dy, z, 0, 1, 0, l / 1.5, st.S[i] / 1.5, c, c * 0.99, c * 0.97); }
-          if (prev >= 0) for (let k = 0; k < np - 1; k++) { if (sd > 0) b.quad(prev + k + 1, prev + k, base + k + 1, base + k); else b.quad(prev + k, prev + k + 1, base + k, base + k + 1); }
-          prev = base;
-        } }
+      const si = tile.parts[q], b = B.concrete, sta = (i, t) => { const j = Math.min(i + 1, st.n - 1); return [lerp(st.X[i], st.X[j], t), lerp(st.Z[i], st.Z[j], t), lerp(st.LX[i], st.LX[j], t), lerp(st.LZ[i], st.LZ[j], t), lerp(st.S[i], st.S[j], t)]; };
+      const okAt = (A, sd) => roadClear(A[0] + A[2] * (hw + 0.05) * sd, A[1] + A[3] * (hw + 0.05) * sd, si, 0.3) && roadClear(A[0] + A[2] * (hw + sw) * sd, A[1] + A[3] * (hw + sw) * sd, si, 0.15) && roadClear(A[0] + A[2] * (hw + sw * 0.5) * sd, A[1] + A[3] * (hw + sw * 0.5) * sd, si, 0.15);
+      const emit = (A, sd) => { const base = b.v, top = hiAt(A[0] + A[2] * (hw + sw + 1.7) * sd, A[1] + A[3] * (hw + sw + 1.7) * sd, 0) > 0.5 ? 0.05 : 0.16;   // where a drive or forecourt meets the street the kerb is dropped
+        for (const [l, dy, c] of PR) { const x = A[0] + A[2] * l * sd, z = A[1] + A[3] * l * sd; b.vert(x, H(x, z) + (dy > 0.1 ? top : dy), z, 0, 1, 0, l / 1.5, A[4] / 1.5, c, c * 0.99, c * 0.97); } return base; };
+      const link = (p0, p1, sd) => { for (let k = 0; k < np - 1; k++) { if (sd > 0) b.quad(p0 + k + 1, p0 + k, p1 + k + 1, p1 + k); else b.quad(p0 + k, p0 + k + 1, p1 + k, p1 + k + 1); } };
+      for (const sd of [1, -1]) { let prev = -1, okP = false;   // the kerb runs until it meets another carriageway and stops exactly there, so nothing is ever laid across a road
+        for (let i = i0; i <= i1; i++) { const A = sta(i, 0), ok = okAt(A, sd);
+          if (i > i0 && ok !== okP) { let lo = 0, hi = 1; for (let k = 0; k < 6; k++) { const m = (lo + hi) / 2; if (okAt(sta(i - 1, m), sd) === okP) lo = m; else hi = m; } const base = emit(sta(i - 1, okP ? lo : hi), sd); if (okP && prev >= 0) link(prev, base, sd); prev = okP ? -1 : base; }
+          if (ok) { const base = emit(A, sd); if (prev >= 0) link(prev, base, sd); prev = base; } else prev = -1; okP = ok; } }
       // street furniture met along the way: manhole covers, fire hydrants, and a stop sign with its bar where a side street meets a junction
       const disc = (x, z, r, c) => { const b = B.paint, base = b.v, y = H(x, z) + 0.06; b.vert(x, y, z, 0, 1, 0, 0, 0, c, c, c * 1.04); for (let k = 0; k < 10; k++) { const a = k / 10 * TAU; b.vert(x + Math.cos(a) * r, y, z + Math.sin(a) * r, 0, 1, 0, 0, 0, c, c, c * 1.04); } for (let k = 0; k < 10; k++) b.tri(base, base + 1 + (k + 1) % 10, base + 1 + k); };
       const post = (x, z, y0, y1, r, c) => { const b = B.paint; for (const [ax, az] of [[1, 0], [0, 1]]) for (const sg of [1, -1]) { const base = b.v, nx = az * sg, nz = -ax * sg; b.vert(x - ax * r, y0, z - az * r, nx, 0, nz, 0, 0, c[0], c[1], c[2]); b.vert(x + ax * r, y0, z + az * r, nx, 0, nz, 0, 0, c[0], c[1], c[2]); b.vert(x - ax * r, y1, z - az * r, nx, 0, nz, 0, 0, c[0], c[1], c[2]); b.vert(x + ax * r, y1, z + az * r, nx, 0, nz, 0, 0, c[0], c[1], c[2]); if (sg > 0) b.quad(base, base + 1, base + 2, base + 3); else b.quad(base + 1, base, base + 3, base + 2); } };
       for (let i = Math.max(i0, 1); i <= i1; i++) {
         if (nearJunction(st.X[i], st.Z[i])) continue; const s0 = st.S[i - 1], s1 = st.S[i];
         if (Math.floor(s0 / 64) !== Math.floor(s1 / 64)) disc(st.X[i] - st.LX[i] * hw * 0.3, st.Z[i] - st.LZ[i] * hw * 0.3, 0.36, 0.10);
-        if (Math.floor((s0 + 40) / 130) !== Math.floor((s1 + 40) / 130)) { const l = hw + (sw > 1 ? 0.55 : 0.75), x = st.X[i] + st.LX[i] * l, z = st.Z[i] + st.LZ[i] * l, y = H(x, z) + (sw > 1 ? 0.16 : 0); post(x, z, y, y + 0.62, 0.11, [0.85, 0.66, 0.08]); post(x, z, y + 0.38, y + 0.5, 0.2, [0.85, 0.66, 0.08]); post(x, z, y + 0.62, y + 0.7, 0.07, [0.6, 0.6, 0.6]); }
+        if (Math.floor((s0 + 40) / 130) !== Math.floor((s1 + 40) / 130) && roadClear(st.X[i] + st.LX[i] * (hw + 0.7), st.Z[i] + st.LZ[i] * (hw + 0.7), si, 0.6)) { const l = hw + (sw > 1 ? 0.55 : 0.75), x = st.X[i] + st.LX[i] * l, z = st.Z[i] + st.LZ[i] * l, y = H(x, z) + (sw > 1 ? 0.16 : 0); post(x, z, y, y + 0.62, 0.11, [0.85, 0.66, 0.08]); post(x, z, y + 0.38, y + 0.5, 0.2, [0.85, 0.66, 0.08]); post(x, z, y + 0.62, y + 0.7, 0.07, [0.6, 0.6, 0.6]); }
       }
       if (kind >= 4) for (const [ie, dirS] of [[i1, 1], [i0, -1]]) {   // dirS: which way traffic is heading as it reaches this end
         if (ie !== (dirS > 0 ? st.X.length - 1 : 0) || !nearJunction(st.X[ie], st.Z[ie])) continue; let k = ie; while (k !== (dirS > 0 ? i0 : i1) && nearJunction(st.X[k], st.Z[k])) k -= dirS; if (nearJunction(st.X[k], st.Z[k])) continue;
         const tx = -st.LZ[k] * dirS, tz = st.LX[k] * dirS, rx = -st.LX[k] * dirS, rz = -st.LZ[k] * dirS;   // travel direction, and the driver's right
         { const b = B.paint, base = b.v, y = H(st.X[k], st.Z[k]) + 0.062; for (const [a, c] of [[0.1, 0], [hw - 0.5, 0], [0.1, 0.42], [hw - 0.5, 0.42]]) { const x = st.X[k] + rx * a + tx * c, z = st.Z[k] + rz * a + tz * c; b.vert(x, y, z, 0, 1, 0, 0, 0, 0.9, 0.9, 0.88); } b.quad(base, base + 1, base + 2, base + 3); b.quad(base + 1, base, base + 3, base + 2); }
-        const px = st.X[k] + rx * (hw + 0.7) - tx * 0.6, pz = st.Z[k] + rz * (hw + 0.7) - tz * 0.6, py = H(px, pz); post(px, pz, py, py + 2.25, 0.035, [0.5, 0.5, 0.5]);
+        const px = st.X[k] + rx * (hw + 0.7) - tx * 0.6, pz = st.Z[k] + rz * (hw + 0.7) - tz * 0.6, py = H(px, pz); if (!roadClear(px, pz, si, 0.4)) continue; post(px, pz, py, py + 2.25, 0.035, [0.5, 0.5, 0.5]);
         const b = B.sign, base = b.v, cy = py + 2.25; b.vert(px - rx * 0.38 - tx * 0.04, cy - 0.38, pz - rz * 0.38 - tz * 0.04, -tx, 0, -tz, 1, 0); b.vert(px + rx * 0.38 - tx * 0.04, cy - 0.38, pz + rz * 0.38 - tz * 0.04, -tx, 0, -tz, 0, 0); b.vert(px - rx * 0.38 - tx * 0.04, cy + 0.38, pz - rz * 0.38 - tz * 0.04, -tx, 0, -tz, 1, 1); b.vert(px + rx * 0.38 - tx * 0.04, cy + 0.38, pz + rz * 0.38 - tz * 0.04, -tx, 0, -tz, 0, 1); b.quad(base + 1, base, base + 3, base + 2);
       }
     }

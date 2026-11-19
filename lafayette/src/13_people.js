@@ -20,7 +20,7 @@ function spawnPerson(N, c) {
   const r = Math.random, l = PEOPLE.hash.get((Math.floor(c.x / 96) + Math.floor(r() * 3) - 1) * 4096 + Math.floor(c.z / 96) + Math.floor(r() * 3) - 1); if (!l) return;
   const k = Math.floor(r() * l.length / 2) * 2, st = STRIPS[l[k]], q = l[k + 1], d = Math.hypot(st.X[q] - c.x, st.Z[q] - c.z); if (d < 38 || d > 150 || nearJunction(st.X[q], st.Z[q])) return;
   for (const M of PEOPLE.list) if (M.on && Math.hypot(M.p.x - st.X[q], M.p.z - st.Z[q]) < 9) return;
-  const street = st.kind <= 4; N.st = st; N.q = q; N.s = st.S[q]; N.dir = r() < 0.5 ? 1 : -1; N.lat = street ? (st.w / 2 + 0.75 + r() * 0.7) * (r() < 0.5 ? 1 : -1) : (r() - 0.5) * Math.min(1.4, st.w * 0.6);
+  const street = st.kind <= 4; N.si = l[k]; N.st = st; N.q = q; N.s = st.S[q]; N.dir = r() < 0.5 ? 1 : -1; N.lat = street ? (st.w / 2 + 0.75 + r() * 0.7) * (r() < 0.5 ? 1 : -1) : (r() - 0.5) * Math.min(1.4, st.w * 0.6);
   N.sp = !street && r() < 0.22 ? 2.7 + r() * 0.6 : 1.15 + r() * 0.5; N.on = true; N.dodge = 0; N.n = PEOPLE.n = (PEOPLE.n || 0) + 1;
 }
 function updatePeople(dt) {
@@ -33,6 +33,7 @@ function updatePeople(dt) {
     N.s += N.sp * N.dir * dt * (1 - 0.85 * N.dodge); while (N.q < st.n - 2 && N.s > st.S[N.q + 1]) N.q++; while (N.q > 0 && N.s < st.S[N.q]) N.q--;
     if (N.s >= st.S[st.n - 1] - 0.5 || N.s <= st.S[0] + 0.5 || nearJunction(st.X[N.q], st.Z[N.q]) && Math.random() < dt * 0.7) { N.dir = -N.dir; N.s = clamp(N.s, st.S[0] + 0.6, st.S[st.n - 1] - 0.6); }   // at the end of the block, or at a crossing, turn back
     const q = N.q, t = clamp((N.s - st.S[q]) / Math.max(0.01, st.S[q + 1] - st.S[q]), 0, 1), lat = N.lat + (N.lat < 0 ? -1 : 1) * 1.5 * N.dodge, x = lerp(st.X[q], st.X[q + 1], t) + st.LX[q] * lat, z = lerp(st.Z[q], st.Z[q + 1], t) + st.LZ[q] * lat;
+    if (st.kind <= 4 && !roadClear(x, z, N.si, 0.3)) { N.dir = -N.dir; N.s += N.sp * N.dir * dt * 3; if (N.p.x > 1e8) { N.on = false; N.R.root.visible = false; } continue; }   // nobody walks out into another street: turn back at the kerb
     const dx = (st.X[q + 1] - st.X[q]) * N.dir, dz = (st.Z[q + 1] - st.Z[q]) * N.dir, dd = Math.hypot(x - c.x, z - c.z); N.p.set(x, H(x, z) + (st.kind <= 4 && Math.abs(lat) > st.w / 2 ? 0.16 : 0.03), z);
     let yaw = Math.atan2(dx, dz); if (N.dodge > 0.3 && v) yaw = lerp(yaw, yaw + wrap(Math.atan2(v.p.x - x, v.p.z - z) - yaw), 0.6 * N.dodge);   // watching it go by
     N.yaw += wrap(yaw - N.yaw) * Math.min(1, dt * 6); N.R.root.visible = dd < 160;
