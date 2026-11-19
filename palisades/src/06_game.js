@@ -275,6 +275,7 @@ function toggleWalk() {
   const b = $("walkBtn"); if (b) b.textContent = sk.mode === "walk" ? "Ski" : "Walk";
 }
 function stepWalk(dt) {
+  if (PUB.seat) { const q = PUB.seat; sk.p.x = q.x; sk.p.z = q.z; sk.p.y = H(q.x, q.z); sk.yaw = Math.atan2(q.tx - q.x, q.tz - q.z); sk.sp = 0; sk.turn = 0; return; }   // sat at a table in the pub
   const p = sk.p, steer = ((K.spinR || K.right) ? 1 : 0) - ((K.spinL || K.left) ? 1 : 0), go = (K.up ? 1 : 0) - (K.down ? 1 : 0); sk.yaw -= steer * 1.9 * dt;
   const sA = tangent(sk.yaw); sk.slope = sA; readSurface();
   let v = go > 0 ? (K.boost ? 3.9 : 2.5) : go < 0 ? -1.4 : 0; v *= clamp(1 - Math.sin(sA) * go * 0.9, 0.45, 1.2) * (1 - 0.25 * sk.surf.powder);   // slower up the steeps and in deep snow
@@ -436,6 +437,7 @@ function poseRider(R, q, keys, slope, dt, time, snap) {
   if (walking) { const mv = clamp(q.sp / 1.2, 0, 1), ph = q.walkPh || 0; R.legs.forEach((l, i) => { const sw = Math.sin(ph + i * Math.PI) * 0.5 * mv; l.hip.rotation.x += sw; l.knee.rotation.x -= Math.max(0, -Math.cos(ph + i * Math.PI)) * 0.55 * mv; const sg = R.skiG[i]; sg.position.z -= Math.sin(sw) * 0.82; sg.position.y += Math.max(0, -Math.cos(ph + i * Math.PI)) * 0.12 * mv; sg.rotation.x = 0; sg.rotation.z = 0; }); }
   if (walking) { const mv = clamp(q.sp / 1.2, 0, 1), ph = q.walkPh || 0, run = clamp((q.sp - 2.6) / 1.2, 0, 1);   // on foot your hands are empty: no skis, no poles, and your arms swing against your legs
     R.skiG.forEach(sg => { sg.visible = false; }); R.arms.forEach((a, i) => { const sw = Math.sin(ph + (i ? 0 : Math.PI)) * (0.42 + 0.35 * run) * mv; a.pole.visible = false; a.sh.rotation.set(sw, 0, (i ? 1 : -1) * 0.1); a.el.rotation.set(0.22 + 0.9 * run + Math.max(0, sw) * 0.5, 0, 0); }); }
+  if (q.sit && walking) pubPose(R, q); else if (R.stein) R.stein.visible = false;
   const wob = q.stumT > 0 && !q.crashed ? Math.min(1, q.stumT / 0.9) : 0, seated = q.mode === "lift";
   R.pivot.rotation.x = (q.crashed ? q.rot : q.ground ? 0 : q.rot - 0) + wob * (0.28 * Math.sin(time * 9) - 0.12) - (seated ? 0.25 : 0);
   R.pivot.rotation.z = (q.crashed ? q.tumZ : -(R.pose.vt !== undefined ? R.pose.vt : q.turn) * (0.3 + 0.32 * q.carve) * (q.air ? 0.3 : 1)) + (wob ? wob * (q.stumD || 1) * 0.45 * Math.sin(time * 12) : 0);
@@ -452,13 +454,15 @@ function updateRig(dt, time) {
   if (sk.lost && !sk.crashed) { clearLoose(); sk.lost = false; }
   if (sk.crashed) R.hold.position.y += 0.22 + (sk.crashHop || 0);
   if (sk.shopIn && R.hold.position.y < sk.shopIn.floorY) R.hold.position.y = sk.shopIn.floorY;   // on the shop's floor, not the ground under it
+  if (sk.sit) pubSeatY(R);
   { const on = sk.mode === "ski" && sk.ground && !sk.crashed, want = on || sk.crashed ? rockLift(sk.p.x, sk.p.z) : 0; sk.rkLift = (sk.rkLift || 0) + (want - (sk.rkLift || 0)) * Math.min(1, 9 * dt);   // the rock stands out from the surveyed slope: ride on its surface, not inside it
     R.hold.position.y += sk.rkLift + (on ? sk.surf.rock * 0.03 * Math.sin(time * 61) * clamp(sk.sp / 8, 0, 1) : 0); }
   // Powder: you ride in the snow, not on it. Deeper when slow, floating up as you pick up speed; skis and boots go under the surface.
   { const want = (sk.mode === "ski" || sk.mode === "walk") && sk.ground && !sk.crashed && !sk.shopIn ? (sk.surf.deep || 0) * (sk.mode === "walk" ? 0.26 : 0.11 + 0.11 * (1 - clamp(sk.sp / 14, 0, 1))) : 0; sk.sink = (sk.sink || 0) + (want - (sk.sink || 0)) * Math.min(1, 6 * dt); R.hold.position.y -= sk.sink; }
-  R.head.visible = !(fpv && !cabin);
+  R.head.visible = !(fpv && !cabin && !sk.sit);
 }
 function updateCamera(dt) {
+  if (PUB.seat) { pubCam(dt); return; }
   const p = sk.p, sp = sk.sp, onLift = sk.mode === "lift", cabin = onLift && !sk.lift.carpet && !sk.lift.type.startsWith("chair");
   if (!look.drag) { look.idle += dt; if (look.idle > 1.2 && (sp > 2 || onLift)) { const k = Math.exp(-2.5 * dt); look.yaw *= k; look.pit *= k; } }
   const vh = Math.hypot(sk.v.x, sk.v.z); let heading = sk.yaw;

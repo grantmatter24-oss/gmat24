@@ -178,7 +178,7 @@
       <dt>Shift + turn</dt><dd>Slash: a hard, sharp turn that scrubs speed and throws snow</dd>
       <dt>J</dt><dd>Brake</dd>
       <dt>E</dt><dd>Load a lift, enter a competition, or get on and off a snowmobile (parked beside the Base to Base gondola): W throttle, S brake and reverse, A D steer. Each carries two: if a friend is driving, E puts you on the back</dd>
-      <dt>Village</dt><dd>The shops on the cobbled plaza are real rooms: ski or walk in through the open door. In Parallel Mountain Sports (nearest the lifts), The Ski Wall (designer wide skis) and The Goggle Shop (nearest the Base to Base) press E to browse, pick things up, then pay at the counter with trick points or run out holding Shift: the owner chases you for ten seconds, and if you are caught it goes back. What you get goes in your locker (Outfit)</dd>
+      <dt>Village</dt><dd>The shops on the cobbled plaza are real rooms: ski or walk in through the open door. In Parallel Mountain Sports (nearest the lifts), The Ski Wall (designer wide skis) and The Goggle Shop (nearest the Base to Base) press E to browse, pick things up, then pay at the counter with trick points or run out holding Shift: the owner chases you for ten seconds, and if you are caught it goes back. What you get goes in your locker (Outfit) In The Auld Dubliner order as many pints as you like at the bar (E each), press E by a chair to sit, then E drinks one from the stein. Every second pint the room sways for three seconds.</dd>
       <dt>L</dt><dd>Competitions: venues, leaderboards, trophies and what they unlock. Press E under a start arch to enter a heat</dd>
       <dt>Space</dt><dd>Hold to charge a jump (the bar fills), release to pop. In the air, hold for a tail grab. On a rail it pops you off</dd>
       <dt>Q · E · C · F</dt><dd>Japan, nose, indy and safety grabs in the air. X is also a nose grab</dd>
@@ -2347,6 +2347,7 @@ function toggleWalk() {
   const b = $("walkBtn"); if (b) b.textContent = sk.mode === "walk" ? "Ski" : "Walk";
 }
 function stepWalk(dt) {
+  if (PUB.seat) { const q = PUB.seat; sk.p.x = q.x; sk.p.z = q.z; sk.p.y = H(q.x, q.z); sk.yaw = Math.atan2(q.tx - q.x, q.tz - q.z); sk.sp = 0; sk.turn = 0; return; }   // sat at a table in the pub
   const p = sk.p, steer = ((K.spinR || K.right) ? 1 : 0) - ((K.spinL || K.left) ? 1 : 0), go = (K.up ? 1 : 0) - (K.down ? 1 : 0); sk.yaw -= steer * 1.9 * dt;
   const sA = tangent(sk.yaw); sk.slope = sA; readSurface();
   let v = go > 0 ? (K.boost ? 3.9 : 2.5) : go < 0 ? -1.4 : 0; v *= clamp(1 - Math.sin(sA) * go * 0.9, 0.45, 1.2) * (1 - 0.25 * sk.surf.powder);   // slower up the steeps and in deep snow
@@ -2508,6 +2509,7 @@ function poseRider(R, q, keys, slope, dt, time, snap) {
   if (walking) { const mv = clamp(q.sp / 1.2, 0, 1), ph = q.walkPh || 0; R.legs.forEach((l, i) => { const sw = Math.sin(ph + i * Math.PI) * 0.5 * mv; l.hip.rotation.x += sw; l.knee.rotation.x -= Math.max(0, -Math.cos(ph + i * Math.PI)) * 0.55 * mv; const sg = R.skiG[i]; sg.position.z -= Math.sin(sw) * 0.82; sg.position.y += Math.max(0, -Math.cos(ph + i * Math.PI)) * 0.12 * mv; sg.rotation.x = 0; sg.rotation.z = 0; }); }
   if (walking) { const mv = clamp(q.sp / 1.2, 0, 1), ph = q.walkPh || 0, run = clamp((q.sp - 2.6) / 1.2, 0, 1);   // on foot your hands are empty: no skis, no poles, and your arms swing against your legs
     R.skiG.forEach(sg => { sg.visible = false; }); R.arms.forEach((a, i) => { const sw = Math.sin(ph + (i ? 0 : Math.PI)) * (0.42 + 0.35 * run) * mv; a.pole.visible = false; a.sh.rotation.set(sw, 0, (i ? 1 : -1) * 0.1); a.el.rotation.set(0.22 + 0.9 * run + Math.max(0, sw) * 0.5, 0, 0); }); }
+  if (q.sit && walking) pubPose(R, q); else if (R.stein) R.stein.visible = false;
   const wob = q.stumT > 0 && !q.crashed ? Math.min(1, q.stumT / 0.9) : 0, seated = q.mode === "lift";
   R.pivot.rotation.x = (q.crashed ? q.rot : q.ground ? 0 : q.rot - 0) + wob * (0.28 * Math.sin(time * 9) - 0.12) - (seated ? 0.25 : 0);
   R.pivot.rotation.z = (q.crashed ? q.tumZ : -(R.pose.vt !== undefined ? R.pose.vt : q.turn) * (0.3 + 0.32 * q.carve) * (q.air ? 0.3 : 1)) + (wob ? wob * (q.stumD || 1) * 0.45 * Math.sin(time * 12) : 0);
@@ -2524,13 +2526,15 @@ function updateRig(dt, time) {
   if (sk.lost && !sk.crashed) { clearLoose(); sk.lost = false; }
   if (sk.crashed) R.hold.position.y += 0.22 + (sk.crashHop || 0);
   if (sk.shopIn && R.hold.position.y < sk.shopIn.floorY) R.hold.position.y = sk.shopIn.floorY;   // on the shop's floor, not the ground under it
+  if (sk.sit) pubSeatY(R);
   { const on = sk.mode === "ski" && sk.ground && !sk.crashed, want = on || sk.crashed ? rockLift(sk.p.x, sk.p.z) : 0; sk.rkLift = (sk.rkLift || 0) + (want - (sk.rkLift || 0)) * Math.min(1, 9 * dt);   // the rock stands out from the surveyed slope: ride on its surface, not inside it
     R.hold.position.y += sk.rkLift + (on ? sk.surf.rock * 0.03 * Math.sin(time * 61) * clamp(sk.sp / 8, 0, 1) : 0); }
   // Powder: you ride in the snow, not on it. Deeper when slow, floating up as you pick up speed; skis and boots go under the surface.
   { const want = (sk.mode === "ski" || sk.mode === "walk") && sk.ground && !sk.crashed && !sk.shopIn ? (sk.surf.deep || 0) * (sk.mode === "walk" ? 0.26 : 0.11 + 0.11 * (1 - clamp(sk.sp / 14, 0, 1))) : 0; sk.sink = (sk.sink || 0) + (want - (sk.sink || 0)) * Math.min(1, 6 * dt); R.hold.position.y -= sk.sink; }
-  R.head.visible = !(fpv && !cabin);
+  R.head.visible = !(fpv && !cabin && !sk.sit);
 }
 function updateCamera(dt) {
+  if (PUB.seat) { pubCam(dt); return; }
   const p = sk.p, sp = sk.sp, onLift = sk.mode === "lift", cabin = onLift && !sk.lift.carpet && !sk.lift.type.startsWith("chair");
   if (!look.drag) { look.idle += dt; if (look.idle > 1.2 && (sp > 2 || onLift)) { const k = Math.exp(-2.5 * dt); look.yaw *= k; look.pit *= k; } }
   const vh = Math.hypot(sk.v.x, sk.v.z); let heading = sk.yaw;
@@ -2620,6 +2624,9 @@ function updateHUD(dt) {
   const pr = $("prompt"), lb = $("liftBar");
   if (sk.mode === "ski" && COMP.near && !COMP.run) { pr.hidden = false; pr.innerHTML = "<kbd>E</kbd> Enter the " + COMP.near.name; }
   else if (sk.shopIn && isGear(sk.shopIn)) { pr.hidden = false; pr.innerHTML = nearCounter && basket.length ? "<kbd>E</kbd> Pay " + basketTotal().toLocaleString() + " pts" : "<kbd>E</kbd> Browse" + (basket.length ? " · carrying " + basket.length + " (" + basketTotal().toLocaleString() + " pts): pay at the counter, or run with Shift" : ""); }
+  else if (PUB.seat) { pr.hidden = false; pr.innerHTML = PUB.sip > 0 ? "Sláinte" : PUB.beers > 0 ? "<kbd>E</kbd> Drink · " + PUB.beers + (PUB.beers === 1 ? " pint" : " pints") + " on the table · move to stand up" : "Glass empty · move to stand up, order more at the bar"; }
+  else if (nearSeat) { pr.hidden = false; pr.innerHTML = "<kbd>E</kbd> Sit down" + (PUB.beers ? " with your " + (PUB.beers === 1 ? "pint" : PUB.beers + " pints") : ""); }
+  else if (nearCounter && nearCounter.pub) { pr.hidden = false; pr.innerHTML = "<kbd>E</kbd> Order a pint" + (PUB.beers ? " · " + PUB.beers + " poured, take a seat at a table" : ""); }
   else if (nearCounter) { pr.hidden = false; pr.innerHTML = "<kbd>E</kbd> Order"; }
   else if (sk.mode === "sled") { pr.hidden = false; pr.innerHTML = sk.sledRole === 2 ? "<kbd>E</kbd> Hop off" : "<kbd>E</kbd> Get off the snowmobile"; }
   else if (sk.mode === "ski" && nearSled && !COMP.run) { pr.hidden = false; pr.innerHTML = sledDriver(nearSled) ? "<kbd>E</kbd> Hop on the back" : "<kbd>E</kbd> Ride the snowmobile"; }
@@ -2751,6 +2758,7 @@ function initInput() {
     else if (key === "n") { muted = !muted; store.set("pal-mute", muted); toast(muted ? "Sound off" : "Sound on", 1.2); }
     else if (key === "r") { rewKey = !COMP.run; if (COMP.run) toast("No rewinding in a competition", 1.5); }
     else if (key === "e" && sk.mode === "ski" && COMP.near && !COMP.run && sk.ground) compEnter(COMP.near);
+    else if (key === "e" && (PUB.seat || nearSeat)) pubUse();
     else if (key === "e" && (nearCounter || isGear(sk.shopIn))) shopUse();
     else if (key === "e" && (sk.mode === "sled" || (sk.mode === "ski" && nearSled && !COMP.run))) sledToggle();
     else if (key === "e" && sk.mode === "ski" && nearLift && sk.ground && !COMP.run) { if (liftLocked(nearLift)) toast(nearLift.name + " is locked", 2); else boardLift(nearLift); }
@@ -2798,7 +2806,7 @@ const MP = { myName: String(store.get("pal-name", "") || "").slice(0, 20), room:
 const r2 = v => Math.round(v * 100) / 100;
 function mpPack() {
   let k = 0; MP_KEYS.forEach((n, i) => { if (K[n]) k |= 1 << i; });
-  const o = mpPack0(k); if (MP.myName) o.nm = MP.myName; if (sk.mode === "sled" && sk.sled) { o.sdi = SLEDS.indexOf(sk.sled); o.sdr = sk.sledRole || 1; } if (sk.shopIn) o.shop = sk.shopIn.name; return o;
+  const o = mpPack0(k); if (MP.myName) o.nm = MP.myName; if (sk.mode === "sled" && sk.sled) { o.sdi = SLEDS.indexOf(sk.sled); o.sdr = sk.sledRole || 1; } if (sk.shopIn) o.shop = sk.shopIn.name; if (sk.sit) o.sit = +(1 + (sk.sipK || 0)).toFixed(2); return o;
 }
 function mpPack0(k) {
   return { v: 2, res: "palisades", id: MP.myId, play: sk.mode !== "menu", x: r2(sk.p.x), y: r2(sk.p.y), z: r2(sk.p.z), yaw: r2(sk.yaw), spin: r2(sk.spin), rot: r2(sk.rot), rotV: r2(sk.rotV), sw: !!sk.sw, gr: !!sk.ground, cr: !!sk.crashed, tz: r2(sk.tumZ), turn: r2(sk.turn), carve: r2(sk.carve), sp: r2(sk.sp), chg: r2(sk.chg), st: r2(Math.max(0, sk.stumT)), k, md: sk.mode, gd: sk.grind ? 1 : 0, wp: r2(sk.walkPh || 0), li: sk.lift ? sk.lift.id : -1, sl: r2(sk.slope), sc: sk.pts, vt: Math.round(sk.vert),
@@ -2855,7 +2863,7 @@ function poseRemote(r, dt, time, a) { // stand a rider (a friend, or a competiti
     const jump = !r.q || Math.hypot(st.x - r.q.p.x, st.z - r.q.p.z) > 30;
     if (jump) r.q = { p: new THREE.Vector3(st.x, st.y, st.z), yaw: st.yaw, spin: st.spin, rot: st.rot, grind: null, boxT: 0, bike: false, finished: false, bikeJump: false, pumpT: 0, landT: 0, popT: 0, airT: 1, vx: 0, vs: 0 };
     const q = r.q; q.p.x += (st.x - q.p.x) * a; q.p.y += (st.y - q.p.y) * a; q.p.z += (st.z - q.p.z) * a; q.yaw += wrap(st.yaw - q.yaw) * a; q.spin += (st.spin - q.spin) * a; q.rot += (st.rot - q.rot) * a;
-    q.rotV = st.rotV || 0; q.sw = st.sw; q.ground = st.gr; q.air = !st.gr && st.md === "ski"; q.crashed = st.cr; q.tumZ = st.tz || 0; q.turn = st.turn; q.carve = st.carve; q.sp = st.sp; q.vs = st.sp; q.chg = L && L.type.startsWith("chair") ? 0.85 : st.md === "sled" ? 0 : st.chg || 0; q.stumT = st.st || 0; q.stumD = 1; q.mode = st.md; q.walkPh = st.wp || 0; q.grind = st.gd ? 1 : null;
+    q.rotV = st.rotV || 0; q.sw = st.sw; q.ground = st.gr; q.air = !st.gr && st.md === "ski"; q.crashed = st.cr; q.tumZ = st.tz || 0; q.turn = st.turn; q.carve = st.carve; q.sp = st.sp; q.vs = st.sp; q.chg = L && L.type.startsWith("chair") ? 0.85 : st.md === "sled" ? 0 : st.chg || 0; q.stumT = st.st || 0; q.stumD = 1; q.mode = st.md; q.sit = st.sit >= 1; q.sipK = q.sit ? clamp(st.sit - 1, 0, 1) : 0; q.walkPh = st.wp || 0; q.grind = st.gd ? 1 : null;
     MP_KEYS.forEach((n, i) => { r.keys[n] = st.k & (1 << i) ? 1 : 0; }); if (q.ground) { r.keys.boost = r.keys.up; r.keys.up = 0; } else r.keys.boost = 0;   // on snow W is the tuck, as it is for you: other riders do not nose butter along
     poseRider(R, q, st.md === "ski" ? r.keys : NOKEYS, st.sl || 0, dt, time, jump); if (L && L.type.startsWith("chair")) R.hold.position.y += 0.2;
     if (st.md === "sled") { // another player on a snowmobile: the driver's state moves the machine itself; both riders sit on its seat
@@ -3151,9 +3159,10 @@ function planShops() { // before the buildings are built: choose the shop fronts
     if (par && nb && nb !== par) { const t = [nb.name, nb.kind]; nb.name = par.name; nb.kind = par.kind; par.name = t[0]; par.kind = t[1]; }
     const gd = WORLD.lifts.find(l => l.t === "gondola"); if (gd) { let gb = null, gdd = 1e9; for (const q of SHOPS) { if (q.name === "Parallel Mountain Sports") continue; const d = Math.hypot(q.dx - gd.pts[0][0], q.dz - gd.pts[0][1]); if (d < gdd) { gdd = d; gb = q; } } if (gb) { gb.name = "The Goggle Shop"; gb.kind = "goggle"; } }   // the front shop nearest the Base to Base
     { const sw = SHOPS.find(q => q.name === "Estelle Sports") || SHOPS.find(q => !isGear(q) && q.kind !== "bar"); if (sw) { sw.name = "The Ski Wall"; sw.kind = "skiwall"; } }   // a shop of nothing but skis
+    { const pb = SHOPS.find(q => q.name === "Auld Dubliner") || SHOPS.find(q => q.kind === "bar"); if (pb) { pb.pub = true; pb.name = "The Auld Dubliner"; pb.seats = []; } }   // the Irish pub: order pints, sit and drink them
     // the gear shops get as much floor as their building can give them
     const clear = (s, hw, D) => { for (let k = 0; k <= 8; k++) { const f = k / 8; for (const q of [[-hw, 0.4 + f * D], [hw, 0.4 + f * D], [(-1 + 2 * f) * hw, D + 0.3]]) { const x = s.dx + s.tx * q[0] + s.nx * q[1], z = s.dz + s.tz * q[0] + s.nz * q[1]; if (!inPoly(s.bd.p, x, z) || SHOPS.some(o => o !== s && shopInside({ dx: o.dx, dz: o.dz, tx: o.tx, tz: o.tz, nx: o.nx, nz: o.nz, hw: o.hw + 0.6, D: o.D + 0.6 }, x, z))) return false; } } return true; };
-    for (const s of SHOPS) { if (!isGear(s)) continue; const maxD = s.kind === "goggle" ? 11 : s.kind === "skiwall" ? 13 : 16, maxW = s.kind === "goggle" ? 6 : s.kind === "skiwall" ? 7.5 : 8.5; let grew = true; while (grew) { grew = false; if (s.D + 0.5 <= maxD && clear(s, s.hw, s.D + 0.5)) { s.D += 0.5; grew = true; } if (s.hw + 0.4 <= maxW && clear(s, s.hw + 0.4, s.D)) { s.hw += 0.4; grew = true; } }
+    for (const s of SHOPS) { if (!isGear(s) && !s.pub) continue; const maxD = s.kind === "goggle" ? 11 : s.kind === "skiwall" || s.pub ? 13 : 16, maxW = s.kind === "goggle" ? 6 : s.kind === "skiwall" || s.pub ? 7.5 : 8.5; let grew = true; while (grew) { grew = false; if (s.D + 0.5 <= maxD && clear(s, s.hw, s.D + 0.5)) { s.D += 0.5; grew = true; } if (s.hw + 0.4 <= maxW && clear(s, s.hw + 0.4, s.D)) { s.hw += 0.4; grew = true; } }
       let fy = -1e9; for (const u of [-1, 0, 1]) for (const w of [-1.2, 0.2, s.D / 2, s.D]) fy = Math.max(fy, H(s.dx + s.tx * u * s.hw + s.nx * w, s.dz + s.tz * u * s.hw + s.nz * w)); const e = s.bd.shopEdges; for (const k in e) if (e[k].yF === s.floorY) { e[k].yF = fy + 0.05; e[k].yT = fy + 2.8; } s.floorY = fy + 0.05; } }
 }
 /* ---- Parallel Mountain Sports: skis and clothes for your locker ----
@@ -3199,23 +3208,37 @@ function chaseTick(dt, time) {
   else { q.sp = 0; if (c.t > 2.5) { c.on = false; c.R.hold.visible = false; return; } }   // stands a moment, then goes back in
   poseRider(c.R, q, NOKEYS, 0, dt, time, false);
 }
-function textPlate(txt, bg, fg) { const cv = document.createElement("canvas"); cv.width = 1024; cv.height = 128; const g = cv.getContext("2d"); g.fillStyle = bg; g.fillRect(0, 0, 1024, 128); g.fillStyle = fg; g.textAlign = "center"; g.textBaseline = "middle"; let fs = 78; g.font = "800 " + fs + "px 'Big Shoulders Display', 'Arial Narrow', Impact, sans-serif"; while (g.measureText(txt).width > 960 && fs > 28) { fs -= 4; g.font = "800 " + fs + "px 'Big Shoulders Display', 'Arial Narrow', Impact, sans-serif"; } g.fillText(txt, 512, 68);
+function textPlate(txt, bg, fg, face) { const FONT = face || "'Big Shoulders Display', 'Arial Narrow', Impact, sans-serif"; const cv = document.createElement("canvas"); cv.width = 1024; cv.height = 128; const g = cv.getContext("2d"); g.fillStyle = bg; g.fillRect(0, 0, 1024, 128); g.fillStyle = fg; g.textAlign = "center"; g.textBaseline = "middle"; let fs = 78; g.font = "800 " + fs + "px " + FONT; while (g.measureText(txt).width > 960 && fs > 28) { fs -= 4; g.font = "800 " + fs + "px " + FONT; } g.fillText(txt, 512, 68);
   const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return new THREE.MeshBasicMaterial({ map: t }); }
 function initPlaza() {
-  if (!PLAZA.r) return; const ext = new GeoBag(), inn = new GeoBag(), gl = new GeoBag(), plates = [], skiPlanes = [];
+  if (!PLAZA.r) return; const ext = new GeoBag(), inn = new GeoBag(), gl = new GeoBag(), plates = [], skiPlanes = [], pubBits = [], GRN = [0.035, 0.19, 0.1], GOLD = [0.86, 0.63, 0.17], BLK = [0.05, 0.05, 0.055];
   const WOOD = [0.52, 0.38, 0.24], DARK2 = [0.17, 0.12, 0.08], STEELc = [0.6, 0.62, 0.65], WHITE = [0.9, 0.89, 0.86], CLOTH = [[0.75, 0.1, 0.08], [0.1, 0.3, 0.7], [0.9, 0.7, 0.1], [0.1, 0.5, 0.3], [0.5, 0.2, 0.6], [0.92, 0.92, 0.94], [0.1, 0.1, 0.12], [0.9, 0.45, 0.1]];
   SHOPS.forEach((s, si) => { const yaw = Math.atan2(s.nx, s.nz), F = s.floorY, hw = s.hw, D = s.D, oW = s.openW / 2;
     const L = (u, y, w) => [s.dx + s.tx * u + s.nx * w, F + y, s.dz + s.tz * u + s.nz * w], bx = (bag, wu, h, dw, u, y, w, c, ry) => { const p = L(u, y, w); bag.box(wu, h, dw, p[0], p[1], p[2], c, yaw + (ry || 0)); }, cy = (bag, r0, r1, h, u, y, w, c, seg) => { const p = L(u, y, w); bag.cyl(r0, r1, h, p[0], p[1], p[2], c, seg || 8); };
     const block = (u, w, r) => { const p = L(u, 0, w); s.obst.push([p[0], p[2], r]); towerHits.push({ x: p[0], z: p[2], r }); };
     // the shop front: timber frame, stall risers, clear glass either side of an open door, awning and sign
-    const col = [[0.55, 0.12, 0.1], [0.1, 0.25, 0.45], [0.12, 0.35, 0.2], [0.6, 0.42, 0.08]][si % 4];
-    for (const u of [-oW, -0.68, 0.68, oW]) bx(ext, 0.12, 2.75, 0.16, u, 1.375, 0, DARK2); bx(ext, s.openW + 0.12, 0.16, 0.18, 0, 2.68, 0, DARK2); bx(ext, 1.36, 0.1, 0.16, 0, 2.2, 0, DARK2);
-    for (const sd of [-1, 1]) { const w2 = oW - 0.74, uc = sd * (0.74 + w2 / 2); bx(ext, w2, 0.5, 0.16, uc, 0.25, 0, WOOD); bx(gl, w2 - 0.08, 1.98, 0.02, uc, 1.52, 0, [1, 1, 1]); bx(ext, w2, 0.06, 0.28, uc, 0.53, 0.06, WOOD); }
-    bx(gl, 1.24, 0.36, 0.02, 0, 2.42, 0, [1, 1, 1]); bx(ext, 0.07, 2.1, 1.0, -0.66, 1.05, 0.52, DARK2);                                              // transom; the door stands open against the wall inside
-    bx(ext, s.openW + 0.8, 0.1, 1.5, 0, 2.98, -0.72, col); bx(ext, s.openW + 0.8, 0.28, 0.05, 0, 2.86, -1.46, col); bx(ext, Math.min(5.4, s.openW), 0.7, 0.1, 0, 3.6, -0.07, [0.12, 0.08, 0.05]);
-    plates.push([L(0, 3.6, -0.13), Math.atan2(-s.nx, -s.nz), s.name, Math.min(5.2, s.openW - 0.2), 0.6]);
+    const col = [[0.55, 0.12, 0.1], [0.1, 0.25, 0.45], [0.12, 0.35, 0.2], [0.6, 0.42, 0.08]][si % 4], pub = !!s.pub, FRM = pub ? GRN : DARK2, RIS = pub ? GRN : WOOD, out = Math.atan2(-s.nx, -s.nz);
+    for (const u of [-oW, -0.68, 0.68, oW]) bx(ext, 0.12, 2.75, 0.16, u, 1.375, 0, FRM); bx(ext, s.openW + 0.12, 0.16, 0.18, 0, 2.68, 0, FRM); bx(ext, 1.36, 0.1, 0.16, 0, 2.2, 0, FRM);
+    for (const sd of [-1, 1]) { const w2 = oW - 0.74, uc = sd * (0.74 + w2 / 2); bx(ext, w2, 0.5, 0.16, uc, 0.25, 0, RIS); bx(gl, w2 - 0.08, 1.98, 0.02, uc, 1.52, 0, [1, 1, 1]); bx(ext, w2, 0.06, 0.28, uc, 0.53, 0.06, RIS);
+      if (pub) { for (const yy of [0.09, 0.43]) bx(ext, w2 - 0.24, 0.03, 0.02, uc, yy, -0.09, GOLD); for (const e of [-1, 1]) bx(ext, 0.03, 0.34, 0.02, uc + e * (w2 / 2 - 0.12), 0.26, -0.09, GOLD);   /* gilt beading round the painted panels */
+        for (const e of [-1, 1]) bx(ext, 0.05, 1.98, 0.07, uc + e * w2 / 6, 1.52, 0, GRN); bx(ext, w2, 0.05, 0.07, uc, 1.95, 0, GRN); bx(ext, w2, 0.05, 0.07, uc, 1.1, 0, GRN);                                       /* small-paned pub windows */
+        plates.push([L(uc, 0.26, -0.095), out, sd < 0 ? "STOUT · ALES" : "IRISH WHISKEY", Math.min(w2 - 0.34, 1.9), 0.22, "#0a321c", "#e8bd4c", "Georgia, 'Times New Roman', serif"]); } }
+    bx(gl, 1.24, 0.36, 0.02, 0, 2.42, 0, [1, 1, 1]); bx(ext, 0.07, 2.1, 1.0, -0.66, 1.05, 0.52, FRM);                                              // transom; the door stands open against the wall inside
+    if (pub) { const fw = s.openW + 0.9;   // a painted Dublin pub front: dark green timber, gold lettering, lanterns, flower baskets, barrels and a hanging sign
+      bx(ext, fw, 1.02, 0.2, 0, 3.3, -0.1, GRN); bx(ext, fw + 0.1, 0.06, 0.28, 0, 2.8, -0.12, GOLD); bx(ext, fw + 0.1, 0.06, 0.28, 0, 3.8, -0.12, GOLD); bx(ext, fw + 0.3, 0.12, 0.44, 0, 3.9, -0.17, GRN); bx(ext, fw + 0.36, 0.04, 0.5, 0, 3.98, -0.2, GOLD);
+      plates.push([L(0, 3.3, -0.205), out, "THE AULD DUBLINER", Math.min(6.2, fw - 0.5), 0.74, "#0a321c", "#e8bd4c", "Georgia, 'Times New Roman', serif"]);
+      for (const sd of [-1, 1]) { const u = sd * (oW + 0.22); bx(ext, 0.32, 2.78, 0.22, u, 1.39, -0.07, GRN); bx(ext, 0.4, 0.09, 0.3, u, 2.73, -0.07, GOLD); bx(ext, 0.4, 0.14, 0.3, u, 0.07, -0.07, BLK); bx(ext, 0.2, 2.2, 0.02, u, 1.45, -0.185, [0.05, 0.25, 0.14]);   // pilasters with gilt capitals
+        bx(ext, 0.04, 0.04, 0.34, u, 2.42, -0.34, BLK); bx(ext, 0.22, 0.05, 0.22, u, 2.36, -0.46, BLK); bx(ext, 0.16, 0.26, 0.16, u, 2.2, -0.46, [2.6, 1.9, 0.7]); bx(ext, 0.2, 0.04, 0.2, u, 2.06, -0.46, BLK);                                                       // lit lanterns
+        const fu = sd * oW * 0.55, fp = L(fu, 2.36, -0.5); bx(ext, 0.02, 0.36, 0.02, fu, 2.62, -0.5, BLK); ext.add(new THREE.SphereGeometry(0.25, 10, 8), _gm.makeTranslation(fp[0], fp[1], fp[2]), [0.1, 0.36, 0.12]);                                             // hanging baskets
+        for (let k = 0; k < 7; k++) { const a = k * 0.9 + sd, fq = L(fu + Math.sin(a) * 0.2, 2.44 + 0.1 * Math.sin(k * 2.3), -0.5 + Math.cos(a) * 0.2); ext.add(new THREE.SphereGeometry(0.075, 6, 5), _gm.makeTranslation(fq[0], fq[1], fq[2]), [[0.85, 0.1, 0.12], [0.95, 0.9, 0.85], [0.9, 0.4, 0.6]][k % 3]); }
+        const bu = sd * (oW - 0.55); cy(ext, 0.27, 0.31, 0.45, bu, 0.675, -0.8, [0.42, 0.26, 0.13], 12); cy(ext, 0.31, 0.27, 0.45, bu, 0.225, -0.8, [0.42, 0.26, 0.13], 12); for (const yy of [0.14, 0.45, 0.76]) cy(ext, 0.305, 0.305, 0.045, bu, yy, -0.8, BLK, 12); cy(ext, 0.36, 0.36, 0.04, bu, 0.92, -0.8, [0.3, 0.19, 0.1], 12);   // oak barrels to stand a pint on
+        { const p = L(bu, 0, -0.8); towerHits.push({ x: p[0], z: p[2], r: 0.4 }); } }
+      const su = oW + 0.22, sp = L(su, 3.25, -0.8), sm = new THREE.Mesh(new THREE.CircleGeometry(0.46, 28), new THREE.MeshBasicMaterial({ map: pubSignTex(), side: THREE.DoubleSide })); sm.position.set(sp[0], sp[1], sp[2]); sm.rotation.y = out + Math.PI / 2; pubBits.push(sm);   // the round sign hung out over the street
+      bx(ext, 0.05, 0.05, 1.2, su, 3.78, -0.72, BLK); bx(ext, 0.03, 0.1, 0.03, su, 3.73, -0.8, BLK); bx(ext, 0.04, 0.5, 0.04, su, 3.52, -0.2, BLK, 0);
+    } else { bx(ext, s.openW + 0.8, 0.1, 1.5, 0, 2.98, -0.72, col); bx(ext, s.openW + 0.8, 0.28, 0.05, 0, 2.86, -1.46, col); bx(ext, Math.min(5.4, s.openW), 0.7, 0.1, 0, 3.6, -0.07, [0.12, 0.08, 0.05]);
+      plates.push([L(0, 3.6, -0.13), out, s.name, Math.min(5.2, s.openW - 0.2), 0.6]); }
     // the room: plank floor, plastered walls, lit ceiling
-    const wallC = s.kind === "bar" ? [0.34, 0.22, 0.14] : s.kind === "art" ? [0.86, 0.84, 0.8] : s.kind === "cafe" ? [0.78, 0.7, 0.58] : [0.76, 0.72, 0.64];
+    const wallC = s.pub ? [0.07, 0.22, 0.14] : s.kind === "bar" ? [0.34, 0.22, 0.14] : s.kind === "art" ? [0.86, 0.84, 0.8] : s.kind === "cafe" ? [0.78, 0.7, 0.58] : [0.76, 0.72, 0.64];
     bx(inn, 2 * hw, 0.1, D, 0, -0.05, D / 2 + 0.1, WOOD); for (let k = -Math.floor(hw / 0.9); k <= hw / 0.9; k++) bx(inn, 0.02, 0.012, D, k * 0.9, 0.003, D / 2 + 0.1, DARK2); bx(inn, 2 * hw, 0.1, D, 0, 2.95, D / 2 + 0.1, WHITE);
     for (const sd of [-1, 1]) { bx(inn, 0.12, 3, D, sd * (hw + 0.06), 1.45, D / 2 + 0.1, wallC); bx(inn, 0.06, 0.9, D, sd * (hw - 0.03), 0.45, D / 2 + 0.1, DARK2); if (hw - oW > 0.15) bx(inn, hw - oW, 3, 0.1, sd * (hw + oW) / 2, 1.45, 0.14, wallC); }
     bx(inn, 2 * hw + 0.2, 3, 0.12, 0, 1.45, D + 0.16, wallC); bx(inn, s.openW, 0.2, 0.1, 0, 2.86, 0.14, wallC);
@@ -3225,7 +3248,7 @@ function initPlaza() {
     bx(inn, 0.36, 0.78, 0.22, cu - 0.3, 1.33, cw + 0.55, CLOTH[si % 8]); { const p = L(cu - 0.3, 1.86, cw + 0.55); inn.add(new THREE.SphereGeometry(0.12, 10, 8), _gm.makeTranslation(p[0], p[1], p[2]), [0.85, 0.68, 0.56]); }
     for (const du of [-1.1, 0, 1.1]) block(cu + du, cw, 0.62); { const p = L(cu, 0, cw - 1.1); s.cx = p[0]; s.cz = p[2]; }
     const rack = (u, w, ry) => { bx(inn, 2.0, 0.05, 0.05, u, 1.55, w, STEELc, ry); for (const e of [-1, 1]) { const du = ry ? 0 : e, dw = ry ? e : 0; bx(inn, 0.05, 1.55, 0.05, u + du, 0.78, w + dw, STEELc); } for (let i = 0; i < 8; i++) { const o = -0.8 + i * 0.228; bx(inn, 0.15, 0.82, 0.48, u + (ry ? 0 : o), 1.1, w + (ry ? o : 0), CLOTH[(i * 3 + si) % 8], ry); } block(u - (ry ? 0 : 0.6), w - (ry ? 0.6 : 0), 0.55); block(u + (ry ? 0 : 0.6), w + (ry ? 0.6 : 0), 0.55); };
-    const table = (u, w, chairs) => { cy(inn, 0.48, 0.48, 0.05, u, 0.75, w, WOOD, 12); cy(inn, 0.05, 0.22, 0.72, u, 0.36, w, DARK2, 6); block(u, w, 0.55); for (let k = 0; k < chairs; k++) { const a = k * TAU / chairs + 0.4, cu2 = u + Math.sin(a) * 0.82, cw2 = w + Math.cos(a) * 0.82; bx(inn, 0.4, 0.05, 0.4, cu2, 0.46, cw2, WOOD); bx(inn, 0.34, 0.44, 0.04, cu2 + Math.sin(a) * 0.19, 0.72, cw2 + Math.cos(a) * 0.19, DARK2, a); for (const e of [-1, 1]) bx(inn, 0.04, 0.46, 0.04, cu2 + e * 0.16, 0.23, cw2 + e * 0.16, DARK2); } };
+    const table = (u, w, chairs) => { cy(inn, 0.48, 0.48, 0.05, u, 0.75, w, WOOD, 12); cy(inn, 0.05, 0.22, 0.72, u, 0.36, w, DARK2, 6); block(u, w, 0.55); for (let k = 0; k < chairs; k++) { const a = k * TAU / chairs + 0.4, cu2 = u + Math.sin(a) * 0.82, cw2 = w + Math.cos(a) * 0.82; bx(inn, 0.4, 0.05, 0.4, cu2, 0.46, cw2, WOOD); bx(inn, 0.34, 0.44, 0.04, cu2 + Math.sin(a) * 0.19, 0.72, cw2 + Math.cos(a) * 0.19, DARK2, a); for (const e of [-1, 1]) bx(inn, 0.04, 0.46, 0.04, cu2 + e * 0.16, 0.23, cw2 + e * 0.16, DARK2); if (s.pub) { const p = L(cu2, 0, cw2), c = L(u, 0, w); s.seats.push({ x: p[0], z: p[2], tx: c[0], tz: c[2] }); } } };
     const shelf = (sd, w0, w1, rows, item) => { const u = sd * (hw - 0.22); for (let rI = 0; rI < rows; rI++) { const y = 0.5 + rI * 0.5; bx(inn, 0.36, 0.04, w1 - w0, u, y, (w0 + w1) / 2, WOOD); for (let w = w0 + 0.25; w < w1 - 0.1; w += 0.45) item(u, y + 0.04, w, rI); } };
     if (s.kind === "ski") { for (let i = 0; i < Math.floor((D - 2.2) / 0.3); i++) bx(inn, 0.03, 1.72, 0.1, -(hw - 0.05), 1.05, 0.9 + i * 0.3, CLOTH[i % 8]); bx(inn, 0.06, 0.08, D - 2, -(hw - 0.04), 1.95, D / 2, DARK2);          // skis racked along one wall
       shelf(1, 0.8, D - 2.4, 4, (u, y, w, rI) => { bx(inn, 0.26, 0.3, 0.3, u, y + 0.15, w, CLOTH[(rI + Math.round(w * 3)) % 8]); bx(inn, 0.26, 0.1, 0.12, u, y + 0.05, w + 0.2, [0.1, 0.1, 0.11]); });                       // boots and helmets on shelves
@@ -3233,9 +3256,9 @@ function initPlaza() {
       bx(inn, 1.4, 0.45, 0.4, -hw + 1.3, 0.22, D - 0.6, WOOD); block(-hw + 1.3, D - 0.6, 0.7);                                                                                                // a rack of jackets, the boot-fitting bench
       bx(inn, 1.6, 0.06, 0.6, 0.2, 0.92, D - 0.45, STEELc); for (const e of [-0.7, 0.7]) bx(inn, 0.06, 0.92, 0.5, 0.2 + e, 0.46, D - 0.45, STEELc); bx(inn, 0.1, 0.03, 1.5, 0.2, 0.99, D - 0.45, CLOTH[1], Math.PI / 2); }   // tuning bench with a ski on it
     else if (s.kind === "skiwall") { const keys = Object.keys(SKI_DESIGNS), tex = skiDesigns(), bw = Math.atan2(-s.nx, -s.nz);   // the back wall and both sides are hung with skis, every one a different top sheet
-      const hang = (u, w, ry, k) => { const geo = new THREE.PlaneGeometry(0.2, 1.86), uv = geo.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setX(i, uv.getX(i) * 0.5); const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: tex[k] })), p = L(u, 1.32, w); m.position.set(p[0], p[1], p[2]); m.rotation.y = ry; skiPlanes.push(m); };
-      bx(inn, 2 * hw - 0.3, 2.3, 0.05, 0, 1.4, D + 0.07, [0.2, 0.2, 0.22]); let n = 0; for (let u = -hw + 0.6; u <= hw - 0.5; u += 0.34) { if (Math.abs(u - cu) < 1.7) continue; hang(u, D + 0.035, bw, keys[n++ % keys.length]); }
-      for (const sd of [-1, 1]) { bx(inn, 0.05, 2.3, D - 2.4, sd * (hw - 0.04), 1.4, D / 2 + 0.6, [0.2, 0.2, 0.22]); for (let w = 2.2; w < D - 1.0; w += 0.34) hang(sd * (hw - 0.075), w, bw + sd * Math.PI / 2, keys[n++ % keys.length]); }
+      const hang = (u, w, ry, k) => { const geo = new THREE.PlaneGeometry(0.25, 1.9), uv = geo.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setX(i, uv.getX(i) * 0.5); const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: tex[k], side: THREE.DoubleSide })), p = L(u, 1.36, w); m.position.set(p[0], p[1], p[2]); m.rotation.y = ry; skiPlanes.push(m); };
+      bx(inn, 2 * hw - 0.3, 2.3, 0.05, 0, 1.4, D + 0.07, [0.2, 0.2, 0.22]); let n = 0; for (let u = -hw + 0.6; u <= hw - 0.5; u += 0.4) { if (Math.abs(u - cu) < 1.7) continue; hang(u, D + 0.035, bw, keys[n++ % keys.length]); }
+      for (const sd of [-1, 1]) { bx(inn, 0.05, 2.3, D - 2.4, sd * (hw - 0.04), 1.4, D / 2 + 0.6, [0.2, 0.2, 0.22]); for (let w = 2.2; w < D - 1.0; w += 0.4) hang(sd * (hw - 0.075), w, bw + sd * Math.PI / 2, keys[n++ % keys.length]); }
       for (const [tu, tw] of [[-hw * 0.4, D * 0.4], [hw * 0.35, D * 0.33]]) { bx(inn, 1.9, 0.45, 0.5, tu, 0.22, tw, WOOD); block(tu - 0.5, tw, 0.55); block(tu + 0.5, tw, 0.55); }   // benches to sit and look
       for (let k = -2; k <= 2; k++) bx(inn, 0.5, 0.06, 0.3, k * hw * 0.4, 2.86, D - 1.0, [1.9, 1.8, 1.5]); }                                                         // spotlights on the wall
     else if (s.kind === "goggle") { const LENS = [[1, 0.48, 0.1], [0.23, 0.63, 1], [1, 0.37, 0.64], [0.22, 0.85, 0.54], [0.95, 0.76, 0.19], [0.16, 0.18, 0.2]];
@@ -3251,11 +3274,13 @@ function initPlaza() {
       for (const [pu, pw] of [[-1.6, D * 0.45], [1.7, D * 0.4]]) { bx(inn, 0.55, 1.0, 0.55, pu, 0.5, pw, WHITE); bx(inn, 0.28, 0.5, 0.28, pu, 1.25, pw, [0.5, 0.42, 0.2]); block(pu, pw, 0.42); } bx(inn, 1.6, 0.42, 0.45, -1.3, 0.21, D * 0.2 + 0.6, WOOD); block(-1.3, D * 0.2 + 0.6, 0.5); }
     else { // somewhere to eat or drink
       const bar = s.kind === "bar", cafe = s.kind === "cafe"; table(-hw + 1.5, 1.6, cafe ? 2 : 4); table(-hw + 1.5, D * 0.5, cafe ? 2 : 4); if (D > 6) table(-hw + 1.5, D - 1.7, 4); table(1.5, D * 0.3, cafe ? 2 : 4);
-      for (let k = 0; k < 4; k++) { const u = cu - 1.2 + k * 0.8; cy(inn, 0.17, 0.17, 0.05, u, 0.74, cw - 0.75, [0.5, 0.12, 0.1], 10); cy(inn, 0.03, 0.14, 0.72, u, 0.36, cw - 0.75, STEELc, 6); }                         // stools at the counter
+      for (let k = 0; k < 4; k++) { const u = cu - 1.2 + k * 0.8; cy(inn, 0.17, 0.17, 0.05, u, 0.74, cw - 0.75, s.pub ? [0.06, 0.3, 0.16] : [0.5, 0.12, 0.1], 10); cy(inn, 0.03, 0.14, 0.72, u, 0.36, cw - 0.75, STEELc, 6); }                         // stools at the counter
       bx(inn, 3.0, 0.05, 0.28, cu, 1.75, D + 0.02, WOOD); bx(inn, 3.0, 0.05, 0.28, cu, 2.2, D + 0.02, WOOD); const bc = [[0.1, 0.35, 0.15], [0.45, 0.25, 0.08], [0.6, 0.1, 0.1], [0.8, 0.75, 0.5]];
       for (let i = 0; i < 10; i++) for (const yy of [1.93, 2.38]) cy(inn, 0.045, 0.05, 0.3, cu - 1.3 + i * 0.29, yy, D + 0.02, bar ? bc[(i + (yy > 2 ? 1 : 0)) % 4] : WHITE, 6);                                       // bottles, or cups and jars
       if (cafe) { bx(inn, 0.6, 0.45, 0.45, cu - 0.9, 1.28, cw, STEELc); bx(inn, 1.0, 0.4, 0.5, cu + 0.2, 1.26, cw, [0.75, 0.86, 0.92]); for (let i = 0; i < 4; i++) bx(inn, 0.16, 0.08, 0.16, cu - 0.1 + i * 0.2, 1.15, cw, [0.75, 0.5, 0.2]); }   // espresso machine and pastry case
       if (bar) { bx(inn, 1.6, 1.3, 0.5, -hw + 1.0, 0.65, D - 0.2, [0.33, 0.31, 0.29]); bx(inn, 0.9, 0.6, 0.1, -hw + 1.0, 0.5, D - 0.48, [1.8, 0.7, 0.15]); bx(inn, 1.8, 0.12, 0.6, -hw + 1.0, 1.36, D - 0.2, WOOD); }                 // a stone fireplace with the fire lit
+      if (s.pub) { bx(inn, 1.3, 0.05, 0.08, cu - 0.2, 1.3, cw - 0.12, GOLD); for (let k = 0; k < 4; k++) { const u = cu - 0.7 + k * 0.33; cy(inn, 0.028, 0.028, 0.26, u, 1.18, cw - 0.12, GOLD, 8); bx(inn, 0.035, 0.17, 0.035, u, 1.42, cw - 0.12, [[0.05, 0.05, 0.05], [0.6, 0.1, 0.08], [0.05, 0.3, 0.15], [0.85, 0.75, 0.5]][k]); }   // a brass font with four taps
+        for (const sd of [-1, 1]) for (let w = 1.6; w < D - 2.2; w += 2.4) { bx(inn, 0.04, 0.62, 0.86, sd * (hw - 0.03), 1.75, w, GOLD); bx(inn, 0.03, 0.52, 0.76, sd * (hw - 0.06), 1.75, w, [[0.1, 0.1, 0.1], [0.75, 0.7, 0.55], [0.1, 0.3, 0.2]][Math.round(w) % 3]); } }   // framed prints along the walls
       plates.push([L(cu, 2.62, D + 0.08), Math.atan2(-s.nx, -s.nz), bar ? "ON TAP TODAY" : cafe ? "ESPRESSO · PASTRIES" : "TODAY'S MENU", 2.6, 0.32]); }
     bx(inn, 1.3, 0.02, 0.8, 0, 0.012, 0.7, [0.35, 0.12, 0.1]);                                                                                                                                                       // door mat
   });
@@ -3265,7 +3290,8 @@ function initPlaza() {
     const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true })); m.frustumCulled = false; scene.add(m); }
   if (gl.p.length) { const m = new THREE.Mesh(gl.build(), new THREE.MeshStandardMaterial({ color: 0xa9cfe0, transparent: true, opacity: 0.2, roughness: 0.04, metalness: 0.1, depthWrite: false })); m.frustumCulled = false; m.renderOrder = 3; scene.add(m); }   // clear glass: you see the room through it
   for (const m of skiPlanes) scene.add(m);
-  for (const [p, yaw, name, w, h] of plates) { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), textPlate(name, "#1f140c", "#f3e7c9")); m.position.set(p[0], p[1], p[2]); m.rotation.y = yaw; scene.add(m); }
+  for (const m of pubBits) scene.add(m);
+  for (const [p, yaw, name, w, h, bg, fg, face] of plates) { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), textPlate(name, bg || "#1f140c", fg || "#f3e7c9", face)); m.position.set(p[0], p[1], p[2]); m.rotation.y = yaw; scene.add(m); }
   // people on the plaza: bodies, with arms and legs that swing as they walk
   const N = 44, JK = [0xd8362b, 0x1f6fd6, 0xf2b61b, 0x2a9d62, 0x8a4fd1, 0xe86a1c, 0x30343c, 0xe9edf2, 0x16a3a3, 0xd9438c], PT = [0x1b1e24, 0x2b3550, 0x4a3b2a, 0x3a3a3a], c = new THREE.Color();
   const body = new GeoBag(), leg = new GeoBag(), arm = new GeoBag(), W1 = [1, 1, 1];
@@ -3297,7 +3323,52 @@ function shopTick() { const was = sk.shopIn; sk.shopIn = null; nearCounter = nul
 }
 function shopUse() { const s = sk.shopIn; if (!s) return;   // E in a shop
   if (isGear(s)) { if (nearCounter && basket.length) storePay(); else storeOpen(s); return; }
+  if (s.pub && nearCounter) { PUB.beers++; toast(PUB.beers === 1 ? "One pint poured. E for another, then take a seat at a table." : PUB.beers + " pints poured. Take a seat at a table.", 3); return; }
   if (nearCounter) toast(s.kind === "art" ? "Prints of the Palisades at first light. Not today." : s.kind === "bar" ? "A pint by the fire. One more run, though." : s.kind === "market" ? "Snacks for the chair." : "Something hot. Legs feel fresh again.", 3); }
+
+/* ---- the pub: order pints at the bar, sit at a table, drink them from a glass stein ---- */
+const PUB = { beers: 0, drunk: 0, seat: null, shop: null, sip: 0, dizzy: 0 }; let nearSeat = null, SIT_DROP = 0.44, tableSteins = null, dzC = null;
+function pubSignTex() { const c = document.createElement("canvas"); c.width = c.height = 256; const g = c.getContext("2d"); g.fillStyle = "#0a321c"; g.beginPath(); g.arc(128, 128, 128, 0, 7); g.fill(); g.strokeStyle = "#e8bd4c"; g.lineWidth = 9; g.beginPath(); g.arc(128, 128, 114, 0, 7); g.stroke(); g.lineWidth = 3; g.beginPath(); g.arc(128, 128, 100, 0, 7); g.stroke();
+  g.fillStyle = "#e8bd4c"; for (const [x, y] of [[128, 84], [92, 136], [164, 136]]) for (const d of [-1, 1]) { g.beginPath(); g.arc(x + d * 15, y - 6, 20, 0, 7); g.fill(); g.beginPath(); g.moveTo(x - 32, y); g.lineTo(x + 32, y); g.lineTo(x, y + 34); g.closePath(); g.fill(); }   // a shamrock: three heart-shaped leaves
+  g.lineWidth = 9; g.lineCap = "round"; g.beginPath(); g.moveTo(128, 150); g.quadraticCurveTo(132, 190, 150, 208); g.stroke(); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; }
+function makeStein() { const g = new THREE.Group(), b = new THREE.Group(); b.position.set(0, -0.09, -0.1); g.add(b);   // the group sits in the hand, on the handle; the mug stands in front of it
+  const glass = new THREE.MeshBasicMaterial({ color: 0xd6ecf2, transparent: true, opacity: 0.3, depthWrite: false }), cyl = (r0, r1, h, y, m, seg) => { const ge = new THREE.CylinderGeometry(r0, r1, h, seg || 14); ge.translate(0, h / 2, 0); const me = new THREE.Mesh(ge, m); me.position.y = y; b.add(me); return me; };
+  g.beer = cyl(0.05, 0.047, 0.165, 0.014, new THREE.MeshBasicMaterial({ color: 0xd88a10 })); g.foam = cyl(0.051, 0.05, 0.028, 0.179, new THREE.MeshBasicMaterial({ color: 0xfff4dc }));
+  cyl(0.06, 0.062, 0.016, 0, new THREE.MeshBasicMaterial({ color: 0xc4dde6, transparent: true, opacity: 0.6, depthWrite: false })); const wall = cyl(0.058, 0.055, 0.2, 0.012, glass); wall.renderOrder = 4;
+  for (let k = 0; k < 8; k++) { const d = new THREE.Mesh(new THREE.SphereGeometry(0.014, 6, 4), glass); d.position.set(Math.sin(k * 0.785) * 0.057, 0.06, Math.cos(k * 0.785) * 0.057); d.scale.set(1, 2.6, 0.5); d.rotation.y = k * 0.785; b.add(d); }   // the dimples of a stein
+  const h = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.012, 6, 12, Math.PI), glass); h.rotation.set(0, Math.PI / 2, -Math.PI / 2); h.position.set(0, 0.105, 0.06); b.add(h); return g; }
+function steinLevel(st, k) { st.beer.visible = k > 0.02; st.beer.scale.y = Math.max(0.02, k); st.foam.visible = k > 0.02; st.foam.position.y = 0.014 + 0.165 * k; }
+const sipLift = t => smooth(t / 0.28) * (1 - smooth((t - 0.76) / 0.24));   // up to the mouth, hold, back down, over one sip
+function pubPose(R, q) {   // sat at a table: thighs along the seat, shins down, one hand round the stein
+  const s = q.sipK || 0; R.legs.forEach(l => { l.hip.rotation.x = 1.48; l.hip.rotation.z = 0; l.knee.rotation.x = -1.48; }); R.skiG.forEach(sg => { sg.visible = false; }); R.skiMeshes.forEach(m => { m.visible = false; });
+  R.arms.forEach((a, i) => { a.pole.visible = false; if (i !== 1) { a.sh.rotation.set(0.42, 0, 0); a.el.rotation.set(0.98, 0, 0); return; }
+    const sx = 0.4 + 0.4 * s, ex = 0.95 + 1.25 * s; a.sh.rotation.set(sx, 0, -a.sd * 0.42 * s); a.el.rotation.set(ex, 0, 0);
+    if (!R.stein) { R.stein = makeStein(); R.stein.position.y = -0.335; a.el.add(R.stein); } R.stein.rotation.set(-(sx + ex) + 1.05 * s, 0, a.sd * 0.42 * s); });   // kept upright in the hand, tipped as it reaches the mouth
+  R.head.rotation.x += 0.28 * s; R.stein.visible = q !== sk || PUB.beers > 0 || PUB.drunk > 0; steinLevel(R.stein, q === sk ? (PUB.sip > 0 ? 1 - smooth((1 - PUB.sip - 0.3) / 0.45) : PUB.beers > 0 ? 1 : 0) : 1 - 0.7 * s);
+  if (q !== sk) { const pb = SHOPS.find(o => o.pub); R.hold.position.y = (pb && shopInside(pb, q.p.x, q.p.z) ? pb.floorY : q.p.y) - SIT_DROP; } }
+function pubSeatY(R) { R.hold.updateMatrixWorld(true); SIT_DROP = R.legs[0].hip.getWorldPosition(_wp).y - R.hold.position.y - 0.6; R.hold.position.y -= SIT_DROP; }   // hips to the height of the chair
+function pubSit(q) { if (sk.mode === "ski") toggleWalk(); if (sk.mode !== "walk") return; const s = sk.shopIn, dl = Math.hypot(q.tx - q.x, q.tz - q.z) || 1, fx = (q.tx - q.x) / dl, fz = (q.tz - q.z) / dl, mx = q.x + fx * 0.4, mz = q.z + fz * 0.4; let best = null;
+  for (const sd of [1, -1]) { let cx = mx + fz * sd * 3.0, cz = mz - fx * sd * 3.0; if (s) { const rx = cx - s.dx, rz = cz - s.dz, u = clamp(rx * s.tx + rz * s.tz, -s.hw + 0.3, s.hw - 0.3), w = clamp(rx * s.nx + rz * s.nz, 0.4, s.D - 0.3); cx = s.dx + s.tx * u + s.nx * w; cz = s.dz + s.tz * u + s.nz * w; } const d = Math.hypot(cx - mx, cz - mz); if (!best || d > best[2]) best = [cx, cz, d]; }   // the side with more room to stand the camera back
+  PUB.seat = q; PUB.shop = s; q.cam = best; q.mx = mx; q.mz = mz; PUB.sip = 0; toast(PUB.beers ? "E drinks · any move key stands you up" : "No pint yet: order at the bar. Any move key stands you up.", 3.5); }
+function pubUse() { if (!PUB.seat) { if (nearSeat) pubSit(nearSeat); return; } if (PUB.sip > 0) return; if (PUB.beers > 0) PUB.sip = 1; else toast("The glass is empty. Order another round at the bar.", 2.5); }
+function pubTick(dt) { nearSeat = null; if (PUB.dizzy > 0) PUB.dizzy = Math.max(0, PUB.dizzy - dt); const q = PUB.seat;
+  if (q && (sk.mode !== "walk" || Math.hypot(sk.p.x - q.x, sk.p.z - q.z) > 0.6)) PUB.seat = null;   // skis back on, or taken somewhere else
+  if (PUB.seat) { if (PUB.sip > 0) { PUB.sip -= dt / 1.9; if (PUB.sip <= 0) { PUB.sip = 0; PUB.beers--; PUB.drunk++; if (PUB.drunk % 2 === 0) { PUB.dizzy = 3; toast("That is " + PUB.drunk + ". The room moves a little.", 2.6); } } }
+    else if (K.up || K.down || K.left || K.right || K.spinL || K.spinR) { PUB.seat = null; toast("On your feet", 1.2); } }
+  else { const s = sk.shopIn; if (s && s.pub && (sk.mode === "walk" || sk.mode === "ski") && sk.sp < 3) { let bd = 1.05; for (const c of s.seats) { const d = Math.hypot(c.x - sk.p.x, c.z - sk.p.z); if (d < bd) { bd = d; nearSeat = c; } } } PUB.sip = 0; }
+  sk.sit = !!PUB.seat; sk.sipK = PUB.seat && PUB.sip > 0 ? sipLift(1 - PUB.sip) : 0;
+  const n = PUB.seat ? Math.min(6, PUB.beers - 1) : 0; if (n > 0 && !tableSteins) { tableSteins = []; for (let k = 0; k < 6; k++) { const st = makeStein(); steinLevel(st, 1); st.visible = false; scene.add(st); tableSteins.push(st); } }   // the rest of the round stands on the table
+  if (tableSteins) tableSteins.forEach((st, k) => { st.visible = k < n; if (k < n) { const a = k * 1.05 + 0.5; st.position.set(PUB.seat.tx + Math.sin(a) * 0.24, (PUB.shop ? PUB.shop.floorY : sk.p.y) + 0.775 + 0.09, PUB.seat.tz + Math.cos(a) * 0.24); st.rotation.y = a; } }); }
+function pubCam(dt) { const q = PUB.seat, F = PUB.shop ? PUB.shop.floorY : sk.p.y;   // sat down, the view moves round to the side of the table
+  camPos.lerp(tmp.set(q.cam[0], F + 1.3, q.cam[1]), 1 - Math.exp(-3.5 * dt)); camTgt.lerp(tmp.set(q.mx, F + 1.02, q.mz), 1 - Math.exp(-5 * dt));
+  camera.fov = lerp(camera.fov, 46, Math.min(1, 3 * dt)); camera.near = 0.1; camera.updateProjectionMatrix(); camera.position.copy(camPos); camera.up.set(0, 1, 0); camera.lookAt(camTgt); camSnap = false; }
+const dizzyK = () => { const t = 3 - PUB.dizzy; return Math.min(1, t / 0.35) * Math.min(1, PUB.dizzy / 0.8); };
+function dizzyCam() { if (PUB.dizzy <= 0) return; const t = 3 - PUB.dizzy, k = dizzyK(); camera.rotateZ(k * 0.11 * Math.sin(t * 2.6)); camera.rotateY(k * 0.05 * Math.sin(t * 1.7 + 1)); camera.rotateX(k * 0.03 * Math.cos(t * 2.1)); }   // the view rolls and sways
+function dizzyDraw(src) {   // double vision: the frame just drawn, laid over itself half clear and drifting
+  if (PUB.dizzy <= 0) { if (dzC && dzC.style.display !== "none") dzC.style.display = "none"; return; }
+  if (!dzC) { dzC = document.createElement("canvas"); dzC.style.cssText = "position:absolute;inset:0;width:100%;height:100%;pointer-events:none;display:none"; src.after(dzC); }
+  const W = Math.max(2, src.width >> 1), Hh = Math.max(2, src.height >> 1); if (dzC.width !== W || dzC.height !== Hh) { dzC.width = W; dzC.height = Hh; } dzC.style.display = "block";
+  const g = dzC.getContext("2d"), t = 3 - PUB.dizzy, k = dizzyK(); g.clearRect(0, 0, W, Hh); g.globalAlpha = 0.5 * Math.min(1, k * 1.4); g.drawImage(src, Math.sin(t * 4.2) * 0.05 * W * k, Math.cos(t * 3.1) * 0.03 * Hh * k, W, Hh); }
 
 /* ---------- boot and main loop ---------- */
 /* If the machine cannot hold 30 fps the graphics level steps down by itself, once per level, unless you picked a level yourself. */
@@ -3325,7 +3396,7 @@ function tick(t) {
     else if (sk.mode === "ski") { acc += dt * timeScale; let n = 0; while (acc >= 1 / 120 && n < 8) { stepSki(1 / 120); acc -= 1 / 120; n++; } if (n === 8) acc = 0; recordRewind(dt); }
     updateLifts(dt * ff, camera.position, frame); updateNPCs(dt, camera.position);
     if (sk.mode === "wait" || sk.mode === "lift") stepLift(dt * ff); else if (sk.mode === "walk") stepWalk(dt); else if (sk.mode === "sled") stepSled(dt);
-    findNearLift(); sledTick(); shopTick(); chaseTick(dt, now); updateWalkers(dt, camera.position); emitSpray(dt); layTracks(dt); updateParticles(dt); updateRig(dt, now); updateCamera(dt); if (camFix) { camera.position.set(camFix[0], camFix[1], camFix[2]); camera.up.set(0, 1, 0); camera.lookAt(camFix[3], camFix[4], camFix[5]); camera.fov = camFix[6] || 50; camera.updateProjectionMatrix(); } updateRemotes(dt, now); mpSend(dt); compTick(dt, now); updateLoose(dt);
+    findNearLift(); sledTick(); shopTick(); pubTick(dt); chaseTick(dt, now); updateWalkers(dt, camera.position); emitSpray(dt); layTracks(dt); updateParticles(dt); updateRig(dt, now); updateCamera(dt); dizzyCam(); if (camFix) { camera.position.set(camFix[0], camFix[1], camFix[2]); camera.up.set(0, 1, 0); camera.lookAt(camFix[3], camFix[4], camFix[5]); camera.fov = camFix[6] || 50; camera.updateProjectionMatrix(); } updateRemotes(dt, now); mpSend(dt); compTick(dt, now); updateLoose(dt);
   }
   rig.hold.visible = sk.mode !== "menu" && rig.hold.visible;
   updateSun(); skyMesh.position.copy(camera.position); skyMesh.scale.setScalar(40000);
@@ -3334,7 +3405,7 @@ function tick(t) {
   if (snowFall.visible) { snowFall.material.uniforms.uCam.value.copy(camera.position); snowFall.material.uniforms.uPx.value = renderer.domElement.height * 0.5 / Math.tan(camera.fov * DEG / 2); }
   gradePass.uniforms.uSpeed.value = sk.mode === "ski" && !paused ? smooth((sk.sp - 14) / 26) : 0;
   updateHUD(dt); if (sk.mode !== "menu") drawMini(dt); updateAudio();
-  renderer.info.reset(); composer.render(); window.__frames = frame;
+  renderer.info.reset(); composer.render(); dizzyDraw(canvas); window.__frames = frame;
   if (window.__snapReq) { const r = window.__snapReq; window.__snapReq = null; r(canvas.toDataURL("image/jpeg", 0.93)); }
 }
 async function boot() {
@@ -3356,7 +3427,7 @@ async function boot() {
   for (let i = 0; i < 300; i++) if (!updateTerrain(camera.position, 40)) break;
   for (let i = 0; i < 40; i++) { updateTrees(camera.position); updateRocks(camera.position); }
   $("load").hidden = true; renderer.info.autoReset = false; requestAnimationFrame(tick);
-  window.__pal = { chaseTick, chaser: () => chaser, loot: () => loot, dressRig, GOGGLES, rigRef: () => rig, OWNED, owns, storeOpen, storePay, basket: () => basket, priceOf, isGear, rigY: () => rig.hold.position.y, nearCounter: () => nearCounter, SHOPS, WALKERS, PLAZA, shopInside, shopUse, shopTick, updateWalkers, plazaK, buildingAt, updateCamera, mpPack, makeGhost: () => ({ R: makeRider(outfit), tag: null, q: null, keys: Object.assign({}, NOKEYS), st: null }), drawMap, mapPick, poseRemote, updateFriendArrows, camYaw: () => Math.atan2(camDir.x, camDir.z), LOOSE, crash, rockLift, updateLoose, CLIFFS2: 0, SLEDS, sledToggle, stepSled, sledTick, COMP, compEnter, compTick, compFinish, medalPoints, liftLocked, treeMask, trkMesh: () => trkMesh, updateRig, layTracks, getCat: () => CATG, creekD, onRock, catBench, viewFrom: a => { camFix = a; }, CLIFFS, buildCliff, updateTerrain, setCam: a => { camFix = a; sk.mode = "menu"; $("menu").hidden = true; $("hud").hidden = true; }, cliffK, hBase, PARK, REW, stepRewind, recordRewind, toggleWalk, stepWalk, clearTracks, goHome, toggleMap, runAt, npcs, KR, gDown, gUp, landing, stepSki, stepLift, updateLifts, findNearLift, nrm, sk, K, LIFTS, WORLD, H, camera, scene, renderer, setWeather, placeSkier, boardLift, unloadAt, spawnAt, MP, chunks, nearTiles, treeTiles, Q };
+  window.__pal = { PUB, pubTick, pubUse, pubSit, nearSeat: () => nearSeat, dizzyEl: () => dzC, sitDrop: () => SIT_DROP, chaseTick, chaser: () => chaser, loot: () => loot, dressRig, GOGGLES, rigRef: () => rig, OWNED, owns, storeOpen, storePay, basket: () => basket, priceOf, isGear, rigY: () => rig.hold.position.y, nearCounter: () => nearCounter, SHOPS, WALKERS, PLAZA, shopInside, shopUse, shopTick, updateWalkers, plazaK, buildingAt, updateCamera, mpPack, makeGhost: () => ({ R: makeRider(outfit), tag: null, q: null, keys: Object.assign({}, NOKEYS), st: null }), drawMap, mapPick, poseRemote, updateFriendArrows, camYaw: () => Math.atan2(camDir.x, camDir.z), LOOSE, crash, rockLift, updateLoose, CLIFFS2: 0, SLEDS, sledToggle, stepSled, sledTick, COMP, compEnter, compTick, compFinish, medalPoints, liftLocked, treeMask, trkMesh: () => trkMesh, updateRig, layTracks, getCat: () => CATG, creekD, onRock, catBench, viewFrom: a => { camFix = a; }, CLIFFS, buildCliff, updateTerrain, setCam: a => { camFix = a; sk.mode = "menu"; $("menu").hidden = true; $("hud").hidden = true; }, cliffK, hBase, PARK, REW, stepRewind, recordRewind, toggleWalk, stepWalk, clearTracks, goHome, toggleMap, runAt, npcs, KR, gDown, gUp, landing, stepSki, stepLift, updateLifts, findNearLift, nrm, sk, K, LIFTS, WORLD, H, camera, scene, renderer, setWeather, placeSkier, boardLift, unloadAt, spawnAt, MP, chunks, nearTiles, treeTiles, Q };
   window.__info = () => ({ mode: sk.mode, p: [Math.round(sk.p.x), Math.round(sk.p.y), Math.round(sk.p.z)], sp: +sk.sp.toFixed(1), ground: sk.ground, crashed: sk.crashed, trees: treeCount, calls: renderer.info.render.calls, tris: renderer.info.render.triangles, lift: sk.lift && sk.lift.name, liftS: Math.round(sk.liftS) });
 }
 boot().catch(e => { const d = document.createElement("div"); d.id = "err"; d.textContent = String(e && e.stack || e); document.body.appendChild(d); console.error(e); });
