@@ -39,7 +39,7 @@ function noiseTexture() {
 const noiseTex = noiseTexture();
 const U = { // uniforms shared by every material that reads the world
   uTT: { value: null }, uMA: { value: null }, uMB: { value: null }, uNoise: { value: noiseTex },
-  uTrk: { value: null }, uTraffic: { value: null }, uCrk: { value: null }, uCrkPool: { value: 0 }, uPlaza: { value: new THREE.Vector4(0, 0, 0, 0) },
+  uTrk: { value: null }, uTraffic: { value: null }, uCrk: { value: null }, uCrkPool: { value: 0 }, uPlaza: { value: new THREE.Vector4(0, 0, 0, 1) },
   uSunDir: { value: sunDir }, uSunCol: { value: new THREE.Color() }, uTime: { value: 0 }, uShadowR: { value: 160 }, uTreeNear: { value: 260 }, uSkyAmb: { value: new THREE.Color() }, uWet: { value: 0 }
 };
 const GLSL_WORLD = `
@@ -312,7 +312,7 @@ const TERRAIN_FRAG_COLOR = `
   float snowAmt = (1.0 - rock) * (1.0 - road);
   #ifndef OUTER
   { // the village plaza: cobblestones swept of snow, with white left in the joints and corners
-    float pd = length(vWp.xz - uPlaza.xy), pk = (1.0 - smoothstep(uPlaza.z - 10.0, uPlaza.z, pd + (nB - 0.5) * 12.0)) * step(1.0, uPlaza.z) * (1.0 - road) * (1.0 - smoothstep(0.2, 0.6, groom) * smoothstep(uPlaza.z * 0.55, uPlaza.z * 0.8, pd));   // between the buildings it is all stone; only the groomed ways at the edge stay snow
+    float pd = length(vec2((vWp.x - uPlaza.x) / uPlaza.w, vWp.z - uPlaza.y)), pk = (1.0 - smoothstep(uPlaza.z - 10.0, uPlaza.z, pd + (nB - 0.5) * 12.0)) * step(1.0, uPlaza.z) * (1.0 - road) * (1.0 - smoothstep(0.2, 0.6, groom) * smoothstep(uPlaza.z * 0.55, uPlaza.z * 0.8, pd));   // between the buildings it is all stone; only the groomed ways at the edge stay snow
     vec2 cq = vWp.xz * 3.4; cq.x += floor(cq.y) * 0.5; vec2 cf = fract(cq) - 0.5, ci = floor(cq); float cfade = clamp(1.0 - fwidth(cq.x) * 1.6, 0.0, 1.0);
     float joint = smoothstep(0.36, 0.47, max(abs(cf.x), abs(cf.y))) * cfade, cn = texture2D(uNoise, (ci + 0.5) / 256.0, -8.0).r;
     vec3 stone = mix(vec3(0.15, 0.145, 0.14), vec3(0.36, 0.33, 0.29), mix(0.5, cn, cfade)) * (1.0 - 0.55 * joint) * (0.85 + 0.3 * nB);

@@ -507,7 +507,7 @@ function noiseTexture() {
 const noiseTex = noiseTexture();
 const U = { // uniforms shared by every material that reads the world
   uTT: { value: null }, uMA: { value: null }, uMB: { value: null }, uNoise: { value: noiseTex },
-  uTrk: { value: null }, uTraffic: { value: null }, uCrk: { value: null }, uCrkPool: { value: 0 }, uPlaza: { value: new THREE.Vector4(0, 0, 0, 0) },
+  uTrk: { value: null }, uTraffic: { value: null }, uCrk: { value: null }, uCrkPool: { value: 0 }, uPlaza: { value: new THREE.Vector4(0, 0, 0, 1) },
   uSunDir: { value: sunDir }, uSunCol: { value: new THREE.Color() }, uTime: { value: 0 }, uShadowR: { value: 160 }, uTreeNear: { value: 260 }, uSkyAmb: { value: new THREE.Color() }, uWet: { value: 0 }
 };
 const GLSL_WORLD = `
@@ -780,7 +780,7 @@ const TERRAIN_FRAG_COLOR = `
   float snowAmt = (1.0 - rock) * (1.0 - road);
   #ifndef OUTER
   { // the village plaza: cobblestones swept of snow, with white left in the joints and corners
-    float pd = length(vWp.xz - uPlaza.xy), pk = (1.0 - smoothstep(uPlaza.z - 10.0, uPlaza.z, pd + (nB - 0.5) * 12.0)) * step(1.0, uPlaza.z) * (1.0 - road) * (1.0 - smoothstep(0.2, 0.6, groom) * smoothstep(uPlaza.z * 0.55, uPlaza.z * 0.8, pd));   // between the buildings it is all stone; only the groomed ways at the edge stay snow
+    float pd = length(vec2((vWp.x - uPlaza.x) / uPlaza.w, vWp.z - uPlaza.y)), pk = (1.0 - smoothstep(uPlaza.z - 10.0, uPlaza.z, pd + (nB - 0.5) * 12.0)) * step(1.0, uPlaza.z) * (1.0 - road) * (1.0 - smoothstep(0.2, 0.6, groom) * smoothstep(uPlaza.z * 0.55, uPlaza.z * 0.8, pd));   // between the buildings it is all stone; only the groomed ways at the edge stay snow
     vec2 cq = vWp.xz * 3.4; cq.x += floor(cq.y) * 0.5; vec2 cf = fract(cq) - 0.5, ci = floor(cq); float cfade = clamp(1.0 - fwidth(cq.x) * 1.6, 0.0, 1.0);
     float joint = smoothstep(0.36, 0.47, max(abs(cf.x), abs(cf.y))) * cfade, cn = texture2D(uNoise, (ci + 0.5) / 256.0, -8.0).r;
     vec3 stone = mix(vec3(0.15, 0.145, 0.14), vec3(0.36, 0.33, 0.29), mix(0.5, cn, cfade)) * (1.0 - 0.55 * joint) * (0.85 + 0.3 * nB);
@@ -1595,15 +1595,17 @@ function initVillage() {
   if (ct) { const x = ct.cx, z = ct.cz, g = Hsmooth(x, z); b.box(4.6, 17, 4.6, x, g + 8.5, z, [0.36, 0.33, 0.30]); b.box(5.4, 0.6, 5.4, x, g + 17.2, z, [0.2, 0.15, 0.1]); b.add(new THREE.ConeGeometry(3.9, 5, 4), _gm.compose(_gp.set(x, g + 20, z), _gq.setFromEuler(_ge.set(0, Math.PI / 4, 0)), _gs.set(1, 1, 1)), [0.05, 0.11, 0.09]);
     for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2, px = x + Math.sin(a) * 2.34, pz = z + Math.cos(a) * 2.34; b.add(new THREE.CircleGeometry(1.25, 20), _gm.compose(_gp.set(px, g + 14.4, pz), _gq.setFromEuler(_ge.set(0, a, 0)), _gs.set(1, 1, 1)), [0.9, 0.88, 0.8]); b.box(0.09, 0.95, 0.04, px + Math.sin(a) * 0.03, g + 14.8, pz + Math.cos(a) * 0.03, DARK, a); b.box(0.09, 0.65, 0.04, px + Math.sin(a) * 0.03 + Math.cos(a) * 0.25, g + 14.5, pz + Math.cos(a) * 0.03 - Math.sin(a) * 0.25, DARK, a, 0, 1.1); } }
   if (ct) { // the plaza: lamp posts, fire pits with benches, a row of flags, and the timber gateway toward the lifts
-    const x0 = ct.cx, z0 = ct.cz, WOOD = [0.36, 0.25, 0.15], FL = [[0.75, 0.08, 0.1], [0.05, 0.2, 0.55], [0.9, 0.9, 0.92], [0.9, 0.62, 0.05], [0.05, 0.4, 0.2], [0.05, 0.11, 0.2]];
-    for (let k = 0; k < 22; k++) { const a = k * 2.399, r = 14 + k * 3, x = x0 + Math.sin(a) * r, z = z0 + Math.cos(a) * r; if (buildingAt(x, z) || buildingAt(x + 1, z + 1)) continue; const g = H(x, z);
+    const x0 = PLAZA.r ? PLAZA.x : ct.cx, z0 = PLAZA.r ? PLAZA.z : ct.cz, WOOD = [0.36, 0.25, 0.15],   // the lamps, fire pits, flags and gateway stand in the main village
+    FL = [[0.75, 0.08, 0.1], [0.05, 0.2, 0.55], [0.9, 0.9, 0.92], [0.9, 0.62, 0.05], [0.05, 0.4, 0.2], [0.05, 0.11, 0.2]];
+    const asp = PLAZA.r ? PLAZA.asp : 1, free = (x, z) => !buildingAt(x, z) && !buildingAt(x + 1, z + 1) && !SHOPS.some(q => shopInside(q, x, z));
+    for (let k = 0; k < 34; k++) { const a = k * 2.399, r = 10 + k * 2.6, x = x0 + Math.sin(a) * r * asp, z = z0 + Math.cos(a) * r; if (!free(x, z)) continue; const g = H(x, z);
       b.cyl(0.05, 0.075, 3.9, x, g + 1.55, z, DARK, 6); b.box(0.34, 0.42, 0.34, x, g + 3.6, z, [0.95, 0.86, 0.6]); b.box(0.46, 0.07, 0.46, x, g + 3.84, z, DARK); towerHits.push({ x, z, r: 0.2 }); }
-    for (let k = 0; k < 3; k++) { const a = 0.8 + k * 2.1, x = x0 + Math.sin(a) * 12, z = z0 + Math.cos(a) * 12; if (buildingAt(x, z)) continue; const g = H(x, z);
+    for (let k = 0; k < 5; k++) { const a = 0.8 + k * 1.3, x = x0 + Math.sin(a) * 24 * asp, z = z0 + Math.cos(a) * 24; if (!free(x, z) || !free(x + 2, z) || !free(x - 2, z)) continue; const g = H(x, z);
       b.cyl(0.95, 1.05, 0.7, x, g + 0.1, z, [0.33, 0.31, 0.29], 12); b.cyl(0.72, 0.72, 0.06, x, g + 0.46, z, [0.95, 0.42, 0.06], 10); towerHits.push({ x, z, r: 1.1 });
       for (let j = 0; j < 3; j++) { const ba = a + 1 + j * 2.09, bx2 = x + Math.sin(ba) * 2.3, bz2 = z + Math.cos(ba) * 2.3, gb = H(bx2, bz2); b.box(1.7, 0.08, 0.46, bx2, gb + 0.46, bz2, WOOD, ba + Math.PI / 2); b.box(1.5, 0.62, 0.1, bx2, gb + 0.12, bz2, DARK, ba + Math.PI / 2); } }
     for (let k = 0; k < 6; k++) { const x = x0 - 12 + k * 4.5, z = z0 - 24; if (buildingAt(x, z)) continue; const g = H(x, z); b.cyl(0.04, 0.06, 9, x, g + 4, z, STEEL, 6); b.box(1.5, 0.95, 0.03, x + 0.8, g + 7.9, z, FL[k]); towerHits.push({ x, z, r: 0.2 }); }
     const fu = LIFTS.find(l => l.type === "funitel");
-    if (fu) { const dx = fu.bot.x - x0, dz = fu.bot.z - z0, l = Math.hypot(dx, dz) || 1, ux = dx / l, uz = dz / l, px = x0 + ux * Math.min(36, l * 0.5), pz = z0 + uz * Math.min(36, l * 0.5), yaw = Math.atan2(ux, uz), g = H(px, pz);
+    if (fu) { const dx = fu.bot.x - x0, dz = fu.bot.z - z0, l = Math.hypot(dx, dz) || 1, ux = dx / l, uz = dz / l, px = x0 + ux * l * 0.62, pz = z0 + uz * l * 0.62, yaw = Math.atan2(ux, uz), g = H(px, pz);
       if (!buildingAt(px, pz)) { for (const sd of [-1, 1]) { const x = px + uz * sd * 5.2, z = pz - ux * sd * 5.2, gp = H(x, z); b.box(0.42, 6.4, 0.42, x, gp + 2.2, z, WOOD, yaw); towerHits.push({ x, z, r: 0.4 }); }
         b.box(11.4, 0.95, 0.36, px, g + 4.75, pz, WOOD, yaw); b.box(11.8, 0.2, 0.6, px, g + 5.33, pz, [0.9, 0.92, 0.95], yaw);
         const cv = document.createElement("canvas"); cv.width = 1024; cv.height = 80; const c2 = cv.getContext("2d"); c2.fillStyle = "#2a1a0e"; c2.fillRect(0, 0, 1024, 80); c2.fillStyle = "#f1e6cf"; c2.textAlign = "center"; c2.textBaseline = "middle"; c2.font = "800 50px 'Big Shoulders Display', 'Arial Narrow', Impact, sans-serif"; c2.fillText("THE VILLAGE AT PALISADES TAHOE", 512, 42);
@@ -2150,9 +2152,9 @@ function standUp() {
   if (rockAt(sk.p.x, sk.p.z) > 0.75 || !inWorld(sk.p.x, sk.p.z, 60)) { placeSkier(sk.safe.x, sk.safe.z, sk.safeYaw); return; }
   placeSkier(sk.p.x, sk.p.z, yaw);
 }
-const PLAZA = { x: 0, z: 0, r: 0 }, plazaK = (x, z) => PLAZA.r ? 1 - sstep(PLAZA.r - 10, PLAZA.r, Math.hypot(x - PLAZA.x, z - PLAZA.z)) : 0;   // the cobbled village plaza
+const PLAZA = { x: 0, z: 0, r: 0, asp: 1 }, plazaD = (x, z) => Math.hypot((x - PLAZA.x) / PLAZA.asp, z - PLAZA.z), plazaK = (x, z) => PLAZA.r ? 1 - sstep(PLAZA.r - 10, PLAZA.r, plazaD(x, z)) : 0;   // the cobbled ground of the main village: an oval, PLAZA.r deep and asp times as long
 function readSurface() {
-  const m = maskAt(sk.p.x, sk.p.z), s = sk.surf; s.groom = m[0]; s.road = Math.max(m[2], plazaK(sk.p.x, sk.p.z) * (1 - sstep(0.2, 0.6, m[0]) * sstep(PLAZA.r * 0.55, PLAZA.r * 0.8, Math.hypot(sk.p.x - PLAZA.x, sk.p.z - PLAZA.z)))); s.mogul = m[3]; s.rock = sstep(0.215, 0.33, 1 - nrm.y) * (1 - m[0]) * sstep(0.35, 0.75, rockAt(sk.p.x, sk.p.z));   // only true cliff bands count as rock under the skis
+  const m = maskAt(sk.p.x, sk.p.z), s = sk.surf; s.groom = m[0]; s.road = Math.max(m[2], plazaK(sk.p.x, sk.p.z) * (1 - sstep(0.2, 0.6, m[0]) * sstep(PLAZA.r * 0.55, PLAZA.r * 0.8, plazaD(sk.p.x, sk.p.z)))); s.mogul = m[3]; s.rock = sstep(0.215, 0.33, 1 - nrm.y) * (1 - m[0]) * sstep(0.35, 0.75, rockAt(sk.p.x, sk.p.z));   // only true cliff bands count as rock under the skis
   s.deep = (1 - sstep(0.15, 0.6, m[0])) * (1 - s.road) * (1 - s.rock);   // new snow lying untouched: everywhere the cats have not been
   s.powder = (1 - m[0]) * (1 - s.road) * (1 - s.rock) * (wx.snow ? 1 : 0.6); return s;
 }
@@ -3081,17 +3083,19 @@ const SHOPS = [], WALKERS = []; let nearCounter = null, walkParts = null;
 const shopInside = (s, x, z) => { const rx = x - s.dx, rz = z - s.dz, u = rx * s.tx + rz * s.tz, w = rx * s.nx + rz * s.nz; return (Math.abs(u) < s.hw && w > 0.25 && w < s.D) || (Math.abs(u) < 0.62 && w > -0.7 && w <= 0.25); };
 function planShops() { // before the buildings are built: choose the shop fronts and fit a room behind each, so the walls can be left open there
   const skip = /lifthouse|lift base|express base|funitel base|venture base|exhibition base|silverado base|lady base|chair base|shirley|clock tower|gold coast/i, cen = bd => { let x = 0, z = 0; for (const q of bd.p) { x += q[0] / bd.p.length; z += q[1] / bd.p.length; } return [x, z]; };
-  const ct = WORLD.blds.find(bd => /clock tower/i.test(bd.n || "")); if (!ct) return; const c0 = cen(ct);
-  const near = WORLD.blds.filter(bd => !skip.test(bd.n || "") && polyArea(bd.p) > 250).map(bd => ({ bd, c: cen(bd) })).filter(q => Math.hypot(q.c[0] - c0[0], q.c[1] - c0[1]) < 150); if (near.length < 3) return;
-  let cx = 0, cz = 0, r = 0; for (const q of near) { cx += q.c[0] / near.length; cz += q.c[1] / near.length; } for (const q of near) r = Math.max(r, Math.hypot(q.c[0] - cx, q.c[1] - cz));
-  PLAZA.x = cx; PLAZA.z = cz; PLAZA.r = clamp(r * 0.72, 45, 88); U.uPlaza.value.set(cx, cz, PLAZA.r, 0);
-  const cands = [];
+  // The main village: the tall lodge buildings standing together just behind the Funitel and tram bases.
+  const fu = WORLD.lifts.find(l => l.t === "funitel"), tr = WORLD.lifts.find(l => l.t === "tram"); if (!fu) return; const b0 = fu.pts[0];
+  const core = WORLD.blds.filter(bd => !skip.test(bd.n || "") && bd.h >= 11.5 && polyArea(bd.p) > 800).map(cen).filter(c => Math.hypot(c[0] - b0[0], c[1] - b0[1]) < 330); if (core.length < 3) return;
+  let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9; for (const c of core) { x0 = Math.min(x0, c[0]); x1 = Math.max(x1, c[0]); z0 = Math.min(z0, c[1]); z1 = Math.max(z1, c[1]); }
+  const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, rb = (z1 - z0) / 2 + 24, ra = (x1 - x0) / 2 + 40; PLAZA.x = cx; PLAZA.z = cz; PLAZA.r = rb; PLAZA.asp = ra / rb; U.uPlaza.value.set(cx, cz, rb, ra / rb);   // an oval laid along the village
+  const near = WORLD.blds.filter(bd => !skip.test(bd.n || "") && polyArea(bd.p) > 250).map(bd => ({ bd, c: cen(bd) })).filter(q => plazaD(q.c[0], q.c[1]) < PLAZA.r * 1.12);
+  const cands = [], c2h = bd => Math.min(1, bd.h / 12);
   for (const { bd } of near) { const P = bd.p, n = P.length; for (let i = 0; i < n; i++) { const a = P[i], c = P[(i + 1) % n], len = Math.hypot(c[0] - a[0], c[1] - a[1]); if (len < 7.4) continue;
-    const tx = (c[0] - a[0]) / len, tz = (c[1] - a[1]) / len, mx = (a[0] + c[0]) / 2, mz = (a[1] + c[1]) / 2, sg = inPoly(P, mx - tz * 0.4, mz + tx * 0.4) ? -1 : 1, ox = -tz * sg, oz = tx * sg, dP = Math.hypot(mx - cx, mz - cz); if (dP > PLAZA.r + 12) continue;
+    const tx = (c[0] - a[0]) / len, tz = (c[1] - a[1]) / len, mx = (a[0] + c[0]) / 2, mz = (a[1] + c[1]) / 2, sg = inPoly(P, mx - tz * 0.4, mz + tx * 0.4) ? -1 : 1, ox = -tz * sg, oz = tx * sg, dP = Math.hypot(mx - cx, mz - cz); if (plazaD(mx + ox * 3, mz + oz * 3) > PLAZA.r - 4) continue;
     if (near.some(q => inPoly(q.bd.p, mx + ox * 2.5, mz + oz * 2.5) || inPoly(q.bd.p, mx + ox * 5, mz + oz * 5))) continue;   // the door must open onto the plaza, not onto another wall
-    const face = ((cx - mx) * ox + (cz - mz) * oz) / (dP || 1); cands.push({ bd, i, len, tx, tz, mx, mz, nx: -ox, nz: -oz, sc: face * 2 + Math.min(len, 14) / 14 - dP / 200 }); } }
-  cands.sort((p, q) => q.sc - p.sc); const perB = new Map();
-  for (const c of cands) { if (SHOPS.length >= SHOP_LIST.length) break; if ((perB.get(c.bd) || 0) >= 2) continue; let fit = null;
+    const face = ((cx - mx) * ox + (cz - mz) * oz) / (dP || 1); cands.push({ bd, i, len, tx, tz, mx, mz, nx: -ox, nz: -oz, sc: face * 0.6 + Math.min(len, 14) / 14 + c2h(bd) }); } }
+  cands.sort((p, q) => q.sc - p.sc); const perB = new Map();   // the tall hotel buildings first, their longest clear walls
+  for (const c of cands) { if (SHOPS.length >= SHOP_LIST.length) break; if ((perB.get(c.bd) || 0) >= 3) continue; let fit = null;
     for (let hw = Math.min(4.6, c.len / 2 - 0.5); hw >= 3 && !fit; hw -= 0.4) for (let D = 8; D >= 4.5 && !fit; D -= 0.5) { const pts = [[-hw, 0.4], [hw, 0.4], [-hw, D + 0.3], [hw, D + 0.3], [0, D + 0.3], [-hw, D / 2], [hw, D / 2]].map(q => [c.mx + c.tx * q[0] + c.nx * q[1], c.mz + c.tz * q[0] + c.nz * q[1]]);
       if (pts.every(q => inPoly(c.bd.p, q[0], q[1])) && !SHOPS.some(s => pts.some(q => shopInside({ dx: s.dx, dz: s.dz, tx: s.tx, tz: s.tz, nx: s.nx, nz: s.nz, hw: s.hw + 0.5, D: s.D + 0.5 }, q[0], q[1])) || Math.hypot(s.dx + s.nx * s.D / 2 - c.mx - c.nx * D / 2, s.dz + s.nz * s.D / 2 - c.mz - c.nz * D / 2) < (s.hw + hw) * 0.9)) fit = { hw, D }; }
     if (!fit) continue; const [name, kind] = SHOP_LIST[SHOPS.length], openW = Math.min(2 * fit.hw - 0.6, c.len - 1.2); let fy = -1e9; for (const u of [-1, 0, 1]) for (const w of [-1.2, 0.2, fit.D / 2, fit.D]) fy = Math.max(fy, H(c.mx + c.tx * u * fit.hw + c.nx * w, c.mz + c.tz * u * fit.hw + c.nz * w));
@@ -3154,7 +3158,7 @@ function initPlaza() {
   if (gl.p.length) { const m = new THREE.Mesh(gl.build(), new THREE.MeshStandardMaterial({ color: 0xa9cfe0, transparent: true, opacity: 0.2, roughness: 0.04, metalness: 0.1, depthWrite: false })); m.frustumCulled = false; m.renderOrder = 3; scene.add(m); }   // clear glass: you see the room through it
   for (const [p, yaw, name, w, h] of plates) { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), textPlate(name, "#1f140c", "#f3e7c9")); m.position.set(p[0], p[1], p[2]); m.rotation.y = yaw; scene.add(m); }
   // people on the plaza: bodies, with arms and legs that swing as they walk
-  const N = 30, JK = [0xd8362b, 0x1f6fd6, 0xf2b61b, 0x2a9d62, 0x8a4fd1, 0xe86a1c, 0x30343c, 0xe9edf2, 0x16a3a3, 0xd9438c], PT = [0x1b1e24, 0x2b3550, 0x4a3b2a, 0x3a3a3a], c = new THREE.Color();
+  const N = 44, JK = [0xd8362b, 0x1f6fd6, 0xf2b61b, 0x2a9d62, 0x8a4fd1, 0xe86a1c, 0x30343c, 0xe9edf2, 0x16a3a3, 0xd9438c], PT = [0x1b1e24, 0x2b3550, 0x4a3b2a, 0x3a3a3a], c = new THREE.Color();
   const body = new GeoBag(), leg = new GeoBag(), arm = new GeoBag(), W1 = [1, 1, 1];
   body.cyl(0.2, 0.19, 0.62, 0, 1.13, 0, W1, 10); body.add(new THREE.SphereGeometry(0.115, 10, 8), _gm.makeTranslation(0, 1.6, 0), [0.85, 0.68, 0.56]); body.cyl(0.125, 0.12, 0.1, 0, 1.68, 0, [0.12, 0.12, 0.14], 10);
   leg.box(0.15, 0.8, 0.17, 0, -0.4, 0, W1); leg.box(0.16, 0.09, 0.28, 0, -0.78, 0.05, [0.12, 0.1, 0.09]); arm.box(0.11, 0.56, 0.13, 0, -0.28, 0, W1); arm.box(0.1, 0.1, 0.12, 0, -0.6, 0, [0.12, 0.12, 0.14]);
@@ -3164,7 +3168,7 @@ function initPlaza() {
     c.setHex(JK[(i * 3 + 1) % JK.length]); walkParts.body.setColorAt(i, c); walkParts.arm.setColorAt(2 * i, c); walkParts.arm.setColorAt(2 * i + 1, c); c.setHex(PT[i % PT.length]); walkParts.leg.setColorAt(2 * i, c); walkParts.leg.setColorAt(2 * i + 1, c); }
   updateWalkers(0.016, { x: PLAZA.x, z: PLAZA.z });
 }
-function walkerSpot(w, seed) { for (let k = 0; k < 14; k++) { const a = hash2(seed, k, 302) * TAU, r = Math.sqrt(hash2(seed, k, 303)) * (PLAZA.r - 8), x = PLAZA.x + Math.sin(a) * r, z = PLAZA.z + Math.cos(a) * r; if (!buildingAt(x, z) && !buildingAt(x + 1.2, z) && !buildingAt(x, z + 1.2) && !SHOPS.some(s => shopInside(s, x, z)) && (r < PLAZA.r * 0.55 || maskCh(x, z, 0) < 0.3)) { w.tx = x; w.tz = z; return; } } }
+function walkerSpot(w, seed) { for (let k = 0; k < 14; k++) { const a = hash2(seed, k, 302) * TAU, r = Math.sqrt(hash2(seed, k, 303)) * (PLAZA.r - 8), x = PLAZA.x + Math.sin(a) * r * PLAZA.asp, z = PLAZA.z + Math.cos(a) * r; if (!buildingAt(x, z) && !buildingAt(x + 1.2, z) && !buildingAt(x, z + 1.2) && !SHOPS.some(s => shopInside(s, x, z)) && (r < PLAZA.r * 0.55 || maskCh(x, z, 0) < 0.3)) { w.tx = x; w.tz = z; return; } } }
 const _wm = new THREE.Matrix4(), _wc = new THREE.Matrix4(), _wq = new THREE.Quaternion(), _wp = new THREE.Vector3(), _w1 = new THREE.Vector3(1, 1, 1);
 function updateWalkers(dt, cam) {
   if (!walkParts || Math.abs(cam.x - PLAZA.x) + Math.abs(cam.z - PLAZA.z) > 700) return;

@@ -94,9 +94,9 @@ function standUp() {
   if (rockAt(sk.p.x, sk.p.z) > 0.75 || !inWorld(sk.p.x, sk.p.z, 60)) { placeSkier(sk.safe.x, sk.safe.z, sk.safeYaw); return; }
   placeSkier(sk.p.x, sk.p.z, yaw);
 }
-const PLAZA = { x: 0, z: 0, r: 0 }, plazaK = (x, z) => PLAZA.r ? 1 - sstep(PLAZA.r - 10, PLAZA.r, Math.hypot(x - PLAZA.x, z - PLAZA.z)) : 0;   // the cobbled village plaza
+const PLAZA = { x: 0, z: 0, r: 0, asp: 1 }, plazaD = (x, z) => Math.hypot((x - PLAZA.x) / PLAZA.asp, z - PLAZA.z), plazaK = (x, z) => PLAZA.r ? 1 - sstep(PLAZA.r - 10, PLAZA.r, plazaD(x, z)) : 0;   // the cobbled ground of the main village: an oval, PLAZA.r deep and asp times as long
 function readSurface() {
-  const m = maskAt(sk.p.x, sk.p.z), s = sk.surf; s.groom = m[0]; s.road = Math.max(m[2], plazaK(sk.p.x, sk.p.z) * (1 - sstep(0.2, 0.6, m[0]) * sstep(PLAZA.r * 0.55, PLAZA.r * 0.8, Math.hypot(sk.p.x - PLAZA.x, sk.p.z - PLAZA.z)))); s.mogul = m[3]; s.rock = sstep(0.215, 0.33, 1 - nrm.y) * (1 - m[0]) * sstep(0.35, 0.75, rockAt(sk.p.x, sk.p.z));   // only true cliff bands count as rock under the skis
+  const m = maskAt(sk.p.x, sk.p.z), s = sk.surf; s.groom = m[0]; s.road = Math.max(m[2], plazaK(sk.p.x, sk.p.z) * (1 - sstep(0.2, 0.6, m[0]) * sstep(PLAZA.r * 0.55, PLAZA.r * 0.8, plazaD(sk.p.x, sk.p.z)))); s.mogul = m[3]; s.rock = sstep(0.215, 0.33, 1 - nrm.y) * (1 - m[0]) * sstep(0.35, 0.75, rockAt(sk.p.x, sk.p.z));   // only true cliff bands count as rock under the skis
   s.deep = (1 - sstep(0.15, 0.6, m[0])) * (1 - s.road) * (1 - s.rock);   // new snow lying untouched: everywhere the cats have not been
   s.powder = (1 - m[0]) * (1 - s.road) * (1 - s.rock) * (wx.snow ? 1 : 0.6); return s;
 }

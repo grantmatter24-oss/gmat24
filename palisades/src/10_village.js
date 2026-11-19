@@ -10,17 +10,19 @@ const SHOPS = [], WALKERS = []; let nearCounter = null, walkParts = null;
 const shopInside = (s, x, z) => { const rx = x - s.dx, rz = z - s.dz, u = rx * s.tx + rz * s.tz, w = rx * s.nx + rz * s.nz; return (Math.abs(u) < s.hw && w > 0.25 && w < s.D) || (Math.abs(u) < 0.62 && w > -0.7 && w <= 0.25); };
 function planShops() { // before the buildings are built: choose the shop fronts and fit a room behind each, so the walls can be left open there
   const skip = /lifthouse|lift base|express base|funitel base|venture base|exhibition base|silverado base|lady base|chair base|shirley|clock tower|gold coast/i, cen = bd => { let x = 0, z = 0; for (const q of bd.p) { x += q[0] / bd.p.length; z += q[1] / bd.p.length; } return [x, z]; };
-  const ct = WORLD.blds.find(bd => /clock tower/i.test(bd.n || "")); if (!ct) return; const c0 = cen(ct);
-  const near = WORLD.blds.filter(bd => !skip.test(bd.n || "") && polyArea(bd.p) > 250).map(bd => ({ bd, c: cen(bd) })).filter(q => Math.hypot(q.c[0] - c0[0], q.c[1] - c0[1]) < 150); if (near.length < 3) return;
-  let cx = 0, cz = 0, r = 0; for (const q of near) { cx += q.c[0] / near.length; cz += q.c[1] / near.length; } for (const q of near) r = Math.max(r, Math.hypot(q.c[0] - cx, q.c[1] - cz));
-  PLAZA.x = cx; PLAZA.z = cz; PLAZA.r = clamp(r * 0.72, 45, 88); U.uPlaza.value.set(cx, cz, PLAZA.r, 0);
-  const cands = [];
+  // The main village: the tall lodge buildings standing together just behind the Funitel and tram bases.
+  const fu = WORLD.lifts.find(l => l.t === "funitel"), tr = WORLD.lifts.find(l => l.t === "tram"); if (!fu) return; const b0 = fu.pts[0];
+  const core = WORLD.blds.filter(bd => !skip.test(bd.n || "") && bd.h >= 11.5 && polyArea(bd.p) > 800).map(cen).filter(c => Math.hypot(c[0] - b0[0], c[1] - b0[1]) < 330); if (core.length < 3) return;
+  let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9; for (const c of core) { x0 = Math.min(x0, c[0]); x1 = Math.max(x1, c[0]); z0 = Math.min(z0, c[1]); z1 = Math.max(z1, c[1]); }
+  const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, rb = (z1 - z0) / 2 + 24, ra = (x1 - x0) / 2 + 40; PLAZA.x = cx; PLAZA.z = cz; PLAZA.r = rb; PLAZA.asp = ra / rb; U.uPlaza.value.set(cx, cz, rb, ra / rb);   // an oval laid along the village
+  const near = WORLD.blds.filter(bd => !skip.test(bd.n || "") && polyArea(bd.p) > 250).map(bd => ({ bd, c: cen(bd) })).filter(q => plazaD(q.c[0], q.c[1]) < PLAZA.r * 1.12);
+  const cands = [], c2h = bd => Math.min(1, bd.h / 12);
   for (const { bd } of near) { const P = bd.p, n = P.length; for (let i = 0; i < n; i++) { const a = P[i], c = P[(i + 1) % n], len = Math.hypot(c[0] - a[0], c[1] - a[1]); if (len < 7.4) continue;
-    const tx = (c[0] - a[0]) / len, tz = (c[1] - a[1]) / len, mx = (a[0] + c[0]) / 2, mz = (a[1] + c[1]) / 2, sg = inPoly(P, mx - tz * 0.4, mz + tx * 0.4) ? -1 : 1, ox = -tz * sg, oz = tx * sg, dP = Math.hypot(mx - cx, mz - cz); if (dP > PLAZA.r + 12) continue;
+    const tx = (c[0] - a[0]) / len, tz = (c[1] - a[1]) / len, mx = (a[0] + c[0]) / 2, mz = (a[1] + c[1]) / 2, sg = inPoly(P, mx - tz * 0.4, mz + tx * 0.4) ? -1 : 1, ox = -tz * sg, oz = tx * sg, dP = Math.hypot(mx - cx, mz - cz); if (plazaD(mx + ox * 3, mz + oz * 3) > PLAZA.r - 4) continue;
     if (near.some(q => inPoly(q.bd.p, mx + ox * 2.5, mz + oz * 2.5) || inPoly(q.bd.p, mx + ox * 5, mz + oz * 5))) continue;   // the door must open onto the plaza, not onto another wall
-    const face = ((cx - mx) * ox + (cz - mz) * oz) / (dP || 1); cands.push({ bd, i, len, tx, tz, mx, mz, nx: -ox, nz: -oz, sc: face * 2 + Math.min(len, 14) / 14 - dP / 200 }); } }
-  cands.sort((p, q) => q.sc - p.sc); const perB = new Map();
-  for (const c of cands) { if (SHOPS.length >= SHOP_LIST.length) break; if ((perB.get(c.bd) || 0) >= 2) continue; let fit = null;
+    const face = ((cx - mx) * ox + (cz - mz) * oz) / (dP || 1); cands.push({ bd, i, len, tx, tz, mx, mz, nx: -ox, nz: -oz, sc: face * 0.6 + Math.min(len, 14) / 14 + c2h(bd) }); } }
+  cands.sort((p, q) => q.sc - p.sc); const perB = new Map();   // the tall hotel buildings first, their longest clear walls
+  for (const c of cands) { if (SHOPS.length >= SHOP_LIST.length) break; if ((perB.get(c.bd) || 0) >= 3) continue; let fit = null;
     for (let hw = Math.min(4.6, c.len / 2 - 0.5); hw >= 3 && !fit; hw -= 0.4) for (let D = 8; D >= 4.5 && !fit; D -= 0.5) { const pts = [[-hw, 0.4], [hw, 0.4], [-hw, D + 0.3], [hw, D + 0.3], [0, D + 0.3], [-hw, D / 2], [hw, D / 2]].map(q => [c.mx + c.tx * q[0] + c.nx * q[1], c.mz + c.tz * q[0] + c.nz * q[1]]);
       if (pts.every(q => inPoly(c.bd.p, q[0], q[1])) && !SHOPS.some(s => pts.some(q => shopInside({ dx: s.dx, dz: s.dz, tx: s.tx, tz: s.tz, nx: s.nx, nz: s.nz, hw: s.hw + 0.5, D: s.D + 0.5 }, q[0], q[1])) || Math.hypot(s.dx + s.nx * s.D / 2 - c.mx - c.nx * D / 2, s.dz + s.nz * s.D / 2 - c.mz - c.nz * D / 2) < (s.hw + hw) * 0.9)) fit = { hw, D }; }
     if (!fit) continue; const [name, kind] = SHOP_LIST[SHOPS.length], openW = Math.min(2 * fit.hw - 0.6, c.len - 1.2); let fy = -1e9; for (const u of [-1, 0, 1]) for (const w of [-1.2, 0.2, fit.D / 2, fit.D]) fy = Math.max(fy, H(c.mx + c.tx * u * fit.hw + c.nx * w, c.mz + c.tz * u * fit.hw + c.nz * w));
@@ -83,7 +85,7 @@ function initPlaza() {
   if (gl.p.length) { const m = new THREE.Mesh(gl.build(), new THREE.MeshStandardMaterial({ color: 0xa9cfe0, transparent: true, opacity: 0.2, roughness: 0.04, metalness: 0.1, depthWrite: false })); m.frustumCulled = false; m.renderOrder = 3; scene.add(m); }   // clear glass: you see the room through it
   for (const [p, yaw, name, w, h] of plates) { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), textPlate(name, "#1f140c", "#f3e7c9")); m.position.set(p[0], p[1], p[2]); m.rotation.y = yaw; scene.add(m); }
   // people on the plaza: bodies, with arms and legs that swing as they walk
-  const N = 30, JK = [0xd8362b, 0x1f6fd6, 0xf2b61b, 0x2a9d62, 0x8a4fd1, 0xe86a1c, 0x30343c, 0xe9edf2, 0x16a3a3, 0xd9438c], PT = [0x1b1e24, 0x2b3550, 0x4a3b2a, 0x3a3a3a], c = new THREE.Color();
+  const N = 44, JK = [0xd8362b, 0x1f6fd6, 0xf2b61b, 0x2a9d62, 0x8a4fd1, 0xe86a1c, 0x30343c, 0xe9edf2, 0x16a3a3, 0xd9438c], PT = [0x1b1e24, 0x2b3550, 0x4a3b2a, 0x3a3a3a], c = new THREE.Color();
   const body = new GeoBag(), leg = new GeoBag(), arm = new GeoBag(), W1 = [1, 1, 1];
   body.cyl(0.2, 0.19, 0.62, 0, 1.13, 0, W1, 10); body.add(new THREE.SphereGeometry(0.115, 10, 8), _gm.makeTranslation(0, 1.6, 0), [0.85, 0.68, 0.56]); body.cyl(0.125, 0.12, 0.1, 0, 1.68, 0, [0.12, 0.12, 0.14], 10);
   leg.box(0.15, 0.8, 0.17, 0, -0.4, 0, W1); leg.box(0.16, 0.09, 0.28, 0, -0.78, 0.05, [0.12, 0.1, 0.09]); arm.box(0.11, 0.56, 0.13, 0, -0.28, 0, W1); arm.box(0.1, 0.1, 0.12, 0, -0.6, 0, [0.12, 0.12, 0.14]);
@@ -93,7 +95,7 @@ function initPlaza() {
     c.setHex(JK[(i * 3 + 1) % JK.length]); walkParts.body.setColorAt(i, c); walkParts.arm.setColorAt(2 * i, c); walkParts.arm.setColorAt(2 * i + 1, c); c.setHex(PT[i % PT.length]); walkParts.leg.setColorAt(2 * i, c); walkParts.leg.setColorAt(2 * i + 1, c); }
   updateWalkers(0.016, { x: PLAZA.x, z: PLAZA.z });
 }
-function walkerSpot(w, seed) { for (let k = 0; k < 14; k++) { const a = hash2(seed, k, 302) * TAU, r = Math.sqrt(hash2(seed, k, 303)) * (PLAZA.r - 8), x = PLAZA.x + Math.sin(a) * r, z = PLAZA.z + Math.cos(a) * r; if (!buildingAt(x, z) && !buildingAt(x + 1.2, z) && !buildingAt(x, z + 1.2) && !SHOPS.some(s => shopInside(s, x, z)) && (r < PLAZA.r * 0.55 || maskCh(x, z, 0) < 0.3)) { w.tx = x; w.tz = z; return; } } }
+function walkerSpot(w, seed) { for (let k = 0; k < 14; k++) { const a = hash2(seed, k, 302) * TAU, r = Math.sqrt(hash2(seed, k, 303)) * (PLAZA.r - 8), x = PLAZA.x + Math.sin(a) * r * PLAZA.asp, z = PLAZA.z + Math.cos(a) * r; if (!buildingAt(x, z) && !buildingAt(x + 1.2, z) && !buildingAt(x, z + 1.2) && !SHOPS.some(s => shopInside(s, x, z)) && (r < PLAZA.r * 0.55 || maskCh(x, z, 0) < 0.3)) { w.tx = x; w.tz = z; return; } } }
 const _wm = new THREE.Matrix4(), _wc = new THREE.Matrix4(), _wq = new THREE.Quaternion(), _wp = new THREE.Vector3(), _w1 = new THREE.Vector3(1, 1, 1);
 function updateWalkers(dt, cam) {
   if (!walkParts || Math.abs(cam.x - PLAZA.x) + Math.abs(cam.z - PLAZA.z) > 700) return;
