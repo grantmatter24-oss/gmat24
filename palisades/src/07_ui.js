@@ -288,7 +288,7 @@ function poseRemote(r, dt, time, a) { // stand a rider (a friend, or a competiti
     MP_KEYS.forEach((n, i) => { r.keys[n] = st.k & (1 << i) ? 1 : 0; }); if (q.ground) { r.keys.boost = r.keys.up; r.keys.up = 0; } else r.keys.boost = 0;   // on snow W is the tuck, as it is for you: other riders do not nose butter along
     poseRider(R, q, st.md === "ski" ? r.keys : NOKEYS, st.sl || 0, dt, time, jump); if (L && L.type.startsWith("chair")) R.hold.position.y += 0.2;
     if (st.md === "sled") { // another player on a snowmobile: the driver's state moves the machine itself; both riders sit on its seat
-      const S = SLEDS[st.sdi], pass = st.sdr === 2, back = pass ? 0.94 : 0.34; if (S && !pass && !(sk.sled === S && sk.sledRole === 1)) { S.x = q.p.x; S.z = q.p.z; S.yaw = q.yaw; S.v = st.sp || 0; S.remote = r; S.remoteT = performance.now(); sledPlace(S); }
+      const S = SLEDS[st.sdi], pass = st.sdr === 2, back = pass ? 0.94 : 0.34; if (S && !pass && !(sk.sled === S && sk.sledRole === 1)) { S.x = q.p.x; S.z = q.p.z; S.yaw = q.yaw; S.v = st.sp || 0; S.y = q.p.y; S.air = !st.gr && q.p.y - H(q.p.x, q.p.z) > 0.2; S.remote = r; S.remoteT = performance.now(); sledPlace(S); }
       R.hold.position.y += pass ? 0.18 : 0.12; R.hold.position.x -= Math.sin(q.yaw) * back; R.hold.position.z -= Math.cos(q.yaw) * back; }
 }
 const FIREBASE_CONFIG = { apiKey: "AIzaSyDP_rgi4dWZqVax_c5Ob5Hg4dilLS9Bchc", authDomain: "kicker-run.firebaseapp.com", databaseURL: "https://kicker-run-default-rtdb.firebaseio.com", projectId: "kicker-run", storageBucket: "kicker-run.firebasestorage.app", messagingSenderId: "149808173020", appId: "1:149808173020:web:744be18f442c535fe54919" };

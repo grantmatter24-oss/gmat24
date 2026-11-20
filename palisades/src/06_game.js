@@ -486,7 +486,7 @@ function updateRig(dt, time) {
   sk.poseSlope = camSnap ? sk.slope : (sk.poseSlope || 0) + (sk.slope - (sk.poseSlope || 0)) * Math.min(1, 3 * dt);   // legs follow the hill, not every ripple
   Object.assign(PK, K); if (sk.ground) { PK.boost = K.up; PK.up = 0; } else PK.boost = 0;   // on snow W is the tuck, not a nose butter
   poseRider(R, sk, sk.mode === "ski" ? PK : NOKEYS, sk.poseSlope, dt, time, camSnap);
-  if (seated) R.hold.position.y += 0.2; if (sk.mode === "sled") { const back = sk.sledRole === 2 ? 0.94 : 0.34; R.hold.position.y += sk.sledRole === 2 ? 0.18 : 0.12; R.hold.position.x -= Math.sin(sk.yaw) * back; R.hold.position.z -= Math.cos(sk.yaw) * back; }   // on the seat, behind the bars
+  if (seated) R.hold.position.y += 0.2; if (sk.mode === "sled") { const back = sk.sledRole === 2 ? 0.94 : 0.34; R.hold.position.y += sk.sledRole === 2 ? 0.18 : 0.12; R.hold.position.x -= Math.sin(sk.yaw) * back; R.hold.position.z -= Math.cos(sk.yaw) * back; if (sk.sled && sk.sled.air) R.hold.quaternion.copy(sk.sled.mesh.quaternion); }   // on the seat, behind the bars; in the air you pitch with the machine
   if (sk.lost && !sk.crashed) { clearLoose(); sk.lost = false; }
   if (sk.crashed) R.hold.position.y += 0.22 + (sk.crashHop || 0);
   if (sk.shopIn && R.hold.position.y < sk.shopIn.floorY) R.hold.position.y = sk.shopIn.floorY;   // on the shop's floor, not the ground under it
