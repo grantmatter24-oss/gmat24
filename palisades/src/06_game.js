@@ -162,7 +162,7 @@ function stepSki(dt) {
     if (treeHit(p.x, p.z, 0.3)) sk.sp *= 0.5; if ((sk.sp < 0.6 && sk.crashT > (sk.lost ? 2.6 : 1.4)) || sk.crashT > 5.5) standUp(); popReq = false; return;
   }
   if (sk.parked) { if (K.left || K.right || K.up || K.down || K.spinL || K.spinR || charging || popReq) sk.parked = false; else { sk.sp = 0; popReq = false; return; } }   // stay put after a spawn until the first input
-  const onGr = sk.ground && !sk.grind, butterNow = onGr && sk.sp > 2 && K.down;   // W drives forward on snow; only the tail butter remains
+  const onGr = sk.ground && !sk.grind, butterNow = onGr && sk.sp > 2 && K.brake;   // on snow J is the tail butter and S slows you down; in the air S is still the back flip
   const steer = butterNow ? 0 : onGr ? ((K.spinR || K.right) ? 1 : 0) - ((K.spinL || K.left) ? 1 : 0) : (K.right ? 1 : 0) - (K.left ? 1 : 0);
   if (!onGr) sk.butSpun = false;
   if (butterNow) { const spI = (K.spinR ? 1 : 0) - (K.spinL ? 1 : 0); if (spI) sk.spinV += clamp(spI * 6 - sk.spinV, -30 * dt, 30 * dt); else sk.spinV *= Math.exp(-6 * dt); sk.spin += sk.spinV * dt; sk.butSpun = true; }
@@ -193,7 +193,7 @@ function stepSki(dt) {
     const sA = tangent(sk.yaw - sk.slip), sn = Math.sin(sA), s = readSurface(); sk.slope = sA;   // gravity and travel follow the way you are sliding, not the way the skis point
     // linear scrub from turning plus air drag that grows with speed, so there is no hard cap
     const DRG = PH.drag * (sk.wax > 0 ? 0.78 : 1);   // a fresh hot wax runs faster
-    const lin = ((0.1 + 0.07 * (1 - clamp(sk.sp / 12, 0, 1))) * s.powder + 0.05 + Math.abs(steer) * (0.34 - 0.24 * sk.carve) * (0.85 + sk.sp / 90) * PH.scrub * (1 + 0.5 * (s.deep || 0)) + s.road * 0.25 + (slash ? 0.6 : 0) + 0.55 * Math.abs(Math.sin(sk.slip))) * (0.5 + 0.5 * DRG), quad = (K.down || K.up ? 0.0052 : 0.0072) * DRG, push = K.up && !slash ? 7 : 0, brk = K.brake ? 16 : 0;
+    const lin = ((0.1 + 0.07 * (1 - clamp(sk.sp / 12, 0, 1))) * s.powder + 0.05 + Math.abs(steer) * (0.34 - 0.24 * sk.carve) * (0.85 + sk.sp / 90) * PH.scrub * (1 + 0.5 * (s.deep || 0)) + s.road * 0.25 + (slash ? 0.6 : 0) + 0.55 * Math.abs(Math.sin(sk.slip))) * (0.5 + 0.5 * DRG), quad = (K.brake || K.up ? 0.0052 : 0.0072) * DRG, push = K.up && !slash ? 7 : 0, brk = K.down ? 16 : 0;
     // Rock under the skis: you can scrape over it, but it grabs, chatters and can throw you off balance.
     const rk = s.rock; if (rk > 0.05 && sk.sp > 1) { if (Math.random() < 0.6) spray(p, 0.4 + Math.random(), (Math.random() - 0.5) * 2, v, 0.5); if (rk > 0.5 && sk.sp > 12 && sk.stumT <= 0 && Math.random() < 0.6 * dt) { sk.stumT = 0.9; sk.stumD = Math.random() < 0.5 ? -1 : 1; } }   /* rock scrapes and rattles you, but it does not slow you down */
     const acc = -G * sn - (lin + 1.5 * rk) * sk.sp - quad * sk.sp * sk.sp + push - brk - rk * (1.5 + 3 * Math.random());
@@ -366,7 +366,7 @@ function emitSpray(dt) {
   for (let i = 0; i < Math.min(cnt, 12); i++) spray(sk.p, 0.5 + Math.random() * (0.8 + 1.2 * s.powder), (Math.random() - 0.5) * (1.5 + 2 * s.powder), sk.v, 0.3 + 0.2 * s.powder, 0.25 * s.powder);
   if (Math.abs(steer) > 0.3 && sk.sp > 6 && sk.carve > 0.2) { const k = Math.floor((2 + sk.sp / 10) * (1 + 3.5 * s.powder) * dt * 60 * 0.5 + Math.random()); for (let i = 0; i < k; i++) spray(sk.p, (1.5 + sk.sp * 0.05 + Math.random() * 2) * (1 + 0.8 * s.powder), -Math.sign(steer) * (3 + sk.carve * 4 + sk.sp * 0.12) * (0.5 + Math.random() * 0.6), sk.v, 0.3 + 0.2 * s.powder, s.powder); }   // a real cloud off every powder turn
   if (pd > 0.7 && Math.abs(steer) > 0.35 && sk.sp > 9) { const k = Math.floor((1.5 + sk.sp / 14) * dt * 60 * 0.5 + Math.random()); for (let i = 0; i < k; i++) spray(sk.p, 3.2 + Math.random() * 2.4, -Math.sign(steer) * (1 + Math.random() * 2.5), sk.v, 0.12, 1); }   // face shots: deep snow thrown head high on every turn
-  if (K.down && sk.sp > 3 && Math.random() < 0.4) spray(sk.p, 2, 0, sk.v, 0.4);
+  if (K.brake && sk.sp > 3 && Math.random() < 0.4) spray(sk.p, 2, 0, sk.v, 0.4);
 }
 /* Ski tracks are trenches in the new snow, not marks on it: a groove for each ski, cut to the depth you were riding at, with a ridge between them.
    They are real geometry below the snow surface, drawn with the snow's own shader. They stay until the snow is topped up, every five minutes. */
@@ -484,7 +484,7 @@ function updateRig(dt, time) {
   R.hold.visible = !cabin; sk.air = !sk.ground && sk.mode === "ski";
   if (seated) { sk.chg = 0.85; sk.turn = 0; sk.carve = 0; } if (sk.mode === "sled") { sk.chg = 0; sk.carve = 0; }   // sit: Kicker Run's deep crouch reads as a seat on the chair
   sk.poseSlope = camSnap ? sk.slope : (sk.poseSlope || 0) + (sk.slope - (sk.poseSlope || 0)) * Math.min(1, 3 * dt);   // legs follow the hill, not every ripple
-  Object.assign(PK, K); if (sk.ground) { PK.boost = K.up; PK.up = 0; } else PK.boost = 0;   // on snow W is the tuck, not a nose butter
+  Object.assign(PK, K); if (sk.ground) { PK.boost = K.up; PK.up = 0; PK.down = K.brake; PK.brake = K.down; } else PK.boost = 0;   // on snow W is the tuck, not a nose butter
   poseRider(R, sk, sk.mode === "ski" ? PK : NOKEYS, sk.poseSlope, dt, time, camSnap);
   if (seated) R.hold.position.y += 0.2; if (sk.mode === "sled") { const back = sk.sledRole === 2 ? 0.94 : 0.34; R.hold.position.y += sk.sledRole === 2 ? 0.18 : 0.12; R.hold.position.x -= Math.sin(sk.yaw) * back; R.hold.position.z -= Math.cos(sk.yaw) * back; if (sk.sled && sk.sled.air) R.hold.quaternion.copy(sk.sled.mesh.quaternion); }   // on the seat, behind the bars; in the air you pitch with the machine
   if (sk.lost && !sk.crashed) { clearLoose(); sk.lost = false; }
