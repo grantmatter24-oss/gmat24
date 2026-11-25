@@ -17,8 +17,9 @@ const sk = {
 const nrm = new THREE.Vector3(0, 1, 0), fw = new THREE.Vector3(), rt = new THREE.Vector3(), tmp = new THREE.Vector3(), tmp2 = new THREE.Vector3();
 let rig = null, fpv = store.get("pal-fpv", false), units = store.get("pal-units", "imp"), paused = false, toastT = 0;
 /* Goggles: an extra the Kicker Run rider does not have. They are sold at the goggle shop in the village and worn over whatever is on your head. */
-const GOGGLES = { none: null, fire: [0x141414, 0xff7a1a], ice: [0xf2f4f7, 0x3aa0ff], rose: [0x7a1420, 0xff5fa2], jade: [0x0f3a2a, 0x39d98a], gold: [0x1a1a1a, 0xf2c230], night: [0x1b1e24, 0x2a2d33] };
-KR.OUTFIT_OPTS.goggles = { none: "No goggles", fire: "Fire lens goggles", ice: "Ice blue goggles", rose: "Rose lens goggles", jade: "Jade lens goggles", gold: "Gold mirror goggles", night: "Blackout goggles" }; KR.OUTFIT_DEFAULT.goggles = "none";
+const GOGGLES = { none: null, fire: [0x141414, 0xff7a1a], ice: [0xf2f4f7, 0x3aa0ff], rose: [0x7a1420, 0xff5fa2], jade: [0x0f3a2a, 0x39d98a], gold: [0x1a1a1a, 0xf2c230], night: [0x1b1e24, 0x2a2d33], chrome: [0xcfd6de, 0xe6eef8], glow: [0x0e0f12, 0x39ffb0] };
+KR.OUTFIT_OPTS.goggles = { none: "No goggles", fire: "Fire lens goggles", ice: "Ice blue goggles", rose: "Rose lens goggles", jade: "Jade lens goggles", gold: "Gold mirror goggles", night: "Blackout goggles", chrome: "Mirror chrome goggles", glow: "Glow goggles" }; KR.OUTFIT_DEFAULT.goggles = "none";
+Object.assign(KR.OUTFIT_OPTS.helmet, { chrome: "Chrome helmet", visor: "LED visor helmet", astro: "Astronaut helmet", kabuto: "Samurai kabuto", crown: "King's crown", wizhat: "Wizard hat", trapper: "Fur trapper hat" });
 const ACC_NEW = { pack: "Backpack", bandana: "Face bandana", hippack: "Hip pack", cam: "Helmet camera" }; Object.assign(KR.OUTFIT_OPTS.accessory, ACC_NEW);   // extras sold at the accessory shop
 /* Designer skis: wide boards with printed top sheets, sold at the ski shop in the village. Across the canvas the left half is the top of
    the ski and the right half its base; down the canvas runs the length of the ski. */
@@ -40,7 +41,7 @@ function skiDesigns() { if (skiDesignTex) return skiDesignTex; skiDesignTex = {}
     const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; skiDesignTex[k] = t; } return skiDesignTex; }
 function dressRig(R, of) { if (!R.skiDes) { R.skiDes = true; Object.assign(R.skiTexes, skiDesigns()); } KR.dress(R, of); clothDress(R, of); if (of && SKI_DESIGNS[of.skis]) R.skiMeshes.forEach(m => { m.scale.x = 1.4; }); const q = R.gog, sm = !of || of.style !== "detailed", c = q && (GOGGLES[of && of.goggles] || (sm ? [0x15171b, 0x39424d] : null)); if (!q) return;
   R.simpleOnly.forEach(m => { if (m.parent === R.head && !m.userData.helmetOnly && m.material !== R.mats.skin) m.visible = false; });   /* the mannequin's own stock goggles give way to these; with none bought it wears a plain smoke pair */
-  q.grp.scale.setScalar(sm ? 1.21 : 1); q.grp.visible = !!c; if (c) { q.frame.color.setHex(c[0]); q.lens.color.setHex(c[1]); q.lens.emissive.setHex(c[1]); q.stripe.color.setHex(c[1]); } }
+  q.grp.scale.setScalar(sm ? 1.21 : 1); q.grp.visible = !!c; if (c) { q.frame.color.setHex(c[0]); q.lens.color.setHex(c[1]); q.lens.emissive.setHex(c[1]); q.lens.emissiveIntensity = of && of.goggles === "glow" ? 1.6 : of && of.goggles === "chrome" ? 0.55 : 0.28; q.stripe.color.setHex(c[1]); } }
 let outfit = Object.assign({}, KR.OUTFIT_DEFAULT, store.get("kickerOutfit", null) || {}, store.get("pal-outfit", null) || {});
 for (const k of ["jacket", "pants"]) if (!KR[k === "jacket" ? "JACKETS" : "PANTS"][outfit[k]]) outfit[k] = KR.OUTFIT_DEFAULT[k];
 const fwdOf = (yaw, out) => out.set(Math.sin(yaw), 0, Math.cos(yaw));
@@ -280,6 +281,8 @@ function toggleWalk() {
 }
 const WALK = { walk: 3.1, run: 7.0, back: 1.8 };   // m/s: a brisk walk, a proper run (Shift), backing up
 function stepWalk(dt) {
+  if (sk.tackT > 0) { sk.sp = 0; sk.wv = 0; return; }   // flat on the cobbles under a policeman
+  if (RANGE && RANGE.on) { const st = ((K.spinR || K.right) ? 1 : 0) - ((K.spinL || K.left) ? 1 : 0); sk.yaw = RANGE.yaw + clamp(wrap(sk.yaw - st * 0.9 * dt - RANGE.yaw), -0.5, 0.5); sk.sp = 0; sk.wv = 0; return; }   // at the snowball range you only turn to aim
   if (sk.dance) { sk.sp = 0; sk.wv = 0; sk.walkPh = 0; return; }   // dancing on the spot
   if (PUB.seat) { const q = PUB.seat; sk.p.x = q.x; sk.p.z = q.z; sk.p.y = H(q.x, q.z); sk.yaw = Math.atan2(q.tx - q.x, q.tz - q.z); sk.sp = 0; sk.wv = 0; sk.turn = 0; return; }   // sat at a table in the pub
   const p = sk.p, steer = ((K.spinR || K.right) ? 1 : 0) - ((K.spinL || K.left) ? 1 : 0), go = (K.up ? 1 : 0) - (K.down ? 1 : 0), running = go > 0 && K.boost; sk.yaw -= steer * (running ? 2.4 : 3.0) * dt;
@@ -437,7 +440,17 @@ function makeRider(of) { // Kicker Run's skier faces -z; the holder faces +z and
     const bandana = mk(R.head), red = M(0xb3202a); put(bandana, new THREE.SphereGeometry(0.119, 18, 10, 0, Math.PI * 2, Math.PI * 0.52, Math.PI * 0.3), red, 0, 0, 0).material.side = THREE.DoubleSide; { const t = put(bandana, new THREE.ConeGeometry(0.085, 0.13, 3), red, 0, -0.13, -0.075); t.rotation.set(Math.PI + 0.25, Math.PI, 0); t.scale.z = 0.35; } for (let k = 0; k < 5; k++) put(bandana, new THREE.SphereGeometry(0.008, 5, 4), M(0xf2f2f2), (k - 2) * 0.03, -0.045 - 0.012 * (k % 2), -0.113 + 0.004 * Math.abs(k - 2));
     const hip = mk(R.hipG), teal = M(0x138a8a); put(hip, new THREE.SphereGeometry(0.1, 14, 10), teal, 0, 0.1, 0.19).scale.set(1.5, 0.75, 0.6); put(hip, new THREE.BoxGeometry(0.2, 0.012, 0.02), dark, 0, 0.11, 0.252); { const b = put(hip, new THREE.TorusGeometry(0.235, 0.013, 6, 26), dark, 0, 0.1, 0.0); b.rotation.x = Math.PI / 2; b.scale.set(1.16, 0.8, 1); }
     const cam = mk(R.head); put(cam, new THREE.BoxGeometry(0.055, 0.042, 0.04), dark, 0, 0.19, -0.035); put(cam, new THREE.CylinderGeometry(0.014, 0.014, 0.014, 10), grey, 0, 0.192, -0.06).rotation.x = Math.PI / 2; put(cam, new THREE.BoxGeometry(0.03, 0.03, 0.03), dark, 0, 0.158, -0.03); put(cam, new THREE.SphereGeometry(0.005, 5, 4), new THREE.MeshBasicMaterial({ color: 0xff2a2a }), 0.02, 0.205, -0.055);
-    Object.assign(R.acc, { pack, bandana, hippack: hip, cam }); dressRig(R, of || {}); }
+    Object.assign(R.acc, { pack, bandana, hippack: hip, cam });
+    /* exotic headwear. The head is a 0.113 m ball at the origin, looking down -z. */
+    const hat = k => { const q = mk(R.head); R.hats[k] = q; return q; }, S2 = (r, a, b, c, d2) => new THREE.SphereGeometry(r, 22, 14, a === undefined ? 0 : a, b === undefined ? TAU : b, c === undefined ? 0 : c, d2 === undefined ? Math.PI : d2), MM = (c, o) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.6, side: THREE.DoubleSide }, o)), gold = MM(0xe2b233, { metalness: 0.55, roughness: 0.25, emissive: 0x3a2800 });
+    { const q = hat("chrome"), m = MM(0xdfe6ee, { metalness: 0.6, roughness: 0.16, emissive: 0x30363e }); put(q, S2(0.142, 0, TAU, 0, Math.PI * 0.62), m, 0, 0.012, 0.012); put(q, new THREE.TorusGeometry(0.143, 0.009, 6, 24, Math.PI), m, 0, 0.012, 0.012).rotation.y = Math.PI / 2; }
+    { const q = hat("visor"), ge = new THREE.TorusGeometry(0.146, 0.015, 6, 24, 2.4); ge.rotateX(Math.PI / 2); ge.rotateY(1.2 + Math.PI / 2); put(q, S2(0.142, 0, TAU, 0, Math.PI * 0.62), MM(0x0e1014, { roughness: 0.3 }), 0, 0.012, 0.012); put(q, ge, new THREE.MeshBasicMaterial({ color: 0x39e6ff }), 0, 0.052, 0.012); put(q, new THREE.BoxGeometry(0.012, 0.04, 0.2), new THREE.MeshBasicMaterial({ color: 0xff2fd0 }), 0, 0.15, 0.02); }
+    { const q = hat("astro"); put(q, S2(0.176, 0, TAU, 0, Math.PI * 0.8), MM(0xf2f4f7, { roughness: 0.35 }), 0, 0.02, 0.01); put(q, S2(0.179, Math.PI * 1.5 - 0.85, 1.7, 0.85, 1.05), gold, 0, 0.02, 0.01); put(q, new THREE.TorusGeometry(0.125, 0.03, 8, 22), MM(0x9aa2ab), 0, -0.105, 0.01).rotation.x = Math.PI / 2; }
+    { const q = hat("kabuto"), red = MM(0x5a0f12, { roughness: 0.3 }); put(q, S2(0.146, 0, TAU, 0, Math.PI * 0.55), red, 0, 0.012, 0.012); put(q, new THREE.CylinderGeometry(0.15, 0.215, 0.1, 18, 1, true, -2.1, 4.2), red, 0, -0.035, 0.012); put(q, new THREE.BoxGeometry(0.07, 0.05, 0.012), gold, 0, 0.09, -0.136); for (const sd of [-1, 1]) put(q, new THREE.BoxGeometry(0.022, 0.2, 0.012), gold, sd * 0.07, 0.2, -0.12).rotation.z = -sd * 0.5; }
+    { const q = hat("crown"); put(q, new THREE.CylinderGeometry(0.124, 0.12, 0.075, 20, 1, true), gold, 0, 0.105, 0.005); put(q, S2(0.116, 0, TAU, 0, Math.PI / 2), MM(0xa8141c), 0, 0.1, 0.005).scale.y = 0.65; put(q, new THREE.TorusGeometry(0.123, 0.017, 6, 22), MM(0xf6f6f2, { roughness: 0.95 }), 0, 0.07, 0.005).rotation.x = Math.PI / 2; for (let k = 0; k < 8; k++) { const a = k * TAU / 8; put(q, new THREE.ConeGeometry(0.024, 0.07, 6), gold, Math.sin(a) * 0.121, 0.175, 0.005 + Math.cos(a) * 0.121); put(q, new THREE.SphereGeometry(0.013, 8, 6), new THREE.MeshBasicMaterial({ color: k % 2 ? 0x2a6aff : 0xff2a3a }), Math.sin(a + 0.39) * 0.127, 0.108, 0.005 + Math.cos(a + 0.39) * 0.127); } }
+    { const q = hat("wizhat"), pur = MM(0x2a1766), c = put(q, new THREE.ConeGeometry(0.128, 0.4, 18), pur, 0.02, 0.3, 0.02); c.rotation.z = -0.14; c.rotation.x = 0.1; put(q, new THREE.CylinderGeometry(0.25, 0.25, 0.014, 26), pur, 0, 0.108, 0.01); put(q, new THREE.TorusGeometry(0.128, 0.012, 6, 22), gold, 0, 0.122, 0.01).rotation.x = Math.PI / 2; for (let k = 0; k < 7; k++) put(q, new THREE.SphereGeometry(0.012, 6, 5), new THREE.MeshBasicMaterial({ color: 0xf2d24a }), Math.sin(k * 2.4) * (0.1 - k * 0.011), 0.17 + k * 0.035, 0.02 + Math.cos(k * 2.4) * (0.1 - k * 0.011)); }
+    { const q = hat("trapper"), fur = MM(0x6b4a2f, { roughness: 0.98 }), lin = MM(0xcdbb9c, { roughness: 0.98 }); put(q, S2(0.148, 0, TAU, 0, Math.PI * 0.55), fur, 0, 0.012, 0.012).scale.set(1.05, 0.95, 1.05); for (const sd of [-1, 1]) { put(q, new THREE.BoxGeometry(0.035, 0.17, 0.11), fur, sd * 0.148, -0.04, 0.012); put(q, new THREE.BoxGeometry(0.02, 0.15, 0.09), lin, sd * 0.132, -0.04, 0.012); } put(q, new THREE.BoxGeometry(0.21, 0.065, 0.035), lin, 0, 0.085, -0.135); put(q, new THREE.BoxGeometry(0.25, 0.1, 0.035), fur, 0, -0.01, 0.16); }
+    dressRig(R, of || {}); }
   const carry = new THREE.Group(); R.skiMeshes.forEach((m, i) => { const c = new THREE.Mesh(m.geometry, m.material); c.position.set(i ? 0.035 : -0.035, 0, 0); if (i) c.rotation.z = Math.PI; c.castShadow = true; carry.add(c); }); carry.position.set(0.25, 1.36, 0.1); carry.rotation.set(1.18, 0, 0.06); carry.visible = false; R.rig.add(carry); R.carry = carry; return R;
 }
 /* On foot the skis and bindings come off but the boots stay on: everything in the ski groups that is not a boot is put away. */
@@ -474,6 +487,7 @@ function poseRider(R, q, keys, slope, dt, time, snap) {
   if (walking) walkPose(R, q);
   if (q.sit && walking) pubPose(R, q); else if (R.held) R.held.visible = false;
   if (q.dance && walking && !q.sit) dancePose(R, q, time);
+  if (q === sk && sk.throwT > 0 && walking) { const k = sk.throwT / 0.35, ar = R.arms[1]; ar.sh.rotation.set(2.6 - 2.0 * (1 - k), 0, ar.sd * 0.2); ar.el.rotation.set(0.9 * k, 0, 0); }   // the throwing arm comes over the top
   const wob = q.stumT > 0 && !q.crashed ? Math.min(1, q.stumT / 0.9) : 0, seated = q.mode === "lift";
   R.pivot.rotation.x = (q.crashed ? q.rot : q.ground ? 0 : q.rot - 0) + wob * (0.28 * Math.sin(time * 9) - 0.12) - (seated ? 0.25 : 0);
   R.pivot.rotation.z = (q.crashed ? q.tumZ : -(R.pose.vt !== undefined ? R.pose.vt : q.turn) * (0.3 + 0.32 * q.carve) * (q.air ? 0.3 : 1)) + (wob ? wob * (q.stumD || 1) * 0.45 * Math.sin(time * 12) : 0);
@@ -490,7 +504,7 @@ function updateRig(dt, time) {
   if (sk.lost && !sk.crashed) { clearLoose(); sk.lost = false; }
   if (sk.crashed) R.hold.position.y += 0.22 + (sk.crashHop || 0);
   if (sk.shopIn && R.hold.position.y < sk.shopIn.floorY) R.hold.position.y = sk.shopIn.floorY;   // on the shop's floor, not the ground under it
-  if (sk.sit) pubSeatY(R);
+  if (sk.sit) pubSeatY(R); if (sk.tackT > 0) { const k = smooth((3 - sk.tackT) / 0.3) * smooth(sk.tackT / 0.6); R.pivot.rotation.x = -1.45 * k; R.hold.position.y += 0.16 * k; }   /* tackled: face down, then back up */
   { const on = sk.mode === "ski" && sk.ground && !sk.crashed, want = on || sk.crashed ? rockLift(sk.p.x, sk.p.z) : 0; sk.rkLift = (sk.rkLift || 0) + (want - (sk.rkLift || 0)) * Math.min(1, 9 * dt);   // the rock stands out from the surveyed slope: ride on its surface, not inside it
     R.hold.position.y += sk.rkLift + (on ? sk.surf.rock * 0.03 * Math.sin(time * 61) * clamp(sk.sp / 8, 0, 1) : 0); }
   // Powder: you ride in the snow, not on it. Deeper when slow, floating up as you pick up speed; skis and boots go under the surface.

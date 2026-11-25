@@ -57,7 +57,7 @@ function initComp() {
 function gearLocks() { // the locker only holds what you own: the rest is on the racks at Parallel Mountain Sports
   ownInit();
   document.querySelectorAll("#fitRows select").forEach(sl => { const cat = sl.dataset.cat; if (!STORE_CATS.some(q => q[0] === cat)) return;
-    for (const o of sl.options) { const locked = !owns(cat, o.value) && outfit[cat] !== o.value; o.disabled = locked; o.textContent = KR.OUTFIT_OPTS[cat][o.value] + (locked ? "  (at Parallel Mountain Sports)" : ""); } });
+    for (const o of sl.options) { const locked = !owns(cat, o.value) && outfit[cat] !== o.value; o.disabled = locked; o.textContent = KR.OUTFIT_OPTS[cat][o.value] + (locked ? "  (at " + (shopFor(cat, o.value) || "the village shops") + ")" : ""); } });
 }
 const GATE_IN = 3.8, GATE_W = 8;   // the turning pole stands this far off the line, the outside pole this much further
 function compSynth(v) { compSynth.last = -9; // a par run down the course line, for riders to follow until you have set a run of your own

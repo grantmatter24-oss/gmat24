@@ -40,7 +40,7 @@ function sledTick() { nearSled = null; for (const S of SLEDS) if (S.remote && !s
 function sledToggle() {
   if (sk.mode === "sled") { const S = sk.sled, pass = sk.sledRole === 2; if (S.air) return toast("Not in mid air", 1.2); if (Math.abs(S.v) > 4) return toast(pass ? "Wait until it slows down to hop off" : "Slow down to get off", 1.5);
     if (!pass) { S.v = 0; S.thr = 0; } sk.sled = null; sk.sledRole = 0; let x = S.x - Math.cos(S.yaw) * 1.5, z = S.z + Math.sin(S.yaw) * 1.5; if (buildingAt(x, z) || treeHit(x, z, 0.3)) { x = S.x + Math.cos(S.yaw) * 1.5; z = S.z - Math.sin(S.yaw) * 1.5; }
-    placeSkier(x, z, S.yaw, 0); toast("Off the snowmobile", 1.5); return; }
+    placeSkier(x, z, S.yaw, 0); sk.mode = "walk"; sk.parked = false; sk.sp = 0; sk.wv = 0; sk.walkPh = 0; toast("Off the snowmobile · B clicks your skis back on", 2.2); return; }   // you step off on foot
   if (!(sk.mode === "ski" || sk.mode === "walk") || !nearSled) return; sk.dance = 0; const S = nearSled, drv = sledDriver(S); if (drv && Math.abs(S.v) > 4) return toast("It is moving too fast to hop on", 1.5);
   sk.mode = "sled"; sk.sled = S; sk.sledRole = drv ? 2 : 1; sk.p.set(S.x, H(S.x, S.z), S.z); sk.yaw = S.yaw; sk.sp = 0; sk.v.set(0, 0, 0); sk.ground = true; sk.air = false; sk.sw = false; sk.spin = sk.rot = 0; sk.turn = sk.carve = 0; sk.slip = 0; charging = false; popReq = false; nearSled = null; camSnap = true;
   toast(drv ? "On the back · the driver steers · E to hop off" : "Snowmobile · W throttle, S brake and reverse, A D steer · it flies off jumps: W holds the nose up, S drops it · E to get off", 4);
