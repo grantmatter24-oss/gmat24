@@ -41,7 +41,7 @@ for (const k in SKI_DESIGNS) KR.OUTFIT_OPTS.skis[k] = SKI_DESIGNS[k][0];
 let skiDesignTex = null;
 function skiDesigns() { if (skiDesignTex) return skiDesignTex; skiDesignTex = {}; for (const k in SKI_DESIGNS) { const c = document.createElement("canvas"); c.width = 128; c.height = 512; const x = c.getContext("2d"); x.save(); x.beginPath(); x.rect(0, 0, 64, 512); x.clip(); SKI_DESIGNS[k][1](x, 64, 512); x.restore(); x.fillStyle = "#0d0f12"; x.fillRect(64, 0, 64, 512); x.fillStyle = "#e9edf2"; x.fillRect(92, 0, 8, 512);   // the design on top, a plain black base with one stripe
     const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; skiDesignTex[k] = t; } return skiDesignTex; }
-function dressRig(R, of) { if (!R.skiDes) { R.skiDes = true; Object.assign(R.skiTexes, skiDesigns()); } KR.dress(R, of); clothDress(R, of); if (of && SKI_DESIGNS[of.skis]) R.skiMeshes.forEach(m => { m.scale.x = 1.4; }); const q = R.gog, sm = !of || of.style !== "detailed", c = q && (GOGGLES[of && of.goggles] || (sm ? [0x15171b, 0x39424d] : null)); if (!q) return;
+function dressRig(R, of) { if (!R.skiDes) { R.skiDes = true; Object.assign(R.skiTexes, skiDesigns()); } if (of && of.skis === "custom") R.skiTexes.custom = customSkiTex(of.skd); KR.dress(R, of); clothDress(R, of); if (of && (SKI_DESIGNS[of.skis] || of.skis === "custom")) R.skiMeshes.forEach(m => { m.scale.x = 1.4; }); const q = R.gog, sm = !of || of.style !== "detailed", c = q && (GOGGLES[of && of.goggles] || (sm ? [0x15171b, 0x39424d] : null)); if (!q) return;
   R.simpleOnly.forEach(m => { if (m.parent === R.head && !m.userData.helmetOnly && m.material !== R.mats.skin) m.visible = false; });   /* the mannequin's own stock goggles give way to these; with none bought it wears a plain smoke pair */
   q.grp.scale.setScalar(sm ? 1.21 : 1); q.grp.visible = !!c; if (c) { q.frame.color.setHex(c[0]); q.lens.color.setHex(c[1]); q.lens.emissive.setHex(c[1]); q.lens.emissiveIntensity = of && of.goggles === "glow" ? 1.6 : of && of.goggles === "chrome" ? 0.55 : 0.28; q.stripe.color.setHex(c[1]); } }
 let outfit = Object.assign({}, KR.OUTFIT_DEFAULT, store.get("kickerOutfit", null) || {}, store.get("pal-outfit", null) || {});
@@ -283,7 +283,7 @@ function toggleWalk() {
 }
 const WALK = { walk: 3.1, run: 7.0, back: 1.8 };   // m/s: a brisk walk, a proper run (Shift), backing up
 function stepWalk(dt) {
-  if (sk.tackT > 0) { sk.sp = 0; sk.wv = 0; return; }   // flat on the cobbles under a policeman
+  if (sk.tackT > 0 || sk.changeT > 0) { sk.sp = 0; sk.wv = 0; return; }   // flat on the cobbles under a policeman, or changing clothes
   if (RANGE && RANGE.on) { const st = ((K.spinR || K.right) ? 1 : 0) - ((K.spinL || K.left) ? 1 : 0); sk.yaw = RANGE.yaw + clamp(wrap(sk.yaw - st * 0.9 * dt - RANGE.yaw), -0.5, 0.5); sk.sp = 0; sk.wv = 0; return; }   // at the snowball range you only turn to aim
   if (sk.dance) { sk.sp = 0; sk.wv = 0; sk.walkPh = 0; return; }   // dancing on the spot
   if (PUB.seat) { const q = PUB.seat; sk.p.x = q.x; sk.p.z = q.z; sk.p.y = H(q.x, q.z); sk.yaw = Math.atan2(q.tx - q.x, q.tz - q.z); sk.sp = 0; sk.wv = 0; sk.turn = 0; return; }   // sat at a table in the pub
@@ -310,6 +310,7 @@ function nextCarrier(L) { // the carrier that reaches the load point soonest, an
   return [bk, bt];
 }
 function boardLift(L) {
+  statLift(L.name);
   if (sk.wax > 0) { sk.wax--; store.set("pal-wax", sk.wax); toast(sk.wax ? "Wax: good for " + sk.wax + " more lift " + (sk.wax === 1 ? "ride" : "rides") : "That wax is worn off. The Wax Room in the village does another.", 3); }
   sk.mode = "wait"; sk.lift = L; sk.v.set(0, 0, 0); sk.sp = 0; sk.sw = false; sk.carve = 0; sk.turn = 0; sk.brakeK = 0; sk.spin = 0; charging = false; popReq = false;
   if (L.carpet) { sk.mode = "lift"; sk.car = -1; sk.liftS = 0.5; return; }
@@ -493,6 +494,7 @@ function poseRider(R, q, keys, slope, dt, time, snap) {
   if (walking) walkPose(R, q);
   if (q.sit && walking) pubPose(R, q); else if (R.held) R.held.visible = false;
   if (q.dance && walking && !q.sit) dancePose(R, q, time);
+  if (q === sk && sk.changeT > 0 && walking) lockerPose(R);
   if (q === sk && sk.throwT > 0 && walking) { const k = sk.throwT / 0.35, ar = R.arms[1]; ar.sh.rotation.set(2.6 - 2.0 * (1 - k), 0, ar.sd * 0.2); ar.el.rotation.set(0.9 * k, 0, 0); }   // the throwing arm comes over the top
   const wob = q.stumT > 0 && !q.crashed ? Math.min(1, q.stumT / 0.9) : 0, seated = q.mode === "lift";
   R.pivot.rotation.x = (q.crashed ? q.rot : q.ground ? 0 : q.rot - 0) + wob * (0.28 * Math.sin(time * 9) - 0.12) - (seated ? 0.25 : 0);

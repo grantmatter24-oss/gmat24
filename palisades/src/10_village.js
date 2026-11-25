@@ -21,11 +21,12 @@ function planShops() { // before the buildings are built: choose the shop fronts
     const tx = (c[0] - a[0]) / len, tz = (c[1] - a[1]) / len, mx = (a[0] + c[0]) / 2, mz = (a[1] + c[1]) / 2, sg = inPoly(P, mx - tz * 0.4, mz + tx * 0.4) ? -1 : 1, ox = -tz * sg, oz = tx * sg, dP = Math.hypot(mx - cx, mz - cz); if (plazaD(mx + ox * 3, mz + oz * 3) > PLAZA.r - 4) continue;
     if (near.some(q => inPoly(q.bd.p, mx + ox * 2.5, mz + oz * 2.5) || inPoly(q.bd.p, mx + ox * 5, mz + oz * 5))) continue;   // the door must open onto the plaza, not onto another wall
     const face = ((cx - mx) * ox + (cz - mz) * oz) / (dP || 1); cands.push({ bd, i, len, tx, tz, mx, mz, nx: -ox, nz: -oz, sc: face * 0.6 + Math.min(len, 14) / 14 + c2h(bd) }); } }
-  cands.sort((p, q) => q.sc - p.sc); const perB = new Map();   // the tall hotel buildings first, their longest clear walls
-  for (const c of cands) { if (SHOPS.length >= SHOP_LIST.length) break; if ((perB.get(c.bd) || 0) >= 3) continue; let fit = null;
+  const LKB = (near.find(q => /locker room/i.test(q.bd.n || "")) || {}).bd || null; let ni = 0, lkDone = false;   // the Members Locker Room: that building is the locker room and nothing else
+  cands.sort((p, q) => (q.bd === LKB) - (p.bd === LKB) || q.sc - p.sc); const perB = new Map();   // then the tall hotel buildings, their longest clear walls
+  for (const c of cands) { const isL = c.bd === LKB; if (isL ? lkDone : ni >= SHOP_LIST.length) continue; if ((perB.get(c.bd) || 0) >= 3) continue; let fit = null;
     for (let hw = Math.min(4.6, c.len / 2 - 0.5); hw >= 3 && !fit; hw -= 0.4) for (let D = 8; D >= 4.5 && !fit; D -= 0.5) { const pts = [[-hw, 0.4], [hw, 0.4], [-hw, D + 0.3], [hw, D + 0.3], [0, D + 0.3], [-hw, D / 2], [hw, D / 2]].map(q => [c.mx + c.tx * q[0] + c.nx * q[1], c.mz + c.tz * q[0] + c.nz * q[1]]);
       if (pts.every(q => inPoly(c.bd.p, q[0], q[1])) && !SHOPS.some(s => pts.some(q => shopInside({ dx: s.dx, dz: s.dz, tx: s.tx, tz: s.tz, nx: s.nx, nz: s.nz, hw: s.hw + 0.5, D: s.D + 0.5 }, q[0], q[1])) || Math.hypot(s.dx + s.nx * s.D / 2 - c.mx - c.nx * D / 2, s.dz + s.nz * s.D / 2 - c.mz - c.nz * D / 2) < (s.hw + hw) * 0.9)) fit = { hw, D }; }
-    if (!fit) continue; const [name, kind] = SHOP_LIST[SHOPS.length], openW = Math.min(2 * fit.hw - 0.6, c.len - 1.2); let fy = -1e9; for (const u of [-1, 0, 1]) for (const w of [-1.2, 0.2, fit.D / 2, fit.D]) fy = Math.max(fy, H(c.mx + c.tx * u * fit.hw + c.nx * w, c.mz + c.tz * u * fit.hw + c.nz * w));
+    if (!fit) continue; const [name, kind] = isL ? ["Locker Room", "locker"] : SHOP_LIST[ni++]; if (isL) lkDone = true; const openW = Math.min(2 * fit.hw - 0.6, c.len - 1.2); let fy = -1e9; for (const u of [-1, 0, 1]) for (const w of [-1.2, 0.2, fit.D / 2, fit.D]) fy = Math.max(fy, H(c.mx + c.tx * u * fit.hw + c.nx * w, c.mz + c.tz * u * fit.hw + c.nz * w));
     const s = { name, kind, bd: c.bd, dx: c.mx, dz: c.mz, tx: c.tx, tz: c.tz, nx: c.nx, nz: c.nz, hw: fit.hw, D: fit.D, openW, floorY: fy + 0.05, obst: [] }; SHOPS.push(s); perB.set(c.bd, (perB.get(c.bd) || 0) + 1);
     (c.bd.shopEdges || (c.bd.shopEdges = {}))[c.i] = { s0: c.len / 2 - openW / 2, s1: c.len / 2 + openW / 2, yF: s.floorY, yT: s.floorY + 2.75 }; }
   { const par = SHOPS.find(q => q.name === "Parallel Mountain Sports"); let nb = null, nd = 1e9; for (const q of SHOPS) { const d = Math.hypot(q.dx - b0[0], q.dz - b0[1]); if (d < nd) { nd = d; nb = q; } }   // the ski shop is the first one you reach from the lifts
@@ -38,7 +39,7 @@ function planShops() { // before the buildings are built: choose the shop fronts
     for (const s of SHOPS) if (!s.seats && (s.kind === "food" || s.kind === "cafe" || s.kind === "bar")) s.seats = [];   // anywhere with tables, you can sit down and eat
     // the gear shops get as much floor as their building can give them
     const clear = (s, hw, D) => { for (let k = 0; k <= 8; k++) { const f = k / 8; for (const q of [[-hw, 0.4 + f * D], [hw, 0.4 + f * D], [(-1 + 2 * f) * hw, D + 0.3]]) { const x = s.dx + s.tx * q[0] + s.nx * q[1], z = s.dz + s.tz * q[0] + s.nz * q[1]; if (!inPoly(s.bd.p, x, z) || SHOPS.some(o => o !== s && shopInside({ dx: o.dx, dz: o.dz, tx: o.tx, tz: o.tz, nx: o.nx, nz: o.nz, hw: o.hw + 0.6, D: o.D + 0.6 }, x, z))) return false; } } return true; };
-    for (const s of SHOPS) { if (!isGear(s) && !s.pub) continue; const maxD = s.kind === "goggle" || s.kind === "acc" || s.kind === "lux" ? 11 : s.kind === "skiwall" || s.pub ? 13 : 16, maxW = s.kind === "goggle" || s.kind === "acc" || s.kind === "lux" ? 6 : s.kind === "skiwall" || s.pub ? 7.5 : 8.5; let grew = true; while (grew) { grew = false; if (s.D + 0.5 <= maxD && clear(s, s.hw, s.D + 0.5)) { s.D += 0.5; grew = true; } if (s.hw + 0.4 <= maxW && clear(s, s.hw + 0.4, s.D)) { s.hw += 0.4; grew = true; } }
+    for (const s of SHOPS) { if (!isGear(s) && !s.pub && s.kind !== "locker") continue; const maxD = s.kind === "locker" ? 15 : s.kind === "goggle" || s.kind === "acc" || s.kind === "lux" ? 11 : s.kind === "skiwall" || s.pub ? 13 : 16, maxW = s.kind === "locker" ? 9.6 : s.kind === "goggle" || s.kind === "acc" || s.kind === "lux" ? 6 : s.kind === "skiwall" || s.pub ? 7.5 : 8.5; let grew = true; while (grew) { grew = false; if (s.D + 0.5 <= maxD && clear(s, s.hw, s.D + 0.5)) { s.D += 0.5; grew = true; } if (s.hw + 0.4 <= maxW && clear(s, s.hw + 0.4, s.D)) { s.hw += 0.4; grew = true; } }
       let fy = -1e9; for (const u of [-1, 0, 1]) for (const w of [-1.2, 0.2, s.D / 2, s.D]) fy = Math.max(fy, H(s.dx + s.tx * u * s.hw + s.nx * w, s.dz + s.tz * u * s.hw + s.nz * w)); const e = s.bd.shopEdges; for (const k in e) if (e[k].yF === s.floorY) { e[k].yF = fy + 0.05; e[k].yT = fy + 2.8; } s.floorY = fy + 0.05; } }
 }
 /* ---- Parallel Mountain Sports: skis and clothes for your locker ----
@@ -122,7 +123,7 @@ function textPlate(txt, bg, fg, face) { const FONT = face || "'Big Shoulders Dis
 function initPlaza() {
   if (!PLAZA.r) return; const ext = new GeoBag(), inn = new GeoBag(), gl = new GeoBag(), plates = [], skiPlanes = [], pubBits = [], GRN = [0.035, 0.19, 0.1], GOLD = [0.86, 0.63, 0.17], BLK = [0.05, 0.05, 0.055];
   const WOOD = [0.52, 0.38, 0.24], DARK2 = [0.17, 0.12, 0.08], STEELc = [0.6, 0.62, 0.65], WHITE = [0.9, 0.89, 0.86], CLOTH = [[0.75, 0.1, 0.08], [0.1, 0.3, 0.7], [0.9, 0.7, 0.1], [0.1, 0.5, 0.3], [0.5, 0.2, 0.6], [0.92, 0.92, 0.94], [0.1, 0.1, 0.12], [0.9, 0.45, 0.1]];
-  SHOPS.forEach((s, si) => { const yaw = Math.atan2(s.nx, s.nz), F = s.floorY, hw = s.hw, D = s.D, oW = s.openW / 2;
+  SHOPS.forEach((s, si) => { const yaw = Math.atan2(s.nx, s.nz), F = s.floorY, hw = s.hw, D = s.D, oW = s.openW / 2, lkr = s.kind === "locker";
     const L = (u, y, w) => [s.dx + s.tx * u + s.nx * w, F + y, s.dz + s.tz * u + s.nz * w], bx = (bag, wu, h, dw, u, y, w, c, ry) => { const p = L(u, y, w); bag.box(wu, h, dw, p[0], p[1], p[2], c, yaw + (ry || 0)); }, cy = (bag, r0, r1, h, u, y, w, c, seg) => { const p = L(u, y, w); bag.cyl(r0, r1, h, p[0], p[1], p[2], c, seg || 8); };
     const block = (u, w, r) => { const p = L(u, 0, w); s.obst.push([p[0], p[2], r]); towerHits.push({ x: p[0], z: p[2], r }); };
     // the shop front: timber frame, stall risers, clear glass either side of an open door, awning and sign
@@ -132,6 +133,7 @@ function initPlaza() {
       if (pub) { for (const yy of [0.09, 0.43]) bx(ext, w2 - 0.24, 0.03, 0.02, uc, yy, -0.09, GOLD); for (const e of [-1, 1]) bx(ext, 0.03, 0.34, 0.02, uc + e * (w2 / 2 - 0.12), 0.26, -0.09, GOLD);   /* gilt beading round the painted panels */
         for (const e of [-1, 1]) bx(ext, 0.05, 1.98, 0.07, uc + e * w2 / 6, 1.52, 0, GRN); bx(ext, w2, 0.05, 0.07, uc, 1.95, 0, GRN); bx(ext, w2, 0.05, 0.07, uc, 1.1, 0, GRN);                                       /* small-paned pub windows */
         plates.push([L(uc, 0.26, -0.095), out, sd < 0 ? "STOUT · ALES" : "IRISH WHISKEY", Math.min(w2 - 0.34, 1.9), 0.22, "#0a321c", "#e8bd4c", "Georgia, 'Times New Roman', serif"]); } }
+    if (lkr) for (const sd of [-1, 1]) for (let u = 0.74 + 1.35; u < oW - 0.4; u += 1.35) bx(ext, 0.1, 2.75, 0.14, sd * u, 1.375, 0, FRM);   /* a row of tall panes either side of the door */
     bx(gl, 1.24, 0.36, 0.02, 0, 2.42, 0, [1, 1, 1]); bx(ext, 0.07, 2.1, 1.0, -0.66, 1.05, 0.52, FRM);                                              // transom; the door stands open against the wall inside
     if (pub) { const fw = s.openW + 0.9;   // a painted Dublin pub front: dark green timber, gold lettering, lanterns, flower baskets, barrels and a hanging sign
       bx(ext, fw, 1.02, 0.2, 0, 3.3, -0.1, GRN); bx(ext, fw + 0.1, 0.06, 0.28, 0, 2.8, -0.12, GOLD); bx(ext, fw + 0.1, 0.06, 0.28, 0, 3.8, -0.12, GOLD); bx(ext, fw + 0.3, 0.12, 0.44, 0, 3.9, -0.17, GRN); bx(ext, fw + 0.36, 0.04, 0.5, 0, 3.98, -0.2, GOLD);
@@ -149,11 +151,11 @@ function initPlaza() {
     } else { bx(ext, s.openW + 0.8, 0.1, 1.5, 0, 2.98, -0.72, col); bx(ext, s.openW + 0.8, 0.28, 0.05, 0, 2.86, -1.46, col); bx(ext, Math.min(5.4, s.openW), 0.7, 0.1, 0, 3.6, -0.07, [0.12, 0.08, 0.05]);
       plates.push([L(0, 3.6, -0.13), out, s.name, Math.min(5.2, s.openW - 0.2), 0.6]); }
     // the room: plank floor, plastered walls, lit ceiling
-    const wallC = s.kind === "lux" ? [0.1, 0.1, 0.12] : s.kind === "arcade" ? [0.07, 0.05, 0.14] : s.pub ? [0.07, 0.22, 0.14] : s.kind === "bar" ? [0.34, 0.22, 0.14] : s.kind === "art" ? [0.86, 0.84, 0.8] : s.kind === "cafe" ? [0.78, 0.7, 0.58] : [0.76, 0.72, 0.64];
-    bx(inn, 2 * hw, 0.1, D, 0, -0.05, D / 2 + 0.1, WOOD); for (let k = -Math.floor(hw / 0.9); k <= hw / 0.9; k++) bx(inn, 0.02, 0.012, D, k * 0.9, 0.003, D / 2 + 0.1, DARK2); bx(inn, 2 * hw, 0.1, D, 0, 2.95, D / 2 + 0.1, WHITE);
-    for (const sd of [-1, 1]) { bx(inn, 0.12, 3, D, sd * (hw + 0.06), 1.45, D / 2 + 0.1, wallC); bx(inn, 0.06, 0.9, D, sd * (hw - 0.03), 0.45, D / 2 + 0.1, DARK2); if (hw - oW > 0.15) bx(inn, hw - oW, 3, 0.1, sd * (hw + oW) / 2, 1.45, 0.14, wallC); }
-    bx(inn, 2 * hw + 0.2, 3, 0.12, 0, 1.45, D + 0.16, wallC); bx(inn, s.openW, 0.2, 0.1, 0, 2.86, 0.14, wallC);
-    for (let k = -1; k <= 1; k++) for (const w of [D * 0.3, D * 0.7]) { bx(inn, 0.9, 0.04, 0.22, k * hw * 0.6, 2.88, w, [1.7, 1.6, 1.3]); }                              // strip lights
+    const WH = lkr ? 3.8 : 3, wallC = lkr ? [0.5, 0.33, 0.19] : s.kind === "lux" ? [0.1, 0.1, 0.12] : s.kind === "arcade" ? [0.07, 0.05, 0.14] : s.pub ? [0.07, 0.22, 0.14] : s.kind === "bar" ? [0.34, 0.22, 0.14] : s.kind === "art" ? [0.86, 0.84, 0.8] : s.kind === "cafe" ? [0.78, 0.7, 0.58] : [0.76, 0.72, 0.64];
+    bx(inn, 2 * hw, 0.1, D, 0, -0.05, D / 2 + 0.1, WOOD); for (let k = -Math.floor(hw / 0.9); k <= hw / 0.9; k++) bx(inn, 0.02, 0.012, D, k * 0.9, 0.003, D / 2 + 0.1, DARK2); if (!lkr) bx(inn, 2 * hw, 0.1, D, 0, 2.95, D / 2 + 0.1, WHITE);
+    for (const sd of [-1, 1]) { bx(inn, 0.12, WH, D, sd * (hw + 0.06), WH / 2 - 0.05, D / 2 + 0.1, wallC); bx(inn, 0.06, 0.9, D, sd * (hw - 0.03), 0.45, D / 2 + 0.1, DARK2); if (hw - oW > 0.15) bx(inn, hw - oW, WH, 0.1, sd * (hw + oW) / 2, WH / 2 - 0.05, 0.14, wallC); }
+    bx(inn, 2 * hw + 0.2, WH, 0.12, 0, WH / 2 - 0.05, D + 0.16, wallC); bx(inn, s.openW, WH - 2.8, 0.1, 0, 2.76 + (WH - 2.8) / 2, 0.14, wallC);
+    if (!lkr) for (let k = -1; k <= 1; k++) for (const w of [D * 0.3, D * 0.7]) { bx(inn, 0.9, 0.04, 0.22, k * hw * 0.6, 2.88, w, [1.7, 1.6, 1.3]); }                              // strip lights
     const cu = hw - 1.9, cw = D - 1.0; // the counter, toward the back on one side, with someone behind it
     bx(inn, 3.0, 1.0, 0.65, cu, 0.5, cw, DARK2); bx(inn, 3.1, 0.06, 0.75, cu, 1.03, cw, WOOD); bx(inn, 0.38, 0.28, 0.32, cu + 1.0, 1.2, cw, [0.1, 0.1, 0.11]); bx(inn, 0.3, 0.02, 0.2, cu + 1.0, 1.36, cw - 0.1, [0.5, 0.8, 0.95]);
     bx(inn, 0.36, 0.78, 0.22, cu - 0.3, 1.33, cw + 0.55, CLOTH[si % 8]); { const p = L(cu - 0.3, 1.86, cw + 0.55); inn.add(new THREE.SphereGeometry(0.12, 10, 8), _gm.makeTranslation(p[0], p[1], p[2]), [0.85, 0.68, 0.56]); }
@@ -178,6 +180,7 @@ function initPlaza() {
       for (const [tu, tw] of [[-hw * 0.35, D * 0.32], [hw * 0.2, D * 0.6]]) { cy(inn, 0.03, 0.03, 1.75, tu, 0.875, tw, STEELc, 6); cy(inn, 0.3, 0.3, 0.04, tu, 0.02, tw, DARK2, 10); for (let k = 0; k < 9; k++) { const a = k * 2.1; ball(tu + Math.sin(a) * 0.2, 0.75 + (k % 3) * 0.36, tw + Math.cos(a) * 0.2, 0.115, CLOTH[(k * 3 + si) % 8]); } block(tu, tw, 0.45); }   // hat trees
       bx(inn, 1.7, 0.9, 0.8, -hw * 0.3, 0.45, D * 0.7, WHITE); bx(inn, 1.76, 0.04, 0.86, -hw * 0.3, 0.92, D * 0.7, [0.75, 0.86, 0.92]); block(-hw * 0.3 - 0.45, D * 0.7, 0.6); block(-hw * 0.3 + 0.45, D * 0.7, 0.6);
       for (let k = 0; k < 4; k++) { const u = -hw * 0.3 - 0.6 + k * 0.4; bx(inn, 0.13, 0.1, 0.1, u, 1.0, D * 0.7, [0.1, 0.1, 0.11]); bx(inn, 0.2, 0.03, 0.2, u, 1.07, D * 0.7 + 0.02, CLOTH[(k * 2 + 1) % 8]); } }   // a case of cameras and headphones
+    else if (lkr) lockerBuild(s, { L, bx, cy, block, inn, gl, plates, hw, D, cu, cw, yaw });
     else if (s.kind === "lux") { const TH2 = { "Aurum": [[0.92, 0.72, 0.2], [0.82, 0.85, 0.9]], "Wild Side": [[0.94, 0.54, 0.1], [0.92, 0.92, 0.9]], "Afterglow": [[2.2, 0.3, 1.8], [0.3, 2.0, 2.2]], "Legends Costume Co.": [[0.95, 0.95, 0.97], [0.4, 0.07, 0.08]], "Crown & Cloak": [[0.68, 0.08, 0.1], [0.18, 0.1, 0.45]] }[s.name] || [[0.9, 0.7, 0.2], [0.8, 0.8, 0.85]];
       bx(inn, 1.5, 0.012, D - 1.6, 0, 0.008, D / 2, [0.45, 0.04, 0.07]); let n = 0; for (const w of [D * 0.3, D * 0.62]) for (const sd of [-1, 1]) { const u = sd * hw * 0.52, c = TH2[n++ % 2]; bx(inn, 0.75, 0.95, 0.75, u, 0.475, w, WHITE); bx(inn, 0.8, 0.04, 0.8, u, 0.97, w, GOLD); bx(inn, 0.34, 0.5, 0.22, u, 1.26, w, c); cy(inn, 0.1, 0.1, 0.16, u, 1.6, w, c, 10); bx(gl, 0.7, 0.95, 0.7, u, 1.47, w, [1, 1, 1]); bx(inn, 0.4, 0.05, 0.4, u, 2.88, w, [2.0, 1.9, 1.6]); block(u, w, 0.6); }   // four pieces on plinths under glass, each with its own light
       for (const sd of [-1, 1]) for (const w of [1.4, D - 2.2]) { cy(inn, 0.03, 0.03, 0.9, sd * 0.95, 0.45, w, GOLD, 8); cy(inn, 0.11, 0.11, 0.03, sd * 0.95, 0.015, w, GOLD, 10); } for (const sd of [-1, 1]) bx(inn, 0.03, 0.03, D - 3.6, sd * 0.95, 0.82, D / 2 - 0.4, [0.5, 0.05, 0.08]); }   // a red carpet between velvet ropes
@@ -268,6 +271,7 @@ function shopTick() { const was = sk.shopIn; sk.shopIn = null; nearCounter = nul
 function shopUse() { const s = sk.shopIn; if (!s) return;   // E in a shop
   if (isGear(s)) { if (nearCounter && basket.length) storePay(); else storeOpen(s); return; }
   if (s.kind === "tune" && nearCounter) { if (sk.wax > 0) return toast("Still waxed: good for " + sk.wax + " more lift " + (sk.wax === 1 ? "ride" : "rides") + ".", 2.5); if (sk.pts < WAX_PRICE) return toast("A hot wax is " + WAX_PRICE.toLocaleString() + " pts and you have " + Math.round(sk.pts).toLocaleString() + ".", 3); sk.pts -= WAX_PRICE; sk.wax = 3; store.set("pal-wax", 3); store.set("pal-pts", Math.round(sk.pts)); sfx("land"); return toast("Hot waxed. Your skis run faster for the next 3 lift rides.", 3.5); }
+  if (s.kind === "locker" && nearCounter) return tuneOpen();
   if (s.kind === "arcade" && nearCounter) return arcadeOpen();
   if (s.seats && !s.pub && nearCounter) return menuOpen(s);
   if (s.pub && nearCounter) { PUB.tray.push("pint"); toast(PUB.beers === 1 ? "One pint poured. E for another, then take a seat at a table." : PUB.beers + " pints poured. Take a seat at a table.", 3); return; }
@@ -339,7 +343,7 @@ function pubTick(dt) { nearSeat = null; nearStand = null; if (PUB.dizzy > 0) PUB
       if (s) { if (s.seats) for (const c of s.seats) { const d = Math.hypot(c.x - sk.p.x, c.z - sk.p.z); if (d < bd && !seatTaken(c)) { bd = d; nearSeat = c; } } }
       else if (PLAZA.r && plazaD(sk.p.x, sk.p.z) < PLAZA.r) { bd = 1.3; for (const p of FIREPITS) if (Math.abs(p.x - sk.p.x) + Math.abs(p.z - sk.p.z) < 9) for (const c of p.seats) { const d = Math.hypot(c.x - sk.p.x, c.z - sk.p.z); if (d < bd && !seatTaken(c)) { bd = d; nearSeat = c; } }
         for (const st of STANDS) if (Math.hypot(st.ux - sk.p.x, st.uz - sk.p.z) < 2.0) nearStand = st; } } }
-  rangeTick(dt, keyed);
+  rangeTick(dt, keyed); lockerTick(dt);
   sk.sit = !!PUB.seat; sk.sipK = PUB.seat && PUB.sip > 0 ? sipLift(1 - PUB.sip, !(FOOD[PUB.tray[0]] || [0, 0, 0, 1])[3]) : 0;
   tableSteins = roundOnTable(tableSteins, PUB.seat && !PUB.seat.bench ? PUB.seat : null, PUB.tray.slice(1, 7), PUB.shop ? PUB.shop.floorY : sk.p.y);
   for (const fl of FLAMES) { const t = liftTime * 9 + fl.userData.k; fl.scale.set(1 + 0.12 * Math.sin(t * 1.3), 0.85 + 0.3 * Math.abs(Math.sin(t)) + 0.12 * Math.sin(t * 2.7), 1 + 0.12 * Math.cos(t * 1.7)); fl.rotation.y = t * 0.3; } }
@@ -355,12 +359,16 @@ function pubRemoteGone(r) { if (r.steins) r.steins.forEach(st => scene.remove(st
 /* ---- more to do on the plaza: a stage with a band and a crowd to dance in, a hot chocolate stand, fires to sit by ---- */
 const danceNear = () => { if (!STAGE || sk.shopIn || PUB.seat || !(sk.mode === "walk" || sk.mode === "ski") || sk.sp > 3) return false; const rx = sk.p.x - STAGE.x, rz = sk.p.z - STAGE.z, f = rx * STAGE.nx + rz * STAGE.nz, u = rx * STAGE.nz - rz * STAGE.nx; return f > 3 && f < 19 && Math.abs(u) < 10; };
 function villageUse() {   // E on the plaza or at a table; true when it did something
+  if (LOCKER.near) { lockerWear(LOCKER.near); return true; }
   if (PUB.seat || nearSeat) { pubUse(); return true; }
   if (RANGE && (RANGE.on || rangeNear())) { rangeUse(); return true; }
   if (nearStand) { PUB.tray.push(nearStand.key); toast(FOOD[nearStand.key][0] + (PUB.tray.length > 1 ? " · " + PUB.tray.length + " things to get through" : "") + ". Find a bench by a fire and E " + (FOOD[nearStand.key][3] ? "drinks" : "eats") + " it.", 3); return true; }
   if (danceNear()) { if (sk.mode === "ski") toggleWalk(); if (sk.mode !== "walk") return true; sk.dance = (sk.dance | 0) % 3 + 1; sk.yaw = Math.atan2(STAGE.x - sk.p.x, STAGE.z - sk.p.z); toast(["", "Two-step", "Hands in the air", "Spin"][sk.dance] + " · E for the next move · any move key stops", 2.6); return true; }
   return false; }
 function villagePrompt() { const E = "<kbd>E</kbd> ";
+  if (sk.changeT > 0) return "Changing";
+  if (LOCKER.near) return E + "Put on · " + KR.OUTFIT_OPTS[LOCKER.near.cat][LOCKER.near.k];
+  if (nearCounter && nearCounter.kind === "locker") return E + "Tuning bench · ski setup and your own ski design";
   if (PUB.seat) { const k = PUB.tray[0], f = FOOD[k]; return PUB.sip > 0 ? (f && f[4] ? "Sláinte" : f && f[3] ? "Ahh" : "Mmm") : f ? E + (f[3] ? "Drink" : "Eat") + " · " + f[0] + (PUB.tray.length > 1 ? " · " + (PUB.tray.length - 1) + " more to go" : "") + " · move to stand up" : "Nothing left · move to stand up"; }
   if (nearSeat) return E + "Sit down" + (PUB.tray.length ? " with your order" : nearSeat.bench ? " by the fire" : "");
   if (nearCounter && nearCounter.pub) return E + "Order a pint" + (PUB.tray.length ? " · " + PUB.tray.length + " poured, take a seat at a table" : "");

@@ -326,7 +326,7 @@ function initBuildings() {
           float frame = step(0.272, f.x) * step(f.x, 0.728) * step(0.335, f.y) * step(f.y, 0.805) * hasW * (1.0 - inX * inY);                                  // painted window frames
           float munt = bWin * max(step(abs(f.x - 0.5), 0.007), step(abs(f.y - 0.6), 0.006)) * fine, sill = step(0.25, f.x) * step(f.x, 0.75) * step(0.30, f.y) * step(f.y, 0.335) * hasW;   // glazing bars and a stone sill
           float shut = (step(0.19, f.x) * step(f.x, 0.262) + step(0.738, f.x) * step(f.x, 0.81)) * inY * hasW;                                                // shutters either side
-          vec2 sf = fract(uvw / vec2(4.2, 3.6)); float shop = base * step(0.1, sf.x) * step(sf.x, 0.9) * step(0.2, sf.y) * step(sf.y, 0.82); bWin = max(bWin, shop);   // shopfronts along the plaza
+          float shop = 0.0;   // no painted shopfronts: where there is no real shop the ground floor is plain stone
           bLit = max(bWin * (1.0 - shop) * step(0.62, texture2D(uNoise, (cell + 0.5) / 256.0, -8.0).r), shop * 0.8);
           float n1 = texture2D(uNoise, uvw * 0.9).r, n2 = texture2D(uNoise, vec2(uvw.x * 0.13, uvw.y * 0.5)).g, streak = smoothstep(0.55, 0.9, texture2D(uNoise, vec2(uvw.x * 0.7, uvw.y * 0.035)).b);
           vec3 wallC = diffuseColor.rgb * (0.84 + 0.2 * n1 + 0.1 * n2) * (1.0 - 0.13 * streak * wall);                                                        // rough stucco, weathered in streaks down the wall
@@ -338,9 +338,11 @@ function initBuildings() {
           float tf = lodge * wall * (1.0 - base) * step(abs(fract(w.x) - 0.5), 0.5) * step(fract(w.x), 0.035) * step(texture2D(uNoise, vec2(floor(uvw.y / 3.0) * 0.21, 0.6), -8.0).r, 0.45);   // timber posts on some floors
           wallC = mix(wallC, vec3(0.13, 0.09, 0.06), max(tf, wall * (1.0 - base) * step(fract(uvw.y / 3.0), mix(0.05, 0.1, lodge)) * step(0.4, uvw.y)));        // floor bands
           wallC = mix(wallC, vec3(0.84, 0.82, 0.76), max(frame, sill)); wallC = mix(wallC, mix(vec3(0.08, 0.17, 0.12), vec3(0.28, 0.11, 0.07), step(0.5, texture2D(uNoise, vec2(floor(uvw.y / 3.0) * 0.37 + 0.2, 0.3), -8.0).g)), shut * (1.0 - shop));
-          diffuseColor.rgb = mix(wallC, vec3(0.05, 0.07, 0.10), bWin); diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.82, 0.8, 0.74), munt * (1.0 - shop));
+          vec2 gp = vec2((f.x - 0.30) / 0.40, (f.y - 0.36) / 0.42); float curt = max(step(gp.x, 0.2 - 0.06 * gp.y), step(0.8 + 0.06 * gp.y, gp.x)), deep = smoothstep(0.75, 0.1, gp.y);   // clear glass: the sky in the top of the pane, the room and its curtains behind
+          vec3 glassC = mix(mix(vec3(0.50, 0.63, 0.76), vec3(0.20, 0.25, 0.30), deep * 0.75), vec3(0.88, 0.83, 0.72), curt * 0.8); glassC += vec3(0.10, 0.12, 0.14) * smoothstep(0.25, 0.0, abs(gp.x + gp.y * 0.6 - 0.9));
+          diffuseColor.rgb = mix(wallC, glassC, bWin); diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.82, 0.8, 0.74), munt * (1.0 - shop));
           diffuseColor.rgb = mix(diffuseColor.rgb, mix(vec3(0.05, 0.11, 0.09), vec3(0.9, 0.92, 0.95), step(0.38, texture2D(uNoise, vWp.xz * 0.07).r + (texture2D(uNoise, vWp.xz * 0.6).g - 0.5) * 0.3)), roofS); }`)
-        .replace("#include <roughnessmap_fragment>", "float roughnessFactor = mix(roughness, 0.06, bWin);").replace("#include <metalnessmap_fragment>", "float metalnessFactor = bWin * 0.9;")
+        .replace("#include <roughnessmap_fragment>", "float roughnessFactor = mix(roughness, 0.12, bWin);").replace("#include <metalnessmap_fragment>", "float metalnessFactor = bWin * 0.1;")
         .replace("#include <emissivemap_fragment>", "totalEmissiveRadiance += vec3(1.0, 0.62, 0.28) * bLit * uLamp;");
     }
   });

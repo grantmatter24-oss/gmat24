@@ -48,7 +48,8 @@ function updateHUD(dt) {
       else set("", "Off-piste", _runNear && _runK < 8 ? "Powder · near " + _runNear.n : "Powder"); } }
   // lift prompt and ride bar
   const pr = $("prompt"), lb = $("liftBar");
-  if (sk.mode === "ski" && COMP.near && !COMP.run) { pr.hidden = false; pr.innerHTML = "<kbd>E</kbd> Enter the " + COMP.near.name; }
+  if (RACE.invite) { const v = COMP.venues.find(q => q.id === RACE.invite.v); pr.hidden = false; pr.textContent = ""; const k = document.createElement("kbd"); k.textContent = "Y"; pr.append(k, document.createTextNode(" Join " + RACE.invite.n + "'s race · " + (v ? v.name : "") + " · starts in " + Math.max(0, Math.ceil((RACE.invite.t0 - Date.now()) / 1000)) + " s · U to ignore")); }
+  else if (sk.mode === "ski" && COMP.near && !COMP.run) { pr.hidden = false; pr.innerHTML = "<kbd>E</kbd> Enter the " + COMP.near.name; }
   else if (sk.shopIn && isGear(sk.shopIn)) { pr.hidden = false; pr.innerHTML = nearCounter && basket.length ? "<kbd>E</kbd> Pay " + basketTotal().toLocaleString() + " pts" : "<kbd>E</kbd> Browse" + (basket.length ? " · carrying " + basket.length + " (" + basketTotal().toLocaleString() + " pts): pay at the counter, or run with Shift" : ""); }
   else if (villagePrompt()) { pr.hidden = false; pr.innerHTML = villagePrompt(); }
   else if (nearCounter) { pr.hidden = false; pr.innerHTML = "<kbd>E</kbd> Order"; }
@@ -173,6 +174,7 @@ function initInput() {
     if (n) { K[n] = 1; ev.preventDefault(); }
     if (ev.repeat) return;
     if (key === " ") gDown();
+    if (RP.on) { replayKey(key); return; }
     if (sk.mode === "menu") { if (key === "Escape" && !$("map").hidden) toggleMap(false); else if (key === "Enter" && $("map").hidden) $("go").click(); return; }
     if (key === "Escape") { if (!$("map").hidden) toggleMap(false); else if (!$("how").hidden) setOverlay("how", false); else setPaused(!paused); }
     else if (key === "p") setPaused(!paused);
@@ -187,6 +189,9 @@ function initInput() {
     else if (key === "e" && (sk.mode === "sled" || ((sk.mode === "ski" || sk.mode === "walk") && nearSled && !COMP.run))) sledToggle();
     else if (key === "e" && sk.mode === "ski" && nearLift && sk.ground && !COMP.run) { if (liftLocked(nearLift)) toast(nearLift.name + " is locked", 2); else boardLift(nearLift); }
     else if (key === "l" && sk.mode !== "menu") compList($("compList").hidden);
+    else if (key === "o") replayOpen();
+    else if (key === "y" && RACE.invite) raceJoin();
+    else if (key === "u" && RACE.invite) { RACE.declined = RACE.invite.t0; RACE.invite = null; }
     else if (key === "Enter" && (sk.mode === "wait" || sk.mode === "lift")) { const L = sk.lift; unloadAt(L); toast("Top of " + L.name + " · " + fmtAlt(sk.p.y)); }
     else if ("1234".includes(key) && key.length === 1) setWeather(["bluebird", "golden", "overcast", "storm"][+key - 1]);
   });
@@ -213,12 +218,11 @@ function initInput() {
   LIFTS.map((L, i) => [L, i]).filter(([L]) => !L.carpet && L.len > 400).sort((a, b) => b[0].top.g - a[0].top.g).forEach(([L, i]) => opt(i, "Top of " + L.name + " · " + Math.round(L.top.g * FT).toLocaleString() + " ft"));
   sel.value = store.get("pal-start", "village"); if (!sel.value) sel.value = "village";
   // outfit and ski setup: Kicker Run's own options, everything unlocked
-  const FIT = [["helmet", "Headwear"], ["goggles", "Goggles"], ["jacket", "Jacket"], ["pants", "Pants"], ["accessory", "Accessory"], ["skis", "Skis"], ["poles", "Poles"], ["style", "Figure"], ["skibend", "Ski rocker"], ["len", "Ski length"], ["grip", "Edges"], ["wax", "Wax"]];
+  const FIT = [["skibend", "Ski rocker"], ["len", "Ski length"], ["grip", "Edges"], ["wax", "Wax"], ["style", "Figure"]];   // clothes and gear are on the racks in the locker room; this is the tuning bench
   for (const [cat, label] of FIT) { const l = document.createElement("label"); l.textContent = label; l.htmlFor = "fit-" + cat; const sl = document.createElement("select"); sl.id = "fit-" + cat;
     for (const k in KR.OUTFIT_OPTS[cat]) { const o = document.createElement("option"); o.value = k; o.textContent = KR.OUTFIT_OPTS[cat][k]; sl.appendChild(o); } sl.value = outfit[cat]; sl.dataset.cat = cat;
     sl.addEventListener("change", () => { if (sl.selectedOptions[0] && sl.selectedOptions[0].disabled) { sl.value = outfit[cat]; return; } outfit[cat] = sl.value; store.set("pal-outfit", outfit); dressRig(rig, outfit); }); $("fitRows").append(l, sl); }
-  const openFit = () => { setOverlay("pause", false); setOverlay("fit", true); if (sk.mode !== "menu") paused = true; };
-  $("fitBtn").addEventListener("click", openFit); $("pFit").addEventListener("click", openFit); $("fitOk").addEventListener("click", () => { setOverlay("fit", false); if (sk.mode !== "menu") paused = false; });
+  $("skiDesign").addEventListener("click", () => { setOverlay("fit", false); designOpen(); }); $("fitOk").addEventListener("click", () => { setOverlay("fit", false); if (sk.mode !== "menu") paused = false; });
   { const ni = $("nameIn"); ni.value = MP.myName; ni.addEventListener("input", () => { MP.myName = ni.value.replace(/[<>]/g, "").trim().slice(0, 20); store.set("pal-name", MP.myName); MP.dirty = true; }); }
   $("go").addEventListener("click", () => { initAudio(); store.set("pal-start", sel.value); spawnAt(sel.value); startPlay(); });
   setGfxButtons(); setUnits(units);
@@ -230,7 +234,7 @@ const MP = { myName: String(store.get("pal-name", "") || "").slice(0, 20), room:
 const r2 = v => Math.round(v * 100) / 100;
 function mpPack() {
   let k = 0; MP_KEYS.forEach((n, i) => { if (K[n]) k |= 1 << i; });
-  const o = mpPack0(k); if (MP.myName) o.nm = MP.myName; if (sk.mode === "sled" && sk.sled) { o.sdi = SLEDS.indexOf(sk.sled); o.sdr = sk.sledRole || 1; } if (sk.shopIn) o.shop = sk.shopIn.name; if (sk.sit) { o.sit = +(1 + (sk.sipK || 0)).toFixed(2); o.pb = PUB.tray.length; o.it = PUB.tray[0] || PUB.last || ""; } if (sk.dance) o.dn = sk.dance; return o;
+  const o = mpPack0(k); if (MP.myName) o.nm = MP.myName; if (sk.mode === "sled" && sk.sled) { o.sdi = SLEDS.indexOf(sk.sled); o.sdr = sk.sledRole || 1; } if (sk.shopIn) o.shop = sk.shopIn.name; if (sk.sit) { o.sit = +(1 + (sk.sipK || 0)).toFixed(2); o.pb = PUB.tray.length; o.it = PUB.tray[0] || PUB.last || ""; } if (sk.dance) o.dn = sk.dance; if (outfit.skis === "custom" && outfit.skd) o.of.skd = outfit.skd; if (FR) o.rc = { v: FR.v.id, t0: FR.t0, p: COMP.run && COMP.run.fr ? Math.round(COMP.run.sP) : 0, f: FR.fin || 0 }; return o;
 }
 function mpPack0(k) {
   return { v: 2, res: "palisades", id: MP.myId, play: sk.mode !== "menu", x: r2(sk.p.x), y: r2(sk.p.y), z: r2(sk.p.z), yaw: r2(sk.yaw), spin: r2(sk.spin), rot: r2(sk.rot), rotV: r2(sk.rotV), sw: !!sk.sw, gr: !!sk.ground, cr: !!sk.crashed, tz: r2(sk.tumZ), turn: r2(sk.turn), carve: r2(sk.carve), sp: r2(sk.sp), chg: r2(sk.chg), st: r2(Math.max(0, sk.stumT)), k, md: sk.mode, gd: sk.grind ? 1 : 0, wp: r2(sk.walkPh || 0), li: sk.lift ? sk.lift.id : -1, sl: r2(sk.slope), sc: sk.pts, vt: Math.round(sk.vert),

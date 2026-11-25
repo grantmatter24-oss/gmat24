@@ -119,14 +119,14 @@ function compTick(dt, time) {
   if (bd > (v.wide || 110)) return compEnd("You left the course");
   if (r.t > (v.kind === "race" ? v.par * 4 : v.kind === "trial" ? v.tgt[0] * 2.5 : 300)) return compEnd("Out of time");
   // the run is recorded so the others can ski it back at you next heat
-  r.recT += dt; if (!v.solo && r.recT >= 1 / 6) { r.recT = 0; const p = mpPack(); r.S.push({ t: +r.t.toFixed(2), x: p.x, y: p.y, z: p.z, yaw: p.yaw, spin: p.spin, rot: p.rot, rotV: p.rotV, sw: p.sw, gr: p.gr, cr: p.cr, tz: p.tz, turn: p.turn, carve: p.carve, sp: p.sp, chg: p.chg, st: p.st, k: p.k, gd: p.gd, sl: p.sl }); }
+  r.recT += dt; if (!v.solo && !r.fr && r.recT >= 1 / 6) { r.recT = 0; const p = mpPack(); r.S.push({ t: +r.t.toFixed(2), x: p.x, y: p.y, z: p.z, yaw: p.yaw, spin: p.spin, rot: p.rot, rotV: p.rotV, sw: p.sw, gr: p.gr, cr: p.cr, tz: p.tz, turn: p.turn, carve: p.carve, sp: p.sp, chg: p.chg, st: p.st, k: p.k, gd: p.gd, sl: p.sl }); }
   if (v.solo) { r.vmax = Math.max(r.vmax, sk.ground ? sk.sp : Math.hypot(sk.v.x, sk.v.z)); if (!sk.ground && !sk.crashed) { if (!r.ja) r.ja = [sk.p.x, sk.p.z]; } else { if (r.ja && !sk.crashed) r.best = Math.max(r.best, Math.hypot(sk.p.x - r.ja[0], sk.p.z - r.ja[1])); r.ja = null; } }   // top speed; the longest jump landed on your feet
   if (!sk.ground) r.air += dt; r.vsum += sk.sp; r.vn++; if (sk.crashed && !r.wasCr) r.crash++; r.wasCr = sk.crashed;
-  while (r.gate < v.gates.length && r.sP > v.gates[r.gate].s) { const g = v.gates[r.gate++], o = lat * g.sd; if (o < GATE_IN - 0.35 || o > GATE_IN + GATE_W + 0.35) { compEnter(v); toast("Missed gate " + r.gate + ": back to the start", 3); return; } }
+  while (r.gate < v.gates.length && r.sP > v.gates[r.gate].s) { const g = v.gates[r.gate++], o = lat * g.sd; if (o < GATE_IN - 0.35 || o > GATE_IN + GATE_W + 0.35) { if (r.fr) { r.pen += 5; toast("Missed gate " + r.gate + ": 5 seconds added", 2.5); } else { compEnter(v); toast("Missed gate " + r.gate + ": back to the start", 3); return; } } }
   if (v.fence && Math.abs(lat) > v.fence) return compEnd("Disqualified: you crossed the rope");
   // the other riders
   const a = 1 - Math.exp(-12 * dt), S = r.rec.S;
-  if (!v.solo) for (const g of COMP.ghosts) { const tau = r.t * r.rec.T / g.dur; while (g.k < S.length - 2 && S[g.k + 1].t < tau) g.k++;
+  if (!v.solo && !r.fr) for (const g of COMP.ghosts) { const tau = r.t * r.rec.T / g.dur; while (g.k < S.length - 2 && S[g.k + 1].t < tau) g.k++;
     const A = S[g.k], B = S[g.k + 1], u = clamp((tau - A.t) / (B.t - A.t || 1), 0, 1), yaw = A.yaw + wrap(B.yaw - A.yaw) * u, ox = lerp(A.x, B.x, u), oz = lerp(A.z, B.z, u), x = ox + Math.cos(yaw) * g.off, z = oz - Math.sin(yaw) * g.off;
     if (tau > r.rec.T) { g.endT += dt; if (g.endT > 2.5) { g.R.hold.visible = false; continue; } }
     g.st = Object.assign({}, A, { x, y: lerp(A.y, B.y, u) + H(x, z) - H(ox, oz), z, yaw, spin: lerp(A.spin, B.spin, u), rot: lerp(A.rot, B.rot, u), md: "ski", play: true, li: -1, res: "palisades", sp: tau > r.rec.T ? 0 : A.sp });
@@ -136,11 +136,12 @@ function compTick(dt, time) {
     poseRemote(g, dt, time, a); }
   const trick = sk.pts - r.pts0;
   const togo = " · " + Math.max(0, Math.round(v.len - r.sP)) + " m to go", cur = timed(v) ? r.t : compScore(r), md = v.solo ? medalOf(v, timed(v) ? (r.t <= v.tgt[2] ? r.t : r.t <= v.tgt[1] ? r.t : r.t) : cur) : 0, nxt = v.solo ? (timed(v) ? (r.t <= v.tgt[2] ? " · gold pace " + fmtRes(v, v.tgt[2]) : r.t <= v.tgt[1] ? " · silver pace " + fmtRes(v, v.tgt[1]) : r.t <= v.tgt[0] ? " · bronze pace " + fmtRes(v, v.tgt[0]) : "") : md >= 3 ? " · GOLD" : " · " + TROPHY[md + 1].toLowerCase() + " at " + fmtRes(v, v.tgt[md])) : "";
-  hud.textContent = v.name + " · " + (v.kind === "race" ? fmtRes(v, r.t) + " · gate " + r.gate + "/" + v.gates.length : v.kind === "speed" ? "now " + fmtRes(v, sk.sp) + " · top " + fmtRes(v, r.vmax) + nxt : v.kind === "air" ? "longest " + fmtRes(v, r.best) + nxt : fmtRes(v, cur) + togo + nxt);
+  if (r.fr) hud.textContent = raceHud(r); else hud.textContent = v.name + " · " + (v.kind === "race" ? fmtRes(v, r.t) + " · gate " + r.gate + "/" + v.gates.length : v.kind === "speed" ? "now " + fmtRes(v, sk.sp) + " · top " + fmtRes(v, r.vmax) + nxt : v.kind === "air" ? "longest " + fmtRes(v, r.best) + nxt : fmtRes(v, cur) + togo + nxt);
   if (r.sP >= v.len - 2) compFinish();
 }
 function compScore(r) { const tr = sk.pts - r.pts0; if (r.v.kind === "speed") return r.vmax; if (r.v.kind === "air") return r.best; if (r.v.kind === "tricks") return Math.max(0, tr); return Math.max(0, r.v.kind === "style" ? (r.crash ? 0 : tr) : tr + Math.round(100 * r.air) + Math.round(15 * (r.vn ? r.vsum / r.vn : 0) * MPH) - 200 * r.crash); }
 function compFinish() {
+  if (COMP.run.fr) return raceFinish();
   const r = COMP.run, v = r.v, sv = compSave(v), before = medalPoints(); r.done = true;
   const mine = timed(v) ? +r.t.toFixed(2) : +compScore(r).toFixed(2), me = MP.myName || "You";
   const heat = (v.solo ? v.tgt.map((t, i) => ({ n: TROPHY[i + 1] + " mark", r: t })) : COMP.ghosts.map(g => ({ n: g.n, r: v.kind === "race" ? +g.res.toFixed(2) : g.res }))).concat([{ n: me, r: mine, me: true }]).sort((a, b) => timed(v) ? a.r - b.r : b.r - a.r);
@@ -168,7 +169,8 @@ function compList(on) { // every venue with your best, your trophy and its leade
   setOverlay("compList", on); if (!on) return; const card = $("compListCard"), pts = medalPoints(), el = (tag, txt, cls) => { const e = document.createElement(tag); if (txt != null) e.textContent = txt; if (cls) e.className = cls; return e; }; card.textContent = "";
   card.append(el("h3", "Competitions"), el("p", "Medal points: " + pts + " of " + COMP.venues.length * 3 + ".  Gold 3, silver 2, bronze 1, counting your best trophy at each venue.", "compLead"));
   for (const v of COMP.venues) { const sv = compSave(v), box = el("div", null, "venue"), head = el("div", null, "row"), go = el("button", "Go to the start", "btn"); go.style.cssText = "padding:8px 13px;font-size:13px;margin-left:auto";
-    const tn = el("b", v.name), tp = el("span", TROPHY[sv.trophy || 0], "trophy"); tp.style.color = TROPHY_COL[sv.trophy || 0]; head.append(tn, tp, go); box.append(head, el("p", v.blurb + "  Your best: " + fmtRes(v, sv.best) + "." + (v.solo ? "  Bronze " + fmtRes(v, v.tgt[0]) + " · silver " + fmtRes(v, v.tgt[1]) + " · gold " + fmtRes(v, v.tgt[2]) + ".  Gold prize: " + KR.OUTFIT_OPTS[v.prize[0]][v.prize[1]] + " and " + GOLD_PTS.toLocaleString() + " pts" + (sv.prize ? " (won)." : ".") : ""), "compLead"));
+    const fr = el("button", "Race friends", "btn ghost"); fr.style.cssText = "padding:8px 13px;font-size:13px"; fr.addEventListener("click", () => { compList(false); if (!$("menu").hidden) startPlay(); paused = false; raceHost(v); });
+    const tn = el("b", v.name), tp = el("span", TROPHY[sv.trophy || 0], "trophy"); tp.style.color = TROPHY_COL[sv.trophy || 0]; head.append(tn, tp, go, fr); box.append(head, el("p", v.blurb + "  Your best: " + fmtRes(v, sv.best) + "." + (v.solo ? "  Bronze " + fmtRes(v, v.tgt[0]) + " · silver " + fmtRes(v, v.tgt[1]) + " · gold " + fmtRes(v, v.tgt[2]) + ".  Gold prize: " + KR.OUTFIT_OPTS[v.prize[0]][v.prize[1]] + " and " + GOLD_PTS.toLocaleString() + " pts" + (sv.prize ? " (won)." : ".") : ""), "compLead"));
     go.addEventListener("click", () => { compList(false); if (!$("menu").hidden) startPlay(); paused = false; const q = v.path[0], d = Math.atan2(v.path[1][0] - q[0], v.path[1][1] - q[1]); placeSkier(q[0] - Math.sin(d) * 8, q[1] - Math.cos(d) * 8, d, 0); toast("Press E at the start ring to enter", 3.5); });
     if (sv.board.length) { const tb = el("table", null, "board"); sv.board.forEach((e, i) => { const row = el("tr", null, e.n === "You" ? "me" : ""); row.append(el("td", String(i + 1)), el("td", e.n === "You" ? (MP.myName || "You") : e.n), el("td", fmtRes(v, e.r))); tb.append(row); }); box.append(tb); }
     card.append(box); }
