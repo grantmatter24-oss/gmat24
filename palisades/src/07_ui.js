@@ -16,6 +16,9 @@ let curRun = null, runShow = 0, hudT = 0, fpsAcc = 0, fpsN = 0;
 const friendArrows = new Map();
 function updateFriendArrows() {
   const box = $("friendArrows"), cy = Math.atan2(camDir.x, camDir.z) + (look.yaw || 0), seen = new Set();
+  { const r = COMP.run, on = !!(r && !r.done && r.t >= 0 && sk.mode !== "menu"); let e = updateFriendArrows.fin;   // in a heat or a challenge, a green arrow to the finish ring
+    if (on && !e) { e = updateFriendArrows.fin = document.createElement("span"); e.className = "fa"; const a = document.createElement("i"), d = document.createElement("b"); a.style.cssText = "border-left-width:8px;border-right-width:8px;border-bottom:19px solid #39ffb0"; d.style.color = "#bfffe6"; e.append(a, d); box.prepend(e); }
+    if (e) e.style.display = on ? "" : "none"; if (on) { const dx = r.v.end.x - sk.p.x, dz = r.v.end.z - sk.p.z, dist = Math.hypot(dx, dz); e.firstChild.style.transform = "rotate(" + (-wrap(Math.atan2(dx, dz) - cy) * 180 / Math.PI).toFixed(0) + "deg)"; const txt = "FINISH " + (units === "imp" ? Math.round(dist * FT / 10) * 10 + " ft" : Math.round(dist / 10) * 10 + " m"); if (e.lastChild.textContent !== txt) e.lastChild.textContent = txt; } }
   if (sk.mode !== "menu") for (const [peer, r] of MP.remotes) { const st = r.st; if (!st || st.res !== "palisades" || st.play === false) continue; seen.add(peer);
     let e = friendArrows.get(peer); if (!e) { e = document.createElement("span"); e.className = "fa"; const a = document.createElement("i"), d = document.createElement("b"); a.style.borderBottomColor = r.col || "#ffd24a"; e.append(a, d); box.appendChild(e); friendArrows.set(peer, e); }
     const dx = st.x - sk.p.x, dz = st.z - sk.p.z, dist = Math.hypot(dx, dz); e.firstChild.style.transform = "rotate(" + (-wrap(Math.atan2(dx, dz) - cy) * 180 / Math.PI).toFixed(0) + "deg)";
