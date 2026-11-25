@@ -33,7 +33,7 @@ function tick(t) {
   if (snowFall.visible) { snowFall.material.uniforms.uCam.value.copy(camera.position); snowFall.material.uniforms.uPx.value = renderer.domElement.height * 0.5 / Math.tan(camera.fov * DEG / 2); }
   gradePass.uniforms.uSpeed.value = sk.mode === "ski" && !paused ? smooth((sk.sp - 14) / 26) : 0;
   updateHUD(dt); if (sk.mode !== "menu") drawMini(dt); updateAudio();
-  renderer.info.reset(); composer.render(); dizzyDraw(canvas); window.__frames = frame; if (RP.shot) { RP.shot = false; replayPhoto(canvas.toDataURL("image/png")); }
+  renderer.info.reset(); composer.render(); dizzyDraw(canvas); window.__frames = frame; if (RP.shot) { RP.shot = false; canvas.toBlob(replayPhoto, "image/png"); }
   if (window.__snapReq) { const r = window.__snapReq; window.__snapReq = null; r(canvas.toDataURL("image/jpeg", 0.93)); }
 }
 async function boot() {
