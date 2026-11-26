@@ -97,7 +97,7 @@ function detailH(x, z) {
 }
 /* Groomed runs are cut into the hillside the way the cats and the summer earthworks leave them: cat tracks dead level across,
    the wider runs with most of the side-slope taken out. */
-const CATC = 40, CATW = Math.ceil((X1 - X0) / CATC), CATH = Math.ceil((Z1 - Z0) / CATC); let CATG = null, PARKG = null; const PARK = [];
+const CATC = 40, CATW = Math.ceil((X1 - X0) / CATC), CATH = Math.ceil((Z1 - Z0) / CATC); let CATG = null, PARKG = null, AIRSITE = null; const PARK = [];
 function gridAdd(G, x0, z0, x1, z1, item) { for (let cz = Math.max(0, Math.floor((z0 - Z0) / CATC)); cz <= Math.min(CATH - 1, Math.floor((z1 - Z0) / CATC)); cz++) for (let cx = Math.max(0, Math.floor((x0 - X0) / CATC)); cx <= Math.min(CATW - 1, Math.floor((x1 - X0) / CATC)); cx++) (G[cz * CATW + cx] || (G[cz * CATW + cx] = [])).push(item); }
 function initCat() {
   const G = new Array(CATW * CATH), RG = new Array(CATW * CATH), WID = [46, 42, 30, 18];
@@ -162,6 +162,15 @@ function initPark() {
   for (const [name, fr] of [["KT22 Express", [0.2, 0.47, 0.73]], ["Granite Chief", [0.18, 0.38, 0.58, 0.8]]]) { const l = WORLD.lifts.find(q => q.n === name); if (!l) continue; const p = path(l.pts.slice().reverse(), 0);
     for (const f of fr) { let best = null; for (let ds = 0; ds <= 60 && !best; ds += 6) for (const sg of [1, -1]) { const s = f * p.len + sg * ds, o = p.at(s, COMP_OFFS[name]), o2 = p.at(s + 14, COMP_OFFS[name]), drop = (hBase(o.x, o.z) - hBase(o2.x, o2.z)) / 14; if (drop < 0.18 || drop > 0.62 || CL[clamp(Math.round((o.z - Z0) / CELL), 0, NZ - 1) * NX + clamp(Math.round((o.x - X0) / CELL), 0, NX - 1)] > 0.1 || CL[clamp(Math.round((o2.z - Z0) / CELL), 0, NZ - 1) * NX + clamp(Math.round((o2.x - X0) / CELL), 0, NX - 1)] > 0.1) continue; if (l.pts.some(t => Math.hypot(t[0] - o.x, t[1] - o.z) < 13)) continue; best = o; break; }
       if (best) PARK.push(Object.assign({ k: "table", kind: "hit", hK: 1.9, Lr: 7, T: 0, Ld: 3, W: 7.5, deck: 0, soft: true, comp: true }, best)); } }
+  /* The Big Air jump at the top of Granite Chief: a massive table on the clearest fall line off the summit. It is only there during the event:
+     entering the competition builds it, leaving takes it away. */
+  { const l = WORLD.lifts.find(q => q.n === "Granite Chief"); let best = null; if (l) { const top = l.pts[l.pts.length - 1];
+      for (let a = 0; a < 6.28; a += 0.2) for (const r0 of [20, 45, 75, 110]) { const x0 = top[0] + Math.sin(a) * r0, z0 = top[1] + Math.cos(a) * r0; let x = x0, z = z0, n = 0;
+        for (; n < 30; n++) { const gx = hBase(x + 6, z) - hBase(x - 6, z), gz = hBase(x, z + 6) - hBase(x, z - 6), gl = Math.hypot(gx, gz); if (gl < 0.5) break; x -= gx / gl * 10; z -= gz / gl * 10; }
+        const L = Math.hypot(x - x0, z - z0); if (n < 30 || L < 262) continue; const ux = (x - x0) / L, uz = (z - z0) / L, hA = s => hBase(x0 + ux * s, z0 + uz * s); let bad = 0;   // straight enough: now walk the line itself
+        for (let s = 0; s <= 300; s += 10) { const m = maskAt(x0 + ux * s, z0 + uz * s), sl = (hA(s) - hA(s + 10)) / 10; if (m[1] > 0.3) bad += 2; if (cliffK(x0 + ux * s, z0 + uz * s) > 0.12) bad += 4; if (sl < 0.08 || sl > 0.75) bad += 1; if (!inWorld(x0 + ux * s, z0 + uz * s, 200)) bad += 9; }
+        const run = (hA(0) - hA(125)) / 125, land = (hA(165) - hA(215)) / 50, sc = Math.min(run, 0.45) * 60 + Math.min(land, 0.5) * 60 - bad * 6 - r0 * 0.05; if (run > 0.2 && land > 0.22 && (!best || sc > best.sc)) best = { sc, x0, z0, ux, uz }; } }
+    if (best) { const f = { k: "table", kind: "mega", deck: 0.56, hK: 5.4, Lr: 16, T: 22, Ld: 38, W: 15, x: best.x0 + best.ux * 125, z: best.z0 + best.uz * 125, dx: best.ux, dz: best.uz, ev: "air", off: true }; PARK.push(f); AIRSITE = { x0: best.x0, z0: best.z0, x1: best.x0 + best.ux * 300, z1: best.z0 + best.uz * 300, f }; } }
   // side hits on the busier groomed runs, alternating edges
   for (const r of WORLD.runs) { if (!r.g || r.c || r.d > 1 || r.len < 500 || r.n === "Gold Coast") continue; const p = path(r.pts, 0), W = [46, 42, 30, 18][r.d]; let s = 90 + 60 * hash2(r.len, 3, 41), n = 0;
     while (s < p.len - 60) { const sd = (n + (r.len & 1)) % 2 ? 1 : -1, o = p.at(s, sd * (W / 2 - 1.5));
@@ -175,7 +184,7 @@ function initPark() {
 const parkCell = (x, z) => PARKG && PARKG[((z - Z0) / CATC | 0) * CATW + ((x - X0) / CATC | 0)];
 function parkH(x, z, bare) { // bare: leave out the cut jumps, which are drawn by their own fine meshes
   const c = parkCell(x, z); if (!c) return 0; let h = 0;
-  for (const f of c) { if (bare && f.cut) continue; const rx = x - f.x, rz = z - f.z, s = rx * f.dx + rz * f.dz, ul = -rx * f.dz + rz * f.dx, u = Math.abs(ul); let v = 0;
+  for (const f of c) { if (f.off || (bare && f.cut)) continue; const rx = x - f.x, rz = z - f.z, s = rx * f.dx + rz * f.dz, ul = -rx * f.dz + rz * f.dx, u = Math.abs(ul); let v = 0;
     if (f.k === "table") { const L = f.Lr + f.T + f.Ld; if (s < 0 || s > L) continue;
       if (s < f.Lr) v = f.hK * Math.pow(s / f.Lr, 1.7) * (1 - sstep(f.W / 2 - (f.soft ? 1.2 : 0.12), f.W / 2 + (f.soft ? 1.8 : 0.4), u));   // the wedge: square-cut sides
       const dk = f.hK * f.deck; if (dk > 0 && s > f.Lr - 1.5) { const wl = f.W / 2 + 2, body = (s < f.Lr + f.T ? dk * sstep(f.Lr - 1.5, f.Lr + 0.6, s) : dk * (1 - smooth((s - f.Lr - f.T) / f.Ld))) * (1 - sstep(wl - 0.4, wl + 2.6, u)); if (s >= f.Lr + 0.55) v = body; else v = Math.max(v * (1 - sstep(f.Lr, f.Lr + 0.55, s)), body); }
@@ -185,7 +194,7 @@ function parkH(x, z, bare) { // bare: leave out the cut jumps, which are drawn b
     if (v > h) h = v; }
   return h;
 }
-function kickerLip(x, z) { const c = parkCell(x, z); if (!c) return null; for (const f of c) { if (f.k !== "table") continue; const rx = x - f.x, rz = z - f.z, s = rx * f.dx + rz * f.dz; if (s > f.Lr - 3 && s < f.Lr + 1.2 && Math.abs(-rx * f.dz + rz * f.dx) < f.W / 2) return f; } return null; }
+function kickerLip(x, z) { const c = parkCell(x, z); if (!c) return null; for (const f of c) { if (f.k !== "table" || f.off) continue; const rx = x - f.x, rz = z - f.z, s = rx * f.dx + rz * f.dz; if (s > f.Lr - 3 && s < f.Lr + 1.2 && Math.abs(-rx * f.dz + rz * f.dx) < f.W / 2) return f; } return null; }
 const EDGE = 220;
 function edgeW(x, z) { return smooth(1 - Math.min(x - X0, X1 - x, z - Z0, Z1 - z) / EDGE); }
 /* Ground height. Inside the resort grid it is survey + detail, blending to the coarse backdrop at the rim so the two meshes meet exactly. */

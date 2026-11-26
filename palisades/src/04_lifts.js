@@ -522,11 +522,13 @@ function buildCut(f) {
     const hs = (hg[j1 * nu + i] - hg[j0 * nu + i]) / (S[j1] - S[j0]), hu = (hg[j * nu + i1] - hg[j * nu + i0]) / (Uu[i1] - Uu[i0]), nx = -hs * f.dx + hu * f.dz, nz = -hs * f.dz - hu * f.dx, il = 1 / Math.hypot(nx, 1, nz), k = (j * nu + i) * 3; nor[k] = nx * il; nor[k + 1] = il; nor[k + 2] = nz * il; }
   for (let j = 0; j < ns - 1; j++) for (let i = 0; i < nu - 1; i++) { const a = j * nu + i, b = a + 1, c = a + nu, d = c + 1; idx.push(a, b, c, b, d, c); }   // wound to face up: the other way round you see straight through the near side of the jump
   const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(pos, 3)); g.setAttribute("normal", new THREE.BufferAttribute(nor, 3)); g.setIndex(idx); g.computeBoundingSphere();
-  const m = new THREE.Mesh(g, matNear); m.position.set(cx, cy, cz); m.matrixAutoUpdate = false; m.updateMatrix(); m.receiveShadow = true; m.castShadow = true; m.renderOrder = -2; scene.add(m); cutMeshes.push(m);
+  const m = new THREE.Mesh(g, matNear); m.position.set(cx, cy, cz); m.matrixAutoUpdate = false; m.updateMatrix(); m.receiveShadow = true; m.castShadow = true; m.renderOrder = -2; scene.add(m); cutMeshes.push(m); m.userData.f = f; f.mesh = m;
+  if (f.ev) { const lx = f.x + f.dx * (f.Lr - 0.3), lz = f.z + f.dz * (f.Lr - 0.3), dye = new THREE.Mesh(new THREE.BoxGeometry(f.W - 0.4, 0.05, 0.28), new THREE.MeshBasicMaterial({ color: 0x0a2fb8 })); dye.position.set(lx, H(lx, lz) + 0.04, lz); dye.rotation.y = Math.atan2(f.dx, f.dz); scene.add(dye); f.dye = dye; }   // the lip of the event jump, marked in blue
 }
-function updatePark(cam) { for (const m of cutMeshes) m.visible = Math.hypot(m.position.x - cam.x, m.position.z - cam.z) < 900; }
+function updatePark(cam) { for (const m of cutMeshes) m.visible = !(m.userData.f && m.userData.f.off) && Math.hypot(m.position.x - cam.x, m.position.z - cam.z) < 900; }
+function eventJump(f, on) { f.off = !on; if (f.mesh) f.mesh.visible = on; if (f.dye) f.dye.visible = on; }   // a jump that is only there while its event runs
 function initParkMeshes() {
-  for (const f of PARK) if (f.cut) buildCut(f);
+  for (const f of PARK) if (f.cut) { const o = f.off; f.off = false; buildCut(f); if (o) eventJump(f, false); }
   const b = new GeoBag(), COL = [[0.9, 0.33, 0.06], [0.08, 0.3, 0.75], [0.85, 0.7, 0.05]]; let k = 0; const flagG = [];
   for (const f of PARK) {
     const yaw = Math.atan2(f.dx, f.dz), rx = -f.dz, rz = f.dx;
@@ -534,7 +536,7 @@ function initParkMeshes() {
       b.box(0.16, 0.1, Math.hypot(f.len, f.y1 - f.y0), mx, (f.y0 + f.y1) / 2 - 0.05, mz, c, yaw, -pit);
       for (const u of [0.08, 0.5, 0.92]) { const px = f.x + f.dx * f.len * u, pz = f.z + f.dz * f.len * u, gy = H(px, pz); b.box(0.08, lerp(f.y0, f.y1, u) - gy, 0.08, px, (lerp(f.y0, f.y1, u) + gy) / 2 - 0.05, pz, DARK, yaw); } }
     if (f.k === "mound") { const cx = f.x + f.dx * f.R * 0.5, cz = f.z + f.dz * f.R * 0.5, y = H(cx, cz); b.cyl(0.62, 0.62, 2.3, cx, y + 0.45, cz, [0.85, 0.3, 0.05], 14, 0, Math.PI / 2, yaw); for (const e of [-1, 1]) b.cyl(0.64, 0.64, 0.08, cx + rx * e * 1.1, y + 0.45, cz + rz * e * 1.1, [0.5, 0.17, 0.03], 14, 0, Math.PI / 2, yaw); }   // the orange tank to tap or slide
-    if (f.k === "table" && !f.side && !f.lip) { // the lip is marked with a line of blue dye so you can read it against the snow
+    if (f.k === "table" && !f.side && !f.lip && !f.ev) { // the lip is marked with a line of blue dye so you can read it against the snow
       const lx = f.x + f.dx * (f.Lr - 0.25), lz = f.z + f.dz * (f.Lr - 0.25); b.box(f.W - 0.3, 0.04, 0.2, lx, H(lx, lz) + 0.02, lz, [0.03, 0.16, 0.7], yaw); }
     if (f.k === "table" && (f.kind === "big" || f.kind === "mid")) { // green flags either side of the landing, as the crew marks them
       for (const sd of [-1, 1]) { const s0 = f.Lr + f.T + 1, px = f.x + f.dx * s0 + rx * sd * (f.W / 2 + 4.5), pz = f.z + f.dz * s0 + rz * sd * (f.W / 2 + 4.5), y = H(px, pz); b.cyl(0.035, 0.035, 5.4, px, y + 2.6, pz, [0.75, 0.76, 0.78], 5); flagG.push([px, y + 4.6, pz, yaw]); towerHits.push({ x: px, z: pz, r: 0.1 }); } }
