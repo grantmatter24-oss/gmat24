@@ -190,6 +190,7 @@ function initPark() {
   // side hits on the busier groomed runs, alternating edges
   for (const r of WORLD.runs) { if (!r.g || r.c || r.d > 1 || r.len < 500 || r.n === "Gold Coast") continue; const p = path(r.pts, 0), W = [46, 42, 30, 18][r.d]; let s = 90 + 60 * hash2(r.len, 3, 41), n = 0;
     while (s < p.len - 60) { const sd = (n + (r.len & 1)) % 2 ? 1 : -1, o = p.at(s, sd * (W / 2 - 1.5));
+      if (PIPE) { const ex = o.x - PIPE.x, ez = o.z - PIPE.z, ps = ex * PIPE.dx + ez * PIPE.dz; if (ps > -40 && ps < PIPE.len + 40 && Math.abs(-ex * PIPE.dz + ez * PIPE.dx) < PIPE.half + 10) { s += 60; n++; continue; } }   // no side hits in the halfpipe
       if (hitStyle === 2) PARK.push(Object.assign({ k: "bank", len: 26, wB: 6.5, hK: 2.3, sd }, p.at(s, sd * (W / 2 - 2))));
       else { const c = Math.cos(0.3 * sd), sn = Math.sin(0.3 * sd); PARK.push(Object.assign({ k: "table", kind: "hit", hK: 1.1 + 0.5 * hash2(n, r.len, 42), Lr: 5, T: 0, Ld: 2.2, W: 4.2, deck: 0, side: true, soft: true }, o, { dx: o.dx * c - o.dz * sn, dz: o.dz * c + o.dx * sn })); }
       s += 150 + 110 * hash2(n, r.len, 43); n++; } }

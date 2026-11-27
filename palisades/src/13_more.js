@@ -100,7 +100,7 @@ function groomTick(dt, time) {
     while (c.seg < P.S.length - 2 && c.s > P.S[c.seg + 1]) c.seg++; while (c.seg > 0 && c.s < P.S[c.seg]) c.seg--;
     const a = P.pts[c.seg], b = P.pts[c.seg + 1], sl = P.S[c.seg + 1] - P.S[c.seg] || 1, u = (c.s - P.S[c.seg]) / sl, dx = (b[0] - a[0]) / sl, dz = (b[1] - a[1]) / sl, off = c.lane * 5;
     const tx = lerp(a[0], b[0], u) - dz * off, tz = lerp(a[1], b[1], u) + dx * off, k = c.init ? Math.min(1, 2.5 * dt) : 1; c.init = true; c.x += (tx - c.x) * k; c.z += (tz - c.z) * k;
-    const fx = dx * c.dir, fz = dz * c.dir, yaw = Math.atan2(fx, fz); c.yaw += wrap(yaw - c.yaw) * Math.min(1, 1.6 * dt); const sy = Math.sin(c.yaw), cy = Math.cos(c.yaw);
+    const fx = dx * c.dir, fz = dz * c.dir, yaw = Math.atan2(fx, fz); c.yaw += wrap(yaw - c.yaw) * (k === 1 ? 1 : Math.min(1, 1.6 * dt)); const sy = Math.sin(c.yaw), cy = Math.cos(c.yaw);
     const hf = H(c.x + sy * 2.2, c.z + cy * 2.2), hb = H(c.x - sy * 2.2, c.z - cy * 2.2), hl = H(c.x + cy * 1.4, c.z - sy * 1.4), hr = H(c.x - cy * 1.4, c.z + sy * 1.4); c.y = (hf + hb + hl + hr) / 4;
     c.grp.position.set(c.x, c.y, c.z); c.grp.rotation.set(-Math.atan2(hf - hb, 4.4), c.yaw, Math.atan2(hr - hl, 2.8)); c.beacon.material.opacity = 0.95; c.beacon.scale.setScalar(0.5 + 0.9 * Math.pow(Math.max(0, Math.sin(time * 7 + c.s)), 4));   // the beacon turns
     for (const o of [-2.6, 0, 2.6]) { const wx2 = c.x - sy * 4 + cy * o, wz2 = c.z - cy * 4 - sy * o; wearAdd(wx2, wz2, -1); }   // fresh corduroy off the comb

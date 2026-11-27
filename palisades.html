@@ -412,6 +412,7 @@ function initPark() {
   // side hits on the busier groomed runs, alternating edges
   for (const r of WORLD.runs) { if (!r.g || r.c || r.d > 1 || r.len < 500 || r.n === "Gold Coast") continue; const p = path(r.pts, 0), W = [46, 42, 30, 18][r.d]; let s = 90 + 60 * hash2(r.len, 3, 41), n = 0;
     while (s < p.len - 60) { const sd = (n + (r.len & 1)) % 2 ? 1 : -1, o = p.at(s, sd * (W / 2 - 1.5));
+      if (PIPE) { const ex = o.x - PIPE.x, ez = o.z - PIPE.z, ps = ex * PIPE.dx + ez * PIPE.dz; if (ps > -40 && ps < PIPE.len + 40 && Math.abs(-ex * PIPE.dz + ez * PIPE.dx) < PIPE.half + 10) { s += 60; n++; continue; } }   // no side hits in the halfpipe
       if (hitStyle === 2) PARK.push(Object.assign({ k: "bank", len: 26, wB: 6.5, hK: 2.3, sd }, p.at(s, sd * (W / 2 - 2))));
       else { const c = Math.cos(0.3 * sd), sn = Math.sin(0.3 * sd); PARK.push(Object.assign({ k: "table", kind: "hit", hK: 1.1 + 0.5 * hash2(n, r.len, 42), Lr: 5, T: 0, Ld: 2.2, W: 4.2, deck: 0, side: true, soft: true }, o, { dx: o.dx * c - o.dz * sn, dz: o.dz * c + o.dx * sn })); }
       s += 150 + 110 * hash2(n, r.len, 43); n++; } }
@@ -3027,7 +3028,7 @@ function mpPack() {
 }
 function mpPack0(k) {
   return { v: 2, res: "palisades", id: MP.myId, play: sk.mode !== "menu", x: r2(sk.p.x), y: r2(sk.p.y), z: r2(sk.p.z), yaw: r2(sk.yaw), spin: r2(sk.spin), rot: r2(sk.rot), rotV: r2(sk.rotV), sw: !!sk.sw, gr: !!sk.ground, cr: !!sk.crashed, tz: r2(sk.tumZ), turn: r2(sk.turn), carve: r2(sk.carve), sp: r2(sk.sp), chg: r2(sk.chg), st: r2(Math.max(0, sk.stumT)), k, md: sk.mode, gd: sk.grind ? 1 : 0, wp: r2(sk.walkPh || 0), li: sk.lift ? sk.lift.id : -1, sl: r2(sk.slope), sc: sk.pts, vt: Math.round(sk.vert),
-    of: { goggles: outfit.goggles, helmet: outfit.helmet, jacket: outfit.jacket, pants: outfit.pants, accessory: outfit.accessory, skis: outfit.skis, poles: outfit.poles, style: outfit.style } };
+    of: { goggles: outfit.goggles, helmet: outfit.helmet, jacket: outfit.jacket, pants: outfit.pants, accessory: outfit.accessory, skis: outfit.skis, poles: outfit.poles, style: outfit.style, ride: outfit.ride } };
 }
 function mpSend(dt) { if (!MP.room) return; MP.sendT -= dt; if (MP.sendT > 0) return; MP.sendT = 1 / 12; try { const r = MP.room.presence({ st: mpPack() }); if (r && r.catch) r.catch(() => { }); } catch (e) { } }
 function mpTag(R) { const c = document.createElement("canvas"); c.width = 256; c.height = 64; const tex = new THREE.CanvasTexture(c), sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, fog: false })); sp.scale.set(2.4, 0.6, 1); sp.position.set(0, 2.5, 0); sp.renderOrder = 999; R.hold.add(sp); return { c, tex, txt: "" }; }
@@ -4170,7 +4171,7 @@ function groomTick(dt, time) {
     while (c.seg < P.S.length - 2 && c.s > P.S[c.seg + 1]) c.seg++; while (c.seg > 0 && c.s < P.S[c.seg]) c.seg--;
     const a = P.pts[c.seg], b = P.pts[c.seg + 1], sl = P.S[c.seg + 1] - P.S[c.seg] || 1, u = (c.s - P.S[c.seg]) / sl, dx = (b[0] - a[0]) / sl, dz = (b[1] - a[1]) / sl, off = c.lane * 5;
     const tx = lerp(a[0], b[0], u) - dz * off, tz = lerp(a[1], b[1], u) + dx * off, k = c.init ? Math.min(1, 2.5 * dt) : 1; c.init = true; c.x += (tx - c.x) * k; c.z += (tz - c.z) * k;
-    const fx = dx * c.dir, fz = dz * c.dir, yaw = Math.atan2(fx, fz); c.yaw += wrap(yaw - c.yaw) * Math.min(1, 1.6 * dt); const sy = Math.sin(c.yaw), cy = Math.cos(c.yaw);
+    const fx = dx * c.dir, fz = dz * c.dir, yaw = Math.atan2(fx, fz); c.yaw += wrap(yaw - c.yaw) * (k === 1 ? 1 : Math.min(1, 1.6 * dt)); const sy = Math.sin(c.yaw), cy = Math.cos(c.yaw);
     const hf = H(c.x + sy * 2.2, c.z + cy * 2.2), hb = H(c.x - sy * 2.2, c.z - cy * 2.2), hl = H(c.x + cy * 1.4, c.z - sy * 1.4), hr = H(c.x - cy * 1.4, c.z + sy * 1.4); c.y = (hf + hb + hl + hr) / 4;
     c.grp.position.set(c.x, c.y, c.z); c.grp.rotation.set(-Math.atan2(hf - hb, 4.4), c.yaw, Math.atan2(hr - hl, 2.8)); c.beacon.material.opacity = 0.95; c.beacon.scale.setScalar(0.5 + 0.9 * Math.pow(Math.max(0, Math.sin(time * 7 + c.s)), 4));   // the beacon turns
     for (const o of [-2.6, 0, 2.6]) { const wx2 = c.x - sy * 4 + cy * o, wz2 = c.z - cy * 4 - sy * o; wearAdd(wx2, wz2, -1); }   // fresh corduroy off the comb
