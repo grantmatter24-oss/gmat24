@@ -20,6 +20,7 @@ let rig = null, fpv = store.get("pal-fpv", false), units = store.get("pal-units"
 const GOGGLES = { none: null, fire: [0x141414, 0xff7a1a], ice: [0xf2f4f7, 0x3aa0ff], rose: [0x7a1420, 0xff5fa2], jade: [0x0f3a2a, 0x39d98a], gold: [0x1a1a1a, 0xf2c230], night: [0x1b1e24, 0x2a2d33], chrome: [0xcfd6de, 0xe6eef8], glow: [0x0e0f12, 0x39ffb0] };
 KR.OUTFIT_OPTS.goggles = { none: "No goggles", fire: "Fire lens goggles", ice: "Ice blue goggles", rose: "Rose lens goggles", jade: "Jade lens goggles", gold: "Gold mirror goggles", night: "Blackout goggles", chrome: "Mirror chrome goggles", glow: "Glow goggles" }; KR.OUTFIT_DEFAULT.goggles = "none";
 Object.assign(KR.OUTFIT_OPTS.helmet, { chrome: "Chrome helmet", visor: "LED visor helmet", astro: "Astronaut helmet", kabuto: "Samurai kabuto", crown: "King's crown", wizhat: "Wizard hat", trapper: "Fur trapper hat" });
+KR.OUTFIT_OPTS.ride = { ski: "Skis", board: "Snowboard" }; KR.OUTFIT_DEFAULT.ride = "ski"; GOGGLES.prism = [0xf6f6f2, 0xff4fd8]; KR.OUTFIT_OPTS.goggles.prism = "Pipe champion's prism goggles";
 Object.assign(KR.OUTFIT_OPTS.helmet, { laurel: "Victor's laurel wreath" }); Object.assign(KR.OUTFIT_OPTS.accessory, { halo: "Champion's halo", medal: "Gold medal" });   // prizes: won with a gold medal, never sold
 const ACC_NEW = { pack: "Backpack", bandana: "Face bandana", hippack: "Hip pack", cam: "Helmet camera" }; Object.assign(KR.OUTFIT_OPTS.accessory, ACC_NEW);   // extras sold at the accessory shop
 /* Designer skis: wide boards with printed top sheets, sold at the ski shop in the village. Across the canvas the left half is the top of
@@ -41,7 +42,7 @@ for (const k in SKI_DESIGNS) KR.OUTFIT_OPTS.skis[k] = SKI_DESIGNS[k][0];
 let skiDesignTex = null;
 function skiDesigns() { if (skiDesignTex) return skiDesignTex; skiDesignTex = {}; for (const k in SKI_DESIGNS) { const c = document.createElement("canvas"); c.width = 128; c.height = 512; const x = c.getContext("2d"); x.save(); x.beginPath(); x.rect(0, 0, 64, 512); x.clip(); SKI_DESIGNS[k][1](x, 64, 512); x.restore(); x.fillStyle = "#0d0f12"; x.fillRect(64, 0, 64, 512); x.fillStyle = "#e9edf2"; x.fillRect(92, 0, 8, 512);   // the design on top, a plain black base with one stripe
     const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; skiDesignTex[k] = t; } return skiDesignTex; }
-function dressRig(R, of) { if (!R.skiDes) { R.skiDes = true; Object.assign(R.skiTexes, skiDesigns()); } if (of && of.skis === "custom") R.skiTexes.custom = customSkiTex(of.skd); KR.dress(R, of); clothDress(R, of); if (of && (SKI_DESIGNS[of.skis] || of.skis === "custom")) R.skiMeshes.forEach(m => { m.scale.x = 1.4; }); const q = R.gog, sm = !of || of.style !== "detailed", c = q && (GOGGLES[of && of.goggles] || (sm ? [0x15171b, 0x39424d] : null)); if (!q) return;
+function dressRig(R, of) { if (!R.skiDes) { R.skiDes = true; Object.assign(R.skiTexes, skiDesigns()); } if (of && of.skis === "custom") R.skiTexes.custom = customSkiTex(of.skd); KR.dress(R, of); clothDress(R, of); R.ride = of && of.ride; if (of && (SKI_DESIGNS[of.skis] || of.skis === "custom")) R.skiMeshes.forEach(m => { m.scale.x = 1.4; }); const q = R.gog, sm = !of || of.style !== "detailed", c = q && (GOGGLES[of && of.goggles] || (sm ? [0x15171b, 0x39424d] : null)); if (!q) return;
   R.simpleOnly.forEach(m => { if (m.parent === R.head && !m.userData.helmetOnly && m.material !== R.mats.skin) m.visible = false; });   /* the mannequin's own stock goggles give way to these; with none bought it wears a plain smoke pair */
   q.grp.scale.setScalar(sm ? 1.21 : 1); q.grp.visible = !!c; if (c) { q.frame.color.setHex(c[0]); q.lens.color.setHex(c[1]); q.lens.emissive.setHex(c[1]); q.lens.emissiveIntensity = of && of.goggles === "glow" ? 1.6 : of && of.goggles === "chrome" ? 0.55 : 0.28; q.stripe.color.setHex(c[1]); } }
 let outfit = Object.assign({}, KR.OUTFIT_DEFAULT, store.get("kickerOutfit", null) || {}, store.get("pal-outfit", null) || {});
@@ -59,7 +60,9 @@ function spawnAt(key) {
 }
 function unloadAt(L) {
   if (L.type.startsWith("chair")) { // off the chair at the unload line and away to the outside of the terminal, as you do on the real ones
-    liftPoint(L, L.len - L.loadS + 3, 1, _cp); const o = 4.2; placeSkier(_cp.x + L.rx[L.ns - 1] * o, _cp.z + L.rz[L.ns - 1] * o, L.dir - 0.75, 3); return; }
+    liftPoint(L, L.len - L.loadS + 0.6, 1, _cp); const k = L.ns - 1, dx = Math.sin(L.dir), dz = Math.cos(L.dir), c = Math.cos(0.3), sn = Math.sin(0.3), hx = dx * c + L.rx[k] * sn, hz = dz * c + L.rz[k] * sn;
+    for (const o of [0.9, 3, 5, 7, 9, 11, 13, 16]) { const x = _cp.x + L.rx[k] * o, z = _cp.z + L.rz[k] * o; let bad = false; for (let q = 0; q <= 12 && !bad; q++) bad = !!buildingAt(x + hx * q, z + hz * q); if (bad) continue; placeSkier(x, z, Math.atan2(hx, hz), 3.4); return; }
+    for (let r = 10; r <= 70; r += 5) for (let n = 0; n < 16; n++) { const a = L.dir + (n % 2 ? -1 : 1) * Math.ceil(n / 2) * 0.39, x = _cp.x + Math.sin(a) * r, z = _cp.z + Math.cos(a) * r; if (buildingAt(x, z) || buildingAt(x + 4, z) || buildingAt(x - 4, z) || buildingAt(x, z + 4) || buildingAt(x, z - 4)) continue; const gx = H(x - 3, z) - H(x + 3, z), gz = H(x, z - 3) - H(x, z + 3); placeSkier(x, z, Math.hypot(gx, gz) > 0.05 ? Math.atan2(gx, gz) : a, 2); return; } }   // you stand up on the ramp where the chair leaves you and ski down off it, ahead and a little to the outside; where a station house stands over the terminal, you come out beside it
   const d = L.carpet ? 3 : L.type === "tram" ? 16 : 20; placeSkier(L.top.x + Math.sin(L.dir) * d, L.top.z + Math.cos(L.dir) * d, L.dir, L.carpet ? 1 : 3);
 }
 function toast(msg, t = 2.6) { const e = $("toast"); e.textContent = msg; e.style.opacity = 1; toastT = t; }
@@ -76,7 +79,7 @@ function trickInfo() { // Kicker Run's names
   else if (flips > 0) names.push((["", "", "Double ", "Triple ", "Quad "][Math.min(flips, 4)]) + (back ? "Backflip" : "Frontflip"));
   else if (halves > 0) names.push(halves === 1 ? "Half cab 180" : "Flat " + deg);
   const grab = sk.grabT > 0.3; if (grab) names.push((sk.grabKind || "Tail") + " grab");
-  return { flips, halves, grab, label: names.join(" + ") };
+  return { flips, halves, grab, label: boardOn() ? boardLabel(names.join(" + "), sk.spin) : names.join(" + ") };
 }
 function crash(why) {
   if (sk.crashed) return; const vh = Math.hypot(sk.v.x, sk.v.z);
@@ -97,7 +100,7 @@ function stumble(t) { // clipped a tree: wobble, lose speed, get pushed clear
 /* A yard sale: in a bad fall the bindings release and the pole straps let go. Skis and poles fly off, slide to a stop and lie there until you get up and collect them. */
 const LOOSE = [], _lw = new THREE.Vector3(), _lqt = new THREE.Quaternion(), _lax = new THREE.Vector3();
 function yardSale(spd) {
-  if (sk.lost || !rig) return; sk.lost = true; rig.hold.updateMatrixWorld(true);
+  if (sk.lost || !rig || boardOn()) return; sk.lost = true;   /* a board stays strapped on */ rig.hold.updateMatrixWorld(true);
   const toss = (src, long) => { const o = src.clone(); src.getWorldPosition(_lw); src.getWorldQuaternion(_lqt); o.position.copy(_lw); o.quaternion.copy(_lqt); o.scale.set(1, 1, 1); o.visible = true; o.traverse(c => { c.visible = true; }); scene.add(o);
     LOOSE.push({ o, v: new THREE.Vector3(sk.v.x * (0.45 + 0.5 * Math.random()) + (Math.random() - 0.5) * 6, 2 + Math.random() * 4 + spd * 0.12, sk.v.z * (0.45 + 0.5 * Math.random()) + (Math.random() - 0.5) * 6), ax: new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize(), w: (Math.random() < 0.5 ? -1 : 1) * (5 + Math.random() * 9), h: long ? 0.04 : 0.02, long }); };
   rig.skiMeshes.forEach(m => toss(m, true)); rig.arms.forEach(a => toss(a.pole, false));
@@ -131,10 +134,12 @@ function readSurface() {
 function railAt(x, y, z) { const c = parkCell(x, z); if (!c) return null; for (const f of c) { if (f.k !== "rail") continue; const rx = x - f.x, rz = z - f.z, s = rx * f.dx + rz * f.dz; if (s < -0.6 || s > f.len - 0.5 || Math.abs(-rx * f.dz + rz * f.dx) > 0.9) continue; const ry = lerp(f.y0, f.y1, clamp(s / f.len, 0, 1)); if (y <= ry + 0.45 && y >= ry - 1.4) return f; } return null; }
 const _rkN = new THREE.Vector3(), onRock = (x, z) => cliffK(x, z) > 0.35 && normalAt(x, z, 1.2, _rkN).y < 0.72;   // bare cliff face: steeper than about 45 degrees inside a surveyed cliff
 function landing() {
-  const p = sk.p, v = sk.v, vh = Math.hypot(v.x, v.z), head = vh > 0.5 ? Math.atan2(v.x, v.z) : sk.yaw;
-  p.y = H(p.x, p.z); const sA = tangent(head), diff = wrap(sk.rot - sA), real = sk.airT > 0.3, PH = KR.PHYS;
+  const p = sk.p, v = sk.v, vh = Math.hypot(v.x, v.z); let head = vh > 0.5 ? Math.atan2(v.x, v.z) : sk.yaw;
+  p.y = H(p.x, p.z); let pipeV = 0; if (sk.pipe) { const n = normalAt(p.x, p.z, 0.7, _rkN), vn = v.dot(n), tx = v.x - n.x * vn, ty = v.y - n.y * vn, tz = v.z - n.z * vn; if (pipeAt(p.x, p.z) && Math.hypot(tx, tz) > 0.3) { head = Math.atan2(tx, tz); pipeV = Math.max(Math.hypot(tx, ty, tz), 0.9 * v.length()); } }   // back onto the wall: you keep the speed that runs along it
+  const sA = tangent(head), diff = wrap(sk.rot - sA), real = sk.airT > 0.3, PH = KR.PHYS;
   if (real && Math.abs(diff) > 1.6 + PH.land) return crash("Bad landing");   // a sideways spin never crashes: the skis swing round to the nearest forward or backward
   sk.yaw = head; sk.slip = 0; let vt = vh * Math.cos(sA) + v.y * Math.sin(sA);
+  if (pipeV) vt = pipeV; if (sk.pipe) { if (real) pipeHit(); sk.pipe = null; }
   if (real) vt *= 1 - 0.07 * sk.surf.powder;
   if (real && Math.abs(diff) > 0.65) { vt *= 1 - 0.45 * clamp((Math.abs(diff) - 0.65) / 0.95, 0, 1); for (let i = 0; i < 10; i++) spray(p, 2 + Math.random() * 2, (Math.random() - 0.5) * 5, v); }   // sloppy pitch only scrubs speed
   sk.sp = clamp(vt, 0, MAXV); sk.ground = true; sk.air = false; if (sk.airT > 0.15) sk.landT = 0.35;
@@ -143,14 +148,14 @@ function landing() {
     const tr = trickInfo(), perfect = Math.abs(diff) < 0.4; let pts = sk.airT * 150;
     if (tr.flips) pts += 400 * tr.flips * (1 + 0.5 * (tr.flips - 1));
     pts += tr.halves * 150; if (tr.grab) pts += Math.min(sk.grabT, 2) * 250;
-    if (tr.flips && tr.halves) pts *= 1.3; if (perfect) pts *= 1.25; if (odd) pts *= 1.15;
+    if (tr.flips && tr.halves) pts *= 1.3; if (perfect) pts *= 1.25; if (odd) pts *= 1.15; if (sk.pipeMul > 1) pts *= sk.pipeMul;
     if (sk.featLaunch === false) pts *= 0.35;   // tricks off flat ground count for less
-    const drop = sk.peakY - p.y, label = (tr.label || (sk.airT > 0.8 ? (drop > 4 ? Math.round(units === "imp" ? drop * FT : drop) + (units === "imp" ? " ft drop" : " m drop") : "Clean air") : "")) + (odd ? (tr.label ? " · " : "") + "Switch" : "");
+    const drop = sk.peakY - p.y, label = (sk.pipeLbl ? (tr.label ? tr.label + " · " : "") + sk.pipeLbl : tr.label || (sk.airT > 0.8 ? (drop > 4 ? Math.round(units === "imp" ? drop * FT : drop) + (units === "imp" ? " ft drop" : " m drop") : "Clean air") : "")) + (odd ? (tr.label ? " · " : "") + "Switch" : "");
     payout(pts, label, perfect, tr.flips && tr.halves); if (tr.flips || tr.halves) focusM = Math.min(1, focusM + 0.2);
     sfx(tr.flips || tr.halves || tr.grab ? "land" : "thump", clamp(sk.airT, 0.4, 1.2)); for (let i = 0; i < 22; i++) spray(p, 2 + Math.random() * 4, (Math.random() - 0.5) * 7, v);
   } else if (sk.airT > 0.15) { sfx("thump", 0.35); for (let i = 0; i < 6; i++) spray(p, 1.5 + Math.random() * 2, (Math.random() - 0.5) * 4, v); }
   sk.spin -= kHalf * Math.PI; sk.spinTarget = 0; if (odd) sk.sw = !sk.sw;
-  sk.rot = 0; sk.rotV = 0; sk.flipAcc = 0; sk.flipB = 0; sk.flipF = 0; sk.spinV = 0; sk.grabT = 0; sk.airT = 0;
+  sk.rot = 0; sk.rotV = 0; sk.flipAcc = 0; sk.flipB = 0; sk.flipF = 0; sk.spinV = 0; sk.grabT = 0; sk.airT = 0; sk.pipeLbl = ""; sk.pipeMul = 1;
 }
 function stepSki(dt) {
   const p = sk.p, v = sk.v, PH = KR.PHYS;
@@ -172,7 +177,7 @@ function stepSki(dt) {
   else if (sk.butSpun && onGr) { sk.spin += sk.spinV * dt; sk.spinV *= Math.exp(-5 * dt); if (Math.abs(sk.spinV) < 0.5) { const kk = Math.round(sk.spin / Math.PI); sk.spin -= kk * Math.PI; if (kk % 2) sk.sw = !sk.sw; sk.butSpun = false; sk.spinV = 0; } }
   if (sk.stumT > 0) { sk.stumT -= dt; popReq = false; charging = false; }
   const stK = sk.stumT > 0 ? Math.min(1, sk.stumT / 0.9) : 0, steerS = stK ? lerp(steer, sk.stumD * Math.sin(sk.stumT * 7.5 * Math.PI / 1.3 * 2) * 0.9, stK) : steer;
-  sk.turn = lerp(sk.turn, steerS, Math.min(1, 10 * dt));
+  const BD = boardOn(); sk.turn = lerp(sk.turn, steerS, Math.min(1, (BD ? 6.5 : 10) * dt));   // a board goes edge to edge more slowly than a pair of skis
   if (sk.grind) { // on a rail: slide its length, A/D spin, Space pops off
     const r = sk.grind; sk.grindT += dt; const spIn = (K.spinR ? 1 : 0) - (K.spinL ? 1 : 0);
     if (spIn) sk.spinV += clamp(spIn * 9 - sk.spinV, -60 * dt, 60 * dt); else { sk.spinV *= Math.exp(-5 * dt); const tgt = Math.round(sk.spin / Math.PI) * Math.PI; sk.spin += (tgt - sk.spin) * Math.min(1, 4 * dt); }
@@ -180,23 +185,24 @@ function stepSki(dt) {
     sk.sp = clamp(sk.sp + (-G * Math.sin(sA) - 0.1 * sk.sp - 0.0025 * sk.sp * sk.sp) * dt, 6, MAXV); sk.gs += sk.sp * Math.cos(sA) * dt;
     const u = sk.gs / r.len; p.set(r.x + r.dx * sk.gs, lerp(r.y0, r.y1, u), r.z + r.dz * sk.gs); sk.yaw = Math.atan2(r.dx, r.dz); sk.slope = sA; sk.carve = 0;
     if (sk.grindT > 0.2 && Math.random() < 0.6) spray(p, 1 + Math.random() * 2, (Math.random() - 0.5) * 3, v, 0.3);
-    if (popReq || sk.gs >= r.len) {
+    if (!popReq && sk.gs >= r.len && r.next) { sk.gs -= r.len; sk.grind = r.next; }   /* over the kink and on down the next length */
+    else if (popReq || sk.gs >= r.len) {
       const pop = popReq ? 10.5 * (0.35 + 0.65 * popPow) : 1, spins = Math.abs(Math.round(sk.spin / Math.PI)); v.set(r.dx * sk.sp * Math.cos(sA), sk.sp * Math.sin(sA) + pop, r.dz * sk.sp * Math.cos(sA));
-      if (spins % 2 === 1) sk.sw = !sk.sw; payout(sk.grindT * 420 + 450 + spins * 550, spins ? "Rail " + spins * 180 : "Rail grind", false, false); sfx("land");
+      if (spins % 2 === 1) sk.sw = !sk.sw; { const kk = r.prev || r.next, nm = boardOn() ? (r.box ? "Box 50-50" : kk ? "Kink boardslide" : "Boardslide") : r.box ? "Box slide" : kk ? "Kinked rail" : "Rail grind"; payout(sk.grindT * 420 + (r.box ? 300 : 450) + (kk ? 500 : 0) + spins * 550, spins ? nm + " " + spins * 180 + " out" : nm, false, false); } sfx("land");
       sk.grind = null; sk.noRail = 0.5; sk.ground = false; sk.air = true; sk.rot = sA; sk.vside = 0; sk.peakY = p.y; sk.airT = 0; sk.flipAcc = 0; sk.flipB = 0; sk.flipF = 0; sk.spin = 0; sk.spinV = 0; sk.grabT = 0; sk.rotV = 0; sk.featLaunch = true;
     }
     popReq = false;
   } else if (onGr) {
     // carving: the longer you hold a turn the more the edges bite, which turns tighter and scrubs less speed
-    sk.carve = steer ? Math.min(1, sk.carve + dt / 0.55) : Math.max(0, sk.carve - dt * 2.5);
+    sk.carve = steer ? Math.min(1, sk.carve + dt / (BD ? 0.75 : 0.55)) : Math.max(0, sk.carve - dt * 2.5);
     const slash = K.boost && steer !== 0;   // Shift while turning: throw the skis round hard, scrub speed, spray
-    const dyaw = -steer * (1.15 + 0.95 * sk.carve) * dt * PH.turn * (slash ? 1.5 : clamp(1.25 / (1 + Math.pow(sk.sp / 32, 2)), 0.55, 1)) * (1 - 0.18 * (sk.surf.deep || 0)); sk.yaw += dyaw;   // faster means wider arcs; deep snow turns slower
+    const dyaw = -steer * (BD ? 1.0 + 1.3 * sk.carve : 1.15 + 0.95 * sk.carve) * dt * PH.turn * (slash ? 1.5 : clamp(1.25 / (1 + Math.pow(sk.sp / 32, 2)), 0.55, 1)) * (1 - 0.18 * (sk.surf.deep || 0)); sk.yaw += dyaw;   // faster means wider arcs; deep snow turns slower
     // A Shift turn throws the skis round faster than the edges can hold: the skis point one way while you slide another, scrubbing speed.
     sk.slip = slash ? clamp(sk.slip * Math.exp(-0.7 * dt) + dyaw * 0.42, -0.5, 0.5) : sk.slip * Math.exp(-4.5 * dt);
     const sA = tangent(sk.yaw - sk.slip), sn = Math.sin(sA), s = readSurface(); sk.slope = sA;   // gravity and travel follow the way you are sliding, not the way the skis point
     // linear scrub from turning plus air drag that grows with speed, so there is no hard cap
     const DRG = PH.drag * (sk.wax > 0 ? 0.78 : 1);   // a fresh hot wax runs faster
-    const lin = ((0.1 + 0.07 * (1 - clamp(sk.sp / 12, 0, 1))) * s.powder + 0.05 + Math.abs(steer) * (0.34 - 0.24 * sk.carve) * (0.85 + sk.sp / 90) * PH.scrub * (1 + 0.5 * (s.deep || 0)) + s.road * 0.25 + (slash ? 0.6 : 0) + 0.55 * Math.abs(Math.sin(sk.slip))) * (0.5 + 0.5 * DRG), quad = (K.brake || K.up ? 0.0052 : 0.0072) * DRG, push = K.up && !slash ? 7 : 0, brk = K.down ? 16 : 0;
+    const lin = ((0.1 + 0.07 * (1 - clamp(sk.sp / 12, 0, 1))) * s.powder + 0.05 + Math.abs(steer) * (0.34 - 0.24 * sk.carve) * (0.85 + sk.sp / 90) * PH.scrub * (1 + 0.5 * (s.deep || 0)) + s.road * 0.25 + (BD ? 0.03 * (1 - clamp(sk.sp / 9, 0, 1)) : 0) - 0.02 * s.groom * (1 - wearAt(p.x, p.z)) + (slash ? 0.6 : 0) + 0.55 * Math.abs(Math.sin(sk.slip))) * (0.5 + 0.5 * DRG), quad = (K.brake || K.up ? 0.0052 : 0.0072) * DRG * (BD ? 1.07 : 1), push = K.up && !slash ? (BD ? 3.4 : 7) : 0, brk = K.down ? 16 : 0;
     // Rock under the skis: you can scrape over it, but it grabs, chatters and can throw you off balance.
     const rk = s.rock; if (rk > 0.05 && sk.sp > 1) { if (Math.random() < 0.6) spray(p, 0.4 + Math.random(), (Math.random() - 0.5) * 2, v, 0.5); if (rk > 0.5 && sk.sp > 12 && sk.stumT <= 0 && Math.random() < 0.6 * dt) { sk.stumT = 0.9; sk.stumD = Math.random() < 0.5 ? -1 : 1; } }   /* rock scrapes and rattles you, but it does not slow you down */
     const acc = -G * sn - (lin + 1.5 * rk) * sk.sp - quad * sk.sp * sk.sp + push - brk - rk * (1.5 + 3 * Math.random());
@@ -210,18 +216,18 @@ function stepSki(dt) {
     if (popNow) { sk.sp += 0.9 * pw * Math.max(0, 1 - sk.sp / 45); for (let i = 0; i < 4; i++) spray(p, 1 + Math.random() * 2, (Math.random() - 0.5) * 3, v); sfx("pop"); }
     v.copy(fw).multiplyScalar(sk.sp);
     const nx = p.x + v.x * dt, nz = p.z + v.z * dt, yp = p.y + v.y * dt, hn = H(nx, nz);
-    if (hn - p.y > 0.9 && sk.sp > 0.5) { // a cliff face dead ahead: you do not ski up it
+    if (hn - p.y > 0.9 && sk.sp > 0.5 && !pipeAt(nx, nz) && !wallAt(nx, nz)) { // a cliff face dead ahead: you do not ski up it
       if (sk.sp > 9) crash("Hit a cliff"); else { sk.sp = 0; toast("Cliff", 1); } popReq = false; return;
     }
     // The top of a cliff is a takeoff: where the snow ends and the rock falls away you leave the ground on the line you were skiing, and never ride the rock.
     let cliffGo = false; const fl = Math.hypot(fw.x, fw.z) || 1, ax = fw.x / fl, az = fw.z / fl;
     if (sk.sp > 4 && cliffK(nx, nz) > 0.3) cliffGo = hn - H(nx + ax * 2.5, nz + az * 2.5) > 2.6;   // only a real drop: rock you can ski over, you ski over
     if (cliffGo) { const a = clamp(Math.atan2(p.y - H(p.x - ax * 3, p.z - az * 3), 3), -0.6, 0.0), sp = Math.max(sk.sp, 2.5); v.set(ax * sp * Math.cos(a), sp * Math.sin(a), az * sp * Math.cos(a)); }
-    if (popNow || cliffGo || yp > hn + 0.12) { // the snow dropped away, a cliff lip, or a pop: airborne
+    if (popNow || cliffGo || yp > hn + 0.12 || pipeLip(p.x, p.z, nx, nz)) { // the snow dropped away, a cliff lip, or a pop: airborne
       const lip = kickerLip(p.x, p.z); sk.featLaunch = !!lip;
       sk.ground = false; sk.air = true; if (popNow) { v.y += (lip ? 6.5 : 5.2) * pw + 3.0; sk.popT = 0.2; } if (lip && !lip.lip) { const L2 = lip.Lr + lip.T + lip.Ld, hill = Math.atan2(H(lip.x + lip.dx * (L2 + 3), lip.z + lip.dz * (L2 + 3)) - H(lip.x - lip.dx * 3, lip.z - lip.dz * 3), L2 + 6); v.y = Math.max(v.y, sk.sp * Math.sin(hill + Math.atan(1.7 * lip.hK / lip.Lr))) + (popNow ? 0 : lip.side ? 1.4 : 3.0); }   // leave along the lip's own angle, with the lift Kicker Run's kickers give
       p.set(nx, popNow || cliffGo ? Math.max(cliffGo ? p.y + v.y * dt : yp, hn) + 0.02 : yp, nz); sk.rot = sA; sk.vside = 0; sk.peakY = p.y;
-      sk.airT = 0; sk.flipAcc = 0; sk.flipB = 0; sk.flipF = 0; sk.spin = 0; sk.spinV = 0; sk.grabT = 0; sk.rotV = 0; sk.spinTarget = 0;
+      sk.airT = 0; sk.flipAcc = 0; sk.flipB = 0; sk.flipF = 0; sk.spin = 0; sk.spinV = 0; sk.grabT = 0; sk.rotV = 0; sk.spinTarget = 0; pipeLaunch();
     } else {
       p.set(nx, hn, nz);
       if (!butterNow && !sk.butSpun) { sk.spin += (sk.spinTarget - sk.spin) * Math.min(1, 9 * dt); if (Math.abs(sk.spin - sk.spinTarget) < 0.02) { sk.spin = 0; sk.spinTarget = 0; } }
@@ -241,8 +247,8 @@ function stepSki(dt) {
     if (flipIn) sk.rotV += clamp(flipIn * (2.2 + 4.4 * Math.min(1, sk.flipHold / 1.1)) - sk.rotV, -8 * dt, 8 * dt);   // starts slow, builds momentum the longer you hold
     else sk.rotV *= Math.exp(-2.4 * dt);
     sk.rot += sk.rotV * dt;
-    if (!flipIn && v.y > -3 && Math.abs(sk.rotV) < 1.4) { const vh = Math.hypot(v.x, v.z), want = sk.rot + wrap(Math.atan2(v.y, vh) - sk.rot); sk.rot += (want - sk.rot) * Math.min(1, 5.5 * dt); }   // gentle auto-level on the way down
-    { const dr = sk.rot - before; sk.flipAcc += dr; if (dr > 0) sk.flipB += dr; else sk.flipF -= dr; }
+    if (sk.pipe) pipeAir(dt); else if (!flipIn && v.y > -3 && Math.abs(sk.rotV) < 1.4) { const vh = Math.hypot(v.x, v.z), want = sk.rot + wrap(Math.atan2(v.y, vh) - sk.rot); sk.rot += (want - sk.rot) * Math.min(1, 5.5 * dt); }   // gentle auto-level on the way down
+    { const dr = sk.rot - before - (sk.pipe ? sk.pipeD || 0 : 0); sk.flipAcc += dr; if (dr > 0) sk.flipB += dr; else sk.flipF -= dr; }
     sk.spinHold = spinIn && Math.sign(spinIn) === sk.spinDir ? sk.spinHold + dt : 0; sk.spinDir = Math.sign(spinIn);
     if (spinIn) sk.spinV += clamp(spinIn * PH.spin * (3.0 + 6.5 * Math.min(1, sk.spinHold / 1.0)) - sk.spinV, -14 * dt * PH.spin, 14 * dt * PH.spin);
     else { sk.spinV *= Math.exp(-2.6 * dt); const tgt = Math.round(sk.spin / Math.PI) * Math.PI; sk.spin += (tgt - sk.spin) * Math.min(1, 4 * dt); }
@@ -328,7 +334,7 @@ function stepLift(dt) {
   }
   let s, done = false;
   if (L.carpet) { sk.liftS += L.v * dt; s = sk.liftS; liftPoint(L, s, 0, p); p.y += 0.02; done = s >= L.len - 0.5; }
-  else { const c = carrierAt(L, sk.car, liftTime, _cq); s = c.s; liftPoint(L, s, 1, p); p.y -= L.T.drop + (L.type.startsWith("chair") ? 0.5 : -0.12); done = L.type === "tram" ? c.docked === 1 : (c.side === -1 || s >= L.len - L.loadS); }
+  else { const c = carrierAt(L, sk.car, liftTime, _cq); s = c.s; liftPoint(L, s, 1, p); p.y -= L.T.drop + (L.type.startsWith("chair") ? 0.5 : -0.12); if (L.bar) { const sw = chairSway(L, sk.car, s, SWAY), h = L.T.drop + 0.5, cs = Math.cos(L.dir), sn = Math.sin(L.dir), ox = h * Math.sin(sw.roll), oz = -h * Math.sin(sw.pit); p.x += cs * ox + sn * oz; p.z += -sn * ox + cs * oz; sk.swayR = sw.roll; sk.swayP = sw.pit; } done = L.type === "tram" ? c.docked === 1 : (c.side === -1 || s >= L.len - L.loadS); }
   sk.liftS = s; sk.yaw = L.dir; sk.sp = L.v; sk.v.set(0, 0, 0);
   if (done) { unloadAt(L); toast("Top of " + L.name + " · " + fmtAlt(sk.p.y)); }
 }
@@ -403,7 +409,8 @@ function layTracks(dt) {
     groove(-0.53, 0.075, ds); groove(0.53, 0.075, ds); groove(0, 0.2, dt2);
   } else {
     const gap = walking ? 0.12 : 0.16, hw = walking ? 0.075 : 0.05 + 0.03 * sk.carve + 0.07 * sk.brakeK + 0.2 * Math.abs(Math.sin(sk.slip || 0)), wall = 0.03 + d * 0.55, ridge = -d * 0.55 * clamp(d / 0.12, 0, 1), ao = 1 - Math.min(0.36, d * 1.8);
-    strip([-(gap + hw + wall), -(gap + hw), -(gap - hw), 0, gap - hw, gap + hw, gap + hw + wall], [0.004, -d, -d, ridge, -d, -d, 0.004], [0.3, 0.8, -0.45, 0, 0.45, -0.8, -0.3], [1, ao, ao, 1 - (1 - ao) * 0.5, ao, ao, 1], d);
+    if (!walking && boardOn()) groove(0, 0.1 + 0.05 * sk.carve + 0.3 * sk.brakeK + 0.5 * Math.abs(Math.sin(sk.slip || 0)), d);   // one wide trench: an edge-thin line in a carve, the whole board's length in a skid
+    else strip([-(gap + hw + wall), -(gap + hw), -(gap - hw), 0, gap - hw, gap + hw, gap + hw + wall], [0.004, -d, -d, ridge, -d, -d, 0.004], [0.3, 0.8, -0.45, 0, 0.45, -0.8, -0.3], [1, ao, ao, 1 - (1 - ao) * 0.5, ao, ao, 1], d);
   }
   if (!pv || l > 3 || pv.R.length !== cur.R.length) return;   // the first cross-section of a run only starts the trench
   const pa = trkMesh.geometry.attributes.position, na = trkMesh.geometry.attributes.normal;
@@ -499,6 +506,7 @@ function poseRider(R, q, keys, slope, dt, time, snap) {
   const wob = q.stumT > 0 && !q.crashed ? Math.min(1, q.stumT / 0.9) : 0, seated = q.mode === "lift";
   R.pivot.rotation.x = (q.crashed ? q.rot : q.ground ? 0 : q.rot - 0) + wob * (0.28 * Math.sin(time * 9) - 0.12) - (seated ? 0.25 : 0);
   R.pivot.rotation.z = (q.crashed ? q.tumZ : -(R.pose.vt !== undefined ? R.pose.vt : q.turn) * (0.3 + 0.32 * q.carve) * (q.air ? 0.3 : 1)) + (wob ? wob * (q.stumD || 1) * 0.45 * Math.sin(time * 12) : 0);
+  boardPose(R, q, keys);
 }
 const NOKEYS = Object.assign({}, K), PK = Object.assign({}, K);
 function updateRig(dt, time) {
@@ -508,7 +516,7 @@ function updateRig(dt, time) {
   sk.poseSlope = camSnap ? sk.slope : (sk.poseSlope || 0) + (sk.slope - (sk.poseSlope || 0)) * Math.min(1, 3 * dt);   // legs follow the hill, not every ripple
   Object.assign(PK, K); if (sk.ground) { PK.boost = K.up; PK.up = 0; PK.down = K.brake; PK.brake = K.down; } else PK.boost = 0;   // on snow W is the tuck, not a nose butter
   poseRider(R, sk, sk.mode === "ski" ? PK : NOKEYS, sk.poseSlope, dt, time, camSnap);
-  if (seated) R.hold.position.y += 0.2; if (sk.mode === "sled") { const back = sk.sledRole === 2 ? 0.94 : 0.34; R.hold.position.y += sk.sledRole === 2 ? 0.18 : 0.12; R.hold.position.x -= Math.sin(sk.yaw) * back; R.hold.position.z -= Math.cos(sk.yaw) * back; if (sk.sled && sk.sled.air) R.hold.quaternion.copy(sk.sled.mesh.quaternion); }   // on the seat, behind the bars; in the air you pitch with the machine
+  if (seated) { R.hold.position.y += 0.2; R.pivot.rotation.z -= sk.swayR || 0; R.pivot.rotation.x -= sk.swayP || 0; } if (sk.mode === "sled") { const back = sk.sledRole === 2 ? 0.94 : 0.34; R.hold.position.y += sk.sledRole === 2 ? 0.18 : 0.12; R.hold.position.x -= Math.sin(sk.yaw) * back; R.hold.position.z -= Math.cos(sk.yaw) * back; if (sk.sled && sk.sled.air) R.hold.quaternion.copy(sk.sled.mesh.quaternion); }   // on the seat, behind the bars; in the air you pitch with the machine
   if (sk.lost && !sk.crashed) { clearLoose(); sk.lost = false; }
   if (sk.crashed) R.hold.position.y += 0.22 + (sk.crashHop || 0);
   if (sk.shopIn && R.hold.position.y < sk.shopIn.floorY) R.hold.position.y = sk.shopIn.floorY;   // on the shop's floor, not the ground under it
@@ -525,6 +533,7 @@ function updateCamera(dt) {
   if (!look.drag) { look.idle += dt; if (look.idle > 1.2 && (sp > 2 || onLift)) { const k = Math.exp(-2.5 * dt); look.yaw *= k; look.pit *= k; } }
   const vh = Math.hypot(sk.v.x, sk.v.z); let heading = sk.yaw;
   if (sk.mode === "ski" && !sk.ground && vh > 2.5) heading = Math.atan2(sk.v.x, sk.v.z);
+  { const pf = sk.mode === "ski" && (sk.pipe || pipeAt(p.x, p.z)); if (pf) heading = Math.atan2(pf.dx, pf.dz); }   // in the halfpipe the view stays looking down it while you go from wall to wall
   const cur = Math.atan2(camDir.x, camDir.z), nh = cur + wrap(heading - cur) * (camSnap || sk.mode === "sled" ? 1 : Math.min(1, (sk.ground ? 3.2 : 1.6) * dt)); camDir.set(Math.sin(nh), 0, Math.cos(nh));   // on a snowmobile the view is locked to the way it points
   const cy = nh + look.yaw, dx = Math.sin(cy), dz = Math.cos(cy);
   camera.fov = lerp(camera.fov, fpv ? 76 + 8 * smooth(sp / 36) : 60 + 13 * smooth(sp / 36), Math.min(1, 3 * dt)); camera.near = fpv ? 0.1 : 0.25; camera.updateProjectionMatrix();

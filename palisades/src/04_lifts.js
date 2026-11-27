@@ -28,8 +28,7 @@ function chairGeometry(occ, bubble) {
   b.cyl(0.04, 0.04, w, 0, -2.3, -0.66, STEEL, 6, 0, Math.PI / 2);
   for (const sx of [-1, 1]) { b.cyl(0.035, 0.035, 0.95, sx * w / 2, -2.72, -0.6, STEEL, 6, 0.14); b.cyl(0.03, 0.03, 0.55, sx * w / 2, y - 0.02, -0.28, STEEL, 6, Math.PI / 2); }
   b.box(w, 0.07, 0.5, 0, y, -0.22, PAD); b.box(w, 0.5, 0.06, 0, y + 0.3, -0.5, PAD, 0, 0.16);
-  b.cyl(0.022, 0.022, w + 0.1, 0, -2.25, 0.2, STEEL, 5, 0, Math.PI / 2);   // restraint bar, raised
-  for (const sx of [-1, 1]) b.cyl(0.022, 0.022, 0.9, sx * (w / 2 + 0.03), -2.3, -0.24, STEEL, 5, Math.PI / 2 - 0.1);
+  /* the restraint bar is its own part, hinged at the top of the seat back: see barGeometry */
   return b.build();
 }
 function cabinGeometry(w, h, d, drop, twin, body = [0.62, 0.64, 0.67], cap = [0.72, 0.74, 0.77]) {
@@ -151,7 +150,7 @@ function buildLift(l, id) {
   else { const sp = clamp(l.v * 3600 / l.cap * l.occ, L.carpet ? 1e9 : 9, 260); L.count = L.carpet ? 0 : Math.max(2, Math.round(2 * L.len / sp)); L.spacing = 2 * L.len / Math.max(1, L.count); }
   if (L.count) {
     const geo = L.type.startsWith("chair") ? chairGeometry(l.occ) : L.type === "gondola" ? cabinGeometry(1.9, 2.1, 2.1, T.drop, 0, [0.05, 0.08, 0.15], [0.07, 0.10, 0.18]) : L.type === "funitel" ? cabinGeometry(2.4, 2.3, 3.4, T.drop, 1.6, [0.08, 0.2, 0.42], [0.75, 0.77, 0.8]) : cabinGeometry(3.4, 2.9, 6.6, T.drop, 0, [0.5, 0.05, 0.045], [0.5, 0.05, 0.045]);
-    L.mesh = new THREE.InstancedMesh(geo, liftMat, L.count); L.mesh.castShadow = true; L.mesh.receiveShadow = true; L.mesh.boundingSphere = sphere; scene.add(L.mesh);
+    L.mesh = new THREE.InstancedMesh(geo, liftMat, L.count); L.mesh.castShadow = true; L.mesh.receiveShadow = true; L.mesh.boundingSphere = sphere; scene.add(L.mesh); liftBars(L, l.occ);
   }
   // towers, ropes, stations in one static mesh
   const b = new GeoBag(), half = T.gauge / 2;
@@ -225,9 +224,9 @@ function updateLifts(dt, cam, frame) {
         liftPoint(L, top ? L.len - q : q, 0, _lp); const kk = top ? L.ns - 1 : 0, dx = L.rz[kk], dz = -L.rx[kk];
         _lp.x += e * (L.rx[kk] * hf * Math.cos(th) + dx * hf * Math.sin(th)); _lp.z += e * (L.rz[kk] * hf * Math.cos(th) + dz * hf * Math.sin(th)); ang = L.dir + (top ? th : Math.PI + th);
       } else liftPoint(L, s, _co.side, _lp);
-      _lq.setFromAxisAngle(_up, ang); _lm.compose(_lp, _lq, _ls); L.mesh.setMatrixAt(k, _lm);
+      if (L.bar) chairPose(L, k, _co, _lp, ang); else { _lq.setFromAxisAngle(_up, ang); _lm.compose(_lp, _lq, _ls); L.mesh.setMatrixAt(k, _lm); }
     }
-    L.mesh.instanceMatrix.needsUpdate = true;
+    L.mesh.instanceMatrix.needsUpdate = true; if (L.bar) L.bar.instanceMatrix.needsUpdate = true;
   }
 }
 
@@ -417,7 +416,7 @@ function updateNPCs(dt, cam) {
     while (n.seg < q.S.length - 2 && n.s > q.S[n.seg + 1]) n.seg++; while (n.seg > 0 && n.s < q.S[n.seg]) n.seg--;
     const a = q.r.pts[n.seg], b = q.r.pts[n.seg + 1], sl = q.S[n.seg + 1] - q.S[n.seg] || 1, u = (n.s - q.S[n.seg]) / sl, dx = (b[0] - a[0]) / sl, dz = (b[1] - a[1]) / sl;
     const amp = [46, 42, 30, 18][q.r.d] * 0.28, w = TAU / n.lam, sw = Math.sin(n.ph + n.s * w), cw = Math.cos(n.ph + n.s * w), x = lerp(a[0], b[0], u) - dz * amp * sw, z = lerp(a[1], b[1], u) + dx * amp * sw;
-    if (Math.abs(x - cam.x) + Math.abs(z - cam.z) > 1800) { _lm.makeScale(0, 0, 0); npcMesh.setMatrixAt(i, _lm); continue; }
+    n.wx = x; n.wz = z; if (Math.abs(x - cam.x) + Math.abs(z - cam.z) > 1800) { _lm.makeScale(0, 0, 0); npcMesh.setMatrixAt(i, _lm); continue; }
     const yaw = Math.atan2(dx, dz) - Math.atan(amp * w * cw) * 0.8; _lq.setFromEuler(_ne.set(0, yaw, -cw * 0.38, "YXZ")); _lm.compose(_lp.set(x, H(x, z), z), _lq, _ls); npcMesh.setMatrixAt(i, _lm);
   }
   npcMesh.instanceMatrix.needsUpdate = true;
@@ -512,9 +511,12 @@ function initVillage() {
 /* Each cut jump gets its own fine snow mesh (25 cm at the takeoff) so the lip, the square side walls and the deck edge are as crisp as a cat-cut feature. */
 const cutMeshes = [];
 function buildCut(f) {
-  const L = f.Lr + f.T + f.Ld, fine = 0.25, wF = f.W / 2 + 1.3, wAll = f.deck > 0 ? f.W / 2 + 5 : wF, S = [], Uu = [];
-  for (let s = -1; s < f.Lr + 1.5; s += fine) S.push(s); for (let s = f.Lr + 1.5; s < L + 1; s += 1) S.push(s); S.push(L + 1);
-  for (let u = -wAll; u < -wF; u += 0.6) Uu.push(u); for (let u = -wF; u < wF; u += fine) Uu.push(u); for (let u = wF; u < wAll; u += 0.6) Uu.push(u); Uu.push(wAll);
+  const jump = f.k === "table", L = jump ? f.Lr + f.T + f.Ld : f.len, fine = 0.25, wF = jump ? f.W / 2 + 1.3 : 0, wAll = jump && f.deck > 0 ? f.W / 2 + 5 : wF, S = [], Uu = [];
+  if (f.grid) { S.push(...f.grid.S); Uu.push(...f.grid.U); }
+  else if (f.k === "pipe") { for (let s = -3; s < L + 3; s += 1.25) S.push(s); S.push(L + 3); const e = f.a + f.dW + f.deck; for (let u = -f.half - 1; u < f.half + 1; u += Math.abs(u) > e + 0.4 ? 1.4 : Math.abs(u) < f.a - 0.4 ? 1.2 : 0.4) Uu.push(u); Uu.push(f.half + 1); }   // fine across the walls and the lips, coarse on the floor and the outsides
+  else if (f.k === "wall") { for (let s = -0.6; s < L + 0.6; s += 0.4) S.push(s); S.push(L + 0.6); const O = []; for (let o = -0.8; o < f.wB + 1.5; o += 0.2) O.push(o); O.push(f.wB + 1.5); if (f.sd > 0) Uu.push(...O); else for (let i = O.length - 1; i >= 0; i--) Uu.push(-O[i]); }
+  else { for (let s = -1; s < f.Lr + 1.5; s += fine) S.push(s); for (let s = f.Lr + 1.5; s < L + 1; s += 1) S.push(s); S.push(L + 1);
+    for (let u = -wAll; u < -wF; u += 0.6) Uu.push(u); for (let u = -wF; u < wF; u += fine) Uu.push(u); for (let u = wF; u < wAll; u += 0.6) Uu.push(u); Uu.push(wAll); }
   const ns = S.length, nu = Uu.length, hg = new Float32Array(ns * nu), pos = new Float32Array(ns * nu * 3), nor = new Float32Array(ns * nu * 3), idx = [];
   const cx = f.x + f.dx * L / 2, cz = f.z + f.dz * L / 2, cy = H(cx, cz);
   for (let j = 0; j < ns; j++) for (let i = 0; i < nu; i++) { const x = f.x + f.dx * S[j] - f.dz * Uu[i], z = f.z + f.dz * S[j] + f.dx * Uu[i], h = H(x, z), k = (j * nu + i) * 3; hg[j * nu + i] = h; pos[k] = x - cx; pos[k + 1] = h + 0.05 - cy; pos[k + 2] = z - cz; }
@@ -522,7 +524,7 @@ function buildCut(f) {
     const hs = (hg[j1 * nu + i] - hg[j0 * nu + i]) / (S[j1] - S[j0]), hu = (hg[j * nu + i1] - hg[j * nu + i0]) / (Uu[i1] - Uu[i0]), nx = -hs * f.dx + hu * f.dz, nz = -hs * f.dz - hu * f.dx, il = 1 / Math.hypot(nx, 1, nz), k = (j * nu + i) * 3; nor[k] = nx * il; nor[k + 1] = il; nor[k + 2] = nz * il; }
   for (let j = 0; j < ns - 1; j++) for (let i = 0; i < nu - 1; i++) { const a = j * nu + i, b = a + 1, c = a + nu, d = c + 1; idx.push(a, b, c, b, d, c); }   // wound to face up: the other way round you see straight through the near side of the jump
   const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(pos, 3)); g.setAttribute("normal", new THREE.BufferAttribute(nor, 3)); g.setIndex(idx); g.computeBoundingSphere();
-  const m = new THREE.Mesh(g, matNear); m.position.set(cx, cy, cz); m.matrixAutoUpdate = false; m.updateMatrix(); m.receiveShadow = true; m.castShadow = true; m.renderOrder = -2; scene.add(m); cutMeshes.push(m); m.userData.f = f; f.mesh = m;
+  const m = new THREE.Mesh(g, matNear); m.position.set(cx, cy, cz); m.matrixAutoUpdate = false; m.updateMatrix(); m.receiveShadow = true; m.castShadow = f.k !== "ramp"; m.renderOrder = -2; scene.add(m); cutMeshes.push(m); m.userData.f = f; f.mesh = m;
   if (f.ev) { const lx = f.x + f.dx * (f.Lr - 0.3), lz = f.z + f.dz * (f.Lr - 0.3), dye = new THREE.Mesh(new THREE.BoxGeometry(f.W - 0.4, 0.05, 0.28), new THREE.MeshBasicMaterial({ color: 0x0a2fb8 })); dye.position.set(lx, H(lx, lz) + 0.04, lz); dye.rotation.y = Math.atan2(f.dx, f.dz); scene.add(dye); f.dye = dye; }   // the lip of the event jump, marked in blue
 }
 function updatePark(cam) { for (const m of cutMeshes) m.visible = !(m.userData.f && m.userData.f.off) && Math.hypot(m.position.x - cam.x, m.position.z - cam.z) < 900; }
@@ -532,9 +534,14 @@ function initParkMeshes() {
   const b = new GeoBag(), COL = [[0.9, 0.33, 0.06], [0.08, 0.3, 0.75], [0.85, 0.7, 0.05]]; let k = 0; const flagG = [];
   for (const f of PARK) {
     const yaw = Math.atan2(f.dx, f.dz), rx = -f.dz, rz = f.dx;
-    if (f.k === "rail") { f.y0 = H(f.x, f.z) + f.hgt; f.y1 = H(f.x + f.dx * f.len, f.z + f.dz * f.len) + f.hgt; const c = COL[k++ % 3], mx = f.x + f.dx * f.len / 2, mz = f.z + f.dz * f.len / 2, pit = Math.atan2(f.y1 - f.y0, f.len);
-      b.box(0.16, 0.1, Math.hypot(f.len, f.y1 - f.y0), mx, (f.y0 + f.y1) / 2 - 0.05, mz, c, yaw, -pit);
+    if (f.k === "rail") { f.y0 = f.prev ? f.prev.y1 : H(f.x, f.z) + f.hgt; f.y1 = f.flat ? f.y0 : H(f.x + f.dx * f.len, f.z + f.dz * f.len) + f.hgt; const c = f.prev ? COL[(k - 1) % 3] : COL[k++ % 3], mx = f.x + f.dx * f.len / 2, mz = f.z + f.dz * f.len / 2, pit = Math.atan2(f.y1 - f.y0, f.len);   // a kinked rail's lengths join end to end; its middle length is level
+      if (f.box) { const l3 = Math.hypot(f.len, f.y1 - f.y0); b.box(0.62, 0.34, l3, mx, (f.y0 + f.y1) / 2 - 0.2, mz, c, yaw, -pit); b.box(0.52, 0.03, l3 - 0.06, mx, (f.y0 + f.y1) / 2 - 0.02, mz, [0.93, 0.94, 0.95], yaw, -pit); for (const e of [-1, 1]) b.box(0.035, 0.035, l3, mx + rx * e * 0.3, (f.y0 + f.y1) / 2 - 0.03, mz + rz * e * 0.3, STEEL, yaw, -pit); }   // a box: coloured sides, a white sliding top, steel edges
+      else b.box(0.16, 0.1, Math.hypot(f.len, f.y1 - f.y0), mx, (f.y0 + f.y1) / 2 - 0.05, mz, c, yaw, -pit);
       for (const u of [0.08, 0.5, 0.92]) { const px = f.x + f.dx * f.len * u, pz = f.z + f.dz * f.len * u, gy = H(px, pz); b.box(0.08, lerp(f.y0, f.y1, u) - gy, 0.08, px, (lerp(f.y0, f.y1, u) + gy) / 2 - 0.05, pz, DARK, yaw); } }
+    if (f.k === "wall") { const WC = [[0.9, 0.33, 0.06], [0.08, 0.3, 0.75], [0.1, 0.55, 0.3]][Math.abs(Math.round(f.x)) % 3], ang = Math.atan2(f.hK, f.wB) * f.sd, l2 = Math.hypot(f.hK, f.wB) * 0.62;   // boards on the upper face, a coping along the top
+      const at = (sm, o) => { const x = f.x + f.dx * sm + rx * f.sd * o, z = f.z + f.dz * sm + rz * f.sd * o; return [x, H(x, z), z]; }, m = at(f.len / 2, f.wB * 0.62), t = at(f.len / 2, f.wB);
+      const e0 = at(2.2, f.wB * 0.62), e1 = at(f.len - 2.2, f.wB * 0.62), pit = Math.atan2(e1[1] - e0[1], f.len - 4.4); b.box(l2, 0.05, f.len - 4.4, m[0], m[1] + 0.06, m[2], WC, yaw, -pit, -ang); b.cyl(0.07, 0.07, f.len - 4.2, t[0], t[1] + 0.07, t[2], STEEL, 7, Math.PI / 2 - pit, 0, yaw); }
+    if (f.k === "pipe") { for (const sd of [-1, 1]) for (let q = 16; q < f.len - 14; q += 6) { const o = sd * (f.a + f.dW - 0.25), x0 = f.x + f.dx * q + rx * o, z0 = f.z + f.dz * q + rz * o, x1 = x0 + f.dx * 6, z1 = z0 + f.dz * 6, y0 = H(x0, z0), y1 = H(x1, z1); b.box(0.22, 0.04, Math.hypot(6, y1 - y0), (x0 + x1) / 2, (y0 + y1) / 2 + 0.07, (z0 + z1) / 2, [0.03, 0.16, 0.7], yaw, -Math.atan2(y1 - y0, 6)); } }   // each lip marked in blue dye
     if (f.k === "mound") { const cx = f.x + f.dx * f.R * 0.5, cz = f.z + f.dz * f.R * 0.5, y = H(cx, cz); b.cyl(0.62, 0.62, 2.3, cx, y + 0.45, cz, [0.85, 0.3, 0.05], 14, 0, Math.PI / 2, yaw); for (const e of [-1, 1]) b.cyl(0.64, 0.64, 0.08, cx + rx * e * 1.1, y + 0.45, cz + rz * e * 1.1, [0.5, 0.17, 0.03], 14, 0, Math.PI / 2, yaw); }   // the orange tank to tap or slide
     if (f.k === "table" && !f.side && !f.lip && !f.ev) { // the lip is marked with a line of blue dye so you can read it against the snow
       const lx = f.x + f.dx * (f.Lr - 0.25), lz = f.z + f.dz * (f.Lr - 0.25); b.box(f.W - 0.3, 0.04, 0.2, lx, H(lx, lz) + 0.02, lz, [0.03, 0.16, 0.7], yaw); }

@@ -52,6 +52,7 @@ function updateHUD(dt) {
   else if (sk.mode === "ski" && COMP.near && !COMP.run) { pr.hidden = false; pr.innerHTML = "<kbd>E</kbd> Enter the " + COMP.near.name; }
   else if (sk.shopIn && isGear(sk.shopIn)) { pr.hidden = false; pr.innerHTML = nearCounter && basket.length ? "<kbd>E</kbd> Pay " + basketTotal().toLocaleString() + " pts" : "<kbd>E</kbd> Browse" + (basket.length ? " · carrying " + basket.length + " (" + basketTotal().toLocaleString() + " pts): pay at the counter, or run with Shift" : ""); }
   else if (villagePrompt()) { pr.hidden = false; pr.innerHTML = villagePrompt(); }
+  else if (barPrompt()) { pr.hidden = false; pr.innerHTML = barPrompt(); }
   else if (nearCounter) { pr.hidden = false; pr.innerHTML = "<kbd>E</kbd> Order"; }
   else if (sk.mode === "sled") { pr.hidden = false; pr.innerHTML = sk.sledRole === 2 ? "<kbd>E</kbd> Hop off" : "<kbd>E</kbd> Get off the snowmobile"; }
   else if ((sk.mode === "ski" || sk.mode === "walk") && nearSled && !COMP.run) { pr.hidden = false; pr.innerHTML = sledDriver(nearSled) ? "<kbd>E</kbd> Hop on the back" : "<kbd>E</kbd> Ride the snowmobile"; }
@@ -184,6 +185,7 @@ function initInput() {
     else if (key === "n") { muted = !muted; store.set("pal-mute", muted); toast(muted ? "Sound off" : "Sound on", 1.2); }
     else if (key === "r") { rewKey = !COMP.run; if (COMP.run) toast("No rewinding in a competition", 1.5); }
     else if (key === "e" && sk.mode === "ski" && COMP.near && !COMP.run && sk.ground) compEnter(COMP.near);
+    else if (key === "e" && barUse()) { }
     else if (key === "e" && villageUse()) { }
     else if (key === "e" && (nearCounter || isGear(sk.shopIn))) shopUse();
     else if (key === "e" && (sk.mode === "sled" || ((sk.mode === "ski" || sk.mode === "walk") && nearSled && !COMP.run))) sledToggle();
@@ -218,7 +220,7 @@ function initInput() {
   LIFTS.map((L, i) => [L, i]).filter(([L]) => !L.carpet && L.len > 400).sort((a, b) => b[0].top.g - a[0].top.g).forEach(([L, i]) => opt(i, "Top of " + L.name + " · " + Math.round(L.top.g * FT).toLocaleString() + " ft"));
   sel.value = store.get("pal-start", "village"); if (!sel.value) sel.value = "village";
   // outfit and ski setup: Kicker Run's own options, everything unlocked
-  const FIT = [["skibend", "Ski rocker"], ["len", "Ski length"], ["grip", "Edges"], ["wax", "Wax"], ["style", "Figure"]];   // clothes and gear are on the racks in the locker room; this is the tuning bench
+  const FIT = [["ride", "Ride"], ["skibend", "Ski rocker"], ["len", "Ski length"], ["grip", "Edges"], ["wax", "Wax"], ["style", "Figure"]];   // clothes and gear are on the racks in the locker room; this is the tuning bench
   for (const [cat, label] of FIT) { const l = document.createElement("label"); l.textContent = label; l.htmlFor = "fit-" + cat; const sl = document.createElement("select"); sl.id = "fit-" + cat;
     for (const k in KR.OUTFIT_OPTS[cat]) { const o = document.createElement("option"); o.value = k; o.textContent = KR.OUTFIT_OPTS[cat][k]; sl.appendChild(o); } sl.value = outfit[cat]; sl.dataset.cat = cat;
     sl.addEventListener("change", () => { if (sl.selectedOptions[0] && sl.selectedOptions[0].disabled) { sl.value = outfit[cat]; return; } outfit[cat] = sl.value; store.set("pal-outfit", outfit); dressRig(rig, outfit); }); $("fitRows").append(l, sl); }

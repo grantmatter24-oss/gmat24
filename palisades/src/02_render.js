@@ -39,7 +39,7 @@ function noiseTexture() {
 const noiseTex = noiseTexture();
 const U = { // uniforms shared by every material that reads the world
   uTT: { value: null }, uMA: { value: null }, uMB: { value: null }, uNoise: { value: noiseTex },
-  uTrk: { value: null }, uTraffic: { value: null }, uCrk: { value: null }, uCrkPool: { value: 0 }, uPlaza: { value: new THREE.Vector4(0, 0, 0, 1) },
+  uTrk: { value: null }, uTraffic: { value: null }, uWear: { value: null }, uCrk: { value: null }, uCrkPool: { value: 0 }, uPlaza: { value: new THREE.Vector4(0, 0, 0, 1) },
   uSunDir: { value: sunDir }, uSunCol: { value: new THREE.Color() }, uTime: { value: 0 }, uShadowR: { value: 160 }, uTreeNear: { value: 260 }, uSkyAmb: { value: new THREE.Color() }, uWet: { value: 0 }
 };
 const GLSL_WORLD = `
@@ -208,7 +208,7 @@ function setWeather(name, quick) {
 
 /* ---------- terrain ---------- */
 const TERRAIN_FRAG_PARS = GLSL_WORLD + `
-varying vec3 vWp; varying vec3 vWn; varying float vLake; uniform sampler2D uTrk, uTraffic, uCrk; uniform float uCrkPool; uniform vec4 uPlaza;
+varying vec3 vWp; varying vec3 vWn; varying float vLake; uniform sampler2D uTrk, uTraffic, uCrk, uWear; uniform float uCrkPool; uniform vec4 uPlaza;
 #ifdef ROCKMESH
 uniform vec3 uRkLo, uRkHi;
 #endif
@@ -268,12 +268,18 @@ const TERRAIN_FRAG_COLOR = `
   #define CORD(PK, W) { float a = dot(vWp.xz, PK); trk += W * texture2D(uTrk, vec2(a / 24.0, dot(vWp.xz, vec2(-PK.y, PK.x)) / 96.0)).r; scr += W * texture2D(uNoise, vec2(a * 0.55, dot(vWp.xz, vec2(-PK.y, PK.x)) * 0.012)).r; float ph = a * 125.66; float vis = clamp(1.0 - fwidth(ph) * 0.45, 0.0, 1.0); cordG += PK * cos(ph) * W * vis; float p2 = a * 20.94; float v2 = clamp(1.0 - fwidth(p2) * 0.55, 0.0, 1.0); stripe += W * (0.5 + 0.5 * cos(p2)) * v2; cordW += PK * sin(p2) * W * v2; float b = a / 4.4, fb = fract(b); bandV += W * (texture2D(uNoise, vec2(floor(b) * 0.0391, 0.3), -8.0).r - 0.5); bandE += W * smoothstep(0.05, 0.0, min(fb, 1.0 - fb)); }
   CORD(vec2(0.0, 1.0), wk.x) CORD(vec2(-0.7071, 0.7071), wk.y) CORD(vec2(-1.0, 0.0), wk.z) CORD(vec2(-0.7071, -0.7071), wk.w)
   float groomK = smoothstep(0.25, 0.6, groom);   // a groomed surface has a definite edge
-  Nw.xz += (cordG * 0.34 + cordW * 0.16) * groomK; snow *= 1.0 + groomK * (bandV * 0.05 - bandE * 0.05 * smoothstep(900.0, 60.0, tDist));
+  #ifndef OUTER
+    float wear = texture2D(uWear, (vWp.xz - vec2(${X0.toFixed(1)}, ${Z0.toFixed(1)})) / vec2(${(Math.ceil((X1 - X0) / 8) * 8).toFixed(1)}, ${(Math.ceil((Z1 - Z0) / 8) * 8).toFixed(1)})).r;   // how skied-off this patch is: 0 straight off the cat's comb
+  #else
+    float wear = 0.45;
+  #endif
+  float cordK = 1.0 - 0.86 * smoothstep(0.08, 0.85, wear);
+  Nw.xz += (cordG * 0.34 + cordW * 0.16) * groomK * cordK; snow *= 1.0 + groomK * (bandV * 0.05 - bandE * 0.05 * smoothstep(900.0, 60.0, tDist));
   snow = mix(snow, vec3(0.945, 0.958, 0.978), groomK * 0.55);                                   // a groomed run is clean, bright and even
-  snow = mix(snow, snow * vec3(0.84, 0.885, 0.965), groomK * stripe * 0.6);                     // the cat's ribs: fine blue-shadowed lines down the fall of the run, as clear as Kicker Run's
+  snow = mix(snow, snow * vec3(0.84, 0.885, 0.965), groomK * stripe * 0.66 * cordK);                     // the cat's ribs: fine blue-shadowed lines down the fall of the run, as clear as Kicker Run's
   snow *= 1.0 - groomK * (0.025 + (scr - 0.5) * 0.10 * smoothstep(260.0, 8.0, tDist));
   #ifndef OUTER
-    snow *= 1.0 - groomK * trk * texture2D(uTraffic, (vWp.xz - vec2(${X0.toFixed(1)}, ${Z0.toFixed(1)})) / vec2(${(X1 - X0).toFixed(1)}, ${(Z1 - Z0).toFixed(1)})).r * 0.42 * smoothstep(420.0, 12.0, tDist);   // other skiers' tracks, thickest where the traffic is
+    snow *= 1.0 - groomK * trk * texture2D(uTraffic, (vWp.xz - vec2(${X0.toFixed(1)}, ${Z0.toFixed(1)})) / vec2(${(X1 - X0).toFixed(1)}, ${(Z1 - Z0).toFixed(1)})).r * 0.42 * (0.12 + 1.5 * wear) * smoothstep(420.0, 12.0, tDist);   // other skiers' tracks, thickest where the traffic is
   #endif   // packed and scored by skis, against the untouched snow beside it
   Nw = normalize(Nw);
   // forest floor: litter up close, canopy shade from afar

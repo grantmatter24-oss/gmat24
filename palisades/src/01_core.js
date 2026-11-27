@@ -97,7 +97,7 @@ function detailH(x, z) {
 }
 /* Groomed runs are cut into the hillside the way the cats and the summer earthworks leave them: cat tracks dead level across,
    the wider runs with most of the side-slope taken out. */
-const CATC = 40, CATW = Math.ceil((X1 - X0) / CATC), CATH = Math.ceil((Z1 - Z0) / CATC); let CATG = null, PARKG = null, AIRSITE = null; const PARK = [];
+const CATC = 40, CATW = Math.ceil((X1 - X0) / CATC), CATH = Math.ceil((Z1 - Z0) / CATC); let CATG = null, PARKG = null, AIRSITE = null, PIPE = null; const PARK = [];
 function gridAdd(G, x0, z0, x1, z1, item) { for (let cz = Math.max(0, Math.floor((z0 - Z0) / CATC)); cz <= Math.min(CATH - 1, Math.floor((z1 - Z0) / CATC)); cz++) for (let cx = Math.max(0, Math.floor((x0 - X0) / CATC)); cx <= Math.min(CATW - 1, Math.floor((x1 - X0) / CATC)); cx++) (G[cz * CATW + cx] || (G[cz * CATW + cx] = [])).push(item); }
 function initCat() {
   const G = new Array(CATW * CATH), RG = new Array(CATW * CATH), WID = [46, 42, 30, 18];
@@ -147,6 +147,10 @@ function initPark() {
     return { len: S[S.length - 1], at: (s, o = off) => { let k = 0; while (k < pts.length - 2 && s > S[k + 1]) k++; const u = (s - S[k]) / (S[k + 1] - S[k] || 1), dx = (pts[k + 1][0] - pts[k][0]) / (S[k + 1] - S[k] || 1), dz = (pts[k + 1][1] - pts[k][1]) / (S[k + 1] - S[k] || 1); return { x: lerp(pts[k][0], pts[k + 1][0], u) - dz * o, z: lerp(pts[k][1], pts[k + 1][1], u) + dx * o, dx, dz }; } }; };
   const table = (p, s, off, kind) => { const q = TABLE[kind]; PARK.push(Object.assign({ k: "table", kind, deck: kind === "wedge" ? 0 : 0.56 }, q, p.at(s, off))); return q.Lr + q.T + q.Ld; };
   const rail = (p, s, off, len) => { PARK.push(Object.assign({ k: "table", kind: "lip", hK: 0.55, Lr: 3.2, T: 0, Ld: 1.2, W: 3.2, deck: 0, lip: true }, p.at(s, off)), Object.assign({ k: "rail", len, hgt: 0.62 }, p.at(s + 4.2, off))); return 4.2 + len; };
+  const lipAt = (p, s, off) => Object.assign({ k: "table", kind: "lip", hK: 0.55, Lr: 3.2, T: 0, Ld: 1.2, W: 3.2, deck: 0, lip: true }, p.at(s, off));
+  const box = (p, s, off, len) => { PARK.push(lipAt(p, s, off), Object.assign({ k: "rail", len, hgt: 0.5, box: true }, p.at(s + 4.2, off))); return 4.2 + len; };   // a wide flat box: easier to hold than a rail
+  const kink = (p, s, off) => { const A = Object.assign({ k: "rail", len: 5, hgt: 0.62 }, p.at(s + 4.2, off)), B = Object.assign({ k: "rail", len: 3.6, hgt: 0.62, flat: true }, p.at(s + 9.2, off)), C = Object.assign({ k: "rail", len: 5.4, hgt: 0.62 }, p.at(s + 12.8, off)); A.next = B; B.next = C; B.prev = A; C.prev = B; PARK.push(lipAt(p, s, off), A, B, C); return 18.2; };   // down, flat, down: one rail in three lengths
+  const wall = (p, s, off, sd) => { PARK.push(Object.assign({ k: "wall", len: 12, wB: 2.4, hK: 3.0, sd }, p.at(s, off))); return 12; };   // a wall ride: a steep bank faced with boards, set along the edge of the lane
   const barrel = (p, s, off) => { PARK.push(Object.assign({ k: "mound", R: 3.4, hK: 1.25 }, p.at(s, off))); return 7; };
   const bel = WORLD.lifts.find(l => l.n === "Belmont"), gc = WORLD.runs.filter(r => r.n === "Gold Coast").sort((a, b) => b.len - a.len)[0];
   if (bel) { const p = path(bel.pts.slice().reverse(), 22); let s = 24, n = 0; while (s < p.len - 40) { s += (n % 3 === 0 ? table(p, s, 22, "wedge") : n % 3 === 1 ? rail(p, s, 22, 10) : table(p, s, 22, "mid")) + 24; n++; } }
@@ -158,6 +162,10 @@ function initPark() {
       let s = 80; while (s < end - 70) s += table(p, s, 3, "big") + 38;
       s = 70; let n = 0; while (s < end - 30) { s += (n % 3 === 0 ? table(p, s, -15, "wedge") : n % 3 === 1 ? barrel(p, s, -15) : rail(p, s, -15, 9 + 3 * (n % 2))) + 26; n++; }
     } }
+  if (gc) { const p = path(gc.pts, 0), s0 = Math.min(780, p.len - 40) + 24, s1 = p.len - 40;   // the jib garden below the jump lines: boxes, kinked rails and wall rides
+    let s = s0, n = 0; while (s < s1 - 22) { s += (n % 2 ? kink(p, s, -9) : box(p, s, -9, 8 + 3 * (n % 3))) + 22; n++; }
+    s = s0 + 12; n = 0; while (s < s1 - 22) { s += (n % 2 ? box(p, s, 6, 10) : kink(p, s, 6)) + 26; n++; }
+    s = s0 + 6; n = 0; while (s < s1 - 16) { const sd = n % 2 ? 1 : -1; s += wall(p, s, sd * 19, sd) + 38; n++; } }
   // Competition jumps: snow kickers built on the freeride courses that run under the KT-22 and Granite Chief chairs, top to bottom.
   for (const [name, fr] of [["KT22 Express", [0.2, 0.47, 0.73]], ["Granite Chief", [0.18, 0.38, 0.58, 0.8]]]) { const l = WORLD.lifts.find(q => q.n === name); if (!l) continue; const p = path(l.pts.slice().reverse(), 0);
     for (const f of fr) { let best = null; for (let ds = 0; ds <= 60 && !best; ds += 6) for (const sg of [1, -1]) { const s = f * p.len + sg * ds, o = p.at(s, COMP_OFFS[name]), o2 = p.at(s + 14, COMP_OFFS[name]), drop = (hBase(o.x, o.z) - hBase(o2.x, o2.z)) / 14; if (drop < 0.18 || drop > 0.62 || CL[clamp(Math.round((o.z - Z0) / CELL), 0, NZ - 1) * NX + clamp(Math.round((o.x - X0) / CELL), 0, NX - 1)] > 0.1 || CL[clamp(Math.round((o2.z - Z0) / CELL), 0, NZ - 1) * NX + clamp(Math.round((o2.x - X0) / CELL), 0, NX - 1)] > 0.1) continue; if (l.pts.some(t => Math.hypot(t[0] - o.x, t[1] - o.z) < 13)) continue; best = o; break; }
@@ -171,14 +179,22 @@ function initPark() {
         for (let s = 0; s <= 300; s += 10) { const m = maskAt(x0 + ux * s, z0 + uz * s), sl = (hA(s) - hA(s + 10)) / 10; if (m[1] > 0.3) bad += 2; if (cliffK(x0 + ux * s, z0 + uz * s) > 0.12) bad += 4; if (sl < 0.08 || sl > 0.75) bad += 1; if (!inWorld(x0 + ux * s, z0 + uz * s, 200)) bad += 9; }
         const run = (hA(0) - hA(125)) / 125, land = (hA(165) - hA(215)) / 50, sc = Math.min(run, 0.45) * 60 + Math.min(land, 0.5) * 60 - bad * 6 - r0 * 0.05; if (run > 0.2 && land > 0.22 && (!best || sc > best.sc)) best = { sc, x0, z0, ux, uz }; } }
     if (best) { const f = { k: "table", kind: "mega", deck: 0.56, hK: 5.4, Lr: 16, T: 22, Ld: 38, W: 15, x: best.x0 + best.ux * 125, z: best.z0 + best.uz * 125, dx: best.ux, dz: best.uz, ev: "air", off: true }; PARK.push(f); AIRSITE = { x0: best.x0, z0: best.z0, x1: best.x0 + best.ux * 300, z1: best.z0 + best.uz * 300, f }; } }
+  /* The halfpipe: 150 m of it, walls 4.4 m high, cut on the straightest evenly pitched stretch of an easy groomed run that is clear of the lifts and the park. */
+  { let best = null; const lseg = WORLD.lifts.map(l => l.pts);
+    for (const r of WORLD.runs) { if (!r.g || r.c || r.d > 1 || r.len < 380) continue; const p = path(r.pts, 0);
+      for (let s0 = 50; s0 < p.len - 215; s0 += 15) { const a = p.at(s0), e = p.at(s0 + 175), L = Math.hypot(e.x - a.x, e.z - a.z); if (L < 168) continue; const ux = (e.x - a.x) / L, uz = (e.z - a.z) / L, sl = (hBase(a.x, a.z) - hBase(e.x, e.z)) / L; if (sl < 0.19 || sl > 0.36) continue; let bad = 0;
+        for (let q = 0; q <= 175 && bad < 9; q += 12.5) { const x = a.x + ux * q, z = a.z + uz * q, l2 = (hBase(x, z) - hBase(x + ux * 12, z + uz * 12)) / 12; if (l2 < 0.1 || l2 > 0.46) bad += 1.5; bad += Math.max(0, Math.abs(hBase(x - uz * 15, z + ux * 15) - hBase(x + uz * 15, z - ux * 15)) / 30 - 0.05) * 14; if (cliffK(x, z) > 0.1 || !inWorld(x, z, 220)) bad += 9; for (const sd of [-1, 1]) { if (maskAt(x - uz * sd * 13, z + ux * sd * 13)[1] > 0.3) bad += 1.2; if (maskAt(x - uz * sd * 21, z + ux * sd * 21)[1] > 0.3) bad += 0.4; }
+          for (const P of lseg) for (let k = 0; k < P.length - 1; k++) { const ex = P[k + 1][0] - P[k][0], ez = P[k + 1][1] - P[k][1], t = clamp(((x - P[k][0]) * ex + (z - P[k][1]) * ez) / (ex * ex + ez * ez || 1), 0, 1); if (Math.hypot(x - P[k][0] - ex * t, z - P[k][1] - ez * t) < 34) bad += 9; } }
+        if (bad >= 9 || PARK.some(f => Math.hypot(f.x - a.x - ux * 88, f.z - a.z - uz * 88) < 135)) continue; const sc = -bad * 3 - Math.abs(sl - 0.29) * 40 + (r.n === "Riviera" ? 6 : 0) + (r.d === 0 ? 2 : 0); if (!best || sc > best.sc) best = { sc, x: a.x + ux * 12, z: a.z + uz * 12, dx: ux, dz: uz, run: r.n }; } }
+    if (best) { PIPE = { k: "pipe", len: 150, a: 4, R: 7, dW: 6.49, hW: 4.376, deck: 3.5, out: 8, x: best.x, z: best.z, dx: best.dx, dz: best.dz, run: best.run }; PIPE.half = PIPE.a + PIPE.dW + PIPE.deck + PIPE.out; PARK.push(PIPE); } }
   // side hits on the busier groomed runs, alternating edges
   for (const r of WORLD.runs) { if (!r.g || r.c || r.d > 1 || r.len < 500 || r.n === "Gold Coast") continue; const p = path(r.pts, 0), W = [46, 42, 30, 18][r.d]; let s = 90 + 60 * hash2(r.len, 3, 41), n = 0;
     while (s < p.len - 60) { const sd = (n + (r.len & 1)) % 2 ? 1 : -1, o = p.at(s, sd * (W / 2 - 1.5));
       if (hitStyle === 2) PARK.push(Object.assign({ k: "bank", len: 26, wB: 6.5, hK: 2.3, sd }, p.at(s, sd * (W / 2 - 2))));
       else { const c = Math.cos(0.3 * sd), sn = Math.sin(0.3 * sd); PARK.push(Object.assign({ k: "table", kind: "hit", hK: 1.1 + 0.5 * hash2(n, r.len, 42), Lr: 5, T: 0, Ld: 2.2, W: 4.2, deck: 0, side: true, soft: true }, o, { dx: o.dx * c - o.dz * sn, dz: o.dz * c + o.dx * sn })); }
       s += 150 + 110 * hash2(n, r.len, 43); n++; } }
-  for (const f of PARK) { const L = f.k === "table" ? f.Lr + f.T + f.Ld + 2 : f.k === "mound" ? f.R : f.len, r = f.k === "bank" ? f.wB + 3 : f.k === "mound" ? f.R + 1 : (f.W || 2) / 2 + 6; gridAdd(G, Math.min(f.x, f.x + f.dx * L) - r, Math.min(f.z, f.z + f.dz * L) - r, Math.max(f.x, f.x + f.dx * L) + r, Math.max(f.z, f.z + f.dz * L) + r, f); }
-  for (const f of PARK) f.cut = f.k === "table" && !f.soft;
+  for (const f of PARK) { const L = f.k === "table" ? f.Lr + f.T + f.Ld + 2 : f.k === "mound" ? f.R : f.len, r = f.k === "pipe" ? f.half + 2 : f.k === "bank" ? f.wB + 3 : f.k === "mound" ? f.R + 1 : (f.W || 2) / 2 + 6; gridAdd(G, Math.min(f.x, f.x + f.dx * L) - r, Math.min(f.z, f.z + f.dz * L) - r, Math.max(f.x, f.x + f.dx * L) + r, Math.max(f.z, f.z + f.dz * L) + r, f); }
+  for (const f of PARK) f.cut = (f.k === "table" && !f.soft) || f.k === "pipe" || f.k === "wall";
   PARKG = G;
 }
 const parkCell = (x, z) => PARKG && PARKG[((z - Z0) / CATC | 0) * CATW + ((x - X0) / CATC | 0)];
@@ -191,9 +207,15 @@ function parkH(x, z, bare) { // bare: leave out the cut jumps, which are drawn b
       else if (s >= f.Lr) v *= 1 - sstep(f.Lr, f.Lr + f.Ld, s); }
     else if (f.k === "mound") { const d = Math.hypot(rx - f.dx * f.R * 0.5, rz - f.dz * f.R * 0.5); v = f.hK * (1 - smooth(d / f.R)); }
     else if (f.k === "bank") { if (s < 0 || s > f.len) continue; const o = ul * f.sd; if (o < 0 || o > f.wB + 3) continue; const t = Math.min(1, o / f.wB); v = f.hK * t * t * Math.sin(Math.PI * s / f.len) * (1 - sstep(f.wB, f.wB + 3, o)); }
+    else if (f.k === "pipe") { if (s < 0 || s > f.len) continue; const d = u - f.a; if (d <= 0 || d > f.dW + f.deck + f.out) continue;   // flat floor, a circular transition up to 68 degrees, a level deck, then back down to the hill
+      v = (d < f.dW ? f.R - Math.sqrt(f.R * f.R - d * d) : f.hW * (1 - smooth((d - f.dW - f.deck) / f.out))) * sstep(0, 14, s) * (1 - sstep(f.len - 12, f.len, s)); }
+    else if (f.k === "wall") { if (s < 0 || s > f.len) continue; const o = ul * f.sd; if (o < 0 || o > f.wB + 0.7) continue; v = f.hK * Math.pow(Math.min(1, o / f.wB), 1.15) * sstep(0, 1.8, s) * (1 - sstep(f.len - 1.8, f.len, s)) * (1 - sstep(f.wB + 0.1, f.wB + 0.7, o)); }
     if (v > h) h = v; }
   return h;
 }
+/* the halfpipe under a point, if it is between the walls or on a deck; and whether a point is on a built feature too steep for the cliff rule */
+function pipeAt(x, z) { const f = PIPE; if (!f) return null; const rx = x - f.x, rz = z - f.z, s = rx * f.dx + rz * f.dz; if (s < 2 || s > f.len - 2) return null; return Math.abs(-rx * f.dz + rz * f.dx) < f.a + f.dW + f.deck ? f : null; }
+function wallAt(x, z) { const c = parkCell(x, z); if (!c) return null; for (const f of c) { if (f.k !== "wall") continue; const rx = x - f.x, rz = z - f.z, s = rx * f.dx + rz * f.dz, o = (-rx * f.dz + rz * f.dx) * f.sd; if (s > 0 && s < f.len && o > 0.5 && o < f.wB + 0.8) return f; } return null; }
 function kickerLip(x, z) { const c = parkCell(x, z); if (!c) return null; for (const f of c) { if (f.k !== "table" || f.off) continue; const rx = x - f.x, rz = z - f.z, s = rx * f.dx + rz * f.dz; if (s > f.Lr - 3 && s < f.Lr + 1.2 && Math.abs(-rx * f.dz + rz * f.dx) < f.W / 2) return f; } return null; }
 const EDGE = 220;
 function edgeW(x, z) { return smooth(1 - Math.min(x - X0, X1 - x, z - Z0, Z1 - z) / EDGE); }
@@ -245,7 +267,7 @@ function creekWet(x, z) { return creekStyle === 1 && creekD(x, z) < 1.6 && maskC
 function H(x, z, bare) {
   if (!(x > X0 && x < X1 && z > Z0 && z < Z1)) return hOuter(x, z);
   const w = edgeW(x, z); if (w >= 1) return hOuter(x, z);
-  const h = padH(x, z, catBench(x, z, hBase(x, z) + detailH(x, z)) + parkH(x, z, bare) - creekCut(x, z)); return w > 0 ? lerp(h, hOuter(x, z), w) : h;
+  const h = padH(x, z, catBench(x, z, hBase(x, z) + detailH(x, z)) + parkH(x, z, bare) - creekCut(x, z)) + (bare ? 0 : rampH(x, z)); return w > 0 ? lerp(h, hOuter(x, z), w) : h;   // the unload ramps are built on top of the station pads, and drawn by their own fine meshes
 }
 function Hsmooth(x, z) { // no cliffs or drifts: far terrain, lift profiles, building pads
   if (!(x > X0 && x < X1 && z > Z0 && z < Z1)) return hOuter(x, z);
